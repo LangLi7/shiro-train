@@ -1,0 +1,44 @@
+# Pruefkonfiguration fuer die Generalisierungssplits (3- und 4-stellig).
+# 3-stellig:  shiro validate-data --config configs/add-eval.toml
+# 4-stellig:  SHIRO_DATA=data/add/eval-4d shiro validate-data --config configs/add-eval.toml
+# Diese Aufgaben sind NIE im Training (siehe add_data.py).
+
+[run]
+name = "add-eval"
+seed = 1337
+steps = 1
+log_every = 1
+checkpoint_every = 0
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/add/eval-3d"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 256
+shuffle = false
+
+[model]
+name = "shiro-small"
+d_model = 384
+n_layers = 12
+n_heads = 6
+d_ff = 1024
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = true
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 0
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

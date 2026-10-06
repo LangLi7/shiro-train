@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Beispieldaten Stufe 1 (Logik) und Stufe 2 (Mathematik)",
+  "tasks": {
+    "logic": 128,
+    "math": 128
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 256,
+      "payload_bytes": 29107,
+      "file_size": 29651,
+      "checksum": "ffec8ee91c6af769"
+    }
+  ]
+}

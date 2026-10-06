@@ -1,0 +1,23 @@
+# Modell S aus byte-model-gpu-analyse.md Abschnitt 2 (unteres Ende der Roadmap-Spanne 10-50M).
+# Rechnung (alle Tensoren, Embeddings NICHT geteilt):
+#   12 * (4*384^2 + 3*384*1024 + 2*384) + 256*384 (Einbettung) + 384 (Abschluss-Norm)
+#   + 384*256 (Ausgabekopf) + 256 (Bias) = 21.440.128 Parameter.
+# Die frueher hier genannte Zahl 18.892.800 stammte aus d_ff = 896 und war falsch.
+# Geprueft: config::tests::param_count_matches_analysis und `shiro info`.
+# ACHTUNG: Dieser Eintrag beschreibt die Zielarchitektur. Der Smoke-Test nutzt eine
+# verkleinerte Variante davon, siehe configs/train.smoke.toml.
+
+[model]
+name = "shiro-small"
+d_model = 384
+n_layers = 12
+n_heads = 6
+d_ff = 1024
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+# Nicht umgesetzt im Platzhalter-Modell (src/model/tiny.rs haelt Einbettung und
+# Ausgabekopf getrennt) - deshalb ehrlich `false`. Gewichtsteilen kommt mit dem Backend.
+tie_embeddings = false
+dropout = 0.0

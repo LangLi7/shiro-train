@@ -1,0 +1,7 @@
+# Absichtlich "stable": beide Entwicklungsrechner liegen auf 1.96 (Windows) und
+# 1.99 (WSL). Ein Pinnen auf eine exakte Version wuerde bei jedem rustup update
+# brechen, ohne dass das Projekt davon profitiert. Die tatsaechliche Untergrenze
+# steht als rust-version in Cargo.toml und wird von clippy geprueft.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

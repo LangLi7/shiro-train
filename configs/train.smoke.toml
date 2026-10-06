@@ -1,0 +1,39 @@
+# Smoke-Konfiguration: laeuft in unter einer Sekunde auf CPU und prueft die ganze Kette
+# (Daten laden -> Forward -> Loss -> Update -> Checkpoint -> Digest).
+
+[run]
+name = "smoke"
+seed = 1337
+steps = 16
+log_every = 1
+checkpoint_every = 16
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+# Relativ zum Arbeitsverzeichnis; im Container ueber SHIRO_DATA=/data ueberschreibbar.
+dir = "data/sample"
+manifest = "manifest.json"
+batch_size = 4
+seq_len = 64
+shuffle = false
+
+[model]
+# Verkleinert gegenueber configs/model.small.toml, damit der Smoke-Test sofort fertig ist.
+d_model = 32
+n_layers = 2
+n_heads = 2
+d_ff = 64
+vocab_size = 256
+max_seq_len = 128
+
+[optim]
+lr = 0.05
+weight_decay = 0.0
+grad_clip = 1.0
+warmup_steps = 1
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

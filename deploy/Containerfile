@@ -1,0 +1,43 @@
+# Shiro - Werkstatt-Image: baut aus dem Quelltext.
+#
+# Dieses Image ist fuer CI und fuer reproduzierbare Builds gedacht, nicht fuer den
+# Trainingslauf. Es enthaelt die volle Rust-Toolchain und ist deshalb gross.
+# Das Laufzeit-Image fuer RunPod ist deploy/Dockerfile.
+#
+# Podman (Roadmap Abschnitt 6: "Podman rootless"):
+#
+#   podman build -t shiro-dev -f deploy/Containerfile .
+#   podman run --rm -it -v "$PWD":/work:Z shiro-dev cargo test
+#
+# Docker ist gleichwertig:
+#
+#   docker build -f deploy/Containerfile -t shiro-dev .
+#
+# Das Ergebnis-Binary landet im gemounteten target-Verzeichnis und ist damit die
+# Vorlage fuer deploy/Dockerfile.
+
+FROM docker.io/library/rust:1-bookworm AS builder
+
+# clippy und rustfmt sind Pflicht, weil die Roadmap sie als CI-Grundlage nennt
+# (Phase 0: "CI-Grundlage: cargo fmt, clippy, Tests").
+RUN rustup component add clippy rustfmt
+
+WORKDIR /work
+
+# Nur die Manifeste zuerst: so bleibt die Abhaengigkeitsschicht im Cache,
+# solange sich die Abhaengigkeiten nicht aendern.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+RUN mkdir -p src && echo 'fn main() {}' > src/main.rs && echo '' > src/lib.rs \
+ && cargo build --release \
+ && rm -rf src
+
+COPY . .
+
+# --locked: die im Repository festgeschriebenen Versionen gelten. Sonst kann ein
+# Pod mit neueren Crates andere Ergebnisse liefern als der Entwicklungsrechner.
+RUN cargo build --release --locked \
+ && cargo test --release --locked \
+ && cargo fmt --check \
+ && cargo clippy --release --all-targets -- -D warnings
+
+CMD ["cargo", "test", "--release"]

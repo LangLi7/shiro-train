@@ -1,0 +1,53 @@
+# Trainingslauf auf dem Logikkorpus (Stufe 1).
+#
+# Zweck: `shiro validate-data --config configs/train.logic.toml` prueft die mit
+# `shiro data generate-logic` erzeugten Shards in beiden Stufen. Die Werte unter
+# [model] sind auf die gemessene Datensatzlaenge abgestimmt:
+#
+#   laengster Datensatz : 929 Bytes (gemessen, n = 512, Seed 1337)
+#   Empfehlung          : seq_len >= max_record_len, sonst schneidet der Loader
+#                         den Denkweg ab (siehe src/data/loader.rs::batch)
+#
+# seq_len = 960 laesst jeden Datensatz vollstaendig in ein Fenster passen
+# (nicht 1024: der Wert bleibt absichtlich knapp ueber der Messung, damit ein
+# Wachstum der Datensaetze durch den Validator auffaellt und nicht stillschweigend
+# in die Auffuellung laeuft).
+# Ein echtes Training auf diesem Korpus braucht mehr Schritte und eine GPU;
+# diese Datei ist bewusst kein Trainingslauf, sondern die Pruefkonfiguration.
+
+[run]
+name = "logic"
+seed = 1337
+steps = 16
+log_every = 1
+checkpoint_every = 16
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+# Zeigt auf den Trainingsordner des Korpus. Fuer die Held-out-Menge auf
+# data/logic/val umstellen - die Trennung ist gewollt und soll sichtbar bleiben.
+dir = "data/logic/train"
+manifest = "manifest.json"
+batch_size = 2
+seq_len = 960
+shuffle = false
+
+[model]
+d_model = 32
+n_layers = 2
+n_heads = 2
+d_ff = 64
+vocab_size = 256
+max_seq_len = 960
+
+[optim]
+lr = 0.05
+weight_decay = 0.0
+grad_clip = 1.0
+warmup_steps = 1
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

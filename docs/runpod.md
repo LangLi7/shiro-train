@@ -1,0 +1,73 @@
+<!--
+KOPIE. Original: deploy\runpod.toml
+Diese Datei gehoert nach docs/ zum Lesen. Aenderungen bitte am Original im Projekt
+vornehmen - sonst weicht die Dokumentation vom Code ab.
+-->
+# RunPod-Konfiguration fuer Shiro.
+#
+# Werte stammen aus byte-model-gpu-analyse.md (t4/t5) - hier NUR abgelegt, nicht neu
+# bewertet. Die Datei ist die Uebergabe an scripts/runpod-deploy.ps1 und an die
+# RunPod-Weboberflaeche; RunPod liest selbst keine TOML, deshalb sind die Felder
+# bewusst so benannt, wie sie im Formular heissen.
+
+[image]
+registry = "ghcr.io/DEIN-GITHUB-NAMESPACE/shiro-runtime"
+tag      = "0.1.0"
+# Das Laufzeit-Image (deploy/Dockerfile) - nicht Containerfile, das baut nur lokal.
+
+[pod]
+# Bewusst KEIN dauerhaft laufender Pod: Inference gehoert auf den Mac Studio
+# (~600 \$/Monat fuer einen 24/7-Pod waeren nicht zu rechtfertigen).
+type            = "on-demand"
+gpu_primary     = "NVIDIA L40S"      # 1,09 \$/h, 48 GB VRAM, max. 6 Instanzen
+gpu_fallback    = "NVIDIA L40"       # 0,82 \$/h, 181 TFLOPS BF16 dense (halbe L40S), max. 5
+gpu_peak_runs   = "NVIDIA H100 SXM"  # 3,49 \$/h, 80 GB, max. 7 - nur finaler 300-M-Lauf
+container_disk_gb = 30
+volume_gb       = 100                # Netzwerk-Volume, 0,07 \$/GB/Monat
+volume_mount_path = "/data"
+cloud_type      = "SECURE"
+# 16 vCPU / 125 GB RAM (L40S) bzw. 18 vCPU / 143 GB RAM (L40): der Byte-Datenstrom
+# ist 4-5x groesser als bei Token-Modellen, der Loader braucht CPU.
+
+[[ports]]
+# Kein Serving-Port noetig. 22 nur fuer Debugging, bewusst auskommentiert.
+# port = 22
+# protocol = "tcp"
+
+[env]
+# WICHTIG: alle drei Pfade liegen UNTER dem Mountpoint des Netzwerk-Volumes.
+#
+# Warum: ein Mount verdeckt, was im Image an derselben Stelle liegt. Zeigen
+# SHIRO_CHECKPOINTS oder SHIRO_LOGS auf /checkpoints bzw. /logs (Container-Schicht),
+# waehrend das Volume auf /data gemountet ist, dann ueberlebt KEIN Checkpoint einen
+# Pod-Neustart - die Arbeit ist bezahlt und verloren. Genau dieser Fehler ist bei
+# der Container-Verifikation aufgefallen.
+SHIRO_DATA        = "/data"
+SHIRO_CHECKPOINTS = "/data/checkpoints"
+SHIRO_LOGS        = "/data/logs"
+SHIRO_CONFIG      = "/app/configs/train.smoke.toml"
+RUST_BACKTRACE    = "1"
+RUST_LOG          = "info"
+
+[startup]
+entrypoint = "/usr/local/bin/shiro"
+# Der Einstiegspunkt (deploy/entrypoint.sh) prueft Volumes und validiert den
+# Datensatz, BEVOR GPU-Zeit anfaellt. Danach der eigentliche Lauf:
+cmd = ["train", "--config", "/app/configs/model.small.toml"]
+
+[verification]
+# Reihenfolge, in der ein neuer Pod geprueft wird. Bricht eine Stufe ab, wird der
+# Pod beendet, statt weiterzurechnen (siehe byte-model-gpu-analyse.md, Risiken).
+steps = [
+  "shiro version",
+  "shiro info --config /app/configs/train.smoke.toml",
+  "shiro validate-data --config /app/configs/train.smoke.toml",
+  "shiro smoke --config /app/configs/train.smoke.toml --steps 8",
+]
+
+[cost_guard]
+# Rechenweg: 8 Schritte Smoke x 0,15 s = 1,2 s. Selbst mit Image-Zug und Mount
+# bleibt der Smoke-Test unter einer Minute - also unter 0,02 \$ auf einer L40S.
+smoke_max_seconds = 120
+# Lauf nach dieser Zeit stoppen, wenn kein Checkpoint geschrieben wurde.
+max_hours_without_checkpoint = 1

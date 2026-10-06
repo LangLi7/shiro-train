@@ -1,0 +1,44 @@
+# Trainingskonfiguration fuer den Additionsbenchmark (2-stellig, Uebertrag explizit).
+# Datensatz: von add_data.py erzeugt, Format .bshard (docs/datenformat.md).
+# Trainingskommando (sobald ein Backend existiert, siehe README):
+#   shiro train --config configs/add-2d.toml
+
+[run]
+name = "add2d"
+seed = 1337
+steps = 2000
+log_every = 50
+checkpoint_every = 500
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/add/train-2d"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 256
+shuffle = false
+
+[model]
+name = "shiro-small"
+d_model = 384
+n_layers = 12
+n_heads = 6
+d_ff = 1024
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = true
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 20
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

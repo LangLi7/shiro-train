@@ -1,0 +1,30 @@
+# Cargo-Konfiguration fuer dieses Projekt.
+#
+# Warum diese Datei existiert: WSL baut das Projekt ueber /mnt/d, also ueber das
+# Windows-Dateisystem. Frisch gebaute Linux-Programme lassen sich von dort nicht
+# zuverlaessig ausfuehren - die Hilfsprogramme von `proc-macro2`, `serde_json` und
+# `zmij` brechen mit SIGSEGV ab:
+#
+#   error: failed to run custom build command for `proc-macro2`
+#   process didn't exit successfully: ... (signal: 11, SIGSEGV)
+#
+# Mit target-dir auf dem echten Linux-Dateisystem verschwindet das Problem. Weil
+# die Einstellung hier steht, funktionieren `cargo build` und `cargo test` aus JEDEM
+# Terminal - auch aus einem Editor, der keine Umgebungsvariablen setzt.
+#
+# Geprueftes Verhalten:
+#   WSL/Ubuntu : baut nach /home/changchi/.cache/shiro-target  (Umgebungsvariable
+#                CARGO_TARGET_DIR wird damit ueberfluessig)
+#   Windows    : dieser Unix-Pfad wird gegen das aktuelle Laufwerk aufgeloest
+#                (z. B. D:/home/changchi/.cache/shiro-target) und schlaegt fehl:
+#                "failed to create directory ... os error 183". Fuer Windows-Builds
+#                deshalb die Umgebungsvariable setzen (sie hat Vorrang):
+#                    $env:CARGO_TARGET_DIR = "target-win"; cargo test
+#                Geprueft am 06.10.2026. Frueher stand hier, Cargo falle auf das
+#                Standardverzeichnis `target/` zurueck - das stimmt nicht.
+#
+# Wer auf einem anderen Rechner baut, passt den Pfad an oder loescht die Datei -
+# noetig ist sie nur fuer den WSL-Aufbau ueber /mnt/d.
+
+[build]
+target-dir = "/home/changchi/.cache/shiro-target"

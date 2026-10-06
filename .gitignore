@@ -1,0 +1,33 @@
+# Build-Verzeichnisse (Rust)
+/target
+# Windows-Builds: cargo test unter Windows mit CARGO_TARGET_DIR=target-win
+/target-win
+
+# Ausgelieferte Modellordner: models/shiro-<groesse>-<version>/ entstehen per `shiro export`
+/models
+
+# Laufzeitdaten: Checkpoints und Logs gehoeren auf ein Volume, nicht ins Git
+/checkpoints/*
+!/checkpoints/.gitkeep
+/logs/*
+!/logs/.gitkeep
+
+# Generierte Korpora - deterministisch reproduzierbar, siehe LOGIC_ANALYTICS.md §5.3:
+#   shiro data generate-logic --n 512   --seed 1337 --out data/logic
+#   shiro data generate-logic --n 50000 --val-percent 10 --seed 1337 --out data/logic-large
+#   shiro data generate-logic --n 2000  --val-percent 100 --min-chain 12 --seed 4242 --out data/logic-long
+#   python3 add_data.py --out data/add
+# `data/sample/` ist bewusst NICHT ignoriert: das ist der eingecheckte Beispielsatz.
+/data/logic
+/data/logic-large
+/data/logic-long
+/data/add
+/data/raw
+/data/shards
+
+# Python-Reste der Benchmark-Skripte
+__pycache__/
+
+# Checkpoints und temporaere Dateien
+*.bckpt
+*.tmp

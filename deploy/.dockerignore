@@ -1,0 +1,37 @@
+# Alles ausschliessen, was im Image nichts zu suchen hat.
+# Vor allem: target/ wuerde bei jedem Build den Cache ungueltig machen und
+# CO2 sowie Zeit kosten, ohne dass sich der Quelltext geaendert hat.
+
+target/
+.git/
+.gitignore
+
+# KRITISCH (Befund 06.10.2026): .cargo/config.toml setzt target-dir auf
+# "/home/changchi/.cache/shiro-target" - ein WSL-Pfad. Wird diese Datei ins Image
+# kopiert, baut Cargo im Container DORTHIN, waehrend der Dockerfile aus /src/target
+# kopiert. Ergebnis: im Image landete ein 314-KB-Stub, der nichts ausgibt und mit
+# Code 0 endet - in JEDEM Build seit dem 06.10.2026 17:20 (also auch fuer RunPod).
+# Im Container ist die WSL-Umgehung ohnehin unnoetig: das Dateisystem ist nativ Linux.
+.cargo/
+
+# Laufzeitdaten und Ergebnisse - gehoeren auf ein Volume, nicht ins Image.
+checkpoints/
+logs/
+data/raw/
+data/shards/
+
+# Dokumentation und Konzept: im Container unnoetig.
+*.md
+docs/
+
+# Editor- und Systemkram.
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Windows-Reste, die im Linux-Image nur verwirren.
+*.exe
+*.pdb
+*.dll

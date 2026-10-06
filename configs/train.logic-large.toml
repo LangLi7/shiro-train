@@ -1,0 +1,53 @@
+# Trainingskonfiguration fuer den GROSSEN Logik-Korpus (data/logic-large).
+#
+# Unterschied zu configs/train.logic.toml: dort steht der kleine Referenzkorpus
+# (512 Training + 51 Held-out), der in LOGIC_ANALYTICS.md Abschnitt 5.3 mit
+# Pruefsummen dokumentiert ist. Hier liegt der erweiterte Korpus fuer echte
+# Trainingslaeufe: 50000 angeforderte Datensaetze, davon ~37000 eindeutige.
+#
+# Erzeugt mit (deterministisch, Seed 1337):
+#   shiro data generate-logic --n 50000 --val-percent 10 --seed 1337 --out data/logic-large
+#
+# Pruefen:
+#   shiro validate-data --config configs/train.logic-large.toml
+#   SHIRO_DATA=data/logic-large/val shiro validate-data --config configs/train.logic-large.toml
+
+[run]
+name = "logic-large"
+seed = 1337
+steps = 2000
+log_every = 50
+checkpoint_every = 500
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/logic-large/train"
+manifest = "manifest.json"
+batch_size = 2
+seq_len = 960
+shuffle = false
+
+[model]
+name = "shiro-small"
+d_model = 384
+n_layers = 12
+n_heads = 6
+d_ff = 1024
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 20
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

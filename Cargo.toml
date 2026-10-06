@@ -1,0 +1,19 @@
+[package]
+name = "shiro"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+description = "Byte-Level-Sprachmodell (Shiro) - Trainingsgeruest und RunPod-Umgebung"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
