@@ -1,4 +1,3 @@
-//! Argument-Parsing von Hand.
 //!
 //! Bewusst kein `clap`: das Binaer hat wenige Subkommandos, und im Container spart
 //! das eine Abhaengigkeit (Compile-Zeit). Wenn die CLI waechst, ist der Wechsel
@@ -9,7 +8,11 @@ use std::path::PathBuf;
 use crate::config::TrainConfig;
 use crate::error::{Result, bail};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Subkommando samt seiner Optionen.
+///
+/// Kein `Eq` mehr: `Chat` traegt eine Temperatur als `f32`, und Gleitkommazahlen
+/// sind nicht total geordnet. `PartialEq` genuegt allen Vergleichen hier.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     /// Vollstaendige Kette: Daten -> Forward -> Loss -> Update -> Checkpoint.
     Smoke,
@@ -29,12 +32,51 @@ pub enum Command {
     GenerateLogic {
         opts: LogicGenOptions,
     },
+    /// Korpus "Programm-Semantik und Fehlerort" (Familie 1, **D-024**).
+    GenerateSemantics {
+        opts: SemanticsGenOptions,
+    },
+    /// Korpus "Format-Erkennung aus Bytes" (Familie 2, **D-021**).
+    GenerateFormat {
+        opts: FormatGenOptions,
+    },
+    /// Korpus "Quantoren, Syllogistik und Mengen" (Familie 3, **D-024**).
+    GenerateQuant {
+        opts: QuantGenOptions,
+    },
+    /// Korpus "Zahlenfolgen und Regelausfuehrung" (Mathematik-Stufe, **D-045**).
+    ///
+    /// Traegt die Nutzerbeispiele "1, 2, 3, 5, 6 - was fehlt?" und
+    /// "1, 2, 4, 8, 16 - was kommt als Naechstes?" (`src/data/seq.rs`).
+    GenerateSeq {
+        opts: SeqGenOptions,
+    },
     /// Shards und Manifest validieren.
+    /// Korpus "Spiele und Raetsel" - alle Spiel-Umgebungen.
+    GenerateGames {
+        opts: GamesGenOptions,
+    },
     ValidateData,
     /// Checkpoint-Digest gegenpruefen.
     VerifyCheckpoint {
         path: Option<PathBuf>,
     },
+    /// Modellordner schreiben (Messkette, `MODEL_FORMAT.md` Abschnitt 4).
+    Export {
+        /// Zielordner; `None` = `models/<modellname>-<version>`.
+        out: Option<PathBuf>,
+    },
+    /// Ein Modell laden und Bytes generieren (Messtest, keine Gewichtsaenderung).
+    Chat {
+        prompt: String,
+        max_new: usize,
+        /// `0.0` = Greedy (argmax), sonst Top-k-Sampling.
+        temperature: f32,
+        /// `0` = alle Klassen.
+        top_k: usize,
+    },
+    /// Loss und Perplexitaet ohne Gewichtsaktualisierung messen.
+    Eval,
     /// Konfiguration anzeigen und rechnen.
     Info,
     Version,
@@ -59,6 +101,127 @@ pub struct LogicGenOptions {
     pub min_chain: Option<usize>,
 }
 
+/// Optionen fuer `shiro data generate-semantics`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticsGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for SemanticsGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/semantics"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-format` (Familie 2, **D-021**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FormatGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for FormatGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/format"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-games` (Spiele und Raetsel).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GamesGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+    /// Nur diese Spielart erzeugen (maze, rush, tile, ...).
+    pub kind: Option<String>,
+    /// Nur diesen Aufgabentyp erzeugen (solve, legal, bug, repair).
+    pub category: Option<String>,
+}
+
+impl Default for GamesGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/games"),
+            seed: 1337,
+            val_percent: 10,
+            kind: None,
+            category: None,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-quant` (Familie 3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuantGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for QuantGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/quant"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-seq` (Mathematik-Stufe, **D-045**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeqGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for SeqGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/seq"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 impl Default for LogicGenOptions {
     fn default() -> Self {
         Self {
@@ -79,8 +242,27 @@ pub struct Args {
     pub config: PathBuf,
     pub steps: Option<usize>,
     pub seed: Option<u64>,
-    /// Enthaelt den Pfad zu einem Checkpoint zum Fortsetzen (noch nicht implementiert).
+    /// Pfad zu einem Trainingsstand (`.state`), aus dem fortgesetzt wird (**B6**).
     pub resume: Option<PathBuf>,
+    /// Modellordner-Datei aus `--checkpoint`.
+    ///
+    /// Drei Verwendungen, alle ueber dieselbe Option: Eingabemodell fuer `chat`
+    /// und `eval`, Quelle fuer `export`, zu pruefende Datei fuer
+    /// `verify-checkpoint`. Bewusst ein Feld statt drei: die Option ist fuer den
+    /// Nutzer eine einzige.
+    pub checkpoint: Option<PathBuf>,
+    /// Prompt fuer `chat` (Bytes, UTF-8).
+    pub prompt: String,
+    /// Anzahl neuer Bytes fuer `chat`.
+    pub max_new: usize,
+    /// Temperatur fuer `chat`; `0.0` = Greedy.
+    pub temperature: f32,
+    /// Top-k fuer `chat`; `0` = alle Klassen.
+    pub top_k: usize,
+    /// Trefferquotenmessung fuer `eval`: so viele Datensaetze greedy
+    /// vervollstaendigen und die Antwort byte-genau vergleichen. `None` = nur
+    /// Verlust messen.
+    pub answers: Option<usize>,
 }
 
 impl Default for Args {
@@ -91,6 +273,14 @@ impl Default for Args {
             steps: None,
             seed: None,
             resume: None,
+            checkpoint: None,
+            // Der Prompt der Messkette: eine Aufgabe aus dem Additionskorpus, damit
+            // ein untrainiertes und ein trainiertes Modell vergleichbar antworten.
+            prompt: "2+2=".to_string(),
+            max_new: 64,
+            temperature: 0.0,
+            top_k: 0,
+            answers: None,
         }
     }
 }
@@ -106,8 +296,15 @@ SUBKOMANDOS:
     train                 Trainingslauf laut Konfiguration
     gen-sample            Beispiel-Shard + Manifest erzeugen (kleine Testdaten)
     data generate-logic   Korpus \"Logik und analytisches Denken\" erzeugen
+    data generate-semantics  Korpus \"Programm-Semantik und Fehlerort\" erzeugen
+    data generate-format  Korpus \"Format-Erkennung aus Bytes\" erzeugen
+    data generate-quant   Korpus \"Quantoren, Syllogistik und Mengen\" erzeugen
+    data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
     validate-data         Shards und Manifest pruefen
     verify-checkpoint     Checkpoint-Digest gegenpruefen
+    export                Modellordner schreiben (model.safetensors + JSON)
+    chat                  Ein Modell laden und Bytes generieren
+    eval                  Loss und Perplexitaet ohne Gewichtsaktualisierung messen
     info                  Konfiguration und Parameterzahl anzeigen
     version               Version ausgeben
     help                  Diese Hilfe
@@ -116,11 +313,39 @@ OPTIONEN:
     --config <PFAD>       TOML-Konfiguration (Standard: configs/train.smoke.toml)
     --steps <N>           Schritte ueberschreiben
     --seed <N>            Seed ueberschreiben (Standard: 1337)
-    --out <PFAD>          Ausgabeordner (gen-sample, data generate-logic)
-    --checkpoint <PFAD>   Checkpoint fuer verify-checkpoint
+    --out <PFAD>          Ausgabeordner (gen-sample, data generate-*, export)
+    --resume <PFAD>       Trainingsstand (.state) fortsetzen; die Schritte aus der
+                          Konfiguration kommen dann **dazu**, und die Lernrate laeuft
+                          mit der globalen Schrittnummer weiter
+    --checkpoint <PFAD>   Modellordner-Datei: Eingabe fuer chat und eval (Pflicht
+                          bei chat), Quelle fuer export, Datei fuer verify-checkpoint
 
 OPTIONEN FUER gen-sample:
     --records <N>         Anzahl Datensaetze (Standard: 256)
+
+OPTIONEN FUER data generate-semantics:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/semantics)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-format:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/format)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-quant:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/quant)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-seq:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/seq)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
 
 OPTIONEN FUER data generate-logic:
     --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
@@ -129,6 +354,17 @@ OPTIONEN FUER data generate-logic:
                           conditional, sequence, arithmetic
     --level <STUFE>       nur eine Stufe: easy, medium, hard
     --min-chain <N>       erzeugt lange Ketten (Extrapolationstest)
+
+OPTIONEN FUER chat:
+    --prompt <TEXT>       Prompt (Standard: 2+2=)
+    --max-new <N>         Anzahl neuer Bytes (Standard: 64)
+    --temp <F>            Temperatur; 0.0 = Greedy (Standard: 0.0)
+    --top-k <N>           nur die N besten Klassen; 0 = alle (Standard: 0)
+
+OPTIONEN FUER eval:
+    --answers <N>         Trefferquote messen: N Datensaetze greedy
+                          vervollstaendigen und byte-genau vergleichen
+                          (braucht --checkpoint; familienunabhaengig)
 
 UMGEBUNG:
     SHIRO_DATA            ueberschreibt data.dir        (im Container: /data)
@@ -149,6 +385,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut iter = args.into_iter().peekable();
     let mut records: usize = 256;
     let mut logic: LogicGenOptions = LogicGenOptions::default();
+    let mut games: GamesGenOptions = GamesGenOptions::default();
     let mut out_dir: Option<PathBuf> = None;
     let mut ckpt: Option<PathBuf> = None;
     // Zwei Subkommandos bilden zusammen `data generate-logic`. Beide werden
@@ -156,6 +393,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     // sauber abgelehnt werden kann.
     let mut want_gen_sample = false;
     let mut want_logic = false;
+    let mut want_semantics = false;
+    let mut want_format = false;
+    let mut want_quant = false;
+    let mut want_seq = false;
+    let mut want_games = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
     let mut command_set = false;
@@ -180,12 +422,54 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "generate-semantics" => {
+                want_semantics = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-format" => {
+                want_format = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-games" => {
+                want_games = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-quant" => {
+                want_quant = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-seq" => {
+                want_seq = true;
+                command_set = true;
+                saw_data = false;
+            }
             "validate-data" => {
                 out.command = Command::ValidateData;
                 command_set = true;
             }
             "verify-checkpoint" => {
                 out.command = Command::VerifyCheckpoint { path: None };
+                command_set = true;
+            }
+            "export" => {
+                out.command = Command::Export { out: None };
+                command_set = true;
+            }
+            "chat" => {
+                out.command = Command::Chat {
+                    prompt: out.prompt.clone(),
+                    max_new: out.max_new,
+                    temperature: out.temperature,
+                    top_k: out.top_k,
+                };
+                command_set = true;
+            }
+            "eval" => {
+                out.command = Command::Eval;
                 command_set = true;
             }
             "info" => {
@@ -243,13 +527,24 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--category" => {
                 let v = take_value(&mut iter, "--category")?;
-                logic.category =
-                    Some(crate::data::logic::Category::parse(&v).ok_or_else(|| {
-                        crate::error::anyhow!(
-                            "--category: '{v}' ist unbekannt. Erlaubt: {}",
-                            crate::data::logic::Category::all_names()
-                        )
-                    })?);
+                // **Ein Name, zwei Bedeutungen.** `--category` gibt es fuer den
+                // Logikkorpus (dort sind es Denkbewegungen) und fuer den
+                // Spielkorpus (dort sind es Aufgabentypen wie `game.solve`).
+                // Welche gilt, entscheidet das **Subkommando** - vorher standen
+                // hier zwei Handler, und der zweite war wegen des ersten nie
+                // erreichbar (`unreachable pattern`).
+                if want_logic {
+                    logic.category =
+                        Some(crate::data::logic::Category::parse(&v).ok_or_else(|| {
+                            crate::error::anyhow!(
+                                "--category: '{v}' ist unbekannt. Erlaubt: {}",
+                                crate::data::logic::Category::all_names()
+                            )
+                        })?);
+                } else {
+                    games.category = Some(v);
+                    want_games = true;
+                }
             }
             "--level" => {
                 let v = take_value(&mut iter, "--level")?;
@@ -261,6 +556,40 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--out" => out_dir = Some(PathBuf::from(take_value(&mut iter, "--out")?)),
             "--checkpoint" => ckpt = Some(PathBuf::from(take_value(&mut iter, "--checkpoint")?)),
+            "--prompt" => out.prompt = take_value(&mut iter, "--prompt")?,
+            "--max-new" => {
+                let v = take_value(&mut iter, "--max-new")?;
+                out.max_new = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--max-new: {v} ist keine Zahl"))?;
+            }
+            "--answers" => {
+                let v = take_value(&mut iter, "--answers")?;
+                let n: usize = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--answers: {v} ist keine Zahl"))?;
+                if n == 0 {
+                    crate::error::bail!("--answers muss > 0 sein");
+                }
+                out.answers = Some(n);
+            }
+            "--temp" => {
+                let v = take_value(&mut iter, "--temp")?;
+                out.temperature = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--temp: {v} ist keine Zahl"))?;
+            }
+            "--top-k" => {
+                let v = take_value(&mut iter, "--top-k")?;
+                out.top_k = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--top-k: {v} ist keine Zahl"))?;
+            }
+            "--kind" => {
+                let v = take_value(&mut iter, "--kind")?;
+                games.kind = Some(v);
+                want_games = true;
+            }
             "--resume" => out.resume = Some(PathBuf::from(take_value(&mut iter, "--resume")?)),
             other => bail!("Unbekanntes Argument: {other} (siehe `shiro help`)"),
         }
@@ -270,15 +599,105 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         records = records.max(1);
         logic.out_dir = dir.clone();
     }
+    // `--checkpoint` ist eine einzige Option fuer drei Verwendungen und steht
+    // deshalb im `Args`, nicht im Subkommando.
+    out.checkpoint = ckpt.clone();
 
     // Genau ein Subkommando. Die beiden Generatoren werden ausdruecklich
     // unterschieden, damit nicht versehentlich der Beispieldatensatz statt des
     // Logikkorpus entsteht.
-    if want_gen_sample && want_logic {
-        bail!("gen-sample und data generate-logic schliessen sich aus");
+    // Genau ein Subkommando. Die Generatoren werden ausdruecklich unterschieden,
+    // damit nicht versehentlich der Beispieldatensatz statt eines Korpus entsteht.
+    let generatoren = [
+        want_logic,
+        want_semantics,
+        want_format,
+        want_quant,
+        want_seq,
+        want_games,
+    ]
+    .iter()
+    .filter(|w| **w)
+    .count();
+    if want_gen_sample && generatoren > 0 {
+        bail!("gen-sample und ein data-Generator schliessen sich aus");
     }
-    if saw_data && !want_logic {
-        bail!("`data` braucht ein Unterkommando (derzeit nur `generate-logic`)");
+    if generatoren > 1 {
+        bail!(
+            "generate-logic, generate-semantics, generate-format, generate-quant und generate-seq schliessen sich aus"
+        );
+    }
+    if saw_data && generatoren == 0 {
+        bail!(
+            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, `generate-format`, `generate-quant` oder `generate-seq`)"
+        );
+    }
+
+    if want_semantics {
+        // `--n`, `--val-percent`, `--seed` und `--out` wirken fuer alle Generatoren;
+        // `--category` und `--level` gelten nur fuer den Logikkorpus.
+        out.command = Command::GenerateSemantics {
+            opts: SemanticsGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/semantics")),
+            },
+        };
+    }
+
+    if want_format {
+        out.command = Command::GenerateFormat {
+            opts: FormatGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/format")),
+            },
+        };
+    }
+
+    if want_quant {
+        out.command = Command::GenerateQuant {
+            opts: QuantGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/quant")),
+            },
+        };
+    }
+
+    if want_seq {
+        out.command = Command::GenerateSeq {
+            opts: SeqGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/seq")),
+            },
+        };
+    }
+
+    if want_games {
+        out.command = Command::GenerateGames {
+            opts: GamesGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                kind: games.kind.clone(),
+                category: games.category.clone(),
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/games")),
+            },
+        };
     }
 
     if want_logic {
@@ -292,6 +711,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     } else if let Command::VerifyCheckpoint { .. } = out.command {
         out.command = Command::VerifyCheckpoint { path: ckpt };
+    } else if let Command::Export { .. } = out.command {
+        out.command = Command::Export { out: out_dir };
+    } else if let Command::Chat { .. } = out.command {
+        out.command = Command::Chat {
+            prompt: out.prompt.clone(),
+            max_new: out.max_new,
+            temperature: out.temperature,
+            top_k: out.top_k,
+        };
     } else if out.command == Command::Help && command_set {
         // `help` wurde ausdruecklich gerufen - nichts zu tun.
     } else if !command_set {
@@ -386,6 +814,109 @@ mod tests {
         assert!(p(&["--quatsch"]).is_err());
         assert!(p(&["--steps"]).is_err());
         assert!(p(&["--steps", "abc"]).is_err());
+    }
+
+    /// Die Messkette kennt drei neue Subkommandos; `export` teilt sich `--out`
+    /// und `--checkpoint` mit den bestehenden Befehlen.
+    #[test]
+    fn parses_messkette_subcommands() {
+        assert_eq!(
+            p(&["export"]).unwrap().command,
+            Command::Export { out: None }
+        );
+        assert_eq!(
+            p(&["export", "--out", "models/x"]).unwrap().command,
+            Command::Export {
+                out: Some(PathBuf::from("models/x"))
+            }
+        );
+        assert_eq!(p(&["eval"]).unwrap().command, Command::Eval);
+    }
+
+    /// Defaults der Chat-Optionen, wie sie in `HELP` stehen.
+    #[test]
+    fn chat_defaults_match_help() {
+        let a = p(&["chat"]).unwrap();
+        assert_eq!(a.prompt, "2+2=");
+        assert_eq!(a.max_new, 64);
+        assert_eq!(a.temperature, 0.0);
+        assert_eq!(a.top_k, 0);
+        assert_eq!(
+            a.command,
+            Command::Chat {
+                prompt: "2+2=".into(),
+                max_new: 64,
+                temperature: 0.0,
+                top_k: 0
+            }
+        );
+    }
+
+    /// Optionen vor dem Subkommando muessen genauso wirken wie danach.
+    #[test]
+    fn chat_options_are_applied_in_any_order() {
+        let after = p(&[
+            "chat",
+            "--prompt",
+            "1+1=",
+            "--max-new",
+            "8",
+            "--temp",
+            "0.7",
+            "--top-k",
+            "4",
+        ])
+        .unwrap();
+        let before = p(&[
+            "--max-new",
+            "8",
+            "--top-k",
+            "4",
+            "--temp",
+            "0.7",
+            "--prompt",
+            "1+1=",
+            "chat",
+        ])
+        .unwrap();
+        let expected = Command::Chat {
+            prompt: "1+1=".into(),
+            max_new: 8,
+            temperature: 0.7,
+            top_k: 4,
+        };
+        assert_eq!(after.command, expected);
+        assert_eq!(before.command, expected);
+        assert_eq!(after.prompt, "1+1=");
+    }
+
+    #[test]
+    fn messkette_options_reject_bad_values() {
+        assert!(p(&["chat", "--max-new", "viele"]).is_err());
+        assert!(p(&["chat", "--temp", "heiss"]).is_err());
+        assert!(p(&["chat", "--top-k", "-1"]).is_err());
+        assert!(p(&["chat", "--prompt"]).is_err());
+    }
+
+    /// `verify-checkpoint` verhaelt sich unveraendert: der Pfad kommt aus `--checkpoint`.
+    #[test]
+    fn verify_checkpoint_keeps_its_option() {
+        assert_eq!(
+            p(&["verify-checkpoint", "--checkpoint", "checkpoints/a.bckpt"])
+                .unwrap()
+                .command,
+            Command::VerifyCheckpoint {
+                path: Some(PathBuf::from("checkpoints/a.bckpt"))
+            }
+        );
+        assert_eq!(
+            p(&["--checkpoint", "c.bckpt", "verify-checkpoint"])
+                .unwrap()
+                .command,
+            Command::VerifyCheckpoint {
+                path: Some(PathBuf::from("c.bckpt"))
+            }
+        );
     }
 
     #[test]

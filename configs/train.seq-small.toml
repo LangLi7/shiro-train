@@ -1,0 +1,55 @@
+# Trainingslauf auf "Zahlenfolgen und Regelausfuehrung" mit **Modell small** (21,44 Mio. Parameter).
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data generate-seq --n <ANZAHL> --out data/seq
+#
+# Warum diese Datei existiert: das Projekt hat bisher **nur** mit dem Micro-Modell
+# (4.656.640 Parameter) trainiert. Modell S (21.440.128 Parameter,
+# src/config.rs::param_count) existierte nur als Konfiguration. Dieser Lauf
+# beantwortet die Frage aus dem Auftrag ("sollange bis wir ein richtiges modell
+# haben"): traegt die groessere Kapazitaet bei **gleichen** Daten mehr?
+#
+# Batch und Sequenzlaenge sind bewusst kleiner als bei Micro (8 x 512 statt
+# 16 x 512): der Trainingszustand von S braucht rund 344 MB (16 B je Parameter
+# fuer Gewichte, Gradienten und AdamW-Zustand), dazu die Aktivierungen - das passt
+# neben dem Betriebssystem in den freien Arbeitsspeicher.
+
+[run]
+name = "seq-small"
+seed = 1337
+steps = 200
+log_every = 1
+checkpoint_every = 100
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/seq/train"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-small"
+d_model = 384
+n_layers = 12
+n_heads = 6
+d_ff = 1024
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 5
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

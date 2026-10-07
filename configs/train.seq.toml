@@ -1,0 +1,52 @@
+# Trainingslauf auf dem Korpus "Zahlenfolgen und Regelausfuehrung" (D-045).
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data generate-seq --n <ANZAHL> --out data/seq
+#
+# Der Verifier dieses Korpus ist der Regelkatalog in src/data/seq.rs: er liest
+# nur Datensatz-Bytes, rechnet die Antwort aus den sechs Regeln neu und vergleicht
+# erst danach mit dem Antwortfeld. Der Antwortwert "nicht entscheidbar" ist
+# zugelassen, aber selten (gemessen 0,1 %) - siehe docs/zahlenfolgen-korpus.md.
+#
+# Held-out ist strikt getrennt: Training rechnet mit kleinen Schritten
+# (d 1-9, r 2-3, Start 1-12), Held-out mit grossen (d 10-25, r 4-5, Start 13-40).
+
+[run]
+name = "seq"
+seed = 1337
+steps = 200
+log_every = 1
+checkpoint_every = 100
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/seq/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 5
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

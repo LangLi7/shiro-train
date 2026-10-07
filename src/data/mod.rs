@@ -14,7 +14,13 @@
 
 pub mod bytes;
 pub mod format;
+pub mod formatgen;
+pub mod formats;
+pub mod games;
 pub mod generate;
 pub mod loader;
 pub mod logic;
 pub mod manifest;
+pub mod quant;
+pub mod semantics;
+pub mod seq;
