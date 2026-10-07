@@ -1659,3 +1659,63 @@ groesserem Batch** - eine belastbare Messung mit Modell S/Batch 8x512 steht aus
 `docs/agentic-loop.md`); kein `src/`-, `configs/`- oder `deploy/`-Eingriff fuer
 al1, kein Commit. Der waehrend al1 laufende 400er-Lauf (n2) wurde nicht
 angefasst.
+
+### al1-al6: CUDA-Root-Cause, GPU-Messung und der erste agentische Loop
+
+**al1 (CUDA-Triage) - Root Cause gefunden.** Vollstaendig in
+`docs/gpu-manuelle-einrichtung.md` §8 und im Register/Nachtrag oben. Kurz: es
+gibt **zwei** `libcuda` - `/usr/lib/wsl/lib/libcuda.so.1` (188 KB,
+WSL-Passthrough, funktioniert) und
+`/usr/lib/x86_64-linux-gnu/libcuda.so.595.91.07` (91 MB, Paket
+`libnvidia-compute-595`, echter Linux-Treiber ohne `nvidia.ko`). CubeCL fragt den
+Namen `libcuda.so` an, der nur im Linux-Treiber-Verzeichnis registriert ist ->
+`CUDA_ERROR_NO_DEVICE`. Ein eigenes `cuda_probe.cu` beweist, dass der
+WSL-Pfad intakt ist (`cuInit: OK`, `cuDeviceGetCount: 1`, RTX 3060, Treiber-API
+13.4). **Fix: `LD_LIBRARY_PATH=/usr/lib/wsl/lib`** - kein sudo, keine
+Deinstallation. `dmesg` belegt den kaputten Weg
+(`dxgkio_query_adapter_info: Ioctl failed: -2`, `dxgkio_escape: -22`).
+**O-T5 ist gemessen und geschlossen:** CPU 9,438 s / 49,14 GFLOPS gegen GPU
+3,394 s / 136,65 GFLOPS = **Faktor 2,78** (micro-smoke, 20 Schritte, Batch
+8x128) - weit unter der Erwartung aus D-015 (Faktor 100-400), weil das Modell
+mit 4,6 Mio. Parametern zu klein ist. Neuer Punkt **O-T8** (Messung mit Modell S
+und groesserem Batch).
+
+**al2/al3/al4/al6 (Loop, Capability, Registry, Gates).** `docs/agentic-loop.md`
+beschreibt den Aufbau; `src/agent.rs` (~1.700 Zeilen, 10 Modultests) und
+`configs/capabilities/sequence_reasoning.toml` sind neu, `shiro agent capability
+run <id>` ist verdrahtet, die Registry liegt als `registry/experiments.jsonl`
+mit allen Pflichtfeldern aus Spec §8. Invarianten umgesetzt: `check_no_leak` vor
+jedem Training, fester Referenzsatz, Verifier nur gelesen, Seed und
+Datenversion (FNV-1a der Shards) protokolliert.
+
+**al5 (Nachweis) - der Kreis schliesst sich, die Faehigkeit verbessert sich
+nicht.** Drei Runden, jede: Baseline 8,3 % (4/48) -> gezieltes
+Terminierungspaket (1560 kurze + 840 Wiederholungsdatensaetze) -> 150 Schritte
+-> **10,4 % (5/48)**, Antwortform +4 bis +8 Punkte, Verlust kleiner. Score-Gewinn
+**+0,007** < Schwelle 0,01 -> **dreimal VERWORFEN**. Der wichtigste Nebenbefund
+ist die Aufschluesselung nach Aufgabentyp: die Treffer kommen **nur** aus
+`vergleich` (3/3, 1-Byte-Antwort, Baseline 49,3 %) und `stelle` (1/6); die fuenf
+inhaltlichen Typen stehen zusammen bei **0 von 39**. Der frueher berichtete Wert
+"18,3 %" ist damit wesentlich schwaecher zu lesen als er klingt.
+
+**Vier eigene Konstruktionsfehler gefunden und behoben** (drei erst durch das
+Laufen lassen): fehlende Prioritaetsregel bei Gleichstand (Enum-Reihenfolge
+entschied), identische Wiederholung derselben Runde (gleicher Seed), zu strenger
+Kurz-Filter (219 statt 1560 Datensaetze), kollidierende Dateinamen beim zweiten
+Anlauf (`File already exists`). **Offen benannt: O-T9** - nach einer Ablehnung
+wechselt der Loop die Strategie nicht, sondern wiederholt dasselbe Paket.
+
+**EIGENE KORREKTUR, offen gelegt:** ein frueheres "cargo clippy GRUEN" von mir in
+dieser Sitzung war **falsch**. Ich hatte im Log nach `warning` gegrept; mit
+`-D warnings` schreibt clippy sie als `error`. Der Baum war seit der
+`src/data/quant.rs`-Aenderung der Parallelsitzung rot. Korrigiert: die drei
+eigenen Befunde in `src/data/seq.rs` sind behoben, die sechs in
+`src/data/quant.rs` bleiben stehen (fremde Datei, nicht angefasst) - der Gate
+ist damit **bis auf diese sechs Befunde** gruen und das wird so berichtet, nicht
+geglaettet.
+
+**Zustand:** Commits `1d3dcd5` (Doku + Capability-Modell) und `f834bd6`
+(Agent-Modul + CLI + Clippy-Korrekturen); Ergebnisse als eigener Commit.
+`.gitignore` um `/data/agent` ergaenzt (erzeugte Trainingskorpora des Loops).
+Doku-Gates GRUEN (check-table-pipes 111 Dateien / 0 zerbrochene Zeilen,
+check-doc-links 0 tote Links, lernstufen, programmiersprachen, seq-korpus).

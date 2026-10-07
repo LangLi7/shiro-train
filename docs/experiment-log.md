@@ -171,3 +171,110 @@ Generierung - **je Datensatz kostet die Trefferquotemessung ~30 s** (120
 Datensaetze = 60 min), weil `generate` den Kontext ohne Cache neu rechnet
 (neuer Punkt **O-T7**).
 
+
+## exp-004 - Agentischer Capability-Loop (al1-al6): laeuft, verbessert aber nicht
+
+**Frage.** Schliesst der agentische Loop den Kreis - messen, Fehler
+klassifizieren, **gezielt** Daten erzeugen, trainieren, auf unberuehrten Daten
+erneut messen, annehmen oder verwerfen, begruendete naechste Aktion - und wird
+die Faehigkeit dadurch besser?
+
+**Aufbau.**
+
+| Groesse | Wert |
+|---|---|
+| Faehigkeit | `sequence_reasoning` (sechs Regeln der Familie D-045) |
+| Aufruf | `shiro agent capability run sequence_reasoning --parent checkpoints/seq-step000400.state --iterations 3` |
+| Referenzsatz | 48 Datensaetze aus `data/seq/val`, jeder 104. (fix, vor und nach dem Training derselbe) |
+| Regressionssatz | 32 Datensaetze aus `data/seq/train` (Verlust, gebatcht) |
+| Training je Runde | 150 Schritte, Micro 4.656.640 Parameter, resumed von Schritt 400 |
+| Trainingsdaten je Runde | 2400 Datensaetze (1560 gezielt + 840 Wiederholung) |
+| Dauer | ~12 min je Runde, 3 Runden |
+
+**Ergebnis (drei Runden, gleicher Ausgangsstand):**
+
+| Runde | Paket | Trefferquote | Antwortform | Regressionsverlust | Score | Urteil |
+|---|---|---|---|---|---|---|
+| 1 | terminierung | 8,3 % (4/48) -> **10,4 % (5/48)** | 77,1 -> 81,2 % | 0,4422 -> 0,4280 | 0,251 -> 0,259 | **verworfen** |
+| 2 | terminierung | 8,3 % -> **10,4 %** | 77,1 -> 77,1 % | 0,4422 -> 0,4271 | 0,251 -> 0,259 | **verworfen** |
+| 3 | terminierung | 8,3 % -> **10,4 %** | 77,1 -> 85,4 % | 0,4422 -> 0,4266 | 0,251 -> 0,259 | **verworfen** |
+
+Alle drei Runden sind **eigene Experimente** (anderer Seed fuer die gezielten
+Daten: 435.321 / 435.323 / 435.464 B Nutzlast) und landen trotzdem auf demselben
+Ergebnis: **+1 richtige Antwort, +4 bis +8 Prozentpunkte Antwortform, kleinerer
+Verlust** - aber der Score-Gewinn bleibt mit **+0,007** unter der Schwelle
+(+0,01), und deshalb wurde **kein** Stand uebernommen.
+
+**Der wichtigste Befund dieser Runde ist die Aufschluesselung nach Aufgabentyp**
+(49 Punkte offene Frage aus `n7`): die vier Treffer stammen **ausschliesslich**
+aus zwei Typen -
+
+```text
+Typ vergleich   3/3 richtig     (Antwort 'A'/'B', 1 Byte, Shortcut-Baseline 49,3 %)
+Typ stelle      1/6 richtig
+Typ luecke      0/9 richtig
+Typ naechste    0/7 richtig
+Typ offen       0/9 richtig
+Typ regel       0/8 richtig
+Typ reparatur   0/6 richtig
+```
+
+**Die fuenf inhaltlichen Typen stehen zusammen bei 0 von 39.** Der frueher
+berichtete Wert "18,3 % byte-genau" aus exp-002 ist damit wesentlich
+**schwaecher zu lesen** als er klingt: er entsteht ueberwiegend aus dem Typ mit
+dem kleinsten Antwortraum. Ob sich die 120er-Messung genauso aufteilt, ist
+**nicht** gemessen (offen) - auf dem 48er-Satz ist es eindeutig.
+
+**Urteil: der Loop laeuft, die Faehigkeit verbessert sich nach seinem eigenen
+Kriterium NICHT.** Beides ist wichtig:
+
+* **Was der Loop beweist** (Spec §13): Baseline messen -> Fehler in 12 Klassen
+  aus Bytes klassifizieren -> dominierende Schwaeche (`missing_stop`, 12 Faelle)
+  -> **automatisch** das passende Lernpaket erzeugen (1560 kurze Datensaetze mit
+  der ENDE-Marke frueh im Fenster) -> Integritaet pruefen (kein Messdatensatz im
+  Trainings-Shard, geprueft) -> trainieren -> **auf denselben** 48 Datensaetzen
+  erneut messen -> gegen den Vorgaenger vergleichen -> **verwerfen** ->
+  begruendete naechste Aktion -> Registry-Zeile. Der Kreis ist geschlossen.
+* **Was er nicht beweist:** Fortschritt. Die Intervention ist bei 150 Schritten
+  zu klein - das Modell hat nach 400 Schritten erst ~6.400 Datensaetze gesehen
+  (13 % des Korpus, einmal). **+1 Antwort von 48 ist Rauschen**, und die
+  Annahmeregel hat genau deshalb abgelehnt. Das ist die Regel, die
+  Reward-Hacking verhindert: sie glaubt dem Loss nicht.
+
+**Vier eigene Konstruktionsfehler, gefunden und behoben** (drei davon erst durch
+das Laufen lassen):
+
+1. **Gleichstand ohne Regel.** `missing_stop` und `wrong_parameter` lagen beide
+   bei 12; die Entscheidung fiel auf die Deklarationsreihenfolge des Enums und
+   waehlte das Stellenwert-Paket. Behoben durch `klasse_prioritaet`
+   (Abschlussfehler vor Antwortform vor Inhalt vor Regelwahl) - seitdem waehlt
+   der Loop das Terminierungspaket, wie es die Spec beschreibt.
+2. **Identische Wiederholung.** Bei "verworfen, aber verbessert" blieb das Paket
+   gleich **und** der Seed gleich -> die zweite Runde waere ein identischer Lauf
+   gewesen. Behoben: jede Runde bekommt einen eigenen Seed
+   (`seed + nr * 7919`).
+3. **Zu strenger Filter.** Das Terminierungspaket lieferte im ersten Lauf nur
+   **219 von 1560** angeforderten Datensaetzen (Filter `<= 150 B`). Behoben:
+   nach Laenge **sortieren** statt filtern -> 1560 von 1560.
+4. **Kollidierende Dateinamen.** Ein erneuter Lauf desselben Experiments brach
+   mit `File already exists` ab, weil der abgebrochene Vorlauf denselben
+   Modellstand belegt hatte. Behoben: der Agent entfernt vor dem Training die
+   Dateien, deren Name mit seinem eigenen Laufnamen beginnt.
+
+**Ein Fehler bleibt offen und ist benannt:** bei "verworfen, aber verbessert"
+waehlt der Loop **dasselbe** Paket erneut (`iterate_same_pack`), weil der
+Plateau-Zaehler nur bei ausbleibender Verbesserung steigt. Besser waere: nach
+einer Ablehnung die **Strategie** wechseln (anderes Paket, andere Dosis).
+Neuer Punkt **O-T9**.
+
+**Kosten:** 3 Runden in ~35 min CPU (48 Datensaetze je Messung, ~1,3 s je
+Datensatz). Die alte Schaetzung von ~30 s je Datensatz war um Faktor ~20 zu
+hoch; die Korrektur steht in `configs/capabilities/sequence_reasoning.toml`.
+
+**Naechste Schritte (aus den Messdaten):** (1) **Dosis erhoehen** - 600 statt 150
+Schritte je Runde, sonst bleibt jede Intervention im Rauschen; (2) **Bewertung
+schaerfen** - `vergleich` (1-Byte-Antwort) aus dem Referenzsatz herausnehmen oder
+separat ausweisen, damit die Zahl die inhaltlichen Typen misst; (3) die drei
+offenen Testarten bauen (`O-Z6` Invarianz, `O-Z8` Oberflaechen, `O-Z9`
+Komposition), damit die Score-Anteile compositional/adversarial nicht laenger 0
+sind; (4) `O-T9` beheben (Strategiewechsel nach Ablehnung).

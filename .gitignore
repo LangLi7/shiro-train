@@ -31,3 +31,4 @@ __pycache__/
 # Checkpoints und temporaere Dateien
 *.bckpt
 *.tmp
+/data/agent
