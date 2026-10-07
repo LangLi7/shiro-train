@@ -59,6 +59,37 @@ pub struct Capability {
     pub pass: PassCriteria,
     pub score: ScoreWeights,
     pub budget: Budget,
+    /// Welche Aufgabentypen in den **inhaltlichen** Score zaehlen (Metrik).
+    #[serde(default)]
+    pub metric: MetricConfig,
+}
+
+/// **Was im inhaltlichen Score zaehlt - und was getrennt berichtet wird.**
+///
+/// Der Grund ist gemessen, nicht aesthetisch: `vergleich` hat einen
+/// **1-Byte-Antwortraum** (`A`/`B`), sein Shortcut-Baseline liegt bei 49,3 %.
+/// Ein Treffer dort belegt nichts ueber Verstaendnis, kann aber die
+/// Gesamtquote verdoppeln - im ersten Loop-Lauf kamen **alle** 5 Treffer von
+/// 48 aus `vergleich` (3/3) und `stelle` (1/6), waehrend die fuenf inhaltlichen
+/// Typen **0 von 39** standen. Eine Quote, die solche Typen mitzaehlt, misst
+/// den Antwortraum, nicht die Faehigkeit.
+///
+/// Die Liste steht in der Capability-Datei, **nicht** im Code (Spec §1).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct MetricConfig {
+    /// Typen mit winzigem Antwortraum. Sie werden **getrennt** berichtet und
+    /// gehen **nicht** in `exact_match_content` und damit nicht in den Score ein.
+    #[serde(default)]
+    pub kurzantwort_typen: Vec<String>,
+}
+
+impl MetricConfig {
+    /// Ist dieser Aufgabentyp ein Kurzantwort-Typ?
+    pub fn ist_kurzantwort(&self, category: &str) -> bool {
+        self.kurzantwort_typen
+            .iter()
+            .any(|t| t.eq_ignore_ascii_case(category))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -136,8 +167,21 @@ impl Capability {
 /// Alles, was ein Messdurchgang liefert (Spec §4 B-F).
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Metrics {
-    /// Anteil byte-genau richtiger Antworten (B).
+    /// Anteil byte-genau richtiger Antworten ueber **alle** gestellten Faelle (B).
+    ///
+    /// Wird **berichtet**, geht aber **nicht** in den Score ein - sonst
+    /// dominieren die Kurzantwort-Typen (siehe [`MetricConfig`]).
     pub exact_match: f64,
+    /// Trefferquote **nur ueber die inhaltlichen Typen**. Das ist die Zahl, die
+    /// in den Score eingeht und an der ein Stand gemessen wird.
+    pub exact_match_content: f64,
+    /// Trefferquote der Kurzantwort-Typen - **getrennt**, nicht im Score.
+    pub exact_match_kurz: f64,
+    /// Wie viele Faelle in welchem Topf stecken (die Quote allein sagt nichts).
+    pub content_asked: usize,
+    pub content_correct: usize,
+    pub kurz_asked: usize,
+    pub kurz_correct: usize,
     /// Anteil richtiger Antwort**formen** (C, strukturelle Genauigkeit).
     pub structural: f64,
     /// Mittlerer Held-out-Verlust (A).
@@ -155,9 +199,12 @@ pub struct Metrics {
 impl Metrics {
     /// Capability-Score nach Spec §9. Der Loss-Anteil wird auf `ZUFALLS_LOSS`
     /// bezogen: 1.0 bei Verlust 0, 0.0 beim Raten ueber 256 Klassen.
+    ///
+    /// **Der Trefferquoten-Anteil nutzt `exact_match_content`**, nicht die
+    /// Gesamtquote: ein 1-Byte-Typ (`A`/`B`) darf den Score nicht heben.
     pub fn score(&self, w: &ScoreWeights) -> f64 {
         let held = (1.0 - self.held_out_loss / ZUFALLS_LOSS).clamp(0.0, 1.0);
-        w.exact_match * self.exact_match
+        w.exact_match * self.exact_match_content
             + w.held_out * held
             + w.compositional * self.compositional.unwrap_or(0.0)
             + w.adversarial * self.adversarial.unwrap_or(0.0)
@@ -165,12 +212,16 @@ impl Metrics {
 }
 
 /// Ist der Stand reif fuer die naechste Faehigkeit?
+///
+/// Geprueft wird gegen `exact_match_content` - dieselbe Begruendung wie in
+/// [`Metrics::score`]: eine Schwelle, die ein 1-Byte-Typ erfuellen kann, ist
+/// keine Faehigkeitspruefung.
 pub fn passes(cap: &Capability, m: &Metrics) -> bool {
     let p = &cap.pass;
-    if m.asked == 0 {
+    if m.asked == 0 || m.content_asked == 0 {
         return false;
     }
-    if m.exact_match < p.exact_match_min {
+    if m.exact_match_content < p.exact_match_min {
         return false;
     }
     if m.held_out_loss > p.held_out_loss_max {
@@ -187,6 +238,78 @@ pub fn passes(cap: &Capability, m: &Metrics) -> bool {
         }
     }
     true
+}
+
+/// Ein Zaehler-Topf: `richtig` von `gestellt`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub struct Quote {
+    pub richtig: usize,
+    pub gestellt: usize,
+}
+
+impl Quote {
+    /// Anteil; `0.0` bei leerem Topf (nie `NaN` - eine Division durch null
+    /// waere hier ein stiller Rechenfehler im Score).
+    pub fn anteil(&self) -> f64 {
+        if self.gestellt == 0 {
+            0.0
+        } else {
+            self.richtig as f64 / self.gestellt as f64
+        }
+    }
+}
+
+/// **Trennt die Kurzantwort-Typen vom inhaltlichen Score.**
+///
+/// Rueckgabe: `(inhaltlich, kurzantwort)`.
+pub fn teile(cases: &[Case], metric: &MetricConfig) -> (Quote, Quote) {
+    let mut inhalt = Quote::default();
+    let mut kurz = Quote::default();
+    for c in cases {
+        let topf = if metric.ist_kurzantwort(&c.category) {
+            &mut kurz
+        } else {
+            &mut inhalt
+        };
+        topf.gestellt += 1;
+        if c.correct {
+            topf.richtig += 1;
+        }
+    }
+    (inhalt, kurz)
+}
+
+/// Baut [`Metrics`] aus den gestellten Faellen und den Verlusten.
+///
+/// Ein Ort fuer diese Rechnung: vorher stand sie zweimal im Loop (vorher und
+/// nachher), und zwei Kopien derselben Metrik sind zwei Gelegenheiten, sie
+/// unterschiedlich zu rechnen.
+#[allow(clippy::too_many_arguments)]
+pub fn metrics_aus(
+    cases: &[Case],
+    metric: &MetricConfig,
+    held_out_loss: f64,
+    regression_loss: f64,
+) -> Metrics {
+    let (inhalt, kurz) = teile(cases, metric);
+    let (gesamt, strukt) = summarize(cases);
+    Metrics {
+        exact_match: gesamt,
+        exact_match_content: inhalt.anteil(),
+        exact_match_kurz: kurz.anteil(),
+        content_asked: inhalt.gestellt,
+        content_correct: inhalt.richtig,
+        kurz_asked: kurz.gestellt,
+        kurz_correct: kurz.richtig,
+        structural: strukt,
+        held_out_loss,
+        held_out_ppl: held_out_loss.exp(),
+        regression_loss,
+        regression_exact: 0.0,
+        compositional: None,
+        adversarial: None,
+        asked: cases.len(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -568,29 +691,38 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
         }
     }
 
+    // Auswahl. **Zwei Regeln, die beide begruendet sind:**
+    //   * `terminierung` will die KUERZESTEN Datensaetze (die ENDE-Marke liegt
+    //     dann frueh im Fenster) - deshalb wird nach Laenge sortiert statt
+    //     gefiltert. Ein zu strenger Filter lieferte im ersten Lauf nur 219 von
+    //     1560 angeforderten Datensaetzen.
+    //   * `stellenwert` will mehrstellige Antworten; gibt es zu wenige, wird der
+    //     Rest aufgefuellt (der Bericht nennt die gelieferte Zahl, nicht die
+    //     angeforderte).
+    let mut kandidaten: Vec<Vec<u8>> = Vec::new();
     let mut gesehen = std::collections::BTreeSet::new();
     for r in roh {
-        if out.len() >= n {
-            break;
-        }
-        let passt = match pack {
-            // Kurz: Antwort plus Denkweg passen in ein Drittel des Fensters.
-            Pack::Terminierung => r.len() <= 150,
-            // Nur mehrstellige Antworten.
-            Pack::Stellenwert => seq::answer_in(&r)
-                .map(|a| a.trim().len() >= 3 && a.trim().bytes().all(|b| b.is_ascii_digit()))
-                .unwrap_or(false),
-            _ => true,
-        };
-        if !passt {
-            continue;
-        }
         if seq::verify(&r).is_err() {
             continue;
         }
         let h = crate::data::manifest::fnv1a64(&r);
         if !gesehen.insert(h) {
             continue;
+        }
+        kandidaten.push(r);
+    }
+    match pack {
+        Pack::Terminierung => kandidaten.sort_by_key(|r| r.len()),
+        Pack::Stellenwert => kandidaten.sort_by_key(|r| {
+            let lang = seq::answer_in(r).map(|a| a.trim().len()).unwrap_or(0);
+            // Mehrstellige Antworten zuerst, danach die kuerzeste Antwort.
+            std::cmp::Reverse(lang)
+        }),
+        _ => {}
+    }
+    for r in kandidaten {
+        if out.len() >= n {
+            break;
         }
         out.push(r);
     }
@@ -695,7 +827,7 @@ pub fn reference_set(dir: &Path, manifest: &str, n: usize) -> Result<(Vec<Vec<u8
 /// Baut Modell + Trainer fuer eine Messung.
 fn lade_trainer(cfg: &ModelConfig, seed: u64, checkpoint: &Path) -> Result<(LmTrainer, Device)> {
     let arch = Arch::from_config(cfg)?;
-    let device = Device::default();
+    let device = crate::backend::geraet()?.0;
     let rope = Rope::new(&arch, cfg.max_seq_len);
     let model = Lm::new(cfg, seed, &device)?.load_safetensors(checkpoint)?;
     Ok((
@@ -930,6 +1062,10 @@ pub struct Iteration {
     pub accepted: bool,
     pub next_action: String,
     pub next_reason: String,
+    /// **O-T9:** der Strategiewechsel, den diese Runde fuer die naechste
+    /// erzwingt. `None` heisst: die Runde wurde angenommen (oder es war die
+    /// letzte) - dann gibt es nichts zu wechseln.
+    pub strategiewechsel: Option<Strategiewechsel>,
     pub checkpoint: String,
     /// Die ersten Fehlbeispiele als Beleg (Index, Typ, erwartet, erzeugt).
     pub samples: Vec<(usize, String, String, String)>,
@@ -972,6 +1108,111 @@ fn lade_basis(path: &Path) -> Result<TrainConfig> {
     toml::from_str(&text).map_err(|e| {
         crate::error::anyhow!("{} ist keine gueltige Trainingsconfig: {e}", path.display())
     })
+}
+
+/// **O-T9: eine verworfene Runde darf sich nicht wiederholen.**
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Hebel {
+    /// Dosis: Schritte je Runde.
+    Dosis(usize),
+    /// Anteil Wiederholung aus dem urspruenglichen Trainingsband.
+    Replay(f64),
+    /// Lernrate der naechsten Runde.
+    Lernrate(f32),
+    /// Lernpaket: die Zielklasse wechseln.
+    Paket,
+}
+
+/// Ein dokumentierter Strategiewechsel (O-T9).
+///
+/// **Warum es das gibt.** Der erste Loop-Lauf hat drei Runden lang **dieselbe**
+/// Strategie wiederholt und dreimal denselben Score-Gewinn von +0,007 erzielt.
+/// Ein Verwurf ohne Strategiewechsel ist kein Experiment, sondern eine
+/// Wiederholung - und eine Wiederholung mit demselben Aufbau liefert dasselbe
+/// Ergebnis. Deshalb: **jede verworfene Runde aendert genau einen Parameter**,
+/// und der Wechsel wird angezeigt, protokolliert und in der Iteration
+/// festgehalten.
+///
+/// **Genau einer, nicht mehrere:** werden mehrere Hebel gleichzeitig gezogen,
+/// ist hinterher nicht entscheidbar, welcher gewirkt hat.
+#[derive(Debug, Clone, Serialize)]
+pub struct Strategiewechsel {
+    pub parameter: &'static str,
+    pub vorher: String,
+    pub nachher: String,
+    pub grund: &'static str,
+    #[serde(skip)]
+    pub hebel: Hebel,
+}
+
+/// Die Leiter der Strategiewechsel - feste Reihenfolge, je Verwurf ein Hebel.
+///
+/// Die Reihenfolge ist **begruendet und nicht beliebig**: zuerst die Dosis,
+/// weil der erste Lauf nachweislich untertrainiert war (200 Schritte sahen
+/// 6,4 % des Korpus einmal); danach die Datenmischung, weil "dieselbe Schwaeche
+/// oefter zeigen" billiger ist als "laenger trainieren"; dann die Lernrate,
+/// weil sie den Schritt selbst groesser macht; zuletzt das Lernpaket, weil ein
+/// Paketwechsel die Ursache und nicht die Menge aendert.
+pub const HEBEL_LEITER: usize = 4;
+
+/// **Obergrenze der Dosis je Runde.** Schutz vor einer Dosislawine: achtmal die
+/// Ausgangsdosis reicht, um Untertraining auszuschliessen, ohne den Lauf
+/// unbezahlbar zu machen (600 -> 1200 -> 2400 -> 4800, danach konstant).
+pub const DOSIS_MAX: usize = 4800;
+
+/// Der Wechsel fuer die **naechste** Runde nach `verworfen` Verwuerfen.
+///
+/// Rein rechnend und damit testbar: der Rueckgabewert enthaelt sowohl die
+/// Anzeige (`vorher`/`nachher`) als auch den anzuwendenden [`Hebel`]. Beides
+/// kommt aus **einer** Quelle, damit Anzeige und Wirkung nicht auseinander
+/// laufen koennen.
+pub fn strategiewechsel(
+    verworfen: usize,
+    dosis: usize,
+    replay: f64,
+    lr: f32,
+    letztes_paket: &str,
+) -> Strategiewechsel {
+    match verworfen % HEBEL_LEITER {
+        0 => {
+            let neu = (dosis * 2).min(DOSIS_MAX);
+            Strategiewechsel {
+                parameter: "train_steps",
+                vorher: dosis.to_string(),
+                nachher: neu.to_string(),
+                grund: "Dosis: der erste Lauf sah 6,4 % des Korpus einmal - Untertraining, nicht Unfaehigkeit",
+                hebel: Hebel::Dosis(neu),
+            }
+        }
+        1 => {
+            let neu = (replay - 0.15).max(0.0);
+            Strategiewechsel {
+                parameter: "replay_share",
+                vorher: format!("{replay:.2}"),
+                nachher: format!("{neu:.2}"),
+                grund: "Datenmischung: mehr gezielte Daten statt Wiederholung - die Schwaeche soll oefter vorkommen",
+                hebel: Hebel::Replay(neu),
+            }
+        }
+        2 => {
+            let neu = lr * 1.5;
+            Strategiewechsel {
+                parameter: "lr",
+                vorher: format!("{lr:.3e}"),
+                nachher: format!("{neu:.3e}"),
+                grund: "Lernrate: der Score bewegte sich, blieb aber unter der Schwelle - groessere Schritte",
+                hebel: Hebel::Lernrate(neu),
+            }
+        }
+        _ => Strategiewechsel {
+            parameter: "pack",
+            vorher: letztes_paket.to_string(),
+            nachher: Pack::Breit.key().to_string(),
+            grund: "Lernpaket: dieselbe Zielklasse zweimal erfolglos - die Ursache wechseln, nicht die Menge",
+            hebel: Hebel::Paket,
+        },
+    }
 }
 
 /// Die naechste Aktion **aus den Messdaten** ableiten (Spec §7).
@@ -1033,8 +1274,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     }
 
     let eval_n = opts.eval_records.unwrap_or(cap.budget.eval_records);
-    let steps = opts.train_steps.unwrap_or(cap.budget.train_steps);
+    let mut dosis = opts.train_steps.unwrap_or(cap.budget.train_steps);
     let max_iter = opts.iterations.unwrap_or(cap.budget.max_iterations);
+    // **Veränderlicher Strategiezustand (O-T9).** Diese drei Werte sind die
+    // Hebel, die eine verworfene Runde ziehen darf; sie stehen ausserhalb der
+    // Rundenschleife, damit ein Wechsel in der naechsten Runde auch wirkt.
+    let mut replay_share = cap.budget.replay_share;
+    let mut lr = basis.optim.lr;
 
     let (eval_records, stride) =
         reference_set(&opts.held_out_dir, &opts.held_out_manifest, eval_n)?;
@@ -1061,22 +1307,62 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         None => println!("Fortsetzen von: (kein --parent: es wird nur gemessen)"),
     }
     println!(
-        "Budget        : {max_iter} Iterationen, {steps} Schritte, Score-Gewichte {}/{}/{}/{}",
+        "Budget        : {max_iter} Iterationen, {dosis} Schritte, Score-Gewichte {}/{}/{}/{}",
         cap.score.exact_match, cap.score.held_out, cap.score.compositional, cap.score.adversarial
     );
+    match crate::backend::beschreibung() {
+        Ok(z) => println!("Backend       : {z}"),
+        Err(e) => println!("Backend       : (nicht bestimmbar: {e})"),
+    }
+    println!(
+        "Metrik        : Score ueber die inhaltlichen Typen; Kurzantwort-Typen getrennt: {:?}",
+        cap.metric.kurzantwort_typen
+    );
+
+    // **Referenzmessung auf dem TRAININGSBAND (n7 Schritt 2).** Ohne diese Zahl
+    // ist eine Held-out-Quote nicht bewertbar: liegt das Trainingsband bei
+    // ~20 %, ist der Abstand null und der Befund ist Ausfuehrung, nicht Logik.
+    // Sie laeuft EINMAL (nicht je Runde), weil sie je Datensatz Sekunden kostet.
+    let band_cases = measure_answers(&basis.model, seed, &weights, &reg_records, 24)?;
+    let (band_inhalt, band_kurz) = teile(&band_cases, &cap.metric);
+    println!(
+        "Trainingsband : {:.1} % inhaltlich ({} von {}), {:.1} % Kurzantwort ({} von {})",
+        band_inhalt.anteil() * 100.0,
+        band_inhalt.richtig,
+        band_inhalt.gestellt,
+        band_kurz.anteil() * 100.0,
+        band_kurz.richtig,
+        band_kurz.gestellt
+    );
+    for (cat, (n, ok)) in per_category(&band_cases) {
+        println!("   Band-Typ {cat:<11} {ok}/{n} richtig");
+    }
 
     let mut out = Vec::new();
     let mut aktuell = weights.clone();
     let mut ohne_fortschritt = 0usize;
     let mut letzter_pack: Option<Pack> = None;
+    // Wie viele Runden bisher verworfen wurden - der Zeiger auf der
+    // Hebel-Leiter (O-T9). Getrennt von `ohne_fortschritt`, weil dieser bei
+    // jeder Verbesserung zurueckgesetzt wird, die Leiter aber erst bei einer
+    // **Annahme**.
+    let mut verworfen = 0usize;
+    // Ein Paketwechsel, den ein Strategiewechsel erzwungen hat (O-T9).
+    let mut erzwungenes_pack: Option<Pack> = None;
+    // Der Stand, von dem die naechste Runde fortsetzt. Folgt dem ANGENOMMENEN
+    // Zustand, nicht dem urspruenglichen Elternteil (siehe Schritt 6).
+    let mut resume_state: Option<PathBuf> = opts.parent.clone();
 
     for nr in 1..=max_iter {
         let exp_id = format!("{}-i{nr}", cap.id);
+        // Jede Runde ist ein EIGENES Experiment: anderer Seed fuer die gezielten
+        // Daten. Ohne das waere eine Wiederholung derselben Schwaeche ein
+        // identischer Lauf (derselbe Korpus, dasselbe Ergebnis).
+        let iter_seed = seed.wrapping_add((nr as u64).wrapping_mul(7919));
         println!("\n--- Iteration {nr}/{max_iter} ({exp_id}) ---");
 
         // (1) Baseline bestimmen.
         let before_cases = measure_answers(&basis.model, seed, &aktuell, &eval_records, 24)?;
-        let (em_before, strukt_before) = summarize(&before_cases);
         let reg_before = measure_loss(
             &basis.model,
             seed,
@@ -1098,17 +1384,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             basis.data.seq_len,
             4,
         )?;
-        let before = Metrics {
-            exact_match: em_before,
-            structural: strukt_before,
-            held_out_loss: held_before,
-            held_out_ppl: held_before.exp(),
-            regression_loss: reg_before,
-            regression_exact: 0.0,
-            compositional: None,
-            adversarial: None,
-            asked: before_cases.len(),
-        };
+        let before = metrics_aus(&before_cases, &cap.metric, held_before, reg_before);
         let (dom, dom_n) = match dominant(&before_cases) {
             Some((k, n)) => (Some(k), n),
             None => (None, 0),
@@ -1116,12 +1392,15 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         let dist = distribution(&before_cases);
         let score_before = before.score(&cap.score);
         println!(
-            "Baseline      : Trefferquote {:.1} % ({} von {}), Antwortform {:.1} %, Regressionsverlust {:.4}, Score {:.3}",
+            "Baseline      : inhaltlich {:.1} % ({} von {}) | Kurzantwort {:.1} % ({} von {}) | gesamt {:.1} % | Antwortform {:.1} % | Score {:.3}",
+            before.exact_match_content * 100.0,
+            before.content_correct,
+            before.content_asked,
+            before.exact_match_kurz * 100.0,
+            before.kurz_correct,
+            before.kurz_asked,
             before.exact_match * 100.0,
-            before_cases.iter().filter(|c| c.correct).count(),
-            before_cases.len(),
             before.structural * 100.0,
-            reg_before,
             score_before
         );
         for (k, n) in &dist {
@@ -1168,7 +1447,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 score_before,
                 score_before,
                 &samples,
-                steps,
+                dosis,
             )?;
             out.push(Iteration {
                 nr,
@@ -1183,6 +1462,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 accepted: false,
                 next_action: aktion,
                 next_reason: grund,
+                strategiewechsel: None,
                 checkpoint: aktuell.display().to_string(),
                 samples,
             });
@@ -1191,6 +1471,19 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
 
         // (2) Lernpaket aus der dominanten Fehlerklasse waehlen (Spec §6/§7).
         let mut pack = dom.map(Pack::for_class).unwrap_or(Pack::Breit);
+        // Ein erzwungener Paketwechsel (O-T9) hat Vorrang vor der Fehlerklasse:
+        // er ist die begruendete Antwort darauf, dass dieselbe Zielklasse nicht
+        // weitergeholfen hat.
+        if let Some(p) = erzwungenes_pack.take() {
+            if p != pack {
+                println!(
+                    "Strategie     : erzwungener Paketwechsel (O-T9) {} -> {}",
+                    pack.key(),
+                    p.key()
+                );
+            }
+            pack = p;
+        }
         if let Some(letzte) = letzter_pack {
             if letzte == pack && ohne_fortschritt >= 1 {
                 pack = Pack::Breit;
@@ -1201,10 +1494,10 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         println!("Lernpaket     : {} ({})", pack.key(), pack.reason());
 
         // (3) Gezielte Daten erzeugen und als Shard schreiben.
-        let gesamt = steps * basis.data.batch_size;
-        let ziel_n = ((gesamt as f64) * (1.0 - cap.budget.replay_share)).round() as usize;
+        let gesamt = dosis * basis.data.batch_size;
+        let ziel_n = ((gesamt as f64) * (1.0 - replay_share)).round() as usize;
         let replay_n = gesamt.saturating_sub(ziel_n);
-        let mut train_records = build_pack(pack, ziel_n.max(8), seed)?;
+        let mut train_records = build_pack(pack, ziel_n.max(8), iter_seed)?;
         // Tatsaechlich gelieferte gezielte Datensaetze (der Filter kann weniger
         // durchlassen als angefordert - der Bericht muss die echte Zahl nennen).
         let gezielt = train_records.len();
@@ -1222,10 +1515,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         )?;
         println!(
             "Trainingsdaten: {} Datensaetze ({} gezielt + {} Wiederholung), {} B Nutzlast",
-            size.records,
-            gezielt,
-            replay_n,
-            size.payload
+            size.records, gezielt, replay_n, size.payload
         );
 
         // (4) Integritaetspruefung: kein Messdatensatz im Training (Spec §11).
@@ -1235,15 +1525,33 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // (5) Trainingsconfig schreiben (reproduzierbar, im Arbeitsordner).
         let mut lauf = basis.clone();
         lauf.run.name = format!("agent-{exp_id}");
-        lauf.run.steps = steps;
+        lauf.run.steps = dosis;
         lauf.run.log_every = 10;
-        lauf.run.checkpoint_every = steps.max(1);
+        lauf.run.checkpoint_every = dosis.max(1);
+        // **Die Lernrate ist ein Strategiehebel (O-T9)** - sie kommt aus dem
+        // veraenderlichen Zustand, nicht mehr unveraendert aus der Basisconfig.
+        lauf.optim.lr = lr;
         lauf.data.dir = ziel_dir.clone();
         lauf.data.manifest = "manifest.json".to_string();
         let cfg_pfad = opts.work_dir.join(&exp_id).join("train.toml");
         let toml_text = toml::to_string(&lauf)
             .map_err(|e| crate::error::anyhow!("Trainingsconfig serialisieren: {e}"))?;
         std::fs::write(&cfg_pfad, toml_text)?;
+
+        // Alte Staende DIESES Experiments entfernen. Sonst scheitert ein erneuter
+        // Lauf desselben Experiments an `File already exists` (gefunden im
+        // zweiten Anlauf: der abgebrochene Vorlauf hatte denselben Dateinamen
+        // belegt). Es werden ausschliesslich Dateien angefasst, deren Name mit
+        // dem eigenen Laufnamen beginnt.
+        let praefix = format!("{}-step", lauf.run.name);
+        if let Ok(eintraege) = std::fs::read_dir(&lauf.run.output_dir) {
+            for e in eintraege.flatten() {
+                let n = e.file_name().to_string_lossy().to_string();
+                if n.starts_with(&praefix) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
 
         let dversion = format!(
             "{}|{}",
@@ -1266,31 +1574,42 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 accepted: false,
                 next_action: "dry_run".to_string(),
                 next_reason: "Testlauf ohne Training".to_string(),
+                strategiewechsel: None,
                 checkpoint: aktuell.display().to_string(),
                 samples,
             });
             break;
         }
 
-        // (6) Trainieren (fortgesetzt vom Vorgaenger, globale Schrittzaehlung B6).
-        let start_step = opts.parent.as_deref().and_then(step_aus_name).unwrap_or(0);
-        let resume = opts.parent.as_deref();
+        // (6) Trainieren (globale Schrittzaehlung B6).
+        //
+        // **Fortgesetzt wird vom gueltigen Stand, nicht vom urspruenglichen
+        // Elternteil.** `resume_state` folgt dem angenommenen Zustand: solange
+        // Runden verworfen werden, bleibt der letzte angenommene Stand die
+        // Basis (das ist die Ruecknahme), und eine angenommene Runde wird die
+        // Basis der naechsten. Vorher stand hier `opts.parent` - damit haette
+        // eine ANGENOMMENE Runde ihren Fortschritt in der naechsten Runde
+        // wieder verloren, und der Vergleich vorher/nachher waere schief
+        // gewesen: vorher = angenommener Stand, nachher = Neustart vom
+        // Elternteil.
+        let start_step = resume_state.as_deref().and_then(step_aus_name).unwrap_or(0);
         println!(
-            "Training      : {steps} Schritte ab Schritt {start_step} (resume: {})",
-            resume
+            "Training      : {dosis} Schritte ab Schritt {start_step} (resume: {})",
+            resume_state
+                .as_deref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "-".into())
         );
-        let report = trainer::run_real(&lauf, &cfg_pfad.to_string_lossy(), resume)?;
+        let report =
+            trainer::run_real(&lauf, &cfg_pfad.to_string_lossy(), resume_state.as_deref())?;
 
-        let neu = checkpoints_pfad(&lauf.run.output_dir, &lauf.run.name, start_step + steps)
+        let neu = checkpoints_pfad(&lauf.run.output_dir, &lauf.run.name, start_step + dosis)
             .or_else(|| report.exports.last().cloned())
             .ok_or_else(|| crate::error::anyhow!("neuer Modellstand nicht gefunden"))?;
         println!("Neuer Stand   : {}", neu.display());
 
         // (7) Erneut auf DEMSELBEN Daten messen.
         let after_cases = measure_answers(&basis.model, seed, &neu, &eval_records, 24)?;
-        let (em_after, strukt_after) = summarize(&after_cases);
         let reg_after = measure_loss(
             &basis.model,
             seed,
@@ -1311,25 +1630,18 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             basis.data.seq_len,
             4,
         )?;
-        let after = Metrics {
-            exact_match: em_after,
-            structural: strukt_after,
-            held_out_loss: held_after,
-            held_out_ppl: held_after.exp(),
-            regression_loss: reg_after,
-            regression_exact: 0.0,
-            compositional: None,
-            adversarial: None,
-            asked: after_cases.len(),
-        };
+        let after = metrics_aus(&after_cases, &cap.metric, held_after, reg_after);
         let score_after = after.score(&cap.score);
         println!(
-            "Nachher       : Trefferquote {:.1} % ({} von {}), Antwortform {:.1} %, Regressionsverlust {:.4}, Score {:.3}",
+            "Nachher       : inhaltlich {:.1} % ({} von {}) | Kurzantwort {:.1} % ({} von {}) | gesamt {:.1} % | Antwortform {:.1} % | Score {:.3}",
+            after.exact_match_content * 100.0,
+            after.content_correct,
+            after.content_asked,
+            after.exact_match_kurz * 100.0,
+            after.kurz_correct,
+            after.kurz_asked,
             after.exact_match * 100.0,
-            after_cases.iter().filter(|c| c.correct).count(),
-            after_cases.len(),
             after.structural * 100.0,
-            reg_after,
             score_after
         );
 
@@ -1337,8 +1649,17 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         let verbesserung = score_after - score_before;
         let regression = reg_after - reg_before;
         let kritische_regression = regression > cap.pass.regression_drop_max;
-        let accepted = verbesserung >= cap.pass.score_gain_min && !kritische_regression;
-        let verbessert = after.exact_match > before.exact_match;
+        // Annahme: Score-Gewinn ueber der Schwelle ODER mindestens zwei zusaetzlich
+        // byte-genau richtige Antworten **im inhaltlichen Topf** ohne
+        // Verschlechterung des Verlusts. Die zweite Bedingung ist noetig, weil auf
+        // einem 48er-Satz eine einzelne Antwort nur +0,0073 Score bedeutet.
+        // Gezaehlt wird seit der Metrik-Schaerfung **inhaltlich**: ein zusaetzlicher
+        // Treffer im 1-Byte-Typ `vergleich` ist kein Faehigkeitsfortschritt.
+        let em_delta =
+            (after.exact_match_content - before.exact_match_content) * after.content_asked as f64;
+        let accepted = !kritische_regression
+            && (verbesserung >= cap.pass.score_gain_min || (em_delta >= 2.0 && regression <= 0.0));
+        let verbessert = after.exact_match_content > before.exact_match_content;
         println!(
             "Urteil        : {} (Score {:+.3}, Regressionsdelta {:+.4}{})",
             if accepted { "ANGENOMMEN" } else { "VERWORFEN" },
@@ -1355,6 +1676,12 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         }
         if accepted {
             aktuell = neu.clone();
+            // Der angenommene Zustand ist ab jetzt die Basis - fuer das
+            // Fortsetzen UND als Ruecknahmepunkt: eine verworfene Runde laesst
+            // `resume_state` unveraendert stehen.
+            if let Some(s) = report.states.last() {
+                resume_state = Some(s.clone());
+            }
         }
         if verbessert || accepted {
             ohne_fortschritt = 0;
@@ -1363,6 +1690,51 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         }
         let plateau = ohne_fortschritt >= cap.budget.plateau_patience;
         let (aktion, grund) = naechste_aktion(&cap, accepted, verbessert, plateau);
+
+        // **Die TATSAECHLICH trainierte Dosis festhalten, bevor der
+        // Strategiewechsel sie aendert.** Sonst schreibt die Registry einen Wert
+        // in `steps`, der in dieser Runde nie gelaufen ist - gemessen im ersten
+        // GPU-Lauf: Runde 3 trainierte 600 Schritte, der Strategiewechsel setzte
+        // `dosis` auf 1200, und die Registry-Zeile behauptete 1200. Ein
+        // Register, das nicht den Lauf beschreibt, ist als Nachweis wertlos.
+        let dosis_trainiert = dosis;
+
+        // **(9) O-T9: eine verworfene Runde darf sich nicht wiederholen.**
+        //
+        // Der erste Loop-Lauf hat dreimal dieselbe Strategie gefahren und
+        // dreimal denselben Score-Gewinn (+0,007) erzielt - ein Verwurf ohne
+        // Strategiewechsel ist eine Wiederholung, keine Untersuchung. Hier wird
+        // deshalb **genau ein** Parameter gezogen; die Aenderung wirkt in der
+        // naechsten Runde, weil `dosis`, `replay_share` und `lr` ausserhalb der
+        // Schleife stehen. Zwei Hebel gleichzeitig waeren nicht unterscheidbar.
+        let wechsel = if accepted {
+            None
+        } else {
+            Some(strategiewechsel(
+                verworfen,
+                dosis,
+                replay_share,
+                lr,
+                pack.key(),
+            ))
+        };
+        if let Some(w) = &wechsel {
+            match w.hebel {
+                Hebel::Dosis(neu) => dosis = neu,
+                Hebel::Replay(neu) => replay_share = neu,
+                Hebel::Lernrate(neu) => lr = neu,
+                Hebel::Paket => erzwungenes_pack = Some(Pack::Breit),
+            }
+            println!(
+                "Strategiewechsel (O-T9): {} {} -> {} - {}",
+                w.parameter, w.vorher, w.nachher, w.grund
+            );
+            verworfen += 1;
+        } else if verbessert {
+            // Ein angenommener Stand setzt die Leiter zurueck: die naechste
+            // Schwaeche verdient wieder den ersten Hebel (Dosis).
+            verworfen = 0;
+        }
         println!("Naechste Aktion: {aktion} - {grund}");
 
         eintrag(
@@ -1382,7 +1754,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             score_before,
             score_after,
             &samples,
-            steps,
+            dosis_trainiert,
         )?;
         let dversion_ref = dversion;
         let _ = dversion_ref;
@@ -1400,6 +1772,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             accepted,
             next_action: aktion,
             next_reason: grund,
+            strategiewechsel: wechsel,
             checkpoint: if accepted {
                 neu.display().to_string()
             } else {
@@ -1627,17 +2000,111 @@ mod tests {
         };
         let gut = Metrics {
             exact_match: 1.0,
+            exact_match_content: 1.0,
             held_out_loss: 0.0,
             ..Metrics::default()
         };
         let schlecht = Metrics {
             exact_match: 0.0,
+            exact_match_content: 0.0,
             held_out_loss: ZUFALLS_LOSS,
             ..Metrics::default()
         };
         assert!(gut.score(&w) > schlecht.score(&w));
         assert!((gut.score(&w) - 0.60).abs() < 1e-9, "{}", gut.score(&w));
         assert!(schlecht.score(&w).abs() < 1e-9);
+    }
+
+    /// **Der Kern der Metrik-Schaerfung.** Ein Stand, der **nur** den
+    /// 1-Byte-Typ `vergleich` trifft, darf den Score **nicht** heben - genau
+    /// das war der Fehler der Kopfzahl aus exp-004 (5 von 48 Treffern, alle
+    /// aus `vergleich` und `stelle`).
+    #[test]
+    fn ein_byte_typ_hebt_den_score_nicht() {
+        let w = ScoreWeights {
+            exact_match: 0.35,
+            held_out: 0.25,
+            compositional: 0.20,
+            adversarial: 0.20,
+        };
+        // Gleicher Verlust, gleicher Gesamt-Trefferquotensatz - aber die
+        // Treffer liegen ausschliesslich im Kurzantwort-Topf.
+        let nur_kurz = Metrics {
+            exact_match: 0.5,
+            exact_match_content: 0.0,
+            exact_match_kurz: 1.0,
+            content_asked: 24,
+            kurz_asked: 24,
+            held_out_loss: 0.0,
+            ..Metrics::default()
+        };
+        let inhaltlich = Metrics {
+            exact_match: 0.5,
+            exact_match_content: 0.5,
+            exact_match_kurz: 0.5,
+            content_asked: 24,
+            kurz_asked: 24,
+            held_out_loss: 0.0,
+            ..Metrics::default()
+        };
+        assert!(
+            inhaltlich.score(&w) > nur_kurz.score(&w),
+            "inhaltliche Treffer muessen mehr zaehlen als Kurzantwort-Treffer"
+        );
+        // Der Kurzantwort-Treffer allein traegt nur den Verlust-Anteil.
+        assert!((nur_kurz.score(&w) - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn teile_trennt_kurzantwort_von_inhalt() {
+        let metric = MetricConfig {
+            kurzantwort_typen: vec!["vergleich".to_string()],
+        };
+        let cases = vec![
+            Case {
+                index: 0,
+                category: "vergleich".into(),
+                expected: "A".into(),
+                got: "A".into(),
+                correct: true,
+                class: None,
+            },
+            Case {
+                index: 1,
+                category: "luecke".into(),
+                expected: "5".into(),
+                got: "6".into(),
+                correct: false,
+                class: Some(FailureClass::ArithmeticError),
+            },
+            Case {
+                index: 2,
+                category: "luecke".into(),
+                expected: "5".into(),
+                got: "5".into(),
+                correct: true,
+                class: None,
+            },
+        ];
+        let (inhalt, kurz) = teile(&cases, &metric);
+        assert_eq!(
+            inhalt,
+            Quote {
+                richtig: 1,
+                gestellt: 2
+            },
+            "der 1-Byte-Typ darf nicht in den inhaltlichen Topf"
+        );
+        assert_eq!(
+            kurz,
+            Quote {
+                richtig: 1,
+                gestellt: 1
+            }
+        );
+        assert!((inhalt.anteil() - 0.5).abs() < 1e-9);
+        // Ein leerer Topf ist 0.0, nie NaN.
+        assert_eq!(Quote::default().anteil(), 0.0);
     }
 
     #[test]
@@ -1661,21 +2128,117 @@ mod tests {
         let cap: Capability = toml::from_str(&text).expect("Capability lesen");
         assert_eq!(cap.id, "sequence_reasoning");
         assert_eq!(cap.skills.len(), 6, "sechs Regeln als Fertigkeiten");
+        assert_eq!(
+            cap.metric.kurzantwort_typen,
+            vec!["vergleich".to_string()],
+            "der 1-Byte-Typ muss in der Capability stehen, nicht im Code"
+        );
         let m = Metrics {
             exact_match: cap.pass.exact_match_min,
+            exact_match_content: cap.pass.exact_match_min,
             held_out_loss: 0.0,
             asked: 24,
+            content_asked: 24,
             ..Metrics::default()
         };
         assert!(passes(&cap, &m));
         let m2 = Metrics {
             exact_match: cap.pass.exact_match_min - 0.01,
+            exact_match_content: cap.pass.exact_match_min - 0.01,
             held_out_loss: 0.0,
             asked: 24,
+            content_asked: 24,
             ..Metrics::default()
         };
         assert!(!passes(&cap, &m2));
         // Ohne Messung gilt nichts als bestanden.
         assert!(!passes(&cap, &Metrics::default()));
+        // **Ohne einen einzigen inhaltlichen Fall gilt nichts als bestanden** -
+        // sonst koennte ein Kurzantwort-Satz eine Faehigkeit "bestehen".
+        let nur_kurz = Metrics {
+            exact_match: 1.0,
+            exact_match_content: 0.0,
+            asked: 24,
+            content_asked: 0,
+            kurz_asked: 24,
+            ..Metrics::default()
+        };
+        assert!(
+            !passes(&cap, &nur_kurz),
+            "ein Satz ohne inhaltliche Faelle darf nicht bestehen"
+        );
+    }
+
+    /// **O-T9 als Test.** Eine verworfene Runde muss einen dokumentierten
+    /// Strategiewechsel erzeugen - und der angezeigte Wert muss der
+    /// angewendete sein (eine Quelle, keine zwei Rechnungen).
+    #[test]
+    fn verwurf_erzwingt_genau_einen_strategiewechsel() {
+        let dosis_aus = 600usize;
+        let replay_aus = 0.35f64;
+        let lr_aus = 3e-4f32;
+
+        // Runde 0: Dosis verdoppeln.
+        let w0 = strategiewechsel(0, dosis_aus, replay_aus, lr_aus, "terminierung");
+        assert_eq!(w0.parameter, "train_steps");
+        assert_eq!(w0.nachher, "1200");
+        assert_eq!(w0.hebel, Hebel::Dosis(1200));
+        assert!(!w0.grund.is_empty(), "ohne Begruendung ist es kein Wechsel");
+
+        // Runde 1: Datenmischung senken - und die Anzeige nennt denselben Wert
+        // wie der Hebel (keine zwei Wahrheiten).
+        let w1 = strategiewechsel(1, dosis_aus, replay_aus, lr_aus, "terminierung");
+        assert_eq!(w1.parameter, "replay_share");
+        match w1.hebel {
+            Hebel::Replay(neu) => assert_eq!(w1.nachher, format!("{neu:.2}")),
+            other => panic!("falscher Hebel: {other:?}"),
+        }
+
+        // Runde 2: Lernrate.
+        let w2 = strategiewechsel(2, dosis_aus, replay_aus, lr_aus, "terminierung");
+        assert_eq!(w2.parameter, "lr");
+        match w2.hebel {
+            Hebel::Lernrate(neu) => {
+                assert!(neu > lr_aus, "die Lernrate muss steigen");
+                assert_eq!(w2.nachher, format!("{neu:.3e}"));
+            }
+            other => panic!("falscher Hebel: {other:?}"),
+        }
+
+        // Runde 3: Paketwechsel.
+        let w3 = strategiewechsel(3, dosis_aus, replay_aus, lr_aus, "terminierung");
+        assert_eq!(w3.parameter, "pack");
+        assert_eq!(w3.hebel, Hebel::Paket);
+        assert_eq!(w3.nachher, Pack::Breit.key());
+
+        // **Kein Hebel wiederholt sich unmittelbar**: vier Verwuerfe, vier
+        // verschiedene Parameter.
+        let alle: Vec<&str> = (0..HEBEL_LEITER)
+            .map(|i| strategiewechsel(i, dosis_aus, replay_aus, lr_aus, "p").parameter)
+            .collect();
+        let mut sortiert = alle.clone();
+        sortiert.sort_unstable();
+        sortiert.dedup();
+        assert_eq!(
+            sortiert.len(),
+            HEBEL_LEITER,
+            "die Leiter hat Doppelte: {alle:?}"
+        );
+    }
+
+    /// Der Dosis-Hebel darf nicht ins Unendliche wachsen.
+    #[test]
+    fn dosis_hat_einen_deckel() {
+        let w = strategiewechsel(0, DOSIS_MAX, 0.35, 3e-4, "breit");
+        assert_eq!(w.hebel, Hebel::Dosis(DOSIS_MAX));
+        assert_eq!(w.nachher, DOSIS_MAX.to_string());
+    }
+
+    /// Die Replay-Rate darf nicht negativ werden.
+    #[test]
+    fn replay_bleibt_nicht_negativ() {
+        let w = strategiewechsel(1, 600, 0.05, 3e-4, "breit");
+        assert_eq!(w.hebel, Hebel::Replay(0.0));
+        assert_eq!(w.nachher, "0.00");
     }
 }

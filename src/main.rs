@@ -37,6 +37,11 @@ fn main() -> ExitCode {
 
 fn real_main() -> Result<()> {
     let args = cli::parse(std::env::args().skip(1))?;
+    // **Geraetewahl einmal fuer den ganzen Prozess** (O-T8): das Flag gewinnt
+    // gegen `SHIRO_BACKEND`, sonst gilt `auto` (GPU wenn benutzbar, sonst CPU).
+    // Danach liest jeder rechnende Pfad dieselbe Wahl - ein Backendwechsel
+    // mitten im Lauf waere mit bitgenauem Resume (D-023) unvereinbar.
+    shiro::backend::setze_wahl(shiro::backend::aus_umgebung_und_flag(args.backend)?);
     match args.command.clone() {
         Command::Help => {
             print!("{}", cli::HELP);
@@ -115,7 +120,7 @@ fn cmd_train(args: &cli::Args, real: bool) -> Result<()> {
     );
 
     if real {
-        println!("Backend       : {:?}", burn::prelude::Device::default());
+        println!("Backend       : {}", shiro::backend::beschreibung()?);
     }
     if let Some(p) = &args.resume {
         println!("Fortsetzen    : {}", p.display());
@@ -1670,11 +1675,10 @@ pub fn export_core(
     checkpoint: Option<&Path>,
     config_path: &str,
 ) -> Result<Vec<PathBuf>> {
-    use burn::prelude::Device;
     use shiro::model::lm::Lm;
 
     cfg.validate()?;
-    let device = Device::default();
+    let device = shiro::backend::geraet()?.0;
     let mut lm = Lm::new(cfg, seed, &device)?;
     if let Some(path) = checkpoint {
         // `load_safetensors` konsumiert das Modell - die Zuweisung ist die Semantik.
@@ -1710,7 +1714,6 @@ pub fn chat_core(
     temperature: f32,
     top_k: usize,
 ) -> Result<Vec<u8>> {
-    use burn::prelude::Device;
     use shiro::model::lm::{Arch, Lm, Rope, Trainer};
 
     if max_new == 0 {
@@ -1723,7 +1726,7 @@ pub fn chat_core(
         );
     }
     let arch = Arch::from_config(cfg)?;
-    let device = Device::default();
+    let device = shiro::backend::geraet()?.0;
     // RoPE bis zur vollen Kontextlaenge: `generate` schneidet sein Fenster selbst
     // auf `rope.seq_len`, deshalb ist die Obergrenze hier richtig.
     let rope = Rope::new(&arch, cfg.max_seq_len);
@@ -1765,10 +1768,8 @@ pub fn eval_core(
     seq_len: usize,
     checkpoint: Option<&Path>,
 ) -> Result<(EvalOutcome, Option<EvalOutcome>)> {
-    use burn::prelude::Device;
-
     let ds = Dataset::load(data_dir, manifest)?;
-    let device = Device::default();
+    let device = shiro::backend::geraet()?.0;
     let baseline = measure(&ds, cfg, seed, None, batch_size, seq_len, &device)?;
     let trained = match checkpoint {
         Some(path) => Some(measure(
@@ -1999,7 +2000,6 @@ pub fn answers_core(
     limit: usize,
     max_new: usize,
 ) -> Result<(AnswerOutcome, usize)> {
-    use burn::prelude::Device;
     use shiro::model::lm::{Arch, Lm, Rope, Trainer};
 
     let man = Manifest::load(data_dir.join(manifest))?;
@@ -2013,7 +2013,7 @@ pub fn answers_core(
     }
 
     let arch = Arch::from_config(cfg)?;
-    let device = Device::default();
+    let device = shiro::backend::geraet()?.0;
     let rope = Rope::new(&arch, cfg.max_seq_len);
     let model = Lm::new(cfg, seed, &device)?.load_safetensors(checkpoint)?;
     let trainer = Trainer::for_inference(model, arch, rope, device, seed);
@@ -2199,7 +2199,26 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         );
     }
 
-    if let Some(limit) = args.answers {
+    // **Ursachen-Isolation (n11) statt einfacher Trefferquote.** `--probe` misst
+    // A (Teacher forcing), B (freie Erzeugung) und C (Inhalt bei erzwungenem
+    // Abschluss) auf **derselben** Stichprobe. Die Auswahlregel ist dieselbe wie
+    // bei `--answers` (jeder `stride`.te Datensatz), damit B mit der
+    // dokumentierten Referenzzahl aus `exp-002` vergleichbar bleibt.
+    if args.probe {
+        let Some(ckpt) = args.checkpoint.as_deref() else {
+            shiro::error::bail!("--probe braucht --checkpoint");
+        };
+        let rep = shiro::probe::run(&shiro::probe::ProbeOptions {
+            cfg: &cfg.model,
+            seed: cfg.run.seed,
+            checkpoint: ckpt,
+            data_dir: &cfg.data.dir,
+            manifest: &cfg.data.manifest,
+            limit: args.answers.unwrap_or(120),
+            puffer: 2,
+        })?;
+        print!("{}", rep.bericht());
+    } else if let Some(limit) = args.answers {
         let Some(ckpt) = args.checkpoint.as_deref() else {
             shiro::error::bail!("--answers braucht --checkpoint");
         };

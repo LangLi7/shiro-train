@@ -32,6 +32,10 @@ pub struct RunReport {
     pub total_seconds: f64,
     pub total_bytes: u64,
     pub checkpoints: Vec<PathBuf>,
+    /// Vollstaendige Modellstaende als safetensors (Auslieferungsformat).
+    pub exports: Vec<PathBuf>,
+    /// Fortsetzbare Staende (**B6**, `TrainState`): Gewichte **und** AdamW-Zustand.
+    pub states: Vec<PathBuf>,
     pub log_path: PathBuf,
 }
 
@@ -72,20 +76,29 @@ impl Curriculum {
 
 /// Lernratenplan. `constant` ist der Standard fuer den Smoke-Test.
 pub fn learning_rate(cfg: &TrainConfig, step: usize) -> f32 {
+    learning_rate_over(cfg, step, cfg.run.steps)
+}
+
+/// Lernrate mit **eigenem Horizont** (O-T3).
+///
+/// Der Plan laeuft ueber `horizon` Schritte. Fuer einen **fortgesetzten** Lauf ist
+/// der Horizont `start_step + cfg.run.steps`: der Schrittzaehler ist seit B6 global,
+/// der Plan war es nicht. Ohne diese Erweiterung startet der zweite Abschnitt genau
+/// am Ende des Plans, die Kosinusformel ist dort 0 - und der Lauf trainiert
+/// **stillschweigend nichts** (gemessen: `lr: 0.0` in jedem Schritt, Gewichte
+/// byteweise unveraendert, nur Header-Bytes verschieden).
+pub fn learning_rate_over(cfg: &TrainConfig, step: usize, horizon: usize) -> f32 {
     let base = cfg.optim.lr;
+    let total = horizon.max(1) as f32;
     if cfg.optim.warmup_steps > 0 && step < cfg.optim.warmup_steps {
         return base * (step + 1) as f32 / cfg.optim.warmup_steps as f32;
     }
     match cfg.optim.schedule.as_str() {
         "cosine" => {
-            let total = cfg.run.steps.max(1) as f32;
             let t = (step as f32 / total).clamp(0.0, 1.0);
             0.5 * base * (1.0 + (std::f32::consts::PI * t).cos())
         }
-        "linear" => {
-            let total = cfg.run.steps.max(1) as f32;
-            base * (1.0 - (step as f32 / total).clamp(0.0, 1.0))
-        }
+        "linear" => base * (1.0 - (step as f32 / total).clamp(0.0, 1.0)),
         // "constant" und alles Unbekannte: konstante Rate.
         _ => base,
     }
@@ -128,6 +141,8 @@ pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
         seq_len: cfg.data.seq_len,
         weights: cfg.precision.weights.clone(),
         autocast: cfg.precision.autocast.clone(),
+        // Der Platzhalterpfad kann nicht fortsetzen: er kennt nur den Ausgabekopf.
+        resume: None,
     })?;
     log.log(&Event::DataLoaded {
         dir: cfg.data.dir.display().to_string(),
@@ -230,8 +245,200 @@ pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
         total_seconds,
         total_bytes,
         checkpoints,
+        exports: Vec::new(),
+        states: Vec::new(),
         log_path: log.path().to_path_buf(),
     })
+}
+
+/// Echter Trainingslauf auf dem Burn-Backend (Entscheidung **D-010**).
+///
+/// Unterschied zu [`run`]: dort laeuft der Platzhalter (`TinyModel`, nur der
+/// Ausgabekopf wird aktualisiert) und die Kette bleibt bitgleich reproduzierbar.
+/// Hier laeuft das **echte** Modell aus `src/model/lm.rs` - alle Gewichte werden
+/// per AdamW aktualisiert, der Loss ist eine echte Kreuzentropie ueber die
+/// gueltigen Zielpositionen.
+///
+/// Gemessen wird zusaetzlich der Durchsatz: `targets` sind die vorhergesagten
+/// Bytes je Schritt, daraus ergeben sich Bytes/s und - ueber die 6·N·D-Regel -
+/// die effektiven GFLOPS. Genau diese Zahl fehlte bisher
+/// (`docs/lokales-cpu-training-plan.md` §4.2, Annahme 100-300 GFLOPS).
+/// Fortsetzen gehoert zum Lauf: mit `resume` werden Gewichte, AdamW-Zustand und
+/// Schrittnummer aus **einem** `TrainState` geladen (**B6**), und jeder Checkpoint
+/// schreibt einen neuen Stand derselben Art.
+pub fn run_real(
+    cfg: &TrainConfig,
+    config_path: &str,
+    resume: Option<&std::path::Path>,
+) -> Result<RunReport> {
+    use crate::model::lm::Trainer as LmTrainer;
+
+    let started = Instant::now();
+    let ds = Dataset::load(&cfg.data.dir, &cfg.data.manifest)?;
+    let mut log = JsonlLogger::create(&cfg.run.log_dir, &cfg.run.name)?;
+
+    let device = crate::backend::geraet()?.0;
+    let mut trainer = match resume {
+        Some(path) => {
+            if !path.is_file() {
+                crate::error::bail!(
+                    "Stand nicht gefunden: {} - ohne Stand startet der Lauf von vorn",
+                    path.display()
+                );
+            }
+            LmTrainer::resume_from(&cfg.model, &device, cfg.data.seq_len, path)?
+        }
+        None => LmTrainer::new(&cfg.model, cfg.run.seed, &device, cfg.data.seq_len)?,
+    };
+    let resume_label = resume.map(|p| p.display().to_string());
+
+    log.log(&Event::RunStart {
+        run: cfg.run.name.clone(),
+        step_target: cfg.run.steps,
+        seed: cfg.run.seed,
+        d_model: cfg.model.d_model,
+        n_layers: cfg.model.n_layers,
+        n_heads: cfg.model.n_heads,
+        params: cfg.model.param_count(),
+        batch_size: cfg.data.batch_size,
+        seq_len: cfg.data.seq_len,
+        weights: cfg.precision.weights.clone(),
+        autocast: cfg.precision.autocast.clone(),
+        resume: resume_label,
+    })?;
+    log.log(&Event::DataLoaded {
+        dir: cfg.data.dir.display().to_string(),
+        shards: ds.shards.len(),
+        records: ds.total_records(),
+        payload_bytes: ds.total_payload_bytes(),
+    })?;
+
+    let mut first_loss = f32::NAN;
+    let mut last_loss = f32::NAN;
+    let mut best_loss = f32::INFINITY;
+    let mut total_bytes = 0u64;
+    let mut exports = Vec::new();
+    let mut states = Vec::new();
+    let start_step = trainer.step;
+
+    for step in 0..cfg.run.steps {
+        // Ein fortgesetzter Lauf zaehlt **global** weiter: Batch-Auswahl, Lernrate und
+        // Dateinamen haengen an der Gesamtschrittnummer. Ohne das wuerde ein zweiter
+        // Abschnitt dieselben Batches wie der erste sehen und der Lernratenplan neu
+        // beginnen - 5 + 5 waere nicht dasselbe wie 10.
+        let global = start_step + step;
+        let step_done = global + 1;
+        let step_started = Instant::now();
+        let batch = ds.batch(
+            batch_start(cfg, global, ds.total_records()),
+            cfg.data.batch_size,
+            cfg.data.seq_len,
+            0,
+        );
+        let lr = learning_rate_over(cfg, global, start_step + cfg.run.steps) as f64;
+        let out = trainer.train_step(&batch, lr)?;
+
+        let ms = step_started.elapsed().as_secs_f64() * 1000.0;
+        let bytes = out.targets as u64;
+        total_bytes += bytes;
+        if first_loss.is_nan() {
+            first_loss = out.loss;
+        }
+        last_loss = out.loss;
+        best_loss = best_loss.min(out.loss);
+        if !out.loss.is_finite() {
+            anyhow::bail!("Loss ist nicht endlich (Schritt {step_done}): {}", out.loss);
+        }
+
+        let mut export_path = None;
+        let is_last = step + 1 == cfg.run.steps;
+        if cfg.run.checkpoint_every > 0 && (step_done % cfg.run.checkpoint_every == 0 || is_last) {
+            let path = cfg
+                .run
+                .output_dir
+                .join(format!("{}-step{step_done}.safetensors", cfg.run.name));
+            trainer.model.save_safetensors(&path)?;
+            let size = std::fs::metadata(&path)?.len();
+            log.log(&Event::CheckpointWritten {
+                step: step_done as u64,
+                path: path.display().to_string(),
+                bytes: size,
+            })?;
+            exports.push(path.clone());
+            export_path = Some(path.display().to_string());
+
+            // B6: derselbe Zeitpunkt, aber **fortsetzbar** - Gewichte, AdamW-Zustand,
+            // Schrittnummer und Plan in einer Datei.
+            let state_path = cfg
+                .run
+                .output_dir
+                .join(crate::train::state::TrainState::file_name(
+                    &cfg.run.name,
+                    step_done as u64,
+                ));
+            trainer.save_state(&state_path, &cfg.optim.schedule, lr as f32)?;
+            states.push(state_path);
+        }
+
+        if cfg.run.log_every > 0 && (step_done % cfg.run.log_every == 0 || is_last) {
+            log.log(&Event::Step(StepRecord {
+                step: step_done as u64,
+                loss: out.loss,
+                perplexity: ops::perplexity(out.loss),
+                lr: lr as f32,
+                bytes,
+                tokens_per_second: if ms > 0.0 {
+                    bytes as f64 / (ms / 1000.0)
+                } else {
+                    0.0
+                },
+                ms,
+                checkpoint: export_path,
+            }))?;
+        }
+    }
+
+    let total_seconds = started.elapsed().as_secs_f64();
+    log.log(&Event::RunEnd {
+        steps: cfg.run.steps,
+        first_loss,
+        last_loss,
+        best_loss,
+        total_seconds,
+        total_bytes,
+        checkpoints: exports.len(),
+    })?;
+    log.finish();
+
+    Ok(RunReport {
+        config_path: config_path.to_string(),
+        steps: cfg.run.steps,
+        params: cfg.model.param_count(),
+        shards: ds.shards.len(),
+        records: ds.total_records(),
+        payload_bytes: ds.total_payload_bytes(),
+        first_loss,
+        last_loss,
+        best_loss,
+        total_seconds,
+        total_bytes,
+        checkpoints: Vec::new(),
+        exports,
+        states,
+        log_path: log.path().to_path_buf(),
+    })
+}
+
+/// Effektive Rechenleistung eines Laufs in GFLOPS (6·N·D-Regel).
+///
+/// `targets` sind die vorhergesagten Bytes, `seconds` die Laufzeit. Die Zahl ist
+/// die gemessene Antwort auf die Planungsannahme aus `lokales-cpu-training-plan.md`
+/// §4.2a - sie ersetzt die Spanne 100-300 GFLOPS durch einen Messwert.
+pub fn effective_gflops(params: usize, targets: u64, seconds: f64) -> f64 {
+    if seconds <= 0.0 {
+        return 0.0;
+    }
+    6.0 * params as f64 * targets as f64 / seconds / 1.0e9
 }
 
 #[cfg(test)]

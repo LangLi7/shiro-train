@@ -5,6 +5,7 @@
 //! (Phase 0: Candle oder Burn) betrifft ausschliesslich diese beiden Module.
 
 pub mod agent;
+pub mod backend;
 pub mod checkpoint;
 pub mod cli;
 pub mod config;
@@ -12,6 +13,7 @@ pub mod data;
 pub mod error;
 pub mod logging;
 pub mod model;
+pub mod probe;
 pub mod train;
 
 /// Hilfen fuer Tests. Oeffentlich, weil Integrationstests in `tests/` gegen die

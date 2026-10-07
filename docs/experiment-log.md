@@ -278,3 +278,169 @@ separat ausweisen, damit die Zahl die inhaltlichen Typen misst; (3) die drei
 offenen Testarten bauen (`O-Z6` Invarianz, `O-Z8` Oberflaechen, `O-Z9`
 Komposition), damit die Score-Anteile compositional/adversarial nicht laenger 0
 sind; (4) `O-T9` beheben (Strategiewechsel nach Ablehnung).
+
+---
+
+## exp-005 - Erster angenommener Stand: Dosis 600 auf der GPU, Metrik geschaerft (O-T9 behoben)
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` · **Elternstand:**
+`checkpoints/seq-step000400.state` · **Backend:** `cuda` (`Device<Cube(Cuda(Cuda(0)))>`)
+· **Dosis:** 600 Schritte je Runde · **Referenzsatz:** 48 Datensaetze
+(Datensaetze 45 inhaltlich + 3 Kurzantwort) · **Commits:** siehe unten.
+
+**Was gegenueber exp-004 anders ist.** Vier Dinge, alle aus den Messdaten von
+exp-004 begruendet: (1) **Dosis 600 statt 150** - 150 x Batch 16 = 2.400 von
+50.000 Datensaetzen, also **4,8 % des Korpus ein einziges Mal**; (2) **die
+Metrik ist geschaerft** - der Score geht ueber `exact_match_content`, und der
+1-Byte-Typ `vergleich` wird **getrennt** berichtet; (3) **O-T9 ist behoben** -
+eine verworfene Runde zieht **genau einen** Strategiehebel und protokolliert
+ihn; (4) der Loop laeuft **auf der GPU**.
+
+**Warum die Metrik-Schaerfung noetig war - jetzt gemessen statt behauptet.**
+`vergleich` steht in **beiden** Baendern bei **100 %** (Held-out 3/3,
+Trainingsband 4/4). Der Typ ist geloest, sein Antwortraum ist ein Byte. Die
+alte Kopfzahl "10,4 %" bestand damit fast vollstaendig aus einem Typ, der
+nichts ueber Verstaendnis sagt. Die inhaltliche Quote war **2,2 %**.
+
+### Die zwei Referenzmessungen (n7, O-Z10) - die Zahl, die vorher fehlte
+
+| Messung | inhaltlich | Kurzantwort | gesamt |
+|---|---|---|---|
+| **Trainingsband** (32 Datensaetze aus `data/seq/train`) | **17,9 %** (5 von 28) | 100 % (4 von 4) | - |
+| **Held-out** (Referenzsatz, 48 Datensaetze aus `data/seq/val`) | **2,2 %** (1 von 45) | 100 % (3 von 3) | 8,3 % |
+
+Band-Typen: `luecke` 0/6 · `naechste` 1/3 · `offen` 0/6 · `regel` 0/2 ·
+`reparatur` 0/4 · `stelle` 4/7 · `vergleich` 4/4.
+
+**Befund, ehrlich gelesen:** das Trainingsband liegt bei 17,9 %, das Held-out bei
+2,2 % - Faktor **8**. Es ist also **beides**, aber nicht in der Reihenfolge, die
+man vermutet: das Trainingsband ist **selbst niedrig**. Wer die Datenmenge
+erhoeht, ohne die Dosis zu erhoehen, sieht jeden Datensatz **seltener** und
+verschlechtert die Lage. Die Dosis war der erste Hebel, nicht die Datenmenge.
+**Vorbehalt, der dazugehoert:** die 400 Schritte hatten nur 12,8 % des
+Trainingsshards gesehen; die 17,9 % sind deshalb **kein** Auswendiglernen,
+sondern Verteilung nahe am Training.
+
+### Die drei Runden
+
+| Runde | Paket | vorher (inhaltlich) | nachher (inhaltlich) | gesamt | Score | Urteil |
+|---|---|---|---|---|---|---|
+| 1 | `terminierung` | 2,2 % (1/45) | **15,6 %** (7/45) | 8,3 -> 20,8 % | 0,230 -> 0,277 (+0,047) | **ANGENOMMEN** |
+| 2 | `terminierung` | 15,6 % (7/45) | **42,2 %** (19/45) | 20,8 -> 45,8 % | 0,277 -> 0,372 (+0,095) | **ANGENOMMEN** |
+| 3 | `stellenwert` | 42,2 % (19/45) | 42,2 % (19/45) | 45,8 -> 45,8 % | 0,372 -> 0,374 (+0,002) | VERWORFEN |
+
+**Trefferquote je Typ, Runde 3 (bestandener Stand):** `luecke` **8/9** ·
+`offen` **5/9** · `naechste` **4/7** · `stelle` 2/6 · `regel` **0/8** ·
+`reparatur` **0/6** · `vergleich` 3/3. Gegenueber exp-004 (0 von 39 inhaltlich)
+sind damit **19 von 45** inhaltlichen Fragen richtig - und die zwei Typen
+`regel` und `reparatur` stehen weiter bei **0**.
+
+**Fehlerklassen, Verlauf:** `missing_stop` 12 -> 11 -> 8, `wrong_parameter`
+12 -> 8 -> 10, `place_value_error` 7 -> 5 -> 3, `arithmetic_error` 11 -> 11 -> 4.
+Neu ab Runde 2: `premature_stop` 2 und `repetition` 1 (das Modell bricht jetzt
+gelegentlich zu frueh ab, statt nie abzubrechen - die Terminierung greift).
+
+### Der wichtigste Einzelbefund: Runde 3 wurde trotz 3x kleinerem Loss verworfen
+
+| Runde | erster Loss | letzter Loss | bester Loss |
+|---|---|---|---|
+| 1 | 0,3127 | 0,2304 | 0,1516 |
+| 2 | 0,2437 | 0,1728 | 0,1307 |
+| 3 | 0,2828 | **0,0875** | **0,0768** |
+
+Runde 3 senkte den Trainingsverlust auf **ein Drittel** - und die
+Faehigkeitsquote bewegte sich **nicht** (19 von 45 vorher wie nachher). Der
+Loop hat den Stand deshalb **verworfen**. Genau das ist die Regel aus Spec §9:
+**dem Loss wird nicht geglaubt.** Ein abgesenkter Verlust ist kein
+Faehigkeitsfortschritt, und ohne diese Regel waere hier ein schlechterer Stand
+uebernommen worden.
+
+### O-T9 ist behoben - und hat sofort ausgeloest
+
+Der Strategiewechsel steht in `src/agent.rs`: `strategiewechsel(verworfen,
+dosis, replay, lr, paket)` liefert **Anzeige und anzuwendenden Hebel aus einer
+Quelle**, damit die Meldung nicht von der Wirkung abweichen kann. Die Leiter hat
+vier Sprossen mit begruendeter Reihenfolge (Dosis -> Datenmischung -> Lernrate ->
+Lernpaket); nach einer **Annahme** wird sie zurueckgesetzt. Drei Tests decken sie
+ab (`verwurf_erzwingt_genau_einen_strategiewechsel`, `dosis_hat_einen_deckel`,
+`replay_bleibt_nicht_negativ`).
+
+Im Lauf hat sie in Runde 3 gegriffen und gedruckt:
+
+```text
+Strategiewechsel (O-T9): train_steps 600 -> 1200 - Dosis: ... Untertraining,
+nicht Unfaehigkeit
+```
+
+Der erste GPU-Lauf hat zugleich einen **eigenen Fehler** aufgedeckt: der
+Strategiewechsel wurde **vor** dem Schreiben der Registry-Zeile angewendet,
+deshalb behauptete die Zeile fuer Runde 3 **1200** Schritte, obwohl 600
+gelaufen waren. Ein Register, das nicht den Lauf beschreibt, ist als Nachweis
+wertlos. Behoben: die tatsaechlich trainierte Dosis wird vor dem Wechsel
+festgehalten (`dosis_trainiert`).
+
+**Zweiter eigener Fehler, im selben Lauf gefunden:** jede Runde setzte vom
+**urspruenglichen** Elternteil fort (`opts.parent`), auch nach einer Annahme.
+Eine angenommene Runde haette ihren Fortschritt in der naechsten Runde wieder
+verloren, und der Vergleich vorher/nachher waere schief gewesen (vorher =
+angenommener Stand, nachher = Neustart vom Elternteil). Behoben: `resume_state`
+folgt dem angenommenen Zustand - Fortsetzen und Ruecknahme in einem. Belegt im
+Log: Runde 2 setzt `agent-sequence_reasoning-i1-step001000.state` fort, Runde 3
+`agent-sequence_reasoning-i2-step001600.state`.
+
+### GPU: O-T5 und O-T8 geschlossen, mit dem echten Modell statt mit dem Trockenlauf
+
+Die Geraetewahl ist jetzt **explizit** (`src/backend.rs`, `--backend auto|cuda|cpu`,
+`SHIRO_BACKEND`): CUDA wird **angetastet** (`Tensor::zeros` + `into_data`), bevor
+ihm vertraut wird, `auto` weicht auf die CPU aus, `cuda` **faellt nicht still
+zurueck**, sondern nennt den Bau. Acht Faelle live geprueft (auto -> CUDA,
+cuda -> CUDA, cpu -> Flex, CPU-Binary mit `--backend cuda` -> Fehler mit
+Bauanleitung, Umgebungsvariable, Flag schlaegt Umgebungsvariable, unbekannter
+Wert -> Fehler).
+
+| Lauf | Schritte | Sekunden | s/Schritt | Zielbytes | Bytes/s | GFLOPS (6ND/t) |
+|---|---|---|---|---|---|---|
+| CPU (exp-004, gleiche Config) | 150 | 527,45 | 3,516 | 488.219 | 926 | 25,9 |
+| GPU Runde 1 | 600 | 272,54 | **0,454** | 1.746.582 | 6.408 | **179,1** |
+| GPU Runde 2 | 600 | 222,42 | **0,371** | 1.748.147 | 7.860 | **219,6** |
+| GPU Runde 3 | 600 | 123,43 | **0,206** | 2.374.842 | 19.240 | **537,6** |
+
+Das ist **6,9x bis 20,8x** schneller als die CPU - nicht die 2,78x des
+Micro-Trockenlaufs (Batch 8x128). Der Grund ist die Batchgroesse: 16x512 fuellt
+die RTX 3060, 8x128 nicht. Die alte Zahl 2,78 war damit **kein** Schaetzer fuer
+den echten Betrieb, sondern eine Untergrenze aus einem zu kleinen Lauf.
+Live belegt waehrend des Trainings: `nvidia-smi` meldet **100 % Auslastung,
+4.866 MiB, 129,77 W**. Die ganze Runde (600 Schritte + Training + zwei
+Messungen) kostet **~4 Minuten**.
+
+**Kosten des ganzen Laufs:** 3 Runden in **~12 Minuten** (22:32:26 bis 22:44:17).
+Mit der CPU waeren es nach den gemessenen 3,5 s/Schritt **~1,75 h** gewesen.
+
+### Was dieser Lauf **nicht** beweist
+
+* **Kein Durchbruch bei `regel` und `reparatur`** (0/8 und 0/6). Beides sind
+  Typen, die die Regel **benennen** bzw. **minimal aendern** muessen - die
+  schwierigsten der Familie, und beide brauchen einen anderen Lernweg als
+  "Antwort ausrechnen".
+* **Keine Komposition, keine Invarianz, keine Oberflaechenunabhaengigkeit** -
+  die Saetze O-Z6/O-Z8/O-Z9 existieren noch nicht, `compositional` und
+  `adversarial` sind weiter **0** und werden als "nicht gemessen" gefuehrt.
+* **Keine Lernkurve ueber einen echten Epochendurchlauf.** 600 Schritte x Batch 16
+  = 9.600 von 50.000 Datensaetzen = **19,2 %** des Korpus einmal. Auch der
+  bestehende Stand hat den Korpus **nie ganz gesehen**.
+* **Kein Transfertest** (O-D21) und **keine externen Benchmarks**.
+
+### Offene Punkte danach
+
+* `O-T9` **geschlossen** (Implementierung, Tests, Ausloesung im Lauf belegt).
+* `O-T5` und `O-T8` **geschlossen** mit dem echten Modell (Tabelle oben).
+* `O-Z10` **geschlossen** (beide billigen Messungen liegen vor).
+* **Neu:** `regel` und `reparatur` haben je **0 Treffer** und brauchen ein
+  eigenes Lernpaket - geprueft werden muss, ob der Loop diese beiden Typen
+  ueberhaupt als eigene Klasse adressieren kann (heute waehlt er ueber die
+  Fehlerklasse, nicht ueber den Aufgabentyp).
+* **Neu:** Runde 3 zeigt eine **Saettigung** - die Dosis wirkt, aber der
+  Trainingsverlust sinkt ohne Faehigkeitsgewinn. Die naechste Steigerung darf
+  nicht mehr Dosis allein sein.
+* `O-T2` (Lernkurve ueber volle Epochen), `O-T4` (Hyperparameter von Hand),
+  `O-T6` (Fenster packen), `O-T7` (KV-Cache) bleiben offen.

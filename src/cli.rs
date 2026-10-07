@@ -280,6 +280,18 @@ pub struct Args {
     /// vervollstaendigen und die Antwort byte-genau vergleichen. `None` = nur
     /// Verlust messen.
     pub answers: Option<usize>,
+    /// Ursachen-Isolation fuer `eval`: drei Messungen auf **derselben**
+    /// Stichprobe - Teacher forcing (A), freie Erzeugung (B) und Inhalt bei
+    /// erzwungenem Abschluss (C), dazu die Entscheidungstabelle (n11).
+    ///
+    /// Braucht `--checkpoint`. Ohne `--answers` gilt eine Stichprobe von 120.
+    pub probe: bool,
+    /// Geraetewahl `auto` | `cuda` | `cpu` (**O-T8**). `None` = `SHIRO_BACKEND`
+    /// oder `auto`.
+    ///
+    /// Die Wahl liegt im `Args`, nicht im Subkommando: sie gilt fuer **jeden**
+    /// Pfad, der rechnet (`train` wie `chat`, `eval`, `export`, `agent`).
+    pub backend: Option<crate::backend::Backend>,
 }
 
 impl Default for Args {
@@ -298,6 +310,8 @@ impl Default for Args {
             temperature: 0.0,
             top_k: 0,
             answers: None,
+            probe: false,
+            backend: None,
         }
     }
 }
@@ -384,6 +398,11 @@ OPTIONEN FUER eval:
     --answers <N>         Trefferquote messen: N Datensaetze greedy
                           vervollstaendigen und byte-genau vergleichen
                           (braucht --checkpoint; familienunabhaengig)
+    --probe               Ursachen-Isolation statt einfacher Trefferquote:
+                          Teacher forcing (A), freie Erzeugung (B) und Inhalt
+                          bei erzwungenem Abschluss (C) auf derselben
+                          Stichprobe, mit Entscheidungstabelle (braucht
+                          --checkpoint; ohne --answers gilt N = 120)
 
 OPTIONEN FUER agent capability run:
     --parent <PFAD>       Trainingsstand (.state) zum Fortsetzen; ohne Angabe
@@ -395,10 +414,17 @@ OPTIONEN FUER agent capability run:
     --train-steps <N>     Schritte je Runde (Standard: aus der Capability)
     --dry-run             planen und Daten erzeugen, aber nicht trainieren
 
+GERAET:
+    --backend <ART>       auto | cuda | cpu. `auto` nimmt die GPU, wenn eine
+                          benutzbar ist, sonst die CPU. `cuda` verlangt die GPU
+                          (Fehler statt stillem Rueckfall). Ohne CUDA-Feature
+                          baut nur `cpu`/`auto`.
+
 UMGEBUNG:
     SHIRO_DATA            ueberschreibt data.dir        (im Container: /data)
     SHIRO_CHECKPOINTS     ueberschreibt run.output_dir  (im Container: /checkpoints)
     SHIRO_LOGS            ueberschreibt run.log_dir     (im Container: /logs)
+    SHIRO_BACKEND         auto | cuda | cpu (Standard: auto; --backend gewinnt)
 ";
 
 fn take_value(iter: &mut impl Iterator<Item = String>, flag: &str) -> Result<String> {
@@ -647,6 +673,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 }
                 out.answers = Some(n);
             }
+            "--probe" => out.probe = true,
             "--temp" => {
                 let v = take_value(&mut iter, "--temp")?;
                 out.temperature = v
@@ -665,6 +692,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 want_games = true;
             }
             "--resume" => out.resume = Some(PathBuf::from(take_value(&mut iter, "--resume")?)),
+            "--backend" => {
+                let v = take_value(&mut iter, "--backend")?;
+                out.backend = Some(crate::backend::Backend::parse(&v)?);
+            }
             other => {
                 // Ein alleinstehendes Wort nach `agent capability run` ist die
                 // Faehigkeits-ID (Spec §12: `shiro agent capability run sequence_reasoning`).

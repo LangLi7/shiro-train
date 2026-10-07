@@ -29,6 +29,16 @@ held_out = true
 compositional = false
 adversarial = false
 
+# **Metrik-Schaerfung (gemessener Grund).** Der Typ `vergleich` hat einen
+# 1-Byte-Antwortraum ('A'/'B') und eine Shortcut-Baseline von 49,3 %. Im ersten
+# Loop-Lauf kamen ALLE fuenf Treffer von 48 aus `vergleich` (3/3) und `stelle`
+# (1/6), waehrend die fuenf inhaltlichen Typen zusammen 0 von 39 standen. Eine
+# Kopfzahl, die solche Typen mitzaehlt, misst den Antwortraum, nicht die
+# Faehigkeit. Deshalb: diese Typen werden GETRENNT berichtet und gehen NICHT in
+# `exact_match_content` und damit nicht in den Score ein.
+[metric]
+kurzantwort_typen = ["vergleich"]
+
 [pass_criteria]
 # Trefferquote auf dem festen Referenzsatz (24 Datensaetze, jeder stride-te).
 exact_match_min = 0.60
@@ -56,7 +66,12 @@ max_iterations = 3
 # Satz ist deshalb 48 Datensaetze gross (Granularitaet 2,1 Prozentpunkte).
 eval_records = 48
 regression_records = 32
-train_steps = 150
+# **Dosis 600 statt 150 (genehmigter naechster Schritt 1).** Gemessener Grund:
+# 150 Schritte x Batch 16 = 2400 Datensaetze, der Trainingsshard hat 50.000 -
+# der erste Loop-Lauf sah also **4,8 %** des Korpus ein einziges Mal. Bei so
+# wenig Dosis ist "0 von 39 inhaltlichen Treffern" eine Aussage ueber die Dosis,
+# nicht ueber die Faehigkeit. 600 Schritte = 9600 Datensaetze = 19,2 % einmal.
+train_steps = 600
 plateau_patience = 2
 # Anteil Wiederholung aus dem urspruenglichen Trainingsband gegen Vergessen.
 replay_share = 0.35
