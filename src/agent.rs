@@ -569,6 +569,21 @@ pub enum Pack {
     Stellenwert,
     /// Kein klarer Schwerpunkt: dieselbe Verteilung wie der Basiskorpus.
     Breit,
+    /// **Aufgabentyp-getrieben:** nur `reparatur` (MINIMIEREN).
+    ///
+    /// Neu nach exp-007: dieser Typ stand in **beiden** Baendern bei null
+    /// (Held-out 0 von 12, Training 1 von 13), waehrend alle anderen Typen im
+    /// Training 100 % erreichten. Ein Typ, der auch auf dem Trainingsband
+    /// scheitert, ist kein Generalisierungsproblem - ihm fehlt gezielte Dosis,
+    /// und die Fehlerklassen-Auswahl kann ihn gar nicht treffen, weil seine
+    /// Fehler als `wrong_parameter` ankommen und damit im Stellenwert-Paket
+    /// landen.
+    Reparatur,
+    /// **Aufgabentyp-getrieben:** nur `stelle` (LOKALISIEREN).
+    ///
+    /// Unterdurchschnittlich mit 19 von 27 (70,4 %) im Held-out, obwohl die
+    /// Antwortform kurz ist (`x` allein, 8 Byte).
+    Stelle,
 }
 
 impl Pack {
@@ -589,11 +604,57 @@ impl Pack {
         }
     }
 
+    /// **Die schwaechste Aufgabengattung als Paket** - die zweite Auswahlachse.
+    ///
+    /// Die Fehlerklasse sagt, **wie** ein Modell danebenliegt; der Aufgabentyp
+    /// sagt, **wo**. Beide Achsen sind noetig, und exp-007 hat gezeigt, warum:
+    /// `reparatur` erzeugte die Fehlerklasse `wrong_parameter` und landete
+    /// dadurch im Stellenwert-Paket - das trainiert mehrstellige Zahlen, nicht
+    /// Minimieren. Die Schwaeche blieb drei Runden lang bei null.
+    ///
+    /// Regel: der Typ mit der **niedrigsten Trefferquote** unter allen
+    /// inhaltlichen Typen, sofern er mindestens `MIN_FAELLE` gestellt wurde
+    /// (sonst waere 0 von 1 kein Befund) und unter `SCHWACH` liegt.
+    pub fn for_schwaechsten_typ(cases: &[Case], metric: &MetricConfig) -> Option<Pack> {
+        let mut pro_typ: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        for c in cases {
+            if metric.ist_kurzantwort(&c.category) {
+                continue;
+            }
+            let e = pro_typ.entry(c.category.clone()).or_insert((0, 0));
+            e.0 += 1;
+            if c.correct {
+                e.1 += 1;
+            }
+        }
+        let mut bestes: Option<(&str, f64)> = None;
+        for (typ, (n, ok)) in &pro_typ {
+            if *n < MIN_FAELLE {
+                continue;
+            }
+            let quote = *ok as f64 / *n as f64;
+            if quote >= SCHWACH {
+                continue;
+            }
+            match bestes {
+                Some((_, q)) if q <= quote => {}
+                _ => bestes = Some((typ.as_str(), quote)),
+            }
+        }
+        match bestes?.0 {
+            "reparatur" => Some(Pack::Reparatur),
+            "stelle" => Some(Pack::Stelle),
+            _ => None,
+        }
+    }
+
     pub fn key(self) -> &'static str {
         match self {
             Pack::Terminierung => "terminierung",
             Pack::Frageart => "frageart",
             Pack::Stellenwert => "stellenwert",
+            Pack::Reparatur => "reparatur",
+            Pack::Stelle => "stelle",
             Pack::Breit => "breit",
         }
     }
@@ -605,10 +666,21 @@ impl Pack {
             }
             Pack::Frageart => "Fragezeile zuerst: die Frageart muss vor den Zahlen gelesen werden",
             Pack::Stellenwert => "nur Antworten ab drei Ziffern: Stellenwert statt Ziffernmuster",
+            Pack::Reparatur => {
+                "nur Aufgabentyp reparatur (MINIMIEREN): er steht in beiden Baendern bei null - die Fehlerklasse zeigt dorthin nicht"
+            }
+            Pack::Stelle => {
+                "nur Aufgabentyp stelle (LOKALISIEREN): unterdurchschnittlich trotz kurzer Antwort"
+            }
             Pack::Breit => "kein klarer Schwerpunkt: dieselbe Verteilung wie der Basiskorpus",
         }
     }
 }
+
+/// Ab so vielen gestellten Faellen gilt eine Quote als Befund.
+pub const MIN_FAELLE: usize = 6;
+/// Unter dieser Quote gilt ein Aufgabentyp als schwach (Pack-Kandidat).
+pub const SCHWACH: f64 = 0.75;
 
 /// Stellt die `Frage:`-Zeile im Aufgabentext nach vorn.
 ///
@@ -677,6 +749,24 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
                     }
                 }
             }
+        }
+        Pack::Reparatur | Pack::Stelle => {
+            // **Ein Aufgabentyp, sonst nichts.** Der Generator kann nach
+            // Kategorie filtern; genau das braucht ein typ-getriebenes Paket.
+            let cat = if pack == Pack::Reparatur {
+                seq::Category::Reparatur
+            } else {
+                seq::Category::Stelle
+            };
+            let opts = seq::Options {
+                train_records: n.saturating_mul(6).max(240),
+                val_percent: 0,
+                seed,
+                category: Some(cat),
+                level: None,
+            };
+            let g = seq::generate(&opts)?;
+            roh = g.train.into_iter().map(|r| r.record).collect();
         }
         Pack::Breit => {
             let opts = seq::Options {
@@ -836,6 +926,32 @@ fn lade_trainer(cfg: &ModelConfig, seed: u64, checkpoint: &Path) -> Result<(LmTr
     ))
 }
 
+/// **Das Erzeugungsbudget eines Datensatzes.** `None`, wenn der Datensatz kein
+/// Antwortfeld hat oder Antwort + Kontext nicht ins Fenster passen.
+///
+/// **`max_new` ist eine UNTERGRENZE, keine Obergrenze - und das ist eine
+/// Korrektur mit gemessenem Anlass (exp-007).** Die Antworten des Typs `regel`
+/// sind **23 bis 33 Bytes** lang (Mittel 29,1; **94,1 % ueber 24 Bytes**), alle
+/// anderen Typen bleiben unter 19. Mit dem festen Budget 24 aus dem ersten Loop
+/// wurden die Regelantworten deshalb **abgeschnitten** und damit **jedes Mal als
+/// falsch gezaehlt**: der Loop meldete `regel` **0 von 8**, waehrend dieselbe
+/// Modellstufe nach der Sonde (`src/probe.rs`, Budget `soll.len() + 2`) **14 von
+/// 16** traf. Ein abgeschnittenes Ziel ist kein Modellfehler, sondern ein
+/// Messfehler.
+///
+/// Dass ein groesseres Budget ein Ergebnis nicht **veraendern** kann, ist eine
+/// Eigenschaft der Bauart: Greedy-Erzeugung ist prefix-deterministisch, Byte
+/// `i+1` haengt nur von den Bytes `0..=i` ab, nie vom Budget.
+pub fn budget_fuer(rec: &[u8], prompt_len: usize, max_new: usize, seq_len: usize) -> Option<usize> {
+    let soll = seq::answer_in(rec)?;
+    // Antwortbytes + zwei Bytes fuer die Ende-Marke.
+    let budget = max_new.max(soll.len() + 2);
+    if prompt_len + budget > seq_len {
+        return None;
+    }
+    Some(budget)
+}
+
 /// Erzeugt Antworten greedy und klassifiziert jeden Fehlfall.
 pub fn measure_answers(
     cfg: &ModelConfig,
@@ -851,10 +967,11 @@ pub fn measure_answers(
             continue;
         };
         let prompt = &rec[..=p];
-        if prompt.len() + 2 >= cfg.max_seq_len {
+        // **Kein Abschneiden langer Antworten** (siehe [`budget_fuer`]).
+        let Some(budget) = budget_fuer(rec, prompt.len(), max_new, cfg.max_seq_len) else {
             continue;
-        }
-        let out = trainer.generate(prompt, max_new, 0.0, 0, seed)?;
+        };
+        let out = trainer.generate(prompt, budget, 0.0, 0, seed)?;
         let leer: [u8; 0] = [];
         let raw = out.get(prompt.len()..).unwrap_or(&leer);
         let (got, class) = classify(rec, raw);
@@ -1469,10 +1586,32 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             break;
         }
 
-        // (2) Lernpaket aus der dominanten Fehlerklasse waehlen (Spec §6/§7).
-        let mut pack = dom.map(Pack::for_class).unwrap_or(Pack::Breit);
-        // Ein erzwungener Paketwechsel (O-T9) hat Vorrang vor der Fehlerklasse:
-        // er ist die begruendete Antwort darauf, dass dieselbe Zielklasse nicht
+        // (2) Lernpaket waehlen (Spec §6/§7) - **zwei Achsen, nicht eine**.
+        //
+        // Die Fehlerklasse sagt, **wie** das Modell danebenliegt; der Aufgabentyp
+        // sagt, **wo**. exp-007 hat gezeigt, dass die Klassenachse allein eine
+        // Luecke hat: `reparatur` erzeugte die Klasse `wrong_parameter` und
+        // landete dadurch im Stellenwert-Paket - das trainiert mehrstellige
+        // Zahlen, nicht Minimieren. Der Typ blieb drei Runden lang bei null,
+        // obwohl er auf dem Trainingsband 1 von 13 traf (also kein
+        // Generalisierungsproblem, sondern fehlende gezielte Dosis). Deshalb hat
+        // ein eindeutig schwacher **Aufgabentyp** Vorrang vor der Fehlerklasse.
+        let typ_pack = Pack::for_schwaechsten_typ(&before_cases, &cap.metric);
+        let klasse_pack = dom.map(Pack::for_class).unwrap_or(Pack::Breit);
+        let mut pack = match typ_pack {
+            Some(p) => {
+                println!(
+                    "Auswahlachse  : Aufgabentyp -> {} ({}) statt Fehlerklasse {}",
+                    p.key(),
+                    p.reason(),
+                    klasse_pack.key()
+                );
+                p
+            }
+            None => klasse_pack,
+        };
+        // Ein erzwungener Paketwechsel (O-T9) hat Vorrang vor beiden Achsen:
+        // er ist die begruendete Antwort darauf, dass das vorige Paket nicht
         // weitergeholfen hat.
         if let Some(p) = erzwungenes_pack.take() {
             if p != pack {
@@ -2105,6 +2244,106 @@ mod tests {
         assert!((inhalt.anteil() - 0.5).abs() < 1e-9);
         // Ein leerer Topf ist 0.0, nie NaN.
         assert_eq!(Quote::default().anteil(), 0.0);
+    }
+
+    /// **Regressionstest zum gemessenen Messfehler aus exp-007.**
+    ///
+    /// Die Antworten des Typs `regel` sind 23-33 Bytes lang. Mit einem festen
+    /// Budget von 24 wurden sie abgeschnitten und dadurch **immer** als falsch
+    /// gezaehlt: der Loop meldete `regel` 0 von 8, dieselbe Modellstufe traf
+    /// nach der Sonde aber 14 von 16. Das Budget muss die Antwortlaenge
+    /// mindestens abdecken.
+    #[test]
+    fn budget_schneidet_lange_antworten_nicht_ab() {
+        use crate::data::bytes::{B_ANSWER, B_END};
+        // Eine typische Regelantwort: 26 Bytes.
+        let antwort = b"gleichbleibende Differenz";
+        assert!(antwort.len() > 24, "der Testfall muss laenger als 24 sein");
+        let mut rec = b"Folge: 1, 2, 3, 4, 5\nRegel: gleichbleibende Differenz\n".to_vec();
+        rec.push(B_ANSWER);
+        rec.extend_from_slice(antwort);
+        rec.push(B_END);
+
+        let b = budget_fuer(&rec, 64, 24, 512).expect("Budget");
+        assert!(
+            b >= antwort.len() + 2,
+            "das Budget {b} muss Antwort ({} B) plus Ende-Marke abdecken",
+            antwort.len()
+        );
+        // Die Untergrenze bleibt erhalten: kurze Antworten bekommen `max_new`.
+        let mut kurz = b"x\n".to_vec();
+        kurz.push(B_ANSWER);
+        kurz.extend_from_slice(b"7");
+        kurz.push(B_END);
+        assert_eq!(budget_fuer(&kurz, 10, 24, 512), Some(24));
+
+        // Ohne Antwortfeld gibt es kein Budget - der Datensatz wird uebersprungen.
+        assert_eq!(budget_fuer(b"nur Text", 10, 24, 512), None);
+        // Passt Antwort + Kontext nicht ins Fenster, wird ebenfalls uebersprungen.
+        assert_eq!(budget_fuer(&rec, 500, 24, 512), None);
+    }
+
+    /// **Regressionstest zur zweiten Auswahlachse (exp-007/exp-008).**
+    ///
+    /// `reparatur` stand in beiden Baendern bei null und wurde von der
+    /// Fehlerklassen-Achse nie getroffen, weil seine Fehler als
+    /// `wrong_parameter` ankommen. Der Typ muss das Paket selbst waehlen.
+    #[test]
+    fn schwacher_aufgabentyp_waehlt_das_paket() {
+        let metric = MetricConfig {
+            kurzantwort_typen: vec!["vergleich".to_string()],
+        };
+        let fall = |typ: &str, richtig: bool| Case {
+            index: 0,
+            category: typ.to_string(),
+            expected: "x".into(),
+            got: if richtig { "x".into() } else { "y".into() },
+            correct: richtig,
+            class: None,
+        };
+        // 6x reparatur falsch, 6x luecke richtig -> reparatur ist der schwaechste.
+        let mut cases = Vec::new();
+        for _ in 0..6 {
+            cases.push(fall("reparatur", false));
+            cases.push(fall("luecke", true));
+        }
+        assert_eq!(
+            Pack::for_schwaechsten_typ(&cases, &metric),
+            Some(Pack::Reparatur)
+        );
+
+        // Umgekehrt: stelle schwach, reparatur gut.
+        let mut cases2 = Vec::new();
+        for _ in 0..6 {
+            cases2.push(fall("stelle", false));
+            cases2.push(fall("reparatur", true));
+        }
+        assert_eq!(
+            Pack::for_schwaechsten_typ(&cases2, &metric),
+            Some(Pack::Stelle)
+        );
+
+        // Zu wenige Faelle sind KEIN Befund (0 von 1 ist kein Beweis).
+        let duenn = vec![fall("reparatur", false)];
+        assert_eq!(Pack::for_schwaechsten_typ(&duenn, &metric), None);
+
+        // Ueber der Schwelle gibt es nichts zu reparieren.
+        let mut gut = Vec::new();
+        for _ in 0..8 {
+            gut.push(fall("reparatur", true));
+        }
+        assert_eq!(Pack::for_schwaechsten_typ(&gut, &metric), None);
+
+        // Der Kurzantwort-Typ zaehlt nicht mit - sonst waere er dauernd
+        // "schwach" und wuerde das Paket an sich ziehen.
+        let mut kurz = Vec::new();
+        for _ in 0..10 {
+            kurz.push(fall("vergleich", false));
+        }
+        for _ in 0..6 {
+            kurz.push(fall("luecke", true));
+        }
+        assert_eq!(Pack::for_schwaechsten_typ(&kurz, &metric), None);
     }
 
     #[test]

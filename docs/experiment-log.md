@@ -341,6 +341,19 @@ sondern Verteilung nahe am Training.
 sind damit **19 von 45** inhaltlichen Fragen richtig - und die zwei Typen
 `regel` und `reparatur` stehen weiter bei **0**.
 
+> **KORREKTUR NACHGETRAGEN (exp-007, 08.10.2026) - die `regel`-Zahlen dieses
+> Eintrags sind ein MESSFEHLER, kein Befund.** `src/agent.rs::measure_answers`
+> erzeugte mit einem **festen Budget von 24 Bytes**. Die Antworten des Typs
+> `regel` sind aber **23 bis 33 Bytes** lang (Mittel 29,1; **672 von 714 =
+> 94,1 % ueber 24 Bytes**; alle uebrigen Typen bleiben unter 19). Jede
+> Regelantwort wurde damit **abgeschnitten** und zwangslaeufig als falsch
+> gezaehlt. Dieselbe Modellstufe trifft nach der Sonde (`src/probe.rs`, Budget
+> `soll.len() + 2`) **14 von 16** statt 0 von 8. Die uebrigen Aussagen dieses
+> Eintrags (Verlauf, Annahme/Verwurf, `reparatur` 0, Terminierung) bleiben
+> gueltig; die **absoluten Quoten sind zu niedrig** - nach dem Fix liest
+> derselbe Messpfad auf demselben 48er-Satz **13,3 % statt 2,2 %**.
+> Belege und die korrigierten Zahlen: **exp-007**.
+
 **Fehlerklassen, Verlauf:** `missing_stop` 12 -> 11 -> 8, `wrong_parameter`
 12 -> 8 -> 10, `place_value_error` 7 -> 5 -> 3, `arithmetic_error` 11 -> 11 -> 4.
 Neu ab Runde 2: `premature_stop` 2 und `repetition` 1 (das Modell bricht jetzt
@@ -589,3 +602,188 @@ exp-005 ab (dort 3 `vergleich`-Faelle, hier 15). Teacher forcing prueft **nicht*
 die Frageart - der wahre Prefix endet an der Antwortmarke. Und die Sonde grenzt
 zwar ein (Inhalt, nicht Abschluss), zerlegt den Inhalt aber nicht in Regelwahl,
 Rechnung und Format.
+---
+
+## exp-007 - 4-Werte-Messpanel: Train-EM, Held-out-EM, Teacher-forced, EOS-fixed
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` · **Backend fuer ALLE
+Messungen:** CPU `Device<Flex(Cpu)>` (Kreuz-Backend-Vergleich ist nach O-T3/D-023
+nicht bitbelegt) · **Threads:** `RAYON_NUM_THREADS=12` · **Werkzeug:** die Sonde
+`shiro eval --probe` (`src/probe.rs`, n11 der Parallelsitzung) - **kein neues
+Training, keine GPU, keine Aenderung am Korpus** · **Kein Commit** (Auflage des
+Auftrags).
+
+**Anlass.** Der Nutzer verlangt vier Zahlen statt beilaeufiger Einzelmessungen:
+Train Exact Match, Held-out Exact Match, Teacher-forced Antwortgenauigkeit und
+Exact Match mit sauber behandeltem EOS - und daraus die Einordnung in sein
+Fall-Schema A-D (Generalisierung / Ausfuehrung-Terminierung / echte Faehigkeit /
+alles zugleich). Damit werden die alte 18,3-%-Zahl (exp-002) und die
+Loop-Notiz 8,3 -> 10,4 % in **einem** Panel zusammengefuehrt.
+
+### Die vier Werte (eine Modellstufe, zwei Baender)
+
+Modellstand: `checkpoints/agent-sequence_reasoning-i2-step1600.safetensors`
+(der in exp-005 **angenommene** Stand), SHA-256
+`2f10680d75da1b1c0fd6e6a35e5fb013e962cf77df1f877143018b3ffad32abb`,
+18.631.832 B; zugehoeriger Resume-Stand
+`agent-sequence_reasoning-i2-step001600.state` (55.879.750 B, SHA-256
+`f6269dc7fe4377606e621f8cb68ed5379477926e035ee82b207acbba1dcf59b9`), run.id
+`agent-sequence_reasoning-i2`, Schritt **1600**.
+
+| # | Kennzahl | Training (120) | Held-out (120) |
+|---|---|---|---|
+| 1 | **Train Exact Match** (frei, greedy, byte-genau) | **87,5 %** (105/120) | - |
+| 2 | **Held-out Exact Match** (frei, greedy, byte-genau) | - | **65,8 %** (79/120) |
+| 3 | **Teacher-forced Antwortgenauigkeit** (Argmax ueber das ganze Antwortfeld) | 87,5 % (105/120) | 68,3 % (82/120) |
+| 4 | **Exact Match mit sauberem EOS** (Inhalt an der Soll-Laenge) | 87,5 % (105/120) | 68,3 % (82/120) |
+
+Ergaenzende Rohwerte desselben Laufs (Held-out): Antwortbyte-Treffer unter
+Teacher forcing **92,3 %** (946/1025), CE der Antwortsektion 0,2964, ENDE an der
+richtigen Stelle **93,3 %** (112/120) mit mittlerer Wahrscheinlichkeit 0,9095,
+ENDE ueberhaupt gesetzt 94,2 %. Training: Antwortbyte-Treffer 97,1 % (937/965),
+ENDE an der richtigen Stelle 99,2 %.
+
+**Die vierte Zahl fuegt hier nichts hinzu - und das ist selbst ein Befund.** Der
+Kreuzvergleich meldet fuer den angenommenen Stand **0 Faelle**, in denen der
+Inhalt stimmt und nur der Abschluss fehlt (Held-out: 3 Faelle; Training: 0).
+`C == B` heisst: **es gibt kein Terminierungsproblem.** Wer die Antwort richtig
+hat, setzt auch die Ende-Marke.
+
+### Teilmengen (festgenagelt)
+
+* **Held-out:** `data/seq/val`, **jeder 41. Datensatz** des Shards, 120 Stueck,
+  0 uebersprungen - dieselbe Auswahlregel wie `shiro eval --answers` und damit
+  anschlussfaehig an exp-002.
+* **Trainingsband:** `data/seq/train`, dieselbe Auswahlregel, 120 Stueck,
+  0 uebersprungen.
+* Die Zuordnung Typ -> Datensatz kommt aus der JSONL-Begleitung
+  (`data/seq/jsonl/{train,val}.jsonl`, Zeilenfolge = Shard-Reihenfolge).
+
+### Trefferquote je Aufgabentyp (angenommener Stand)
+
+| Typ | gestellt | A-Byte % | A-exakt | B-exakt | C-Inhalt | B-exakt (Train) |
+|---|---|---|---|---|---|---|
+| `luecke` | 17 | 81,0 | 11 | 11 | 11 | 19/19 |
+| `naechste` | 15 | 70,8 | 8 | 8 | 8 | 16/16 |
+| `offen` | 18 | 76,6 | 13 | 13 | 13 | 19/19 |
+| `regel` | 16 | 99,8 | 15 | 14 | 15 | 16/17 |
+| `reparatur` | 12 | 77,5 | **0** | **0** | **0** | **1/13** |
+| `stelle` | 27 | 96,8 | 20 | 19 | 20 | 21/23 |
+| `vergleich` | 15 | 100,0 | 15 | 14 | 15 | 13/13 |
+
+**Ein Typ traegt den ganzen Rest: `reparatur` steht in BEIDEN Baendern bei
+null** (Held-out 0 von 12, Training 1 von 13). Alle uebrigen Typen liegen im
+Training bei 100 %. Das ist kein Generalisierungs-, sondern ein
+**Faehigkeits-/Datenproblem genau dieses Aufgabentyps**.
+
+### Einordnung in das Fall-Schema A-D
+
+Der Nutzer nennt vier Faelle. Gemessen ist:
+
+| | Train EM | Held-out EM | Teacher-forced | EOS-fixed |
+|---|---|---|---|---|
+| Nutzer-Fall A (Generalisierung) | 85 % | 18 % | 91 % | 80 % |
+| Nutzer-Fall B (Ausfuehrung+Training) | 20 % | 18 % | 70 % | 55 % |
+| Nutzer-Fall C (Faehigkeit funktioniert) | 90 % | 85 % | 93 % | 88 % |
+| Nutzer-Fall D (alles zugleich) | 15 % | 10 % | 20 % | 12 % |
+| **gemessen (i2-step1600)** | **87,5 %** | **65,8 %** | **68,3 %** | **68,3 %** |
+
+**Urteil: Fall C mit einer Generalisierungsnaht - und zwar der Naht, die Fall A
+beschreibt, nur in milder Form.** Begruendung, jede Aussage einzeln geprueft:
+
+* **Nicht Fall A:** der verlangt ein Held-out-EM von 18 %; gemessen sind
+  **65,8 %**. Die Faehigkeit ist auf unberuehrten Daten da, nicht weg.
+* **Nicht Fall B:** der verlangt, dass die EOS-korrigierte Quote **deutlich ueber**
+  der freien liegt. Gemessen ist `C == B` (0 Terminierungsfaelle). Es gibt hier
+  nichts zu reparieren.
+* **Nicht Fall D:** der verlangt, dass auch Teacher-forced zusammenbricht.
+  Gemessen sind 87,5 % (Training) bzw. 68,3 % (Held-out) - das Modell **kennt**
+  die Antworten zu 92,3 % byteweise.
+* **Fall C, aber nicht vollstaendig:** Train 87,5 % gegen Held-out 65,8 % ist ein
+  Abstand von **22,0 Prozentpunkten**. Fall C verlangt 90/85 (Abstand 5). Der
+  Abstand ist also real und der einzige echte Befund dieses Panels.
+
+**Der eine harte Ausreisser bleibt `reparatur`** (0 von 12 und 1 von 13): fuer
+diesen Typ gilt **Fall D** - er funktioniert in keinem Band.
+
+### Nebenbei: die Lernkurve (O-T2) ist damit belegt
+
+| Stand | Schritte | Held-out EM (120) | Quelle |
+|---|---|---|---|
+| `seq-step200` | 200 | 18,3 % (22/120) | exp-002 |
+| `seq-step400` | 400 | **28,3 %** (34/120) | dieses Panel |
+| `i2-step1600` (angenommen) | 1600 | **65,8 %** (79/120) | dieses Panel |
+| `i3-step2200` (verworfen) | 2200 | 67,5 % (81/120) | dieses Panel |
+
+Die Trefferquote steigt monoton mit der Dosis - **18,3 -> 28,3 -> 65,8 %**. Der
+verworfene Stand i3 liegt mit 67,5 % nur **1,7 Prozentpunkte** (2 Datensaetze von
+120) ueber dem angenommenen; die Ablehnung durch den Loop war im Rahmen des
+Rauschens vertretbar.
+
+### Der wichtigste eigene Fehler: das Loop-Budget schnitt `regel` ab
+
+**Befund.** Der Loop meldete in exp-005 `regel` **0 von 8** und eine inhaltliche
+Quote von **2,2 %** (1 von 45). Die Sonde meldet fuer **dieselbe Modellstufe**
+`regel` **14 von 16** und **28,3 %** (Held-out, 120). Ursache, gemessen an den
+Korpusdaten:
+
+```text
+Typ               n    min    max   mittel   ueber 24 B
+luecke          715      2      4      2,5   0 (0,0 %)
+naechste        715      2      5      2,9   0 (0,0 %)
+offen           714      2     18      3,2   0 (0,0 %)
+regel           714     23     33     29,1   672 (94,1 %)   <-- hier
+reparatur       714     12     15     12,6   0 (0,0 %)
+stelle          714      8      8      8,0   0 (0,0 %)
+vergleich       714      1      1      1,0   0 (0,0 %)
+```
+
+**`src/agent.rs::measure_answers` erzeugte mit einem festen Budget von 24 Bytes.**
+Die Antworten des Typs `regel` sind 23-33 Bytes lang - **94,1 % davon ueber 24**.
+Jede Regelantwort wurde also **abgeschnitten** und zwangslaeufig als falsch
+gezaehlt. Ein abgeschnittenes Ziel ist kein Modellfehler, sondern ein Messfehler,
+und er hat in exp-005 die Hauptzahl **und** die Diagnose "die zwei Typen `regel`
+und `reparatur` stehen bei 0" erzeugt.
+
+**Fix (eingebaut, NICHT committet - Commit-Auflage des Auftrags).** Neue reine
+Funktion `budget_fuer(rec, prompt_len, max_new, seq_len)`: das Budget ist
+`max(antwortlaenge + 2, max_new)`; `max_new` ist damit eine **Untergrenze**. Die
+Sonde benutzt seit jeher dasselbe Prinzip (`soll.len() + 2`). Dass ein groesseres
+Budget ein Ergebnis nicht **veraendern** kann, ist eine Eigenschaft der Bauart:
+Greedy-Erzeugung ist prefix-deterministisch, Byte `i+1` haengt nur von `0..=i` ab.
+Regressionstest `budget_schneidet_lange_antworten_nicht_ab` (16 Modultests in
+`agent::` gruen).
+
+**Gegenprobe am Binary, gleicher Stand, gleicher 48er-Satz:**
+
+| | vorher (exp-005) | nachher (Fix) |
+|---|---|---|
+| Baseline inhaltlich | 2,2 % (1/45) | **13,3 % (6/45)** |
+| Baseline gesamt | 8,3 % | **18,8 %** |
+| `regel` | 0/8 | **5/8** |
+| Trainingsband inhaltlich | 17,9 % (5/28) | **21,4 %** (6/28) |
+
+**Der Messfehler drueckte die Hauptzahl um Faktor 6.** Was in exp-005 gueltig
+bleibt: die Richtung (beide Runden verbessert), die Annahme-/Verwurfs-
+Entscheidungen, `reparatur` = 0, und die Terminierung als Fehlerklasse. Was
+nicht gueltig bleibt: die absoluten Quoten und die Aussage "`regel` steht bei 0".
+
+### Abgrenzung und offene Punkte
+
+* **Kein Kausalbeleg fuer "Dosis wirkt".** Das Panel zeigt eine Monotonie ueber
+  vier Staende, aber jeder Stand stammt aus einem anderen Lauf mit anderem
+  gezielten Korpus. Die Zuordnung "mehr Schritte -> mehr Treffer" ist plausibel
+  und gestuetzt, nicht bewiesen.
+* **`n = 120` ist eine Auswahl, kein Zensus.** Ein Datensatz sind 0,83
+  Prozentpunkte; Unterschiede unter ~3 Punkten sind Rauschen.
+* **O-Z6/O-Z8/O-Z9 sind gebaut, aber NICHT gemessen.** Die drei neuen Korpora
+  (40 Datensaetze je Satz, Verifier und Pruefer belegt) sind noch durch kein
+  Modell gelaufen; `compositional`/`adversarial` bleiben deshalb 0.
+* **`reparatur` braucht einen eigenen Lernweg** - er ist der einzige Typ, der in
+  beiden Baendern scheitert, und der Loop waehlt sein Lernpaket ueber die
+  **Fehlerklasse**, nicht ueber den Aufgabentyp. Diese Luecke ist neu und
+  konkret.
+* **Exp-002-Anschluss mit Vorbehalt:** exp-002 mass `seq-step200` mit dem
+  `--answers`-Pfad (`answers_core`, groesseres Budget), nicht den Loop-Pfad;
+  deshalb war dort **nicht** abgeschnitten. Die Staende unterscheiden sich
+  (200 gegen 400 Schritte), die Zahlen sind also nicht identisch messbar.
