@@ -254,7 +254,7 @@ pub fn rechne(regel: Regel, p: &Params, len: usize) -> Option<Vec<i64>> {
                     .checked_add(p.c.checked_mul(two - 1)?)?
             }
         };
-        if wert < 1 || wert > WERT_MAX {
+        if !(1..=WERT_MAX).contains(&wert) {
             return None;
         }
         v.push(wert);
@@ -324,8 +324,7 @@ pub fn kandidaten(regel: Regel, s: &[Option<i64>]) -> Vec<Params> {
         }
         Regel::Faktor => {
             for r in 2..=12i64 {
-                for a in 0..k.len() {
-                    let (i, vi) = k[a];
+                for (i, vi) in k.iter().copied() {
                     let Some(pow) = potenz(r, i) else { continue };
                     if vi % pow != 0 {
                         continue;
@@ -986,7 +985,7 @@ pub fn folge_lesen(text: &str) -> Option<Vec<Option<i64>>> {
                 return None;
             }
             let v: i64 = t.parse().ok()?;
-            if v < 1 || v > WERT_MAX {
+            if !(1..=WERT_MAX).contains(&v) {
                 return None;
             }
             out.push(Some(v));

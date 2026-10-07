@@ -56,6 +56,23 @@ pub enum Command {
     GenerateGames {
         opts: GamesGenOptions,
     },
+    /// Agentischer Capability-Loop (Spec §12): `agent capability run <id>`.
+    ///
+    /// Misst eine Faehigkeit, klassifiziert die Fehler, erzeugt **gezielte**
+    /// Trainingsdaten, trainiert, misst erneut und nimmt den neuen Stand nur an,
+    /// wenn der Capability-Score steigt und keine kritische Regression auftritt.
+    Agent {
+        /// Faehigkeits-ID, z. B. `sequence_reasoning`.
+        capability: String,
+        /// Trainingsstand zum Fortsetzen (`.state`).
+        parent: Option<PathBuf>,
+        /// Gewichte fuer die Messung (`safetensors`).
+        weights: Option<PathBuf>,
+        iterations: Option<usize>,
+        eval_records: Option<usize>,
+        train_steps: Option<usize>,
+        dry_run: bool,
+    },
     ValidateData,
     /// Checkpoint-Digest gegenpruefen.
     VerifyCheckpoint {
@@ -300,6 +317,8 @@ SUBKOMANDOS:
     data generate-format  Korpus \"Format-Erkennung aus Bytes\" erzeugen
     data generate-quant   Korpus \"Quantoren, Syllogistik und Mengen\" erzeugen
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
+    agent capability run  Agentischer Loop: messen, Fehler klassifizieren, gezielt
+                          nachtrainieren, annehmen oder verwerfen (Spec §12)
     validate-data         Shards und Manifest pruefen
     verify-checkpoint     Checkpoint-Digest gegenpruefen
     export                Modellordner schreiben (model.safetensors + JSON)
@@ -366,6 +385,16 @@ OPTIONEN FUER eval:
                           vervollstaendigen und byte-genau vergleichen
                           (braucht --checkpoint; familienunabhaengig)
 
+OPTIONEN FUER agent capability run:
+    --parent <PFAD>       Trainingsstand (.state) zum Fortsetzen; ohne Angabe
+                          wird nur gemessen
+    --weights <PFAD>      Gewichte (.safetensors) fuer die Messung; sonst aus
+                          --parent abgeleitet (step000400 -> step400)
+    --iterations <N>      Obergrenze der Runden (Standard: aus der Capability)
+    --eval-records <N>    Datensaetze im festen Referenzsatz (Standard: 24)
+    --train-steps <N>     Schritte je Runde (Standard: aus der Capability)
+    --dry-run             planen und Daten erzeugen, aber nicht trainieren
+
 UMGEBUNG:
     SHIRO_DATA            ueberschreibt data.dir        (im Container: /data)
     SHIRO_CHECKPOINTS     ueberschreibt run.output_dir  (im Container: /checkpoints)
@@ -398,6 +427,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_quant = false;
     let mut want_seq = false;
     let mut want_games = false;
+    // Agentischer Loop: drei Woerter (`agent capability run`) plus Positional.
+    let mut saw_agent = false;
+    let mut saw_capability = false;
+    let mut saw_run = false;
+    let mut agent_cap: Option<String> = None;
+    let mut agent_parent: Option<PathBuf> = None;
+    let mut agent_weights: Option<PathBuf> = None;
+    let mut agent_iterations: Option<usize> = None;
+    let mut agent_eval: Option<usize> = None;
+    let mut agent_steps: Option<usize> = None;
+    let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
     let mut command_set = false;
@@ -447,6 +487,40 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "agent" => {
+                saw_agent = true;
+                command_set = true;
+            }
+            "capability" => {
+                saw_capability = true;
+            }
+            "run" => {
+                saw_run = true;
+            }
+            "--parent" => agent_parent = Some(PathBuf::from(take_value(&mut iter, "--parent")?)),
+            "--weights" => agent_weights = Some(PathBuf::from(take_value(&mut iter, "--weights")?)),
+            "--iterations" => {
+                let v = take_value(&mut iter, "--iterations")?;
+                agent_iterations = Some(
+                    v.parse()
+                        .map_err(|_| crate::error::anyhow!("--iterations: {v} ist keine Zahl"))?,
+                );
+            }
+            "--eval-records" => {
+                let v = take_value(&mut iter, "--eval-records")?;
+                agent_eval =
+                    Some(v.parse().map_err(|_| {
+                        crate::error::anyhow!("--eval-records: {v} ist keine Zahl")
+                    })?);
+            }
+            "--train-steps" => {
+                let v = take_value(&mut iter, "--train-steps")?;
+                agent_steps = Some(
+                    v.parse()
+                        .map_err(|_| crate::error::anyhow!("--train-steps: {v} ist keine Zahl"))?,
+                );
+            }
+            "--dry-run" => agent_dry = true,
             "validate-data" => {
                 out.command = Command::ValidateData;
                 command_set = true;
@@ -591,7 +665,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 want_games = true;
             }
             "--resume" => out.resume = Some(PathBuf::from(take_value(&mut iter, "--resume")?)),
-            other => bail!("Unbekanntes Argument: {other} (siehe `shiro help`)"),
+            other => {
+                // Ein alleinstehendes Wort nach `agent capability run` ist die
+                // Faehigkeits-ID (Spec §12: `shiro agent capability run sequence_reasoning`).
+                if saw_agent && saw_capability && saw_run && agent_cap.is_none() {
+                    agent_cap = Some(other.to_string());
+                } else {
+                    bail!("Unbekanntes Argument: {other} (siehe `shiro help`)");
+                }
+            }
         }
     }
 
@@ -697,6 +779,21 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/games")),
             },
+        };
+    }
+
+    if saw_agent {
+        if !saw_capability || !saw_run {
+            bail!("Aufruf: `shiro agent capability run <faehigkeit>` (z. B. sequence_reasoning)");
+        }
+        out.command = Command::Agent {
+            capability: agent_cap.unwrap_or_else(|| "sequence_reasoning".to_string()),
+            parent: agent_parent,
+            weights: agent_weights,
+            iterations: agent_iterations,
+            eval_records: agent_eval,
+            train_steps: agent_steps,
+            dry_run: agent_dry,
         };
     }
 

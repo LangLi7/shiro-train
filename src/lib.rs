@@ -4,6 +4,7 @@
 //! Architektur-Mathematik auf `f32`-Slices. Die Backend-Entscheidung der Roadmap
 //! (Phase 0: Candle oder Burn) betrifft ausschliesslich diese beiden Module.
 
+pub mod agent;
 pub mod checkpoint;
 pub mod cli;
 pub mod config;

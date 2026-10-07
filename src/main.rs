@@ -54,6 +54,23 @@ fn real_main() -> Result<()> {
         Command::GenerateFormat { opts } => cmd_generate_format(&opts),
         Command::GenerateQuant { opts } => cmd_generate_quant(&opts),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
+        Command::Agent {
+            capability,
+            parent,
+            weights,
+            iterations,
+            eval_records,
+            train_steps,
+            dry_run,
+        } => cmd_agent(
+            &capability,
+            parent,
+            weights,
+            iterations,
+            eval_records,
+            train_steps,
+            dry_run,
+        ),
         Command::ValidateData => cmd_validate_data(&args),
         Command::VerifyCheckpoint { path } => cmd_verify_checkpoint(path),
         Command::Export { out } => cmd_export(&args, out),
@@ -2054,6 +2071,64 @@ pub fn answers_core(
     ))
 }
 
+/// Agentischer Capability-Loop: `shiro agent capability run <id>` (Spec §12).
+///
+/// Der Ablauf steht in `shiro::agent::run`; hier wird nur die Faehigkeitsdatei
+/// aufgeloest und die Zusammenfassung gedruckt. Die Registry
+/// (`registry/experiments.jsonl`) traegt jede Iteration mit Begruendung.
+fn cmd_agent(
+    capability: &str,
+    parent: Option<PathBuf>,
+    weights: Option<PathBuf>,
+    iterations: Option<usize>,
+    eval_records: Option<usize>,
+    train_steps: Option<usize>,
+    dry_run: bool,
+) -> Result<()> {
+    let pfad = PathBuf::from(format!("configs/capabilities/{capability}.toml"));
+    if !pfad.is_file() {
+        shiro::error::bail!(
+            "Faehigkeit '{capability}' ist nicht definiert ({} fehlt). Vorhanden: sequence_reasoning",
+            pfad.display()
+        );
+    }
+    let opts = shiro::agent::AgentOptions {
+        capability_path: pfad,
+        parent,
+        weights,
+        iterations,
+        eval_records,
+        train_steps,
+        dry_run,
+        ..shiro::agent::AgentOptions::default()
+    };
+    let iters = shiro::agent::run(&opts)?;
+
+    println!("\n=== Zusammenfassung ===");
+    for it in &iters {
+        let nachher = it
+            .after
+            .as_ref()
+            .map(|a| a.exact_match * 100.0)
+            .unwrap_or(it.before.exact_match * 100.0);
+        println!(
+            "Runde {}: Paket {:<12} Trefferquote {:.1} % -> {:.1} %  [{}]  naechste Aktion: {}",
+            it.nr,
+            it.pack,
+            it.before.exact_match * 100.0,
+            nachher,
+            if it.accepted {
+                "angenommen"
+            } else {
+                "verworfen"
+            },
+            it.next_action
+        );
+    }
+    println!("Registry      : {}", opts.registry.display());
+    Ok(())
+}
+
 fn cmd_eval(args: &cli::Args) -> Result<()> {
     let cfg = cli::resolve_config(args)?;
     let (baseline, trained) = eval_core(
@@ -2148,7 +2223,11 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         if !o.fehler.is_empty() {
             println!("Beispiele mit Abweichung:");
             for (i, soll, got) in &o.fehler {
-                let got = if got.is_empty() { "(leer)" } else { got.as_str() };
+                let got = if got.is_empty() {
+                    "(leer)"
+                } else {
+                    got.as_str()
+                };
                 println!("  #{i}: erwartet '{soll}' / erzeugt '{got}'");
             }
         }
