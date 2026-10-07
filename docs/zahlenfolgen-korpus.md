@@ -253,7 +253,45 @@ stehen und wird wiederholt. Ergebnis: **7.143 je Typ**, exakt.
   gebrochene, negative oder multiplikativ-gemischt fallende Folgen fehlen
   vollstaendig.
 
-## 11 Dateien
+## 11 Messung (exp-002)
+
+Micro-Modell (4.656.640 Parameter), Seed 1337, Batch 16 x 512, 200 Schritte,
+16 Threads; vollstaendiges Protokoll in `docs/experiment-log.md`.
+
+| Groesse | Wert |
+|---|---|
+| Trainingsverlust | 5,7372 -> 0,3418 (beste 0,3010), Perplexitaet 310,2 -> 1,4 |
+| **Held-out-Verlust** | **0,6370 / Perplexitaet 1,9** (Baseline 5,7441 / 312,4) |
+| Generalisierungsluecke | 0,295 (Endwert Training gegen Held-out) |
+| Dauer | 725,681 s fuer 200 Schritte |
+| **Trefferquote** (`--answers 120`, greedy, byte-genau) | **22 von 120 = 18,3 %** |
+
+Das Held-out-Band traegt **groessere Zahlen als das Training** (Schrittweite
+10-25 statt 1-9, Faktor 4-5 statt 2-3, Startwert 13-40 statt 1-12). Verlust
+0,6370 belegt deshalb **Verallgemeinerung ueber den Zahlenbereich** - die Luecke,
+die `docs/logisches-abgleichen-und-verallgemeinerung.md` §3.3 als fehlend fuehrt,
+ist fuer diese Familie geschlossen. Der Held-out-Verlust liegt zwischen Semantik
+(0,4567) und Format (0,9738).
+
+**Die Trefferquote ist die wichtigere Zahl.** Perplexitaet 1,9 heisst "je Byte
+gut" (0,529 je Byte); eine 3 Byte lange Antwort ist damit zu 14,8 % byte-genau
+richtig, eine 19 Byte lange zu 0,003 %. Die 18,3 % bestaetigen genau das: kurze
+Zahlantworten gelingen, lange Antworten nicht. **Der Verlust allein sagt nicht,
+ob das Modell die Aufgabe loest** - erst die Trefferquote tut das.
+
+Drei belegte Ursachen aus den Fehlerbeispielen:
+
+1. **Kein Abschluss:** das Modell haengt weitere Antworten an, statt die
+   ENDE-Marke zu setzen (`... Stelle 2 <FD> Stelle 2 <FD> ...`).
+2. **Frageart nicht getrennt:** `Stelle X`-Antworten auf Zahlenfragen.
+3. **Stellenwert:** `423` wird zu `24` - die Ziffernzahl stimmt nicht (**O-Z3
+   damit belegt**, nicht mehr nur vermutet).
+
+Aufwandsrechnung: 200 Schritte x 16 Datensaetze = 3.200 von 50.000 Datensaetzen =
+**6,4 % des Korpus, einmal gesehen**. Das Modell ist deutlich untertrainiert;
+Verstaerkungslaeufe (400/800 Schritte) sind der naechste Schritt.
+
+## 12 Dateien
 
 | Datei | Inhalt |
 |---|---|

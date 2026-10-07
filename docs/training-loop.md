@@ -197,7 +197,21 @@ damit die vorhandenen Unit-Tests unverändert gelten.
 | Generalisierungsluecke | **0,295** (Bestwert Training 0,3010 gegen Held-out 0,6370) |
 | Dauer | 725,681 s fuer 200 Schritte, 965 Bytes/s, 700.321 Zielbytes |
 | Effektiv (Projektformel) | **26,96 GFLOPS** |
+| **Trefferquote** (`eval --answers 120`, greedy, byte-genau) | **22 von 120 = 18,3 %** |
 | Vergleich zu den anderen Familien | Quantoren 0,4720 · Semantik 0,4567 · Format 0,9738 · Logik-large 1,3482 |
+
+**Die Trefferquote ist die wichtigere Zahl, und sie ist ernuechternd.** Sie
+widerspricht dem Verlust nicht, sie messen Verschiedenes: Perplexitaet 1,9 heisst
+0,529 je **Byte**; eine 3 Byte lange Antwort ist damit zu 14,8 % byte-genau
+richtig, eine 19 Byte lange zu 0,003 %. Die 18,3 % bestaetigen genau das - kurze
+Zahlantworten gelingen, lange Antworten nicht. Drei Ursachen sind **belegt**:
+(1) das Modell setzt **kein ENDE** und haengt weitere Antworten an, (2) es trennt
+die **Frageart** nicht (`Stelle X` auf Zahlenfragen), (3) **Stellenwert**:
+`423` wird `24` - O-Z3 ist damit keine Vermutung mehr.
+
+Aufwandsrechnung als wahrscheinlichster Grund: 200 Schritte x 16 Datensaetze =
+3.200 von 50.000 = **6,4 % des Korpus, einmal gesehen**. Das Modell ist deutlich
+untertrainiert; der Verstaerkungslauf (400 Schritte, `--resume`) laeuft.
 
 **Der Kern dieser Messung:** das Held-out-Band ist **disjunkt in den Parametern**
 (Schrittweite 10-25 statt 1-9, Faktor 4-5 statt 2-3, Startwert 13-40 statt 1-12).
@@ -234,10 +248,14 @@ Mehrheitsregel (4,5 %). Ein 100-%-Baseline-Wert ist immer ein Warnsignal.
 
 **O-Z1** Grenz-Aufgabenfamilie fast leer (21 von 50.000 im Training, 34 von 5.000
 im Held-out) · **O-Z2** Mutationsguete bei `stelle`/`reparatur` nicht gemessen ·
-**O-Z3** Ziffernmuster gegen Stellenwert nicht getrennt gemessen · **O-Z4** keine
-Variablen-Aufgaben · **O-Z5** Katalog nur streng wachsend · **O-T6** Fenster nicht
-gepackt · **O-T2** Lernkurve (400/800 Schritte) weiter offen · **O-T5** GPU-Speedup
-weiter nicht messbar.
+**O-Z3** Stellenwert: **belegt** (`423` -> `24`), die Trennung "Ziffernmuster
+gegen Rechnen" fehlt weiter · **O-Z4** keine Variablen-Aufgaben · **O-Z5** Katalog
+nur streng wachsend · **O-T6** Fenster nicht gepackt (Hebel ~2,3x) · **O-T7**
+keine KV-Cache-Generierung: die Trefferquotemessung kostet **~30 s je Datensatz**
+(120 Datensaetze = 60 min), weil `generate` den Kontext jedes Mal neu rechnet -
+ohne KV-Cache ist kein groesserer Benchmark lauffaehig · **O-T2** Lernkurve
+(400/800 Schritte) offen, der 400er-Lauf startet in dieser Runde · **O-T5**
+GPU-Speedup weiter nicht messbar.
 
 ### Naechste Schritte der naechsten Runde (in dieser Reihenfolge)
 
