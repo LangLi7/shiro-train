@@ -279,13 +279,22 @@ richtig, eine 19 Byte lange zu 0,003 %. Die 18,3 % bestaetigen genau das: kurze
 Zahlantworten gelingen, lange Antworten nicht. **Der Verlust allein sagt nicht,
 ob das Modell die Aufgabe loest** - erst die Trefferquote tut das.
 
-Drei belegte Ursachen aus den Fehlerbeispielen:
+Drei Ursachen aus den Fehlerbeispielen - **zwei sind belegt, eine ist als
+Hauptursache widerlegt** (Messung: [`ursachen-abschluss.md`](ursachen-abschluss.md),
+n11/exp-006):
 
-1. **Kein Abschluss:** das Modell haengt weitere Antworten an, statt die
-   ENDE-Marke zu setzen (`... Stelle 2 <FD> Stelle 2 <FD> ...`).
-2. **Frageart nicht getrennt:** `Stelle X`-Antworten auf Zahlenfragen.
-3. **Stellenwert:** `423` wird zu `24` - die Ziffernzahl stimmt nicht (**O-Z3
-   damit belegt**, nicht mehr nur vermutet).
+1. **Abschluss - real, aber nur bedingt.** Das Modell haengt weitere Antworten
+   an, statt die ENDE-Marke zu setzen (`... Stelle 2 <FD> Stelle 2 <FD> ...`).
+   Gemessen ist das ein **Nebenposten**: von 120 Datensaetzen scheitern **8
+   (6,7 %) nur am Abschluss**, waehrend **90 (75,0 %) schon den Inhalt falsch**
+   haben; beim Stand `seq-step400` ist der Terminierungsanteil **exakt null**.
+   Die hier frueher stehende Formulierung "kein Abschluss (**belegt**)" war zu
+   stark. Bedingt bleibt der Effekt gross: von den Faellen, in denen das Modell
+   die Antwort kennt, scheitert mehr als jeder vierte am Abschluss, bei
+   `vergleich` die Haelfte (7 von 14). Offener Punkt **O-Z11**.
+2. **Frageart nicht getrennt** (belegt): `Stelle X`-Antworten auf Zahlenfragen.
+3. **Stellenwert** (belegt): `423` wird zu `24` - die Ziffernzahl stimmt nicht
+   (**O-Z3**, nicht mehr nur vermutet).
 
 Aufwandsrechnung: 200 Schritte x 16 Datensaetze = 3.200 von 50.000 Datensaetzen =
 **6,4 % des Korpus, einmal gesehen**. Das Modell ist deutlich untertrainiert;

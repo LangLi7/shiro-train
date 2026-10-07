@@ -142,10 +142,16 @@ Trefferquote sagt, ob das Modell die Aufgabe loest.
 #287: erwartet 'Stelle 2'                     / erzeugt 'Stelle 5<FD>Stelle 3<FD>Stelle 3<FD>Stelle 2<FD>...'
 ```
 
-1. **Kein Ende.** Das Modell erzeugt `...<FD>Stelle 2<FD>Stelle 2...` weiter - es
-   lernt die ENDE-Marke (`0xFF`) nicht als Abschluss. Ohne Abschluss ist jede
-   Antwort zu lang und damit falsch. (Der Harness nimmt alles bis `0xFF`, also
-   den ganzen Rest.)
+1. **Kein Ende - korrigiert (n11).** Das Modell erzeugt
+   `...<FD>Stelle 2<FD>Stelle 2...` weiter, statt die ENDE-Marke (`0xFF`) zu
+   setzen. Die hier frueher gezogene Folgerung "es lernt die ENDE-Marke nicht als
+   Abschluss" und "ohne Abschluss ist jede Antwort falsch" ist **zu stark** und
+   durch [`ursachen-abschluss.md`](ursachen-abschluss.md) (exp-006) **widerlegt**:
+   von 120 Datensaetzen scheitern nur **8 (6,7 %) nur am Abschluss**, waehrend
+   **90 (75,0 %) schon den Inhalt falsch** haben; in der Teacher-forced-Messung
+   setzt das Modell die ENDE-Marke in **77,5 %** der Faelle an die richtige
+   Stelle. Der Abschluss ist ein realer, aber **bedingter** Nebenposten - nicht
+   die Ursache. (Der Harness nimmt alles bis `0xFF`, also den ganzen Rest.)
 2. **Frageart nicht getrennt.** `Stelle X` wird auf Zahlenfragen geantwortet und
    umgekehrt. Die sieben Aufgabentypen sind im Aufgabentext unterscheidbar, das
    Modell nutzt das noch nicht.
@@ -444,3 +450,142 @@ Mit der CPU waeren es nach den gemessenen 3,5 s/Schritt **~1,75 h** gewesen.
   nicht mehr Dosis allein sein.
 * `O-T2` (Lernkurve ueber volle Epochen), `O-T4` (Hyperparameter von Hand),
   `O-T6` (Fenster packen), `O-T7` (KV-Cache) bleiben offen.
+
+---
+
+## exp-006 - Ursachen-Isolation: "kein ENDE-Abschluss" ist als Hauptursache widerlegt
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cpu` (`Device<Flex(Cpu)>`) fuer alle vier Laeufe ·
+**Stichprobe:** 120 Datensaetze, jeder 41. des Shards (dieselbe Auswahlregel wie
+`--answers`, damit B mit exp-002 vergleichbar bleibt) · **Sonde:** `src/probe.rs`,
+Aufruf `shiro eval --config configs/train.seq.toml --checkpoint <STAND>
+--answers 120 --probe --backend cpu` · **Dauer:** ~90 s je Lauf.
+
+**Frage.** Ist der fehlende `ENDE`-Abschluss die Ursache fuer die niedrige
+Trefferquote? Die Aussage stand seit exp-002 als **belegt** in der Doku. Der
+Nutzer hat sie als unbewiesen zurueckgewiesen und drei Messungen auf **derselben**
+Stichprobe verlangt: **A** Teacher forcing (weiss das Modell die Antwortbytes bei
+vorgegebenem richtigem Prefix?), **B** freie Erzeugung (die bisherige Kopfzahl),
+**C** Inhalt bei erzwungenem Abschluss. Entscheidungstabelle: A hoch + B niedrig
++ C hoch -> Terminierungsproblem; A niedrig + B niedrig + C niedrig ->
+Faehigkeitsproblem.
+
+**Vier Laeufe.** Lauf 1 ist der Referenzstand aus exp-002, Lauf 2 der Elternstand
+des Loops, Lauf 3 der **beste angenommene Stand** aus exp-005 (Runde 3 wurde
+verworfen, also ist `i2` gueltig), Lauf 4 das Trainingsband zum Vergleich mit
+Lauf 1. `Terminierungsanteil` = `A-exakt - B`, `Faehigkeitsanteil` = `120 - A-exakt`:
+
+| Lauf | Stand | Band | A exakt | B frei | C Inhalt | Terminierungsanteil | Faehigkeitsanteil |
+|---|---|---|---|---|---|---|---|
+| 1 | `seq-step200` | val | 30 (25,0 %) | 22 (18,3 %) | 30 (25,0 %) | 8 (6,7 %) | 90 (75,0 %) |
+| 2 | `seq-step400` | val | 34 (28,3 %) | 34 (28,3 %) | 34 (28,3 %) | **0 (0,0 %)** | 86 (71,7 %) |
+| 3 | `...-i2-step1600` | val | 82 (68,3 %) | 79 (65,8 %) | 82 (68,3 %) | 3 (2,5 %) | 38 (31,7 %) |
+| 4 | `seq-step200` | train | 38 (31,7 %) | 35 (29,2 %) | 38 (31,7 %) | 3 (2,5 %) | 82 (68,3 %) |
+
+**Gegenprobe der Kette.** Lauf 1 misst B = **22 von 120 = 18,3 %** - exakt die
+dokumentierte Referenz aus exp-002. Die Sonde misst also dasselbe wie
+`answers_core`. Das kleine Erzeugungsbudget (`Soll-Laenge + 2` statt 512) ist
+zulaessig, weil Greedy-Erzeugung **prefix-deterministisch** ist: Byte `i+1` haengt
+nur von `0..=i` ab, nie von der Abbruchgrenze. Laufzeit dadurch **~0,7 s je
+Datensatz** statt der befuerchteten ~30 s - dieselbe Korrektur, die exp-005 fuer
+den Loop gefunden hat.
+
+**Ergebnis 1: die Terminierung ist als Hauptursache widerlegt.**
+
+* Das Modell setzt die `ENDE`-Marke **teacher-forced** in 77,5 % / 90,8 % / 93,3 %
+  / 96,7 % der Faelle an die richtige Stelle - es **hat** sie gelernt.
+* In **Lauf 2 ist der Terminierungsanteil exakt null**, waehrend die Trefferquote
+  bei 28,3 % bleibt. Ein Stand, in dem die Terminierung nachweislich nie das
+  Problem ist, laesst sich durch sie nicht erklaeren.
+* Global erklaert die Terminierung 0,0 % bis 6,7 % der Faelle - gegen 75,0 % bis
+  31,7 % Inhalt. Die alte Kopfzahl "18,3 %" entstand **nicht** am Abschluss.
+* Wenn die `ENDE`-Marke an der falschen Stelle kommt, sagt das Modell stattdessen
+  fast immer die **Antwortmarke** `0xFC` voraus (19-mal in Lauf 1): es beginnt eine
+  **zweite Antwort**. Der Mechanismus aus den alten Fehlerbeispielen ist real - er
+  erklaert nur 19 von 120 Positionen.
+
+**Ergebnis 2: die Terminierung ist als bedingter Effekt bestaetigt.** Ein
+Abschlussverlust kann nur dort auftreten, wo der Inhalt schon stimmt:
+
+| Lauf | inhaltlich richtig (A-exakt) | davon frei richtig (B) | nur am Abschluss gescheitert | Anteil unter den inhaltlich richtigen |
+|---|---|---|---|---|
+| 1 | 30 | 22 | 8 | 26,7 % |
+| 2 | 34 | 34 | 0 | 0,0 % |
+| 3 | 82 | 79 | 3 | 3,7 % |
+| 4 | 38 | 35 | 3 | 7,9 % |
+
+Von den Faellen, in denen das Modell die Antwort **kennt**, scheitert bei
+`seq-step200` mehr als jeder vierte am Abschluss. Die `terminierung`-Runden aus
+exp-005 haben genau diesen Anteil von 26,7 % auf 3,7 % gedrueckt - und dabei
+**vor allem den Inhalt** gehoben (`A-exakt` 25,0 % -> 68,3 %, CE 0,6854 ->
+0,2964, `missing_stop` 25 -> 7). Der Paketname war zu eng, die Intervention war
+richtig.
+
+**Ergebnis 3: der Terminierungsverlust ist typabhaengig.** Auf `seq-step200`
+sitzen **7 der 8** Terminierungsfaelle im Typ `vergleich` - Antwortraum **ein
+Byte** (`A`/`B`). `stelle` verliert keinen einzigen, `regel` einen. Die
+Aufschluesselung nach Typ (A-exakt / B-exakt / Terminierungsverlust):
+
+| Typ | gestellt | A-Byte % | A-exakt | B-exakt | Abschlussverlust |
+|---|---|---|---|---|---|
+| luecke | 17 | 7,1 | 0 | 0 | 0 |
+| naechste | 15 | 12,5 | 0 | 0 | 0 |
+| offen | 18 | 18,8 | 0 | 0 | 0 |
+| regel | 16 | 95,7 | 9 | 8 | 1 |
+| reparatur | 12 | 75,5 | 0 | 0 | 0 |
+| stelle | 27 | 90,7 | 7 | 7 | 0 |
+| vergleich | 15 | 93,3 | 14 | 7 | **7** |
+
+`reparatur` bleibt der haerteste Typ: **0 von 12** exakt bei **75,5 %**
+Byte-Treffer - und auch am besten Stand (Lauf 3) 0 von 12 bei 77,5 %. Der Inhalt
+ist fast da, die Antwort als Ganzes nie; das ist ein Laengen-/Strukturproblem,
+kein Terminierungsproblem. Fehlerklassen im Vergleich:
+
+| Fehlerklasse | Lauf 1 | Lauf 2 | Lauf 3 | Lauf 4 |
+|---|---|---|---|---|
+| missing_stop | 25 | 11 | 7 | 6 |
+| premature_stop | 0 | 0 | 4 | 0 |
+| repetition | 7 | 0 | 0 | 2 |
+| wrong_parameter | 24 | 33 | 19 | 51 |
+| arithmetic_error | 21 | 21 | 5 | 13 |
+| place_value_error | 18 | 18 | 6 | 13 |
+| wrong_question_type | 3 | 3 | 0 | 0 |
+
+`premature_stop` tritt **neu** auf (4 am besten Stand): das Modell bricht jetzt
+gelegentlich zu frueh ab statt nie. Der Fehler hat die Seite gewechselt, er ist
+nicht verschwunden. Am besten Stand dominiert `wrong_parameter` (19) - eine
+**inhaltliche** Klasse, und damit der naechste Hebel.
+
+**Ergebnis 4 (methodisch, beweisbar).** `A-exakt` und `C` sind bei Temperatur 0
+**identisch** (30 = 30, 34 = 34, 82 = 82, 38 = 38). Beweis: beide starten mit
+demselben Prompt; ist das argmax das wahre Byte, bleibt der selbsterzeugte Prefix
+gleich dem wahren, der Kontext also gleich - induktiv fuer alle Schritte; weicht
+es einmal ab, scheitern beide. **C ist damit keine zweite Wissensquelle, sondern
+die Gegenprobe der Kette**: es gibt **keinen** zusaetzlichen Drift (exposure
+bias), den A nicht schon enthaelt. Die entscheidende Zerlegung ist `A-exakt - B`
+(Abschluss) gegen `n - A-exakt` (Faehigkeit); die Sonde druckt beide Boeden.
+
+**Urteil.** Der Satz "das Modell lernt die ENDE-Marke nicht als Abschluss, ohne
+Abschluss ist jede Antwort falsch" ist **falsifiziert**. Richtig ist: das Modell
+**kennt** die Antwort in einem Viertel der Faelle (Lauf 1) und **kennt** die
+`ENDE`-Marke in drei Vierteln; was fehlt, ist der **Inhalt** - und, bedingt, der
+Abschluss bei den kurzen Antwortraeumen. Die Doku wurde an vier Stellen
+richtiggestellt (`experiment-log` exp-002, `docs/zahlenfolgen-korpus.md` §11,
+`docs/unendliche-datengenerierung.md` §6, `docs/verifikation.md`), jeweils mit
+Verweis auf [`ursachen-abschluss.md`](ursachen-abschluss.md).
+
+**Neu: `O-Z11`** - der Terminierungsanteil ist bedingt und typabhaengig, nicht
+global. Offen: warum gerade der kuerzeste Antwortraum (`vergleich`, ein Byte)
+nicht terminiert, und ob ein **typbewusstes** Lernpaket den Rest holt. Der Loop
+waehlt heute ueber die **Fehlerklasse**, nicht ueber den **Aufgabentyp** -
+derselbe Punkt, den exp-005 fuer `regel`/`reparatur` offen benannt hat.
+
+**Was diese Messung nicht zeigt.** Keine Aussage ueber andere Familien. n = 120 je
+Lauf, eine Stichprobe statt eines Zensus; die Abschlussanteile von 0 bis 8
+Faellen tragen ein 95-%-Intervall von grob +/- 4,5 Prozentpunkten - die Richtung
+ist davon nicht beruehrt, die Nachkommastellen sind es. Der Typ-Mix weicht von
+exp-005 ab (dort 3 `vergleich`-Faelle, hier 15). Teacher forcing prueft **nicht**
+die Frageart - der wahre Prefix endet an der Antwortmarke. Und die Sonde grenzt
+zwar ein (Inhalt, nicht Abschluss), zerlegt den Inhalt aber nicht in Regelwahl,
+Rechnung und Format.

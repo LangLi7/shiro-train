@@ -1481,10 +1481,13 @@ irrelevante Details = **nicht abgedeckt** · (4) Minimalpaare/Mutationen = **nic
 abgedeckt** · (5) gleiche Beziehung in anderer Oberflaeche = **nicht abgedeckt**.
 
 **Zwei-Faehigkeiten-These:** die Lesart "Struktur gelernt, autoregressive
-Ausfuehrung instabil" ist mit den Rohdaten vereinbar und durch die drei belegten
-Ursachen gestuetzt (kein ENDE-Abschluss; Frageart nicht gebunden — `erwartet '423' /
+Ausfuehrung instabil" ist mit den Rohdaten vereinbar und durch **zwei** belegte
+Ursachen gestuetzt (Frageart nicht gebunden — `erwartet '423' /
 erzeugt '24'` und `Stelle X` auf Zahlenfragen; Stellenwert `423` -> `24`, O-Z3).
-"Abstrakte Logik gelernt" ist damit **nicht** belegt. Mindestbelege sind in §6 des
+"Abstrakte Logik gelernt" ist damit **nicht** belegt. Die hier frueher mitgezaehlte dritte Ursache,
+"kein ENDE-Abschluss", ist durch `docs/ursachen-abschluss.md` (n11, exp-006)
+**als Hauptursache widerlegt**: sie erklaert 6,7 % der Fehler, nicht 75 %.
+Mindestbelege sind in §6 des
 Dokuments vorab festgelegt (Lernkurve auf denselben 120 Datensaetzen, Invarianz,
 Minimalpaare, Trainingsband-Referenz — alle vier zusammen, keiner allein).
 
@@ -1719,3 +1722,109 @@ geglaettet.
 `.gitignore` um `/data/agent` ergaenzt (erzeugte Trainingskorpora des Loops).
 Doku-Gates GRUEN (check-table-pipes 111 Dateien / 0 zerbrochene Zeilen,
 check-doc-links 0 tote Links, lernstufen, programmiersprachen, seq-korpus).
+## Nachtrag: "Unendlich Daten generieren?" (n11)
+
+Frage des Nutzers: koennen fuer Logic und Analytic unendlich Daten generiert und
+genauso abgespeichert werden? Antwort in `docs/unendliche-datengenerierung.md`
+(6218 B, LF, kein BOM). KERN: der Generator ist die Wahrheit, der Korpus ist ein
+Schnappschuss. Drei Grenzen: Seed-Raum praktisch unbegrenzt (2^64), Aufgabenraum
+endlich (Logik-Ausbeute 81,1 -> 74,7 -> 70,6 % bei 20k/50k/100k; Quantoren 58,4 %,
+O-D29; Zahlenfolgen geschlossener Regelkatalog), Informationsgehalt (Duplikate
+zahlen nur Bytes, kein Lernsignal). SPEICHERN BLEIBT SINNVOLL: Pruefsumme je Shard,
+zwei Validatorstufen, globaler Dublettenbeweis, strikte Bandtrennung (O-D30) und
+byteidentische Evaluation sind ohne Datei nicht nachweisbar; "im Flug erzeugen"
+waere eine Speicher-/IO-Optimierung und braucht eine index-adressierbare
+Generator-API plus Streaming-Loader (heute Batch-Laeufer mit --n, Loader liest
+ganze Shards in RAM = B7). B4 BLEIBT OFFEN und wird durch mehr --n NICHT geloest
+(r4: Ausbeute sinkt; denken-erweitern fuehrt 13 Familien). KEINE neue O-ID, KEINE
+neue D-ID - Klarstellung von D-043, Beschluss erst bei einem echten
+Streaming-Loader. MESSWERTE dieser Runde (n7b, ueber den GPU-Starter,
+`SHIRO_DATA=data/seq/train eval --answers 40`, Backend: cuda): Trainingsband
+(ganze 50.000) mit dem 400er-Stand Loss 0,2917 / PPL 1,3 gegen Baseline
+5,7351 / 309,5 - das ist die bislang fehlende Trainingsband-Referenz gegen
+Held-out exp-002 (0,6370 / PPL 1,9, 200 Schritte); Luecke Faktor ~2,2, beide Werte
+niedrig. Der Aufgabentyp-Befund aus al5 bleibt der Engpass: Treffer nur vergleich
+(3/3) und stelle (1/6), fuenf inhaltliche Typen 0 von 39.
+## n11 - Ursachen-Isolation am Abschluss: "kein ENDE" ist widerlegt (exp-006)
+
+**Auftrag des Nutzers.** Die Behauptung "kein ENDE-Abschluss" stand als *belegt*
+in der Doku. Der Nutzer hat sie als **unbewiesen** korrigiert und eine
+Unterscheidung verlangt: freie Erzeugung gegen **Teacher-forced**-Messung (sind
+die einzelnen Antwortbytes wahrscheinlich?) und gegen **Erzeugung mit erzwungenem
+Ende** (wie gut ist der Inhalt dann?). Dazu die Entscheidungstabelle: A hoch /
+B niedrig / C hoch -> Terminierungsproblem; A niedrig / B niedrig / C niedrig ->
+Faehigkeitsproblem.
+
+**Gebaut.** NEU `src/probe.rs` (Messsonde, 15 Modultests, **keine**
+Schreibzugriffe - kein Korpus, kein Checkpoint, kein Log):
+A Teacher forcing (richtiger Prefix, **ein** Forward-Pass je Datensatz, misst
+argmax-Treffer der Antwortbytes, CE der Antwortsektion und die Vorhersage an der
+ENDE-Stelle) · B freie Erzeugung (die bisherige Kopfzahl) · C erzwungenes Ende
+(Inhalt, an der Soll-Laenge geschnitten). CLI als opt-in Flag `--probe`
+(`src/cli.rs`, `src/main.rs`); es laeuft **vor** der Verlustmessung und ersetzt
+sie, weil die Verlustmessung ueber ganz `data/seq/val` auf der CPU ~36 min kostet.
+Smoke-Pfad unangetastet.
+
+**Gegenprobe der Kette.** B misst auf `seq-step200` **22 von 120 = 18,3 %** -
+exakt die Referenz aus exp-002. Das kleine Erzeugungsbudget ist zulaessig, weil
+Greedy-Erzeugung prefix-deterministisch ist (Byte i+1 haengt nur von 0..=i ab,
+nie von der Abbruchgrenze). Laufzeit ~0,7 s je Datensatz statt der befuerchteten
+~30 s - die O-T7-Schaetzung war ~20x zu hoch, dieselbe Korrektur wie in exp-005.
+
+| Lauf | Stand | Band | A exakt | B frei | C Inhalt | Terminierungsanteil | Faehigkeitsanteil |
+|---|---|---|---|---|---|---|---|
+| 1 | seq-step200 | val | 30 (25,0 %) | 22 (18,3 %) | 30 (25,0 %) | 8 (6,7 %) | 90 (75,0 %) |
+| 2 | seq-step400 | val | 34 (28,3 %) | 34 (28,3 %) | 34 (28,3 %) | **0 (0,0 %)** | 86 (71,7 %) |
+| 3 | i2-step1600 | val | 82 (68,3 %) | 79 (65,8 %) | 82 (68,3 %) | 3 (2,5 %) | 38 (31,7 %) |
+| 4 | seq-step200 | train | 38 (31,7 %) | 35 (29,2 %) | 38 (31,7 %) | 3 (2,5 %) | 82 (68,3 %) |
+
+**Ergebnis: die Terminierung ist als Hauptursache widerlegt und als bedingter
+Effekt bestaetigt.**
+- Das Modell setzt die ENDE-Marke teacher-forced in 77,5 / 90,8 / 93,3 / 96,7 %
+  der Faelle an die richtige Stelle - es **hat** sie gelernt.
+- In Lauf 2 ist der Terminierungsanteil **exakt null**, waehrend die Trefferquote
+  bei 28,3 % bleibt. Die Terminierung kann diesen Stand nicht erklaeren.
+- Global 0,0-6,7 %; **bedingt** (unter den inhaltlich richtigen) bis **26,7 %**,
+  bei `vergleich` **50 %** (7 von 14). Dort sitzt der alte Befund.
+- Die `terminierung`-Runden aus exp-005 haben vor allem den **Inhalt** gehoben
+  (A-exakt 25,0 -> 68,3 %, CE 0,6854 -> 0,2964), die Terminierung nur nebenbei
+  (`missing_stop` 25 -> 7). Der Paketname war zu eng, die Intervention richtig.
+- `premature_stop` tritt **neu** auf (4): der Fehler hat die Seite gewechselt.
+  Am besten Stand dominiert `wrong_parameter` (19) - eine **inhaltliche** Klasse.
+
+**Methodischer Nebenbefund (beweisbar, nicht nur gemessen).** A-exakt und C sind
+bei Temperatur 0 **identisch** (30 = 30, 34 = 34, 82 = 82, 38 = 38): beide starten
+mit demselben Prompt, und solange das argmax das wahre Byte ist, bleibt der
+Kontext gleich. C ist damit **keine** zweite Wissensquelle, sondern die
+**Gegenprobe**: es gibt keinen zusaetzlichen Drift (exposure bias). Die
+entscheidende Zerlegung ist deshalb `A-exakt - B` (Abschluss) gegen
+`n - A-exakt` (Faehigkeit); die Sonde druckt beide Boeden aus.
+
+**Doku-Korrektur an vier Stellen.** exp-002 im `experiment-log`, §11 in
+`zahlenfolgen-korpus.md`, §6 in `unendliche-datengenerierung.md` (eigener Fehler
+aus n11v: die Schlussfolgerung war richtig, die Begruendung falsch) und der
+exp-002-Nachtrag in dieser Datei. Die Aussage wird nicht geloescht, sondern auf
+ihren Messstand zurueckgestuft - mit Verweis auf `docs/ursachen-abschluss.md`.
+
+**Neu: `O-Z11`** - der Terminierungsanteil ist bedingt und **typabhaengig**
+(`vergleich`: Antwortraum ein Byte, 7 von 8 Faellen), nicht global. Offen: warum
+gerade der kuerzeste Antwortraum nicht terminiert, und ob ein **typbewusstes**
+Lernpaket den Rest holt - der Loop waehlt ueber die Fehlerklasse, nicht ueber den
+Aufgabentyp (derselbe Punkt, den exp-005 fuer `regel`/`reparatur` offen nannte).
+`O-Z3` bleibt belegt (18 Faelle in Lauf 1). **Keine neue D-ID**: geaendert wurde
+eine Aussage, keine Entscheidung.
+
+**Gates.** `cargo build --release` gruen · `shiro smoke` Digest
+`a6a53c95abd7f622` unveraendert · `rustfmt --check` fuer `src/probe.rs`,
+`src/cli.rs`, `src/main.rs`, `src/lib.rs` ohne Abweichung · alle 15
+`probe`-Modultests gruen. **`cargo clippy --all-targets -- -D warnings` ist ROT -
+ausschliesslich wegen 6 Befunden in der fremd bearbeiteten `src/data/quant.rs`**
+(needless_range_loop 664/679/707/993/1216, `?`-Operator 896); **in meinen vier
+Dateien meldet clippy keinen einzigen Befund**. Die fremde Datei wurde nicht
+angefasst.
+
+**Grenzen.** n = 120 je Lauf (jeder 41. Datensatz) - Stichprobe, kein Zensus; die
+Abschlussanteile von 0-8 Faellen tragen grob +/- 4,5 Prozentpunkte. Nur Familie
+Zahlenfolgen (D-045). Teacher forcing prueft **nicht** die Frageart. Der Typ-Mix
+weicht von exp-005 ab (dort 3 `vergleich`-Faelle, hier 15). Kein KV-Cache, keine
+GPU - alle vier Laeufe auf der CPU.
