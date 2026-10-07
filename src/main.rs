@@ -2106,17 +2106,22 @@ fn cmd_agent(
 
     println!("\n=== Zusammenfassung ===");
     for it in &iters {
-        let nachher = it
-            .after
-            .as_ref()
-            .map(|a| a.exact_match * 100.0)
-            .unwrap_or(it.before.exact_match * 100.0);
+        // **Die inhaltliche Quote zuerst.** Die Gesamtquote mischt den
+        // 1-Byte-Typ `vergleich` mit ein und ist deshalb als Fortschrittsmass
+        // irrefuehrend; sie steht in Klammern dahinter, damit beide Zahlen
+        // sichtbar bleiben, aber die richtige fuehrt.
+        let n_after = it.after.as_ref().unwrap_or(&it.before);
         println!(
-            "Runde {}: Paket {:<12} Trefferquote {:.1} % -> {:.1} %  [{}]  naechste Aktion: {}",
+            "Runde {}: Paket {:<12} inhaltlich {:.1} % -> {:.1} % ({} -> {} von {})  gesamt {:.1} % -> {:.1} %  [{}]  naechste Aktion: {}",
             it.nr,
             it.pack,
+            it.before.exact_match_content * 100.0,
+            n_after.exact_match_content * 100.0,
+            it.before.content_correct,
+            n_after.content_correct,
+            n_after.content_asked,
             it.before.exact_match * 100.0,
-            nachher,
+            n_after.exact_match * 100.0,
             if it.accepted {
                 "angenommen"
             } else {
@@ -2124,6 +2129,14 @@ fn cmd_agent(
             },
             it.next_action
         );
+        if let Some(w) = &it.strategiewechsel {
+            // O-T9 sichtbar machen: eine verworfene Runde ohne benannten
+            // Strategiewechsel waere eine Wiederholung.
+            println!(
+                "         O-T9: {} {} -> {}",
+                w.parameter, w.vorher, w.nachher
+            );
+        }
     }
     println!("Registry      : {}", opts.registry.display());
     Ok(())
@@ -2131,6 +2144,32 @@ fn cmd_agent(
 
 fn cmd_eval(args: &cli::Args) -> Result<()> {
     let cfg = cli::resolve_config(args)?;
+
+    // **Ursachen-Isolation (n11)** laeuft VOR der Verlustmessung und ersetzt sie.
+    // Zwei Gruende: die Sonde bringt ihre eigenen Zahlen mit (Teacher forcing,
+    // freie Erzeugung, Inhalt bei erzwungenem Abschluss), und die Verlustmessung
+    // ueber den ganzen Ordner kostet ein Vielfaches - fuer `data/seq/val` sind es
+    // 313 Batches je Baseline und je Modellstand, auf der CPU rund 36 Minuten.
+    // Die Auswahlregel ist dieselbe wie bei `--answers` (jeder `stride`.te
+    // Datensatz), damit B mit der dokumentierten Referenzzahl aus `exp-002`
+    // vergleichbar bleibt.
+    if args.probe {
+        let Some(ckpt) = args.checkpoint.as_deref() else {
+            shiro::error::bail!("--probe braucht --checkpoint");
+        };
+        let rep = shiro::probe::run(&shiro::probe::ProbeOptions {
+            cfg: &cfg.model,
+            seed: cfg.run.seed,
+            checkpoint: ckpt,
+            data_dir: &cfg.data.dir,
+            manifest: &cfg.data.manifest,
+            limit: args.answers.unwrap_or(120),
+            puffer: 2,
+        })?;
+        print!("{}", rep.bericht());
+        return Ok(());
+    }
+
     let (baseline, trained) = eval_core(
         &cfg.model,
         cfg.run.seed,
@@ -2199,26 +2238,7 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         );
     }
 
-    // **Ursachen-Isolation (n11) statt einfacher Trefferquote.** `--probe` misst
-    // A (Teacher forcing), B (freie Erzeugung) und C (Inhalt bei erzwungenem
-    // Abschluss) auf **derselben** Stichprobe. Die Auswahlregel ist dieselbe wie
-    // bei `--answers` (jeder `stride`.te Datensatz), damit B mit der
-    // dokumentierten Referenzzahl aus `exp-002` vergleichbar bleibt.
-    if args.probe {
-        let Some(ckpt) = args.checkpoint.as_deref() else {
-            shiro::error::bail!("--probe braucht --checkpoint");
-        };
-        let rep = shiro::probe::run(&shiro::probe::ProbeOptions {
-            cfg: &cfg.model,
-            seed: cfg.run.seed,
-            checkpoint: ckpt,
-            data_dir: &cfg.data.dir,
-            manifest: &cfg.data.manifest,
-            limit: args.answers.unwrap_or(120),
-            puffer: 2,
-        })?;
-        print!("{}", rep.bericht());
-    } else if let Some(limit) = args.answers {
+    if let Some(limit) = args.answers {
         let Some(ckpt) = args.checkpoint.as_deref() else {
             shiro::error::bail!("--answers braucht --checkpoint");
         };
