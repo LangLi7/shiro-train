@@ -2612,9 +2612,18 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         if kritische_regression {
             println!("   -> Ruecknahme: Vorgaenger bleibt der gueltige Stand");
         }
+        // **Der Elternstand wird VOR der Annahme festgehalten.** `aktuell` wird
+        // bei einer Annahme auf den neuen Stand gesetzt; `eintrag` schrieb
+        // danach `aktuell` als `parent_checkpoint` - bei angenommenen Runden
+        // stand dort also das **Kind** statt des Elternstands. Gemessen in der
+        // Registry: exp-015 Runde 1 (ANGENOMMEN) trug
+        // `parent_checkpoint = ...from7600-i1-step12400.safetensors`, obwohl sie
+        // von `...from6400-i1-step7600.safetensors` abstammt. Die Kette war damit
+        // genau an den angenommenen Runden unterbrochen - also an denen, die
+        // zaehlen.
+        let elternstand = aktuell.clone();
         if accepted {
-            aktuell = neu.clone();
-            // Der angenommene Zustand ist ab jetzt die Basis - fuer das
+            aktuell = neu.clone(); // Der angenommene Zustand ist ab jetzt die Basis - fuer das
             // Fortsetzen UND als Ruecknahmepunkt: eine verworfene Runde laesst
             // `resume_state` unveraendert stehen.
             if let Some(s) = report.states.last() {
@@ -2700,7 +2709,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             &cap,
             &exp_id,
             nr,
-            &aktuell,
+            &elternstand,
             &neu,
             &before,
             Some(&after),
