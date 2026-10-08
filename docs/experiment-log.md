@@ -3077,3 +3077,49 @@ die **Zufallsbaseline der 19 Delta-Antworten** explizit messen, damit der Vorbeh
 `cargo test` 306 lib + 90 Integrationstests, 0 Fehler; `fmt`/`build --release` gruen; clippy
 unveraendert 7 (nur fremde `quant.rs`/`probe.rs`); Smoke-Digest `a6a53c95abd7f622` unveraendert;
 alle sechs Doku-Gates 0 Befunde; `deploy/` unberuehrt.
+
+### Nachtrag zu exp-021: der Vorbehalt "kleinerer Antwortraum" hat jetzt eine Zahl
+
+**Die offene Frage.** D-049 sagt ausdruecklich, dass der Einwand *"die Aufgabe wurde leichter,
+nicht das Modell besser"* berechtigt und **nicht** widerlegt ist: die Delta-Form hat 19 moegliche
+Antworten statt rund 20.000. Damit stand die Annahme auf einer Schaetzung statt auf einer Messung.
+Dieser Nachtrag liefert die Zahl - **ohne Codeaenderung, ohne Training, ohne GPU** - aus dem
+vorhandenen val-Korpus (`data/seq/jsonl/val.jsonl`, 5.000 Datensaetze).
+
+**Aufbau.** Die festen Panels wurden in Python nachgebildet (jeder 10., Panel A ab Index 0,
+Panel B ab Versatz 5): **480 / 480, disjunkt**. Die Kontrolle stimmt: Panel A enthaelt **63**
+und Panel B **60** `reparatur`-Faelle - **genau** die Zahlen, die der Loop in exp-019 und exp-021
+gemessen hat. Die Delta-Antwort wurde je Datensatz aus der Folge und der absoluten Antwort
+gerechnet (`d = Zielwert - vorgefundener Wert`), also nach derselben Regel wie `als_delta`.
+
+**Die Kurzverfahren-Baselines (Mehrheitsantwort je Form):**
+
+| Groesse | absolut | Delta |
+|---|---|---|
+| haeufigste Antwort (alle val-`reparatur`, n = 625) | `Stelle 2: 57` = **1,0 %** | `Stelle 4: +2` = **2,2 %** |
+| Panel A (n = 63) | 3,2 % | 3,2 % |
+| Panel B (n = 60) | 3,3 % | 5,0 % |
+| Zufall (5 Stellen x 19 Delta-Werte) | - | 1,05 % |
+| haeufigste **Stelle** allein | - | 23,2 % (Stelle 5) |
+
+**Was daraus folgt - und was nicht.** Die erreichte Genauigkeit und die Baseline im Vergleich:
+
+| Form | erreicht (`reparatur`, gepoolt) | Kurzverfahren-Baseline | Faktor |
+|---|---|---|---|
+| absolut | **72,4 %** (89/123) | 1,0 % | 72x |
+| Delta | **91,9 %** (113/123) | 2,2 % | 42x |
+
+**Der Antwortraum ist kleiner, aber die Mehrheitsantwort ist es kaum:** die Baseline steigt um
+**1,2 Prozentpunkte** (1,0 -> 2,2 %), die Genauigkeit um **19,5 Punkte**. Unter diesem Mass kann
+der kleinere Antwortraum also **hoechstens 1,2 der 19,5 Punkte** erklaeren.
+
+**Abgrenzung, ehrlich benannt.** Die Mehrheitsantwort ist ein **schwaches** Kurzverfahren - sie
+modelliert keine schlaue Heuristik ("rate die Stelle aus dem Differenzenmuster"). Sie ist aber
+das **etablierte** Mass des Projekts (dieselbe Bauart wie die Shortcut-Baselines der Korpora) und
+damit ein Vergleich wie mit wie. Ein staerkeres Kurzverfahren (Stelle aus dem Muster, Delta geraten)
+ist **nicht** gemessen und bleibt offen. Die Aussage lautet deshalb genau: *unter dem gemessenen
+Kurzverfahren* traegt der kleinere Antwortraum hoechstens 1,2 der 19,5 Punkte.
+
+**Damit ist D-049 gestuetzt, nicht ersetzt.** Die Entscheidung bleibt wie sie ist: die Delta-Form
+ist die Konvention fuer `reparatur`, die absolute Form die Regressionsreferenz, und ein
+D-047-Status wird immer mit der Antwortform genannt.
