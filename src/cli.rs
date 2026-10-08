@@ -470,10 +470,13 @@ OPTIONEN FUER agent capability run:
                           Datenziehung WIEDERHOLEN (Replikationspflicht).
     --pack <PAKET>        Lernpaket erzwingen statt den Loop waehlen zu lassen.
                           Erlaubt: terminierung, frageart, stellenwert,
-                          reparatur, reparatur1, reparatur-delta, stelle, breit.
+                          reparatur, reparatur1, reparatur-delta,
+                          reparatur1-delta, stelle, breit.
                           `breit` trainiert die volle Verteilung (beide
                           Reparaturformen); `reparatur-delta` trainiert die
-                          MINIMIEREN-Aufgabe in der DELTA-Antwortform (D-049).
+                          MINIMIEREN-Aufgabe in der DELTA-Antwortform (D-049);
+                          `reparatur1-delta` zusaetzlich die Wertfragen der
+                          einfeldrigen Variante (exp-025).
     --dry-run             planen und Daten erzeugen, aber nicht trainieren
 
 GERAET:

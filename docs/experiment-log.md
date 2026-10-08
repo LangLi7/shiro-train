@@ -3352,3 +3352,127 @@ ist der Befund formabhaengig und nicht mechanisch. Das ist eine pruefbare Vorher
 die naheliegende naechste Runde. Unabhaengig davon bleibt der **faire Ueberlegenheitstest** offen,
 und fuer die Aussagekraft der Marke braucht es **mehr Fragen** (0,92 Punkte Standardfehler bei
 960).
+
+## exp-025 - Die Formachse greift auch bei `reparatur1` - und die Runde wird VERWORFEN, weil sie die andere Delta-Form zerstoert
+
+**Die Frage war als pruefbare Vorhersage formuliert** (aus exp-024): wenn die Ursache des
+Formgewinns die **Ausgabelast** des vierstelligen Werts ist und nicht die Aufgabe, muss **dieselbe**
+Umstellung bei `reparatur1` **dieselbe** Wirkung haben. Ist sie es nicht, war der Befund
+formabhaengig statt mechanisch.
+
+### Was gebaut wurde
+
+| Baustein | Inhalt |
+|---|---|
+| `seq::als_delta_einzeln` | schreibt `reparatur1`-**Wertfragen** in die Delta-Form um (Antwort `+7`/`-3` statt des Zielwerts); die Frage nennt weiter die Stelle, die Zeile `Form: Aenderung` steht im Datensatz |
+| `seq::ist_wertfrage` | trennt die **Wertfrage** von der **Stellenfrage** - die Stellenfrage nennt keine Zahl und bleibt unangetastet |
+| Verifier | prueft beide Richtungen auch fuer die einfeldrige Variante: umgedrehtes Vorzeichen, `+0` und die absolute Antwort fallen durch |
+| `Pack::Reparatur1Delta` | nur ueber `--pack reparatur1-delta` waehlbar; baut **denselben** `reparatur1`-Korpus und schreibt danach um; Wertfragen werden umgeschrieben **oder verworfen**, Stellenfragen bleiben stehen - ein Paket mit zwei Antwortformen waere nicht zurechenbar |
+| `delta_panel_einzeln` | Panel-Umbau fuer die Messung; bei `reparatur1-delta` werden **zusaetzlich** zu den `reparatur`-Faellen (Delta, D-049) die Wertfragen umgeschrieben, damit die Panels gegen exp-021/024 vergleichbar bleiben |
+| `FormBefund::wert_einzeln_richtig` | **neu**: die exakte Trefferzahl der einfeldrigen **Wertfragen**. `wert_einzeln` zaehlte bisher nur, wie oft gefragt wurde - und der Typ `reparatur1` mischt zwei Frageformen, von denen nur eine eine Zahl traegt |
+
+### Die Baseline: 0 von 56 (dieselbe Null-Baseline wie bei exp-021)
+
+Gemessen mit `--dry-run` auf dem angenommenen Delta-Stand `...-d5217b90dfe8cbac-step017200`:
+
+| Groesse (gepoolt 2 x 480) | Wert |
+|---|---|
+| `reparatur` in Delta-Form (Bestand) | **113/123 = 91,9 %** - der Bestand ist vor der Runde intakt |
+| `reparatur1` als Typ | 60/122 = 49,2 % |
+| davon **Wertfragen** in Delta-Form | **0 von 56** (A 0/28, B 0/28) |
+| davon Stellenfragen (unveraendert) | rund 90 % |
+
+Damit ist die Lage dieselbe wie bei exp-021: die neue Form hat eine **Null-Baseline**, und der Test
+ist die **Machbarkeit** (O-D31), nicht die Ueberlegenheit.
+
+### Der Lauf - und ein eigener Fehler, der vor dem ersten Trainingsschritt auffiel
+
+GPU, `Device<Cube(Cuda(Cuda(0)))>`, Elternteil `...-d5217b90dfe8cbac-step017200`, **genau eine**
+geaenderte Groesse (`--pack reparatur1-delta`), `--ohne-hebel`, Dosis 4800, Replay 0,35, lr 3e-4.
+**Eigener Fehler:** der erste Start lief ohne `--train-steps` und damit mit der Dosis der
+Capability-Datei (**600** statt 4800 Schritte) - er waere mit exp-021/024 nicht vergleichbar
+gewesen. Erkannt an der Zeile `Budget : 1 Iterationen, 600 Schritte` **bevor** der erste
+Trainingsschritt lief, abgebrochen und mit korrekter Dosis neu gestartet. Der abgebrochene Lauf
+hat keinen Stand geschrieben.
+
+### Das Ergebnis: das Ziel wird erreicht, und der Bestand bricht ein
+
+| Typ (Delta-Panels, gepoolt) | vorher | nachher | Delta |
+|---|---|---|---|
+| **`reparatur1`** | 60/122 = 49,2 % | **113/122 = 92,6 %** | **+43,4 Pp** |
+| davon **Wertfragen** | **0/56** | **54/56 = 96,4 %** | **+96,4 Pp** |
+| **`reparatur`** (Delta-Form, Bestand) | 113/123 = 91,9 % | **61/123 = 49,6 %** | **-42,3 Pp** |
+| `regel` | 120/133 = 90,2 % | 104/133 = 78,2 % | -12,0 Pp |
+| `naechste` | 104/121 = 86,0 % | 108/121 = 89,3 % | +3,3 Pp |
+| `offen` | 99/114 = 86,8 % | 103/114 = 90,4 % | +3,5 Pp |
+| `luecke` | 102/109 = 93,6 % | 101/109 = 92,7 % | -0,9 Pp |
+| `stelle` | 108/116 = 93,1 % | 107/116 = 92,2 % | -0,9 Pp |
+
+| Groesse | vorher | nachher |
+|---|---|---|
+| Kopfzahl gepoolt | 828/960 = 86,25 % | 819/960 = 85,31 % |
+| inhaltlich gepoolt | 706/838 = 84,25 % | 697/838 = 83,17 % |
+| Panel A Score | 0,5184 | **0,5113** (-0,007) |
+| Panel B Score | 0,5171 | **0,5144** (-0,003) |
+| Regressionsdelta | - | **-0,0113** (kritisch, beide Panels) |
+| Determinismus-Probe | - | byte-identisch |
+| **Urteil** | - | **VERWORFEN (einstimmig)**, harter Veto-Grund: **Typeneinbruch** |
+
+**Die Vorhersage ist damit BESTAETIGT:** der Formhebel wirkt bei `reparatur1` **genau so** wie bei
+`reparatur` - von **0 auf 96,4 %** auf der Wertfrage. Die Wirkung ist mechanisch, nicht
+formabhaengig. **Und die Runde ist trotzdem zu verwerfen**, weil sie den Bestand zerstoert.
+
+### Die Diagnose: aus der zweiteiligen Antwort wird eine einteilige
+
+Der Loop druckt die Antwortform-Zerlegung nur fuer den Stand **vor** der Runde. Fuer den neuen
+Stand wurde sie deshalb in zwei eigenen Messungen nachgeholt (`--dry-run`, kein Training):
+
+| Antwortform-Befund, neuer Stand | Panel A | Panel B |
+|---|---|---|
+| Delta-Panels: `reparatur` zweiteilig | 63 | 60 |
+| davon beide richtig | 29 | 32 |
+| **davon Form kaputt** | **31** | **26** |
+| Wertfragen richtig | 26/28 | 28/28 |
+| **Absolute Panels: Form kaputt** | **0** | **1** |
+| Absolute Panels: `reparatur` | 50/63 | 45/60 |
+
+**57 der 123 `reparatur`-Faelle (46 %) sind "Form kaputt"** - das Modell antwortet nicht mehr
+zweiteilig (`Stelle p: +d`), sondern einteilig. Auf den **absoluten** Panels ist dieselbe Antwort
+dagegen **intakt** (Form kaputt 0 bzw. 1, `reparatur` 95/123 = **77,2 %** - sogar leicht besser als
+die 75,6 % des angenommenen Stands). Das Modell hat die zweiteilige Form also **nicht verlernt**;
+es hat sie **in der Delta-Form** durch die einteilige ersetzt.
+
+### Die Ursache: die Wiederholung traegt die ALTE Form
+
+Die Trainingsdaten der Runde sind **20.000 gezielte `reparatur1`-Delta-Saetze + 56.800
+Wiederholungsfaelle aus dem urspruenglichen Trainingsband** - und dieses Band ist der **absolute**
+Korpus. Der Bestand wurde also in seiner **absoluten** Form wiederholt und in seiner **Delta**-Form
+**gar nicht**. Genau das zeigt die Messung: die absolute zweiteilige Form ueberlebt (und wird
+sogar besser), die Delta-Form nicht. **Eine Formrunde tauscht damit eine Konvention gegen die
+andere, statt eine zweite hinzuzufuegen** - solange die Wiederholung die alte Form traegt.
+
+Dasselbe erklaert exp-021 rueckwirkend: dort war die **Delta**-Form das Ziel und wurde wiederholt
+(20.000 gezielte Delta-Saetze), waehrend die absolute Form zwar nicht gezielt, aber ueber die
+56.800 Wiederholungsfaelle **doch** trainiert wurde - deshalb stieg sie dort von 72,4 % auf 75,6 %
+statt einzubrechen. Der Mechanismus ist in beiden Runden derselbe.
+
+**Nicht erklaert und offen benannt:** `regel` verliert **12,0 Pp** (90,2 -> 78,2 %, noch ueber der
+Marke). `regel` ist von der Formachse nicht betroffen (byte-identisch in beiden Formen) und stand
+in exp-021/024 nicht unter Druck; eine Erklaerung dafuer fehlt und wird nicht erfunden.
+
+### Folgen
+
+**Fuer D-049 (Antwortform als Konvention):** die Konvention **haelt sich nicht von selbst**. Jede
+Runde, die eine Antwortform aendert, braucht eine **formgleiche Wiederholung**; ein Ein-Typ-Paket
+kann zwei Formkonventionen nicht gegen ein absolutes Wiederholungsband tragen. Das ist als
+**O-D32** festgehalten.
+
+**Fuer D-047:** unveraendert. Die angenommenen Staende halten **874-876/960 = 91,04-91,25 %**; der
+verworfene Stand wird nicht gefuehrt.
+
+**Naechster Schritt (exp-026, genau eine Variable):** dieselbe Runde, aber mit **formgleicher
+Wiederholung** - die Wiederholungsfaelle werden mit derselben Umstellung gerendert wie die
+gezielten Daten (`als_delta` auch auf die Wiederholung). Vorhersage: `reparatur1`-Delta steigt
+wieder auf ~92 %, und `reparatur`-Delta **haelt** diesmal. Bleibt der Einbruch aus, ist die
+Ursache bestaetigt; bleibt er, ist sie widerlegt und die Interferenz sitzt tiefer (dann ist der
+naechste Kandidat eine **unterscheidbare Frageformulierung**).

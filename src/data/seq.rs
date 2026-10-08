@@ -1338,7 +1338,22 @@ pub fn verify(record: &[u8]) -> Result<Verified> {
                         p + 1
                     );
                 }
-                erwartet(&antwort, &w.to_string())?;
+                // **Delta-Form auch fuer die einfeldrige Variante (exp-025).**
+                // Wie bei `reparatur` entscheidet die Zeile `Form: Aenderung`,
+                // welches Feld erwartet wird; die Stelle steht hier schon in der
+                // Frage, deshalb traegt die Antwort **nur** die Aenderung.
+                if ist_delta_form(&task) {
+                    let alt = s[p].unwrap_or(0);
+                    let d = w - alt;
+                    let text = if d > 0 {
+                        format!("+{d}")
+                    } else {
+                        format!("-{}", -d)
+                    };
+                    erwartet(&antwort, &text)?;
+                } else {
+                    erwartet(&antwort, &w.to_string())?;
+                }
             }
         }
         Category::Vergleich => {
@@ -1982,6 +1997,96 @@ pub fn als_delta(record: &[u8]) -> Option<Vec<u8>> {
         task_neu,
         think,
         format!("Stelle {}: {delta_text}", p + 1),
+        shortcut,
+    )?;
+    match verify(&g.record) {
+        Ok(_) => Some(g.record),
+        Err(_) => None,
+    }
+}
+
+/// Ist der Datensatz eine `reparatur1`-**Wertfrage**?
+///
+/// Nur aus den Bytes gelesen (Fragezeile). Die Antwort verlangt hier einen
+/// absoluten Wert; die Stellenfrage verlangt eine Position und ist damit von der
+/// Formachse gar nicht betroffen. Diese Unterscheidung braucht der Aufrufer,
+/// damit er **nicht** versehentlich Stellenfragen verwirft oder zwei
+/// Antwortformen in einem Paket mischt.
+pub fn ist_wertfrage(record: &[u8]) -> bool {
+    let task = task_in(record);
+    matches!(zeile(&task, "Frage:"), Some(f) if f.starts_with("Auf welchen Wert"))
+}
+
+/// **Dieselbe Umstellung fuer die einfeldrige Variante `reparatur1` (exp-025).**
+///
+/// `reparatur1` hat zwei Frageformen. Die **Stellenfrage** ("An welcher Stelle
+/// muss die Zahl geaendert werden?") nennt bereits keine Zahl und bleibt
+/// unveraendert; nur die **Wertfrage** ("Auf welchen Wert muss Stelle p
+/// geaendert werden?") traegt einen absoluten Wert in der Antwort. Genau diese
+/// Form wird hier umgeschrieben: die Antwort nennt die **Aenderung**
+/// (`+7`/`-3`) statt des Zielwerts.
+///
+/// Die Frage bleibt inhaltlich dieselbe - sie nennt die Stelle, und die
+/// geforderte Aenderung ist die Antwort auf "auf welchen Wert". Die Zeile
+/// `Form: Aenderung` steht wie bei `reparatur` **im Datensatz**, damit der
+/// Verifier sie aus Bytes liest und nicht raten muss.
+///
+/// Gibt `None` zurueck, wenn der Datensatz keine `reparatur1`-**Wertfrage** ist
+/// oder die eindeutige Reparatur nicht nachrechenbar ist - dann wird er
+/// **verworfen** statt ungeprueft uebernommen. Insbesondere bleiben die
+/// Stellenfragen unangetastet.
+pub fn als_delta_einzeln(record: &[u8]) -> Option<Vec<u8>> {
+    let v = verify(record).ok()?;
+    if v.category != Category::ReparaturEinzeln {
+        return None;
+    }
+    let task = task_in(record);
+    let frage = zeile(&task, "Frage:").unwrap_or("");
+    // **Nur die Wertfrage.** Die Stellenfrage enthaelt keinen absoluten Wert;
+    // sie umzuschreiben waere eine zweite, unnoetige Aenderung.
+    if !frage.starts_with("Auf welchen Wert") {
+        return None;
+    }
+    let regel = zeile(&task, "Regel:").and_then(Regel::aus_name)?;
+    let s = folge_lesen(zeile(&task, "Folge:").unwrap_or(""))?;
+    if s.iter().any(|w| w.is_none()) {
+        return None;
+    }
+    // Dieselbe Rechnung und dieselbe Eindeutigkeitsregel wie im Verifier.
+    let (p, w) = eindeutige_reparatur(&s, regel)?;
+    let alt = s[p]?;
+    let d = w - alt;
+    if d == 0 || d.abs() > FENSTER {
+        return None;
+    }
+    let delta_text = if d > 0 {
+        format!("+{d}")
+    } else {
+        format!("-{}", -d)
+    };
+    let task_neu = format!(
+        "{}\nRegel: {}\nForm: Aenderung\nFrage: Auf welchen Wert muss Stelle {} geaendert werden? Nenne die Aenderung (+/-).",
+        folge_zeile(&s, ""),
+        regel.name(),
+        p + 1
+    );
+    let think = [
+        format!("Zahlen: {}", werte_text(&s)),
+        format!("Differenzen: {}", differenzen_text(&s)),
+        format!("Regel: {}", regel.name()),
+        format!("Stelle {}: vorgefunden {alt}, gesucht {w}", p + 1),
+        format!("Aenderung: {delta_text}"),
+        format!("Antwort: {delta_text}"),
+    ]
+    .join("\n");
+    let shortcut = shortcut(Category::ReparaturEinzeln, &s, Some(regel));
+    // **Gegenprobe am eigenen Ergebnis**, wie bei `als_delta`.
+    let g = abschluss(
+        Category::ReparaturEinzeln,
+        &s,
+        task_neu,
+        think,
+        delta_text,
         shortcut,
     )?;
     match verify(&g.record) {

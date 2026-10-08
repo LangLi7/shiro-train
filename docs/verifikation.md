@@ -1888,3 +1888,64 @@ in fremden Dateien** (`src/data/quant.rs` 6, `src/probe.rs` 1, keine in `agent.r
 Zeilen, check-doc-links 0 tote Links, lernstufen und programmiersprachen je 0 Warnungen,
 seq-korpus und seqgen bestanden. Register: **41 eindeutige IDs D-010..D-050**, keine Doppelung.
 
+## exp-025 - Formachse auf `reparatur1`: Vorhersage bestaetigt, Runde verworfen
+
+**Frage (pruefbare Vorhersage aus exp-024).** Wirkt dieselbe Antwortform-Umstellung bei der
+einfeldrigen Variante `reparatur1` ebenso wie bei `reparatur`, dann ist die Ursache die
+**Ausgabelast** des vierstelligen Werts und nicht die Aufgabe.
+
+**Gebaut.** `seq::als_delta_einzeln` (schreibt **nur** die Wertfrage um; die Stellenfrage nennt
+keine Zahl), `seq::ist_wertfrage`, Verifier in beiden Richtungen (umgedrehtes Vorzeichen, `+0` und
+die absolute Antwort fallen durch), `Pack::Reparatur1Delta` (nur ueber `--pack`, Wertfragen werden
+umgeschrieben oder verworfen, Stellenfragen bleiben), `delta_panel_einzeln` fuer die Messung und
+das neue Feld **`FormBefund::wert_einzeln_richtig`** - ohne dieses Feld waere die Wirkung auf die
+Wertfragen unsichtbar geblieben, weil `reparatur1` zwei Frageformen mischt und der Stellenanteil
+(rund 90 %) die Quote des Typs dominiert.
+
+**Baseline (`--dry-run`, angenommener Delta-Stand).** `reparatur`-Delta intakt 113/123 = 91,9 %;
+`reparatur1` 60/122 = 49,2 %; davon die **Wertfragen: 0 von 56** (A 0/28, B 0/28) - dieselbe
+Null-Baseline wie bei exp-021.
+
+**Runde (GPU, `Device<Cube(Cuda(Cuda(0)))>`, genau eine Variable, Dosis 4800).** Eigener Fehler,
+offen benannt: der erste Start lief ohne `--train-steps` mit der Dosis der Capability-Datei (600
+statt 4800) und wurde an der `Budget`-Zeile **vor** dem ersten Trainingsschritt erkannt, abgebrochen
+und korrekt neu gestartet; der abgebrochene Lauf hat keinen Stand geschrieben.
+
+| Typ (Delta-Panels, gepoolt) | vorher | nachher | Delta |
+|---|---|---|---|
+| `reparatur1` | 49,2 % | **92,6 %** | **+43,4 Pp** |
+| davon Wertfragen | **0/56** | **54/56 = 96,4 %** | +96,4 Pp |
+| `reparatur` (Delta) | 91,9 % | **49,6 %** | **-42,3 Pp** |
+| `regel` | 90,2 % | 78,2 % | -12,0 Pp |
+| Kopfzahl gepoolt | 828/960 = 86,25 % | 819/960 = 85,31 % | -0,94 Pp |
+
+Panel A Score 0,5184 -> 0,5113, Panel B 0,5171 -> 0,5144, Regressionsdelta **-0,0113**,
+Determinismus-Probe byte-identisch, Elternstand unversehrt (SHA-256 vorher = nachher
+`bd72ee187e44b0fc8cb54090533710312a49daf7c119a06fc121968dc20ebc66`).
+**Urteil: VERWORFEN (einstimmig)**, harter Veto-Grund **Typeneinbruch**.
+
+**Diagnose, gemessen statt gedeutet.** Der Loop druckt die Antwortform-Zerlegung nur fuer den Stand
+**vor** der Runde; zwei zusaetzliche `--dry-run`-Messungen holten sie fuer den neuen Stand nach.
+Delta-Panels: `reparatur` zweiteilig 63/60, davon **Form kaputt 31/26** = **57 von 123 (46 %)** -
+die zweiteilige Antwort wird einteilig. Absolute Panels: **Form kaputt 0 bzw. 1**, `reparatur`
+95/123 = **77,2 %** (leicht besser als die 75,6 % des angenommenen Stands). Verlernt wurde also
+nichts; **ersetzt** wurde die Form in der Delta-Ansicht.
+
+**Ursache.** Die Wiederholung der Runde (56.800 Saetze) stammt aus dem **absoluten** Korpus: der
+Bestand wird in der alten Form wiederholt und in der neuen gar nicht. Eine Formrunde **tauscht**
+damit eine Konvention gegen die andere. Rueckwirkend erklaert das auch exp-021 - dort war die
+Delta-Form das Ziel und wurde wiederholt, die absolute Form wurde ueber die Wiederholung
+mitgezogen und stieg deshalb von 72,4 % auf 75,6 % statt einzubrechen.
+
+**Folgen.** D-049 bekommt den Nachtrag "die Konvention haelt sich nicht von selbst: jede Formrunde
+braucht eine formgleiche Wiederholung". Neuer offener Punkt **O-D32**. **D-047 unveraendert:** die
+angenommenen Staende halten 874-876/960 = 91,04-91,25 %; der verworfene Stand wird nicht gefuehrt.
+**Nicht erklaert und offen benannt:** `regel` verliert 12,0 Pp (auf 78,2 %, ueber der Marke).
+
+**Gates.** `cargo fmt --check` gruen; `cargo test` **406 Tests / 0 failed** (312 lib + 94
+Integration, +4 neue); `cargo clippy --all-targets -D warnings` unveraendert 7 Befunde, alle in
+fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in `agent.rs`/`cli.rs`/
+`main.rs`/`seq.rs`; `build --release` und CUDA-Build gruen; `shiro smoke` Digest
+**a6a53c95abd7f622** unveraendert. Naechster Schritt: **exp-026** - dieselbe Runde mit
+**formgleicher Wiederholung** als einziger Variable.
+
