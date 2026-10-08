@@ -2789,3 +2789,98 @@ und `reparatur` haengt an der Aufgabenform.
 (`replay_share 0.35 -> 0.20`) - die nach exp-019 **wirkungslos** ist, weil beide Anforderungen
 ueber dem Deckel liegen. Genau dafuer fehlt die Pruefung: `hebel_an` beurteilt einen Hebel an
 seinem **Zahlenwert**, nicht an der **gelieferten Datenmenge**. Offener Punkt, siehe exp-019.
+
+## exp-021 - Vorbereitung: die DELTA-Form ist gebaut, und die Baseline ist 0 von 123
+
+**Warum diese Aenderung.** exp-019 hat den Engpass von `reparatur` **gemessen**: die
+zweiteilige Antwort multipliziert zwei Komponenten - die Stelle gelingt in 88,6 %, der
+Wert in 82,1 %, und `0,886 x 0,82 = 0,727` trifft die gemessenen **72,4 %** auf 0,3
+Prozentpunkte. exp-020 hat gezeigt, dass die **Einstellungsachse** ausgeschoepft ist:
+fuenf Einzelvariablen (Dosis, Replay, Lernrate, Paket, gezielte Datenmenge) machen den
+angenommenen Stand schlechter oder sind wirkungslos. **Kein Hebel der Leiter beruehrt
+die gemessene Ursache.** Der naechste Schritt ist deshalb die **Aufgabenform**.
+
+### Was die neue Form ist
+
+Die Aufgabe verlangt eine Aenderung, die hoechstens `FENSTER = 20` vom vorgefundenen
+Wert abweicht; der Generator verfaelscht sogar nur um **1 bis 9**. Gefragt wird jetzt
+die **Aenderung** statt des absoluten Werts:
+
+| vorher | nachher |
+|---|---|
+| `Frage: Welche eine Zahl muss geaendert werden?` | `Frage: ... Nenne die Aenderung (+/-).` |
+| `Stelle 5: 4096` | `Stelle 5: +7` |
+
+Der Antwortraum schrumpft von rund **20.000** Werten auf **19** (`+1`..`+9`, `-1`..`-9`) -
+dasselbe Wissen, dasselbe Rechnen, aber ohne die Zifferngenauigkeit eines vierstelligen
+Werts. Die Form steht als Zeile `Form: Aenderung` **im Datensatz**, damit der Verifier sie
+aus Bytes lesen kann und nicht raten muss.
+
+### Drei Eigenschaften, die ausdruecklich abgesichert sind
+
+1. **Nur die Antwortform aendert sich, nicht die Fakten.** Der Delta-Pack erzeugt
+   zunaechst **denselben** `reparatur`-Korpus (gleicher Seed, gleiche Erzeugung) und
+   schreibt ihn danach um - ein zweiter Wuerfelpfad waere eine zweite Variable. Test
+   `delta_form_aendert_nur_die_antwortform`: bei gleichem Seed sind die `Folge:`-Zeilen
+   Zeichen fuer Zeichen gleich, und nur die Antwort traegt ein Vorzeichen.
+2. **Der Verifier prueft beide Richtungen.** Er rechnet Stelle und Zielwert selbst nach
+   und bildet die Aenderung daraus (`w - vorgefundener Wert`). Test
+   `delta_form_wird_vom_verifier_geprueft` mit zwei Gegenproben: **umgedrehtes
+   Vorzeichen** und **Aenderung ausserhalb des Fensters** muessen durchfallen.
+3. **Nur `reparatur` wird angefasst.** Test
+   `delta_panel_laesst_andere_typen_unveraendert`: die sieben anderen Typen bleiben
+   **byte-identisch** und dienen unveraendert als Regressionsreferenz. Der
+   Regressionssatz (`reg_records`) wird bewusst **nicht** umgeschrieben - er traegt den
+   Regressionsverlust, und der muss ueber alle Runden dieselbe Messung bleiben.
+
+Die Form ist **nur ueber `--pack reparatur-delta`** waehlbar; keine Achse (`for_class`,
+`for_schwaechsten_typ`) waehlt sie von selbst. Der Laufname traegt sie ueber den
+Fingerabdruck, ein Delta-Lauf kann also keinen absoluten Stand ueberschreiben.
+
+### Die Probemessung (Muster exp-019, KEINE Trainingsvariable)
+
+Angenommener Stand `from7600-i1-step12400`, 2 x 480 disjunkte Fragen, `--dry-run`,
+2:16 min, GPU:
+
+```text
+Antwortform : DELTA - reparatur-Faelle der Panels umgeschrieben (A 63 von 480, B 60 von 480);
+              alle anderen Typen unveraendert
+```
+
+| Groesse | Panel A | Panel B |
+|---|---|---|
+| `reparatur` (Delta-Form) | **0 von 63** | **0 von 60** |
+| Antwortform-Befund | beide richtig 1, Stelle richtig-Wert falsch 24, Stelle falsch 8, **Form kaputt 30** | beide richtig 3, 17 / 11 / **29** |
+| inhaltlich gesamt | 87,8 % -> **76,4 %** | 87,4 % -> **77,5 %** |
+
+**Die zwei Befunde, die diese Messung traegt:**
+
+1. **Der angenommene Stand kann die Delta-Form nicht** - 0 von 123. Er antwortet
+   weiter mit dem absoluten Wert: in 24 bzw. 17 Faellen ist die Stelle richtig und der
+   Wert ein absoluter, in 30 bzw. 29 Faellen ist die Antwort gar nicht zweiteilig
+   (`Form kaputt`). Das ist die erwartete Baseline: das Modell hat die Form nie gesehen.
+2. **Nur der Zieltyp wurde angefasst.** Der Inhalt faellt um 11,4 Prozentpunkte
+   (87,8 -> 76,4 %); die 47 verlorenen Treffer sind **genau** die 47 `reparatur`-Treffer
+   von Panel A, und `reparatur1` steht unveraendert bei 46/55. Die Umschreibung ist
+   damit belegt auf `reparatur` begrenzt.
+
+**Was diese Runde NICHT zeigt, ehrlich benannt.** Bei einer Baseline von 0 ist jeder
+Zuwachs ein Gewinn - exp-021 prueft also die **Machbarkeit** ("kann das Modell die
+Delta-Form ueberhaupt lernen?"), **nicht** die Ueberlegenheit der Form ("ist Delta
+besser als absolut?"). Ein fairer Ueberlegenheitstest muesste beide Formen mit
+derselben Dosis trainieren und auf beiden Formen messen; das steht aus.
+
+**Und eine Folge fuer D-047, die benannt werden muss:** die Marke nennt keine
+Antwortform. Wird die Delta-Runde angenommen, gilt sie fuer die **Delta-Form**; der
+Stand auf der absoluten Form ist damit **nicht** automatisch mitgemessen. Der
+D-047-Status muss kuenftig die Form nennen, sonst vergleicht man zwei verschiedene
+Aufgaben.
+
+### Gates (Codeaenderung)
+
+`cargo test` **306** lib + 90 Integrationstests, **0 Fehler**, 13 Suiten (vorher 302,
++4 neue Tests); `cargo fmt --check` gruen; `cargo build --release` gruen;
+`cargo clippy --all-targets -- -D warnings` unveraendert **7** Fehler, alle in fremden
+Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), `agent.rs`/`seq.rs` **0**;
+Smoke-Digest `a6a53c95abd7f622` unveraendert; alle sechs Doku-Gates 0 Befunde;
+`deploy/` unberuehrt.

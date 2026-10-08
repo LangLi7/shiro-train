@@ -1262,7 +1262,24 @@ pub fn verify(record: &[u8]) -> Result<Verified> {
             }
             passende = 1;
             let (p, w) = treffer[0];
-            erwartet(&antwort, &format!("Stelle {}: {w}", p + 1))?;
+            // **Delta-Form (exp-021): die Antwort nennt die Aenderung.** Der
+            // Zielwert wird ohnehin nachgerechnet; die erwartete Antwort ist
+            // deshalb `w - vorgefundener Wert` mit Vorzeichen. Beide Richtungen
+            // sind damit pruefbar: eine zu grosse Aenderung, ein falsches
+            // Vorzeichen und eine Aenderung auf den vorgefundenen Wert fallen
+            // hier durch.
+            if ist_delta_form(&task) {
+                let alt = s[p].unwrap_or(0);
+                let d = w - alt;
+                let text = if d > 0 {
+                    format!("Stelle {}: +{d}", p + 1)
+                } else {
+                    format!("Stelle {}: -{}", p + 1, -d)
+                };
+                erwartet(&antwort, &text)?;
+            } else {
+                erwartet(&antwort, &format!("Stelle {}: {w}", p + 1))?;
+            }
         }
         Category::ReparaturEinzeln => {
             // Dieselbe Rechnung wie `reparatur`, aber die Fragezeile entscheidet,
@@ -1876,6 +1893,131 @@ fn baue_stelle(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
         format!("Stelle {}", q + 1),
         shortcut,
     )
+}
+
+/// **Schreibt einen `reparatur`-Datensatz in die DELTA-Form um** (exp-021).
+///
+/// **Was sich aendert und was nicht.** Die Folge, die Stelle und der gesuchte
+/// Wert bleiben **byte-identisch**; geaendert werden nur die Fragezeile, der
+/// Denkweg und die Antwort. Aus
+///
+/// ```text
+/// Frage: Welche eine Zahl muss geaendert werden?
+/// ...
+/// Stelle 5: 4096
+/// ```
+///
+/// wird
+///
+/// ```text
+/// Frage: Welche eine Zahl muss geaendert werden? Nenne die Aenderung (+/-).
+/// Form: Aenderung
+/// ...
+/// Stelle 5: +7
+/// ```
+///
+/// **Warum das die richtige Form ist.** Die Aufgabe verlangt eine Aenderung, die
+/// hoechstens [`FENSTER`] vom vorgefundenen Wert abweicht - der Generator
+/// verfaelscht sogar nur um **1 bis 9**. Die Aenderung zu nennen ist damit die
+/// **woertliche** Antwort auf die Frage; der absolute Wert ist die
+/// umstaendlichere Variante derselben Antwort. Der Antwortraum schrumpft von
+/// rund 20.000 Werten auf **19** (`+1`..`+9`, `-1`..`-9`) - dasselbe Wissen,
+/// dasselbe Rechnen, aber ohne die Zifferngenauigkeit eines vierstelligen Werts.
+///
+/// **Der Verifier prueft beide Richtungen**, weil er die Stelle und den
+/// Zielwert selbst nachrechnet und die Aenderung daraus bildet
+/// (`w - s[p]`): eine umgeschriebene Antwort ist genau dann gueltig, wenn
+/// `vorgefundener Wert + Aenderung` die Folge wieder regelkonform macht.
+///
+/// Gibt `None` zurueck, wenn der Datensatz kein zweiteiliges `reparatur` ist
+/// oder die eindeutige Reparatur nicht nachrechenbar ist - dann wird er
+/// **verworfen** statt ungeprueft uebernommen.
+pub fn als_delta(record: &[u8]) -> Option<Vec<u8>> {
+    let v = verify(record).ok()?;
+    if v.category != Category::Reparatur {
+        return None;
+    }
+    let task = task_in(record);
+    let regel = zeile(&task, "Regel:").and_then(Regel::aus_name)?;
+    let s = folge_lesen(zeile(&task, "Folge:").unwrap_or(""))?;
+    if s.iter().any(|w| w.is_none()) {
+        return None;
+    }
+    // Die eindeutige Reparatur neu rechnen - **dieselbe** Regel wie im Verifier,
+    // damit Umbau und Pruefung nicht auseinanderlaufen koennen.
+    let (p, w) = eindeutige_reparatur(&s, regel)?;
+    let alt = s[p]?;
+    let d = w - alt;
+    if d == 0 || d.abs() > FENSTER {
+        return None;
+    }
+    let delta_text = if d > 0 {
+        format!("+{d}")
+    } else {
+        format!("-{}", -d)
+    };
+    let task_neu = format!(
+        "{}\nRegel: {}\nForm: Aenderung\nFrage: Welche eine Zahl muss geaendert werden? Nenne die Aenderung (+/-).",
+        folge_zeile(&s, ""),
+        regel.name()
+    );
+    let think = [
+        format!("Zahlen: {}", werte_text(&s)),
+        format!("Differenzen: {}", differenzen_text(&s)),
+        format!("Regel: {}", regel.name()),
+        format!("Stelle {}: vorgefunden {alt}, gesucht {w}", p + 1),
+        format!("Aenderung: {delta_text}"),
+        format!("Antwort: Stelle {}: {delta_text}", p + 1),
+    ]
+    .join("\n");
+    let shortcut = shortcut(Category::Reparatur, &s, Some(regel));
+    // **Gegenprobe am eigenen Ergebnis**: der umgeschriebene Datensatz muss der
+    // Verifier akzeptieren. Ein Umbau, der sich selbst nicht prueft, waere ein
+    // zweiter Wahrheitsbegriff.
+    let g = abschluss(
+        Category::Reparatur,
+        &s,
+        task_neu,
+        think,
+        format!("Stelle {}: {delta_text}", p + 1),
+        shortcut,
+    )?;
+    match verify(&g.record) {
+        Ok(_) => Some(g.record),
+        Err(_) => None,
+    }
+}
+
+/// Die eindeutige Minimalreparatur einer Folge; `None`, wenn es nicht genau
+/// eine gibt. Dieselbe erschoepfende Suche wie im Verifier - eine Quelle.
+fn eindeutige_reparatur(s: &[Option<i64>], regel: Regel) -> Option<(usize, i64)> {
+    let mut treffer: Vec<(usize, i64)> = Vec::new();
+    for p in 0..s.len() {
+        let alt = s[p]?;
+        let lo = (alt - FENSTER).max(1);
+        let hi = alt + FENSTER;
+        for w in lo..=hi {
+            if w == alt {
+                continue;
+            }
+            let mut neu = s.to_vec();
+            neu[p] = Some(w);
+            if !kandidaten(regel, &neu).is_empty() {
+                treffer.push((p, w));
+            }
+        }
+    }
+    if treffer.len() == 1 {
+        Some(treffer[0])
+    } else {
+        None
+    }
+}
+
+/// Ist der Datensatz in der **Delta-Form**? Erkannt an der Zeile `Form:` in der
+/// Aufgabe - der Verifier liest damit ausschliesslich Datensatz-Bytes.
+pub fn ist_delta_form(task: &str) -> bool {
+    matches!(zeile(task, "Form:"), Some(f) if f.trim() == "Aenderung")
 }
 
 fn baue_reparatur(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {

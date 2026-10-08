@@ -814,6 +814,30 @@ pub enum Pack {
     /// lieferte [`Pack::for_schwaechsten_typ`] fuer `offen` **`None`**, und der
     /// Loop waere still auf eine andere Achse ausgewichen.
     Offen,
+    /// **Aufgabenform-getrieben: `reparatur`, aber die Antwort nennt die
+    /// AENDERUNG statt des absoluten Werts** (exp-021).
+    ///
+    /// **Der gemessene Anlass.** exp-019 hat den Engpass von `reparatur`
+    /// gemessen: die zweiteilige Antwort **multipliziert zwei Komponenten** -
+    /// die Stelle gelingt in 88,6 %, der Wert in 82,1 %, und
+    /// `0,886 x 0,82 = 0,727` trifft die gemessenen 72,4 % auf 0,3
+    /// Prozentpunkte. Fuenf Einzelvariablen auf der Einstellungsachse sind
+    /// widerlegt (Dosis, Replay, Lernrate, Paket, gezielte Datenmenge) - **kein
+    /// Hebel der Leiter beruehrt diese Ursache**.
+    ///
+    /// **Was dieses Paket aendert.** Die Aufgabe selbst verlangt eine Aenderung,
+    /// die hoechstens `FENSTER` vom vorgefundenen Wert abweicht; die Verfaelschung
+    /// im Generator ist sogar nur **1 bis 9** daneben. Gefragt wird deshalb die
+    /// Aenderung: `Stelle 5: +7` statt `Stelle 5: 4096`. Der Antwortraum
+    /// schrumpft von rund 20.000 Werten auf **19** (`+1` bis `+9`, `-1` bis `-9`),
+    /// und zwar bei demselben Wissen und demselben Rechnen; es entfaellt nur die
+    /// Zifferngenauigkeit des vierstelligen Werts.
+    ///
+    /// **Nur ueber `--pack` waehlbar.** Die Achsen (`for_class`,
+    /// `for_schwaechsten_typ`) waehlen es nie: es ist keine neue Schwaeche,
+    /// sondern eine andere Form derselben Aufgabe, und ein automatischer Wechsel
+    /// waere ein zweiter Hebel neben dem Formwechsel.
+    ReparaturDelta,
 }
 
 impl Pack {
@@ -887,6 +911,7 @@ impl Pack {
             Pack::Stellenwert => "stellenwert",
             Pack::Reparatur => "reparatur",
             Pack::ReparaturEinzeln => "reparatur1",
+            Pack::ReparaturDelta => "reparatur-delta",
             Pack::Stelle => "stelle",
             Pack::Offen => "offen",
             Pack::Breit => "breit",
@@ -902,6 +927,7 @@ impl Pack {
             Pack::Stellenwert,
             Pack::Reparatur,
             Pack::ReparaturEinzeln,
+            Pack::ReparaturDelta,
             Pack::Stelle,
             Pack::Offen,
             Pack::Breit,
@@ -925,6 +951,9 @@ impl Pack {
             }
             Pack::ReparaturEinzeln => {
                 "nur Aufgabentyp reparatur1 (MINIMIEREN, einfeldrig): gleiche Suche, aber die zweiteilige Antwortform entfaellt"
+            }
+            Pack::ReparaturDelta => {
+                "nur Aufgabentyp reparatur in der DELTA-Form: die Antwort nennt die Aenderung ('Stelle p: +d') statt des absoluten Werts - der Antwortraum schrumpft von rund 20000 auf 19 (exp-021)"
             }
             Pack::Offen => {
                 "nur Aufgabentyp offen (ableiten, Grenzfall): Worttreue von 'nicht entscheidbar' und die Entscheidung entscheidbar/nicht entscheidbar"
@@ -1006,7 +1035,11 @@ pub const TYP_DECKEL: usize = 20000;
 ///   Aufgabentypen.
 pub fn anfrage_fuer(pack: Pack, n: usize) -> usize {
     match pack {
-        Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln | Pack::Offen => {
+        Pack::Reparatur
+        | Pack::ReparaturDelta
+        | Pack::Stelle
+        | Pack::ReparaturEinzeln
+        | Pack::Offen => {
             // Genau die gewuenschte Zahl, aber nie unter `MIN_FAELLE` (ein Paket
             // mit einem Datensatz ist keines) und nie ueber `TYP_DECKEL`.
             n.clamp(MIN_FAELLE, TYP_DECKEL)
@@ -1046,8 +1079,31 @@ pub fn frage_zuerst(record: &[u8]) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// Baut ein gezieltes Trainingspaket. **Jeder Datensatz geht durch `seq::verify`**
-/// - was der Verifier nicht bestaetigt, wird nicht ausgeliefert.
+/// Baut ein gezieltes Trainingspaket. **Jeder Datensatz geht durch `seq::verify`**;
+/// was der Verifier nicht bestaetigt, wird nicht ausgeliefert.
+/// Schreibt die `reparatur`-Faelle eines Panels in die Delta-Form um.
+///
+/// Gibt die neuen Datensaetze und die Zahl der **wirklich umgeschriebenen**
+/// zurueck. Nicht-`reparatur`-Datensaetze bleiben unveraendert (sie sind die
+/// Regressionsreferenz und duerfen sich nicht aendern); ein `reparatur`-Fall,
+/// der sich nicht umschreiben laesst, bleibt ebenfalls stehen und wird
+/// **gezaehlt** - eine stille Mischung zweier Antwortformen waere ein
+/// unbrauchbares Panel.
+fn delta_panel(records: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, usize) {
+    let mut n = 0usize;
+    let out = records
+        .into_iter()
+        .map(|r| match seq::als_delta(&r) {
+            Some(neu) => {
+                n += 1;
+                neu
+            }
+            None => r,
+        })
+        .collect();
+    (out, n)
+}
+
 pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
     let mut out: Vec<Vec<u8>> = Vec::with_capacity(n);
     let mut roh: Vec<Vec<u8>> = Vec::new();
@@ -1085,6 +1141,22 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
                 }
             }
         }
+        Pack::ReparaturDelta => {
+            // Dieselbe Erzeugung wie `Pack::Reparatur` - **derselbe** Korpus,
+            // dieselben Folgen, dieselben Stellen, dieselben Werte. Danach wird
+            // jeder Datensatz in die Delta-Form umgeschrieben. Damit ist der
+            // Formwechsel die **einzige** geaenderte Variable (exp-021); wuerde
+            // hier neu gewuerfelt, waeren Daten und Form gleichzeitig anders.
+            let opts = seq::Options {
+                train_records: anfrage_fuer(pack, n),
+                val_percent: 0,
+                seed,
+                category: Some(seq::Category::Reparatur),
+                level: None,
+            };
+            let g = seq::generate(&opts)?;
+            roh = g.train.into_iter().map(|r| r.record).collect();
+        }
         Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln | Pack::Offen => {
             // **Ein Aufgabentyp, sonst nichts.** Der Generator kann nach
             // Kategorie filtern; genau das braucht ein typ-getriebenes Paket.
@@ -1118,6 +1190,22 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
             };
             let g = seq::generate(&opts)?;
             roh = g.train.into_iter().map(|r| r.record).collect();
+        }
+    }
+
+    // **Die Delta-Form entsteht hier, nach der Erzeugung** - nicht im Generator.
+    // So ist garantiert, dass die *Fakten* identisch bleiben (Folge, Stelle,
+    // Wert) und nur die Antwortform wechselt; ein zweiter Wuerfelpfad waere eine
+    // zweite Variable. Datensaetze, die sich nicht umschreiben lassen, fallen
+    // hier heraus, statt ungeprueft weiterzulaufen.
+    if pack == Pack::ReparaturDelta {
+        let vorher = roh.len();
+        roh = roh.iter().filter_map(|r| seq::als_delta(r)).collect();
+        if roh.len() != vorher {
+            eprintln!(
+                "Hinweis: {} von {vorher} reparatur-Datensaetzen liessen sich nicht in die Delta-Form schreiben",
+                vorher - roh.len()
+            );
         }
     }
 
@@ -2435,6 +2523,38 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         eval_n,
         versatz_b,
     )?;
+    // **Delta-Form: die Messpanels werden mit umgeschrieben** (exp-021).
+    //
+    // **Warum das die Vergleichbarkeit erhaelt.** Die festen Panels bleiben die
+    // festen Panels: dieselben Folgen, dieselben Stellen, dieselben Werte,
+    // dieselbe Auswahlregel (jeder 10., Versatz 0 bzw. 5, disjunkt). Geaendert
+    // wird **nur** die Antwortform der `reparatur`-Faelle - Fragezeile und
+    // erwartete Antwort. Alle sieben anderen Typen bleiben **byte-identisch**
+    // und dienen damit unveraendert als Regressionsreferenz.
+    //
+    // Der **Regressionssatz** (`reg_records`) wird bewusst **nicht**
+    // umgeschrieben: er traegt den Regressionsverlust, und der muss ueber alle
+    // Runden hinweg dieselbe Messung bleiben.
+    let delta_form = opts.pack_override.as_deref() == Some(Pack::ReparaturDelta.key());
+    let mut eval_records_b = eval_records_b;
+    let eval_records = if delta_form {
+        let (a, ua) = delta_panel(eval_records);
+        let (b, ub) = delta_panel(eval_records_b);
+        println!(
+            "Antwortform   : DELTA - reparatur-Faelle der Panels umgeschrieben (A {ua} von {}, B {ub} von {}); alle anderen Typen unveraendert",
+            a.len(),
+            b.len()
+        );
+        if ua == 0 || ub == 0 {
+            bail!(
+                "Delta-Form gewaehlt, aber kein reparatur-Fall im Panel umgeschrieben - die Runde waere keine Formaenderung"
+            );
+        }
+        eval_records_b = b;
+        a
+    } else {
+        eval_records
+    };
     let (reg_records, _) = reference_set(
         &opts.train_band_dir,
         &opts.held_out_manifest,
@@ -2737,7 +2857,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             Some(k) => {
                 let p = Pack::parse(k).ok_or_else(|| {
                     crate::error::anyhow!(
-                        "--pack: '{k}' ist unbekannt. Erlaubt: terminierung, frageart, stellenwert, reparatur, reparatur1, stelle, breit"
+                        "--pack: '{k}' ist unbekannt. Erlaubt: terminierung, frageart, stellenwert, reparatur, reparatur1, reparatur-delta, stelle, breit"
                     )
                 })?;
                 println!(
@@ -4499,6 +4619,224 @@ mod tests {
             ..FormBefund::default()
         };
         assert_eq!(b3.wert_traegt_form_nicht(), Some(false));
+    }
+
+    /// **Die Delta-Form aendert NUR die Antwortform** (exp-021).
+    ///
+    /// Der Test ist die Absicherung der Einzelvariablen-Eigenschaft: derselbe
+    /// Seed, dieselbe Erzeugung, danach das Umschreiben. Wenn die **Fakten**
+    /// (Folge, Stelle, Wert) gleich bleiben und nur die Antwort anders lautet,
+    /// dann ist der Formwechsel die einzige geaenderte Variable - genau das
+    /// verlangt die Replikationsauflage. Wuerde der Delta-Pack neu wuerfeln,
+    /// waeren Daten und Form gleichzeitig anders und die Runde nicht zurechenbar.
+    #[test]
+    fn delta_form_aendert_nur_die_antwortform() {
+        let absolut = build_pack(Pack::Reparatur, 12, 1337).expect("reparatur-Paket");
+        let delta = build_pack(Pack::ReparaturDelta, 12, 1337).expect("delta-Paket");
+        assert_eq!(absolut.len(), delta.len(), "gleich viele Datensaetze");
+        assert!(!delta.is_empty(), "das Paket darf nicht leer sein");
+
+        let folge = |r: &[u8]| {
+            seq::task_in(r)
+                .lines()
+                .find(|l| l.starts_with("Folge:"))
+                .unwrap_or("")
+                .to_string()
+        };
+
+        let mut mit_vorzeichen = 0usize;
+        for (a, d) in absolut.iter().zip(delta.iter()) {
+            // **Die Fakten sind identisch** - die Folge Zeichen fuer Zeichen.
+            assert_eq!(
+                folge(a),
+                folge(d),
+                "die Delta-Form darf die Folge nicht aendern"
+            );
+            // Beide sind gueltige Datensaetze desselben Typs.
+            let va = seq::verify(a).expect("absolute Form muss gueltig sein");
+            let vd = seq::verify(d).expect("Delta-Form muss gueltig sein");
+            assert_eq!(va.category, seq::Category::Reparatur);
+            assert_eq!(
+                vd.category,
+                seq::Category::Reparatur,
+                "die Delta-Form bleibt derselbe Aufgabentyp - sonst waere die Typentafel nicht vergleichbar"
+            );
+            // Die Antwort traegt ein Vorzeichen und ist betragsmaessig <= 9.
+            let antwort = seq::answer_in(d).expect("Antwort");
+            assert_eq!(
+                antwort,
+                va_antwort_mit_vorzeichen(&antwort),
+                "Form: {antwort}"
+            );
+            let zahl: i64 = antwort
+                .rsplit(": ")
+                .next()
+                .and_then(|t| t.parse().ok())
+                .unwrap_or(0);
+            assert!(
+                zahl != 0 && zahl.abs() <= 9,
+                "Delta ausserhalb 1..9: {antwort}"
+            );
+            if antwort.contains(": +") || antwort.contains(": -") {
+                mit_vorzeichen += 1;
+            }
+        }
+        assert_eq!(
+            mit_vorzeichen,
+            delta.len(),
+            "jede Delta-Antwort muss ein Vorzeichen tragen"
+        );
+    }
+
+    /// Hilfsfunktion des Tests oben: prueft, dass die Antwort die Form
+    /// `Stelle p: <vorzeichen><ziffern>` hat, und gibt sie normalisiert zurueck.
+    fn va_antwort_mit_vorzeichen(antwort: &str) -> String {
+        let rest = antwort.trim().strip_prefix("Stelle ").unwrap_or("");
+        let (p, w) = rest.split_once(": ").unwrap_or(("", ""));
+        let v = if w.starts_with('+') || w.starts_with('-') {
+            w.to_string()
+        } else {
+            format!("+{w}")
+        };
+        format!("Stelle {p}: {v}")
+    }
+
+    /// **Der Verifier prueft beide Richtungen** - und lehnt gefaelschte
+    /// Aenderungen ab. Sonst waere die Delta-Form ein Freibrief: eine Antwort
+    /// ohne Vorzeichen oder mit falscher Richtung muss durchfallen.
+    #[test]
+    fn delta_form_wird_vom_verifier_geprueft() {
+        let delta = build_pack(Pack::ReparaturDelta, 6, 4242).expect("delta-Paket");
+        assert!(!delta.is_empty());
+        for r in &delta {
+            assert!(
+                seq::verify(r).is_ok(),
+                "erzeugte Delta-Form muss gueltig sein"
+            );
+            let antwort = seq::answer_in(r).expect("Antwort");
+            let (kopf, wert) = antwort.rsplit_once(": ").expect("zweiteilig");
+            let d: i64 = wert.parse().expect("Zahl");
+            // **Gegenprobe 1: Vorzeichen umgedreht** -> die Aenderung zeigt in
+            // die falsche Richtung und darf nicht durchgehen.
+            let falsch = format!("{kopf}: {}", -d);
+            let gefaelscht = mit_antwort(r, &falsch);
+            assert!(
+                seq::verify(&gefaelscht).is_err(),
+                "umgedrehtes Vorzeichen wurde akzeptiert: {falsch}"
+            );
+            // **Gegenprobe 2: zu grosse Aenderung** (FENSTER + 1 daneben).
+            let zu_gross = if d > 0 {
+                crate::data::seq::FENSTER + 1
+            } else {
+                -(crate::data::seq::FENSTER + 1)
+            };
+            let falsch2 = format!("{kopf}: {zu_gross:+}");
+            let gefaelscht2 = mit_antwort(r, &falsch2);
+            assert!(
+                seq::verify(&gefaelscht2).is_err(),
+                "Aenderung ausserhalb des Fensters wurde akzeptiert: {falsch2}"
+            );
+        }
+    }
+
+    /// Ersetzt das Antwortfeld eines Datensatzes (nur fuer Gegenproben).
+    fn mit_antwort(record: &[u8], neu: &str) -> Vec<u8> {
+        use crate::data::bytes::{B_ANSWER, B_END};
+        let start = record
+            .iter()
+            .position(|b| *b == B_ANSWER)
+            .expect("Antwortmarke")
+            + 1;
+        let rest = &record[start..];
+        let ende = rest.iter().position(|b| *b == B_END).expect("END-Marke");
+        let mut out = record[..start].to_vec();
+        out.extend_from_slice(neu.as_bytes());
+        out.extend_from_slice(&rest[ende..]);
+        out
+    }
+
+    /// **Die Delta-Form ist nur ueber `--pack` waehlbar** und wird von keiner
+    /// Achse automatisch gewaehlt - sie ist keine neue Schwaeche, sondern eine
+    /// andere Form derselben Aufgabe.
+    #[test]
+    fn reparatur_delta_ist_ueber_pack_waehlbar() {
+        assert_eq!(Pack::parse("reparatur-delta"), Some(Pack::ReparaturDelta));
+        assert_eq!(
+            Pack::parse("  REPARATUR-DELTA "),
+            Some(Pack::ReparaturDelta)
+        );
+        assert_eq!(Pack::ReparaturDelta.key(), "reparatur-delta");
+        assert_ne!(
+            Pack::ReparaturDelta.key(),
+            Pack::Reparatur.key(),
+            "der Fingerabdruck muss die Form unterscheiden, sonst ueberschreibt ein Delta-Lauf den absoluten Stand"
+        );
+        assert!(
+            Pack::ReparaturDelta.reason().contains("DELTA"),
+            "die Begruendung muss die Form nennen: {}",
+            Pack::ReparaturDelta.reason()
+        );
+        // Keine Achse waehlt sie von selbst.
+        for k in [
+            FailureClass::WrongParameter,
+            FailureClass::PlaceValueError,
+            FailureClass::ArithmeticError,
+        ] {
+            assert_ne!(Pack::for_class(k), Pack::ReparaturDelta);
+        }
+        // Die Anforderung ist wie bei den anderen Ein-Typ-Paketen gedeckelt.
+        assert_eq!(anfrage_fuer(Pack::ReparaturDelta, 10), 10);
+        assert_eq!(
+            anfrage_fuer(Pack::ReparaturDelta, 10 * TYP_DECKEL),
+            TYP_DECKEL
+        );
+    }
+
+    /// **Der Panel-Umbau laesst die anderen Typen unangetastet** - sie sind die
+    /// Regressionsreferenz und duerfen sich nicht aendern.
+    #[test]
+    fn delta_panel_laesst_andere_typen_unveraendert() {
+        let rep = build_pack(Pack::Reparatur, 3, 99).expect("reparatur");
+        let breit = build_pack(Pack::Breit, 60, 99).expect("breit");
+        let mut panel: Vec<Vec<u8>> = rep.clone();
+        panel.extend(breit.clone());
+        assert!(panel.len() > rep.len());
+
+        // **Wie viele reparatur-Faelle sind wirklich im Panel?** `breit` mischt
+        // alle Typen, enthaelt also selbst welche. Die Erwartung wird deshalb
+        // gezaehlt und nicht angenommen - genau dieser Denkfehler war der erste
+        // Anlauf dieses Tests.
+        let ist_reparatur = |r: &[u8]| {
+            seq::verify(r)
+                .map(|v| v.category == seq::Category::Reparatur)
+                .unwrap_or(false)
+        };
+        let erwartet = panel.iter().filter(|r| ist_reparatur(r)).count();
+        assert!(
+            erwartet > rep.len(),
+            "breit bringt eigene reparatur-Faelle mit"
+        );
+
+        let (neu, n) = delta_panel(panel.clone());
+        assert_eq!(neu.len(), panel.len(), "kein Datensatz darf verschwinden");
+        assert_eq!(
+            n, erwartet,
+            "genau die reparatur-Faelle werden umgeschrieben"
+        );
+        for (a, b) in panel.iter().zip(neu.iter()) {
+            if ist_reparatur(a) {
+                // Umgeschrieben: die Antwort traegt jetzt ein Vorzeichen.
+                let antwort = seq::answer_in(b).expect("Antwort");
+                assert!(
+                    antwort.contains(": +") || antwort.contains(": -"),
+                    "reparatur-Fall nicht umgeschrieben: {antwort}"
+                );
+                assert!(seq::verify(b).is_ok(), "umgeschriebener Fall ungueltig");
+            } else {
+                // **Unveraendert** - die Regressionsreferenz darf sich nicht bewegen.
+                assert_eq!(a, b, "ein anderer Typ wurde veraendert");
+            }
+        }
     }
 
     /// **Die Registry muss den Lauf beschreiben, den sie protokolliert.**
