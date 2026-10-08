@@ -1319,6 +1319,41 @@ pub fn registry_read(path: &Path) -> Result<Vec<RegistryEntry>> {
     Ok(out)
 }
 
+/// **Wie weit ist die Hebel-Leiter schon gelaufen?** Zaehlt die **am Ende
+/// stehenden** verworfenen Runden dieser Faehigkeit.
+///
+/// **Warum das noetig ist (exp-016).** Die Leiterposition lag bisher nur in der
+/// lokalen Variablen `verworfen`, die bei jedem `agent capability run` wieder
+/// bei 0 beginnt. Gemessenes Ergebnis: exp-016 zog in zwei Runden
+/// `replay_share 0.35 -> 0.20 -> 0.05`; ein **weiterer** Aufruf haette wieder
+/// bei 0 begonnen und denselben, bereits widerlegten Replay-Hebel erneut
+/// gezogen. Die Leiter waere damit eine Schleife statt einer Leiter.
+///
+/// **Warum die Registry die richtige Quelle ist.** Sie ist bereits die dauerhafte
+/// Spur jeder Runde und wird ohnehin geschrieben. Gezaehlt werden nur die
+/// **hintereinander am Ende** stehenden `VERWORFEN`-Eintraege - eine Annahme
+/// setzt den Zaehler damit automatisch zurueck (genau wie im Loop), und eine
+/// `UNENTSCHIEDENE` oder `UNGUELTIGE` Runde zaehlt **nicht** mit, weil sie
+/// bewusst keinen Hebel zieht. Eintraege ohne `urteil` (aeltere Zeilen) brechen
+/// die Zaehlung ab, damit alte Daten die Leiter nicht verstellen.
+pub fn leiterposition(registry: &Path, capability: &str) -> usize {
+    let Ok(eintraege) = registry_read(registry) else {
+        return 0;
+    };
+    let mut n = 0usize;
+    for e in eintraege.iter().rev() {
+        if e.capability != capability {
+            continue;
+        }
+        if e.urteil == "VERWORFEN" {
+            n += 1;
+        } else {
+            break;
+        }
+    }
+    n
+}
+
 // ---------------------------------------------------------------------------
 // 7. Der Loop (Spec §7, §12)
 // ---------------------------------------------------------------------------
@@ -2012,7 +2047,17 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     // Hebel-Leiter (O-T9). Getrennt von `ohne_fortschritt`, weil dieser bei
     // jeder Verbesserung zurueckgesetzt wird, die Leiter aber erst bei einer
     // **Annahme**.
-    let mut verworfen = 0usize;
+    //
+    // **Die Position wird aus der Registry fortgesetzt, nicht bei 0 begonnen**
+    // (exp-016): sonst zieht jeder neue Aufruf wieder den ersten Hebel der
+    // Leiter, auch wenn der schon widerlegt ist.
+    let mut verworfen = leiterposition(&opts.registry, &cap.id);
+    if verworfen > 0 {
+        println!(
+            "Hebelleiter   : {verworfen} verworfene Runde(n) aus der Registry fortgesetzt -> naechster Hebel ist Nr. {}",
+            (verworfen % HEBEL_LEITER) + 1
+        );
+    }
     // Ein Paketwechsel, den ein Strategiewechsel erzwungen hat (O-T9).
     let mut erzwungenes_pack: Option<Pack> = None;
     // Der Stand, von dem die naechste Runde fortsetzt. Folgt dem ANGENOMMENEN
@@ -3745,8 +3790,79 @@ mod tests {
         assert_eq!(PANELS_MINDESTENS, 2);
     }
 
-    /// **Nie zwei Hebel gleichzeitig.** Der Plateau-Zweig darf das Paket nur
-    /// wechseln, wenn die vorige Runde weder ungeklaert war noch bereits einen
+    /// **Die Leiterposition ist dauerhaft** (exp-016). Sie wird aus der Registry
+    /// fortgesetzt, sonst zieht jeder neue Aufruf wieder den ersten Hebel.
+    #[test]
+    fn leiterposition_wird_aus_der_registry_fortgesetzt() {
+        let dir = std::env::temp_dir().join(format!("shiro-leiter-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("Tempordner");
+        let reg = dir.join("registry.jsonl");
+
+        // Keine Datei -> 0 (kein Fehler).
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
+
+        let zeile = |urteil: &str, cap: &str| {
+            let e = crate::agent::RegistryEntry {
+                experiment_id: "x".into(),
+                capability: cap.into(),
+                parent_checkpoint: None,
+                dataset_version: "v".into(),
+                generator_version: "g".into(),
+                verifier_version: "v".into(),
+                seed: 1337,
+                training_config: "t".into(),
+                evaluation_config: "e".into(),
+                steps: 1,
+                learning_rate: 0.0,
+                loss: 0.0,
+                perplexity: 0.0,
+                exact_match: 0.0,
+                structural_accuracy: 0.0,
+                compositional_accuracy: None,
+                adversarial_accuracy: None,
+                regression_results: "r".into(),
+                failure_distribution: BTreeMap::new(),
+                selected_next_action: "a".into(),
+                reason_for_action: "g".into(),
+                checkpoint: "c".into(),
+                accepted: urteil == "ANGENOMMEN",
+                score: 0.0,
+                score_before: 0.0,
+                urteil: urteil.to_string(),
+                deterministisch: true,
+                panels: Vec::new(),
+            };
+            registry_append(&reg, &e).expect("anhaengen");
+        };
+
+        // Zwei Verwuerfe in Folge -> Position 2.
+        zeile("VERWORFEN", "sequence_reasoning");
+        zeile("VERWORFEN", "sequence_reasoning");
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 2);
+
+        // Eine UNENTSCHIEDENE Runde zaehlt NICHT (sie zieht keinen Hebel) und
+        // bricht die Zaehlung ab.
+        zeile("UNENTSCHIEDEN", "sequence_reasoning");
+        assert_eq!(
+            leiterposition(&reg, "sequence_reasoning"),
+            0,
+            "nach einer ungeklaerten Runde wird wiederholt, nicht weitergeklettert"
+        );
+
+        // Eine Annahme setzt die Leiter ebenfalls zurueck.
+        zeile("VERWORFEN", "sequence_reasoning");
+        zeile("ANGENOMMEN", "sequence_reasoning");
+        zeile("VERWORFEN", "sequence_reasoning");
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 1);
+
+        // Eine andere Faehigkeit zaehlt nicht mit.
+        zeile("VERWORFEN", "andere_faehigkeit");
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 1);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// **Nie zwei Hebel gleichzeitig.** Der Plateau-Zweig darf das Paket nur    /// wechseln, wenn die vorige Runde weder ungeklaert war noch bereits einen
     /// O-T9-Hebel gezogen hat.
     #[test]
     fn plateau_wechsel_und_ot9_hebel_schliessen_sich_aus() {
