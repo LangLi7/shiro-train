@@ -2016,3 +2016,62 @@ niedrigerer Replay-Anteil (0,20), (b) `regel` als eigener Kontrolltyp der formgl
 Wiederholung. Ausserdem ist der **faire Ueberlegenheitstest** der Formachse mit zwei Formstaenden
 jetzt erstmals in Reichweite.
 
+## Runde 27 (n5) - Kombinierter Korpus: mehrere Familien in EINEM Manifest (D-051)
+
+**Kein Training, sondern Werkzeug und Daten.** Anlass ist der gemessene negative Transfer
+(O-D21): das auf Zahlenfolgen spezialisierte Modell ist auf der Additionsfamilie **schlechter als
+die untrainierte Baseline** (PPL 351 -> 2403, Faktor 6,8); mehr Daten derselben Familie helfen
+nicht, der Generator saettigt (81,1 / 74,7 / 70,6 % Ausbeute bei 20k / 50k / 100k). Die Folgerung
+aus n5: **mehrere Familien in einem Trainingslauf**.
+
+**Gebaut.** `shiro data combine --src <ordner> ... --out <ziel>` (mindestens zwei Quellen). Es
+kopiert die Shards aller Quellen in den Zielordner, benennt sie nach ihrer **Familie**, rechnet
+die Shard-Metadaten (Datensaetze, Nutzlast, Dateigroesse, FNV-1a-64) **neu aus den kopierten
+Bytes** - nicht aus dem Quellmanifest -, mischt die `tasks`-Zuordnung und schreibt **ein**
+gemeinsames Manifest. Der Zielordner ist damit selbsttragend, und die Pruefsumme ist am Ziel
+gemessen.
+
+**Der Korpus (`data/kombi/train`):**
+
+| Familie | Datensaetze | Nutzlast | Pruefsumme |
+|---|---|---|---|
+| `seq` (D-045) | 50.000 | 11.164.275 B | `a26dd6e8` |
+| `quant` (D-039) | 30.000 | 14.279.272 B | `e113c0a1` |
+| `logic-large` (Logik Stufe 1) | 50.000 | 17.750.168 B | `9c800a4a` |
+| **GESAMT** | **130.000** | **43.193.715 B** | 3 Shards, 75 Aufgaben-Keys |
+
+**Beide Validatorstufen gruen** (`SHIRO_DATA=data/kombi/train shiro validate-data` endet mit
+`Alle Shards gueltig.`), **zweiter Lauf byteidentisch** (Manifest und alle drei Shards), Shards
+**byteweise** die der Quellen.
+
+**Ein eigener Fehler, vom Validator gefunden.** Der erste Lauf benannte die Ziele nach dem
+**letzten** Pfadteil - alle Quellen heissen `.../train`, also hiessen alle Ziele
+`train-shard-0000.bin`, und die drei Kopien **ueberschrieben sich gegenseitig** (nur ein Shard auf
+der Platte, Manifest zeigte auf drei). Dieselbe Fehlerklasse wie der Namenszusammenstoss aus
+D-048. Aufgefallen ist es an `validate-data` (`Manifest meldet 11164275 Nutzbytes, Datei enthaelt
+17750168`), nicht durch Hinsehen. Behoben: Familienname = Ordner **ueber** dem Split-Namen, plus
+**Sperre gegen doppelte Zielnamen**; festgehalten in `tests/kombi.rs` (2 Tests, zusammen mit "nur
+eine Quelle" und "Quelle ohne Manifest").
+
+**D-047 hat jetzt einen Stand, und er nennt die Form.** Registerzeile nachgezogen: Marke
+**ERREICHT in der Delta-Form**, dreifach belegt (874-876/960 = 91,04-91,25 %, exp-021/024). In der
+**absoluten** Form erreicht sie **kein** Stand (88,96 / 89,17 / 89,27 %) - neu als **O-D34**.
+Erweiterte Delta-Form (exp-026): 862/960 = 89,79 %, 0,21 Pp unter der Marke (SE 0,95), kein Typ
+unter 75 %.
+
+**Reihenfolge der Mathematik-Phase**, wortwoertlich im Plan-Dokument
+(`docs/trainingsloop-logik-plan.md` Abschnitt 5): *"Mathematic Training Fokus auf Algebra, Formel
+Verstaendnis und Function, dann Math Basic."* Drei Stufen M1 Algebra -> M2 Formel-Verstaendnis und
+Funktion -> M3 Math Basic, ausgefuehrt **nach** und **in** dem kombinierten Korpus.
+
+**Nicht gezeigt:** trainiert wurde auf dem kombinierten Korpus **nicht**; ob das negative
+Transfer verschwindet, kann erst ein Lauf zeigen. Das Verhaeltnis 50k/30k/50k ist die vorhandene
+Groesse der Familien, **keine** gewaehlte Gewichtung.
+
+**Gates.** `cargo fmt --check` gruen; `cargo test` **410 Tests / 0 failed** (314 lib + 96
+Integration, +2 neue); `cargo clippy --all-targets -D warnings` unveraendert 7 Befunde, alle in
+fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in meinen Dateien; `build
+--release` und CUDA-Build gruen; `shiro smoke` Digest **a6a53c95abd7f622** unveraendert;
+Doku-Gates 0 Befunde (check-table-pipes 124 Dateien, check-doc-links 0 tote Links, lernstufen,
+programmiersprachen); Register 42 IDs (D-010..D-051), LF-only.
+

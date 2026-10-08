@@ -58,6 +58,7 @@ fn real_main() -> Result<()> {
         Command::GenerateGames { opts } => cmd_generate_games(&opts),
         Command::GenerateFormat { opts } => cmd_generate_format(&opts),
         Command::GenerateQuant { opts } => cmd_generate_quant(&opts),
+        Command::Combine { sources, out_dir } => cmd_data_combine(&sources, &out_dir),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::Agent {
             capability,
@@ -1155,6 +1156,133 @@ fn write_seq_jsonl(path: &std::path::Path, records: &[seq::GenRecord]) -> Result
 /// Antwort aus dem geschlossenen Regelkatalog neu. Die beiden Nutzerbeispiele
 /// sind direkt enthalten: `1, 2, 3, 5, 6` (Luecke, Regel genannt) und
 /// `1, 2, 4, 8` (naechstes Glied beim Faktor 2).
+/// **Mehrere Familien in EIN Manifest** (n5, D-051).
+///
+/// Gemessener Anlass (O-D21): das sequenz-spezialisierte Modell ist auf der
+/// Additionsfamilie **schlechter als die untrainierte Baseline** (PPL 351 ->
+/// 2403, Faktor 6,8). Die Antwort darauf ist nicht mehr Menge je Familie,
+/// sondern **mehrere Familien in einem Trainingslauf**.
+///
+/// Was die Funktion tut: die Shards aller Quellkorpora werden in den Zielordner
+/// **kopiert** und die Shard-Metadaten (Datensaetze, Nutzlast, Dateigroesse,
+/// Pruefsumme) **neu aus den kopierten Bytes** gerechnet - nicht aus dem
+/// Quellmanifest uebernommen. Damit ist der Zielkorpus selbsttragend und seine
+/// Zahlen sind am Ziel nachgemessen, nicht behauptet. Die Shard-Dateien werden
+/// nach ihrer Herkunft umbenannt (`<familie>-<name>`), weil die Generatoren alle
+/// `shard-0000.bin` heissen und sich sonst gegenseitig ueberschreiben wuerden.
+fn cmd_data_combine(sources: &[PathBuf], out_dir: &Path) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+    if sources.len() < 2 {
+        shiro::error::bail!(
+            "`data combine` braucht mindestens zwei Quellkorpora (`--src <ordner>`)"
+        );
+    }
+    std::fs::create_dir_all(out_dir)
+        .map_err(|e| shiro::error::anyhow!("Zielordner anlegen {}: {e}", out_dir.display()))?;
+
+    let mut manifest = Manifest::new(
+        0,
+        &format!(
+            "KOMBINIERT aus {} Familien (abgeleitet, kein eigener Wuerfelpfad)",
+            sources.len()
+        ),
+    );
+    let mut entries: Vec<shiro::data::manifest::ShardEntry> = Vec::new();
+    let mut naechste_id: u32 = 0;
+
+    println!("Kombinierter Korpus (n5, D-051)");
+    println!("Quellen      : {}", sources.len());
+    for src in sources {
+        let manifest_pfad = src.join("manifest.json");
+        if !manifest_pfad.is_file() {
+            shiro::error::bail!(
+                "Quelle ohne Manifest: {} - erwartet wird ein Ordner mit manifest.json",
+                manifest_pfad.display()
+            );
+        }
+        let quelle = Manifest::load(&manifest_pfad)?;
+        let basis = Manifest::base_dir(&manifest_pfad);
+        // **Der Familienname, nicht der letzte Pfadteil.** Alle Quellen heissen
+        // `.../train` (oder `.../val`); der letzte Pfadteil ist damit fuer jede
+        // Familie `train` und die Zieldateien haetten sich **gegenseitig
+        // ueberschrieben** - derselbe Fehler wie der Namenszusammenstoss aus
+        // D-048, hier in der Shard-Benennung. Bei einem Split-Namen wird deshalb
+        // der Ordner DARUEBER genommen (`data/seq/train` -> `seq`).
+        let letzter = src
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "quelle".to_string());
+        let familie = if letzter == "train" || letzter == "val" {
+            src.parent()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or(letzter.clone())
+        } else {
+            letzter.clone()
+        };
+        let mut rec_quelle = 0u64;
+        let mut pay_quelle = 0u64;
+        for e in &quelle.shards {
+            let von = basis.join(&e.path);
+            let ziel_name = format!("{familie}-{}", e.path);
+            let nach = out_dir.join(&ziel_name);
+            // **Kein stilles Ueberschreiben.** Zwei Quellen mit demselben
+            // Familiennamen wuerden sonst denselben Shard doppelt belegen und das
+            // Manifest zeigte auf einen Datensatz, der nicht mehr dort liegt.
+            if nach.exists() {
+                shiro::error::bail!(
+                    "Zielname schon belegt: {} - zwei Quellen tragen denselben Familiennamen; `--src` mit eindeutigen Ordnernamen angeben",
+                    nach.display()
+                );
+            }
+            std::fs::copy(&von, &nach)
+                .map_err(|e| shiro::error::anyhow!("Shard kopieren {}: {e}", von.display()))?;
+            // **Neu gemessen am Ziel**, nicht aus dem Quellmanifest uebernommen.
+            let raw = std::fs::read(&nach)?;
+            let shard = format::read_shard(&nach)?;
+            entries.push(shiro::data::manifest::ShardEntry {
+                id: naechste_id,
+                path: ziel_name,
+                records: shard.records.len() as u64,
+                payload_bytes: shard.payload_bytes(),
+                file_size: raw.len() as u64,
+                checksum: checksum_hex(&raw),
+            });
+            naechste_id += 1;
+            rec_quelle += shard.records.len() as u64;
+            pay_quelle += shard.payload_bytes();
+        }
+        for (k, v) in &quelle.tasks {
+            *manifest.tasks.entry(k.clone()).or_insert(0) += v;
+        }
+        println!(
+            "  {familie:<14} {} Shard(s), {rec_quelle} Datensaetze, {pay_quelle} B Nutzlast",
+            quelle.shards.len()
+        );
+    }
+
+    let (rec, pay) = entries.iter().fold((0u64, 0u64), |(r, p), e| {
+        (r + e.records, p + e.payload_bytes)
+    });
+    manifest.shards = entries;
+    manifest.save(&out_dir.join("manifest.json"))?;
+
+    println!(
+        "GESAMT       : {} Shards, {rec} Datensaetze, {pay} B Nutzlast",
+        manifest.shards.len()
+    );
+    println!(
+        "Aufgaben-Keys: {} (bei Namensgleichheit addiert)",
+        manifest.tasks.len()
+    );
+    println!("Manifest     : {}", out_dir.join("manifest.json").display());
+    println!(
+        "Pruefen      : SHIRO_DATA={} shiro validate-data",
+        out_dir.display()
+    );
+    Ok(())
+}
+
 fn cmd_generate_seq(opts: &cli::SeqGenOptions) -> Result<()> {
     let gen_opts = seq::Options {
         train_records: opts.records,

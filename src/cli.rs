@@ -33,6 +33,20 @@ pub enum Command {
         opts: LogicGenOptions,
     },
     /// Korpus "Programm-Semantik und Fehlerort" (Familie 1, **D-024**).
+    /// **Mehrere Familien in EINEM Manifest** (n5, D-051): kopiert die Shards
+    /// mehrerer Quellkorpora in einen Zielordner und schreibt ein gemeinsames
+    /// Manifest darueber.
+    ///
+    /// Gemessener Anlass (O-D21): das sequenz-spezialisierte Modell ist auf der
+    /// Additionsfamilie **schlechter als die untrainierte Baseline** (PPL 351 ->
+    /// 2403) - negatives Transfer. Die Antwort darauf ist nicht mehr Menge je
+    /// Familie, sondern **mehrere Familien in einem Trainingslauf**.
+    Combine {
+        /// Quellordner, je einer mit `manifest.json` (Reihenfolge = Shard-Reihenfolge).
+        sources: Vec<PathBuf>,
+        /// Zielordner fuer die kopierten Shards und das gemeinsame Manifest.
+        out_dir: PathBuf,
+    },
     GenerateSemantics {
         opts: SemanticsGenOptions,
     },
@@ -381,6 +395,8 @@ SUBKOMANDOS:
     data generate-format  Korpus \"Format-Erkennung aus Bytes\" erzeugen
     data generate-quant   Korpus \"Quantoren, Syllogistik und Mengen\" erzeugen
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
+    data combine          mehrere Familien in EIN Manifest legen (n5, D-051):
+                          --src <ordner> je Quelle (mindestens ZWEI), --out <ziel>
     agent capability run  Agentischer Loop: messen, Fehler klassifizieren, gezielt
                           nachtrainieren, annehmen oder verwerfen (Spec §12)
     validate-data         Shards und Manifest pruefen
@@ -548,6 +564,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_lr: Option<f32> = None;
     let mut agent_ohne_hebel = false;
     let mut agent_formreplay = false;
+    let mut want_combine = false;
+    let mut combine_sources: Vec<PathBuf> = Vec::new();
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -598,6 +616,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "combine" => {
+                want_combine = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             "agent" => {
                 saw_agent = true;
                 command_set = true;
@@ -850,8 +874,22 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     }
     if saw_data && generatoren == 0 {
         bail!(
-            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, `generate-format`, `generate-quant` oder `generate-seq`)"
+            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, `generate-format`, `generate-quant`, `generate-seq` oder `combine`)"
         );
+    }
+
+    if want_combine {
+        if combine_sources.len() < 2 {
+            bail!(
+                "`data combine` braucht mindestens ZWEI Quellkorpora (`--src <ordner>`), sonst ist es kein kombinierter Korpus"
+            );
+        }
+        out.command = Command::Combine {
+            sources: combine_sources,
+            out_dir: out_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("data/kombi/train")),
+        };
     }
 
     if want_semantics {

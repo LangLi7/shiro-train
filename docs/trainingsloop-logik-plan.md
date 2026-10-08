@@ -311,6 +311,33 @@ Loop bisher **nicht nachweisbar** verbessert worden. Erst wenn Stufe 5 traegt,
 wandert der Loop auf die Sprachlogik (Stufe 7/8) - in der Reihenfolge **D-024**,
 und die Mathematik bleibt bis dahin liegen.
 
+### Die Reihenfolge INNERHALB der Mathematik (Nutzerwortlaut, Runde 27)
+
+> **"Mathematic Training Fokus auf Algebra, Formel Verstaendnis und Function, dann
+> Math Basic."**
+
+Das ist der **Fokus** der Mathematik-Phase und die Reihenfolge **innerhalb** der
+Stufen 11/12 dieser Tabelle - nicht ihr Termin. Ausgefuehrt wird sie **nach** dem
+kombinierten Korpus (n5, **D-051**): die Mathematik-Familien kommen in **denselben**
+Korpus wie die Logik-/Analytik-Familien, nicht als eigener Neustart - das ist die
+Lehre aus dem gemessenen **negativen Transfer** (**O-D21**, Abschnitt 5 Fussnote:
+das sequenz-spezialisierte Modell ist auf `data/add` schlechter als die untrainierte
+Baseline, PPL 351 -> 2403).
+
+Drei Stufen, in dieser Reihenfolge, jede mit eigenem Verifier (D-018):
+
+| # | Fokus | Inhalt | Stand |
+|---|---|---|---|
+| M1 | **Algebra** | Terme mit Variablen, Umformen, Gleichungen loesen | **nicht gebaut**; `--min-chain`/Variablen sind als **O-Z4** offen |
+| M2 | **Formel-Verstaendnis und Funktion** | Formel lesen, Groessen einsetzen, Zuordnung Eingabe -> Ausgabe | **nicht gebaut**; Funktion als eigene Familie fehlt vollstaendig |
+| M3 | **Math Basic** | die vier Rechenarten, Massumwandlung, Brueche, Prozent | teils vorhanden: `data/add` (Stufe 11), `data/seq` (Stufe 4) |
+
+**Warum diese Reihenfolge sachlich traegt:** Algebra und Funktion sind
+**regelgebunden** (Umformungsregeln, Einsetzen) und damit wie die Logik-Familien
+verifizierbar; "Math Basic" ist teils reines Rechnen und liegt im Projekt schon als
+`data/add`/`data/seq` vor. Die Verifier-Regel bleibt unveraendert: **ohne externen
+Pruefer kein Trainingsziel** (Roadmap Z. 539).
+
 ---
 
 ## 6. Die drei fehlenden Saetze (O-Z6/O-Z8/O-Z9)

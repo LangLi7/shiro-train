@@ -3598,3 +3598,97 @@ gibt `regel` mehr Raum; (b) `regel` gehoert in die **formgleiche Wiederholung**-
 eigener Kontrolltyp. Vor einer neuen Runde ist ausserdem der **faire Ueberlegenheitstest** der
 Formachse offen (beide Formen, dieselbe Dosis, auf beiden gemessen) - er ist mit den zwei
 Formstaenden jetzt erstmals **in Reichweite**.
+
+## Runde 27 (n5) - Der kombinierte Korpus: mehrere Familien in EINEM Manifest (D-051)
+
+**Keine Trainingsrunde, sondern eine Daten- und Werkzeugrunde.** Sie loest den Punkt ein, der
+seit **exp-008** offen liegt und in **n5** aufgeschrieben ist: das Projekt hat bisher **je
+Familie** einen Korpus gebaut und **je Familie** trainiert - und dafuer einen Preis bezahlt, der
+**gemessen** ist. Das auf Zahlenfolgen spezialisierte Modell ist auf der Additionsfamilie
+**schlechter als die untrainierte Baseline** (PPL 351 -> 2403, Faktor 6,8, **O-D21**). Mehr Daten
+**derselben** Familie helfen nicht: der Generator **saettigt** (Ausbeute 81,1 % / 74,7 % / 70,6 %
+bei 20k / 50k / 100k). Die Antwort ist deshalb **mehrere Familien in einem Trainingslauf**.
+
+### Was gebaut wurde
+
+Neues Unterkommando **`shiro data combine --src <ordner> ... --out <ziel>`** (mindestens zwei
+Quellen; eine Quelle waere kein kombinierter Korpus). Es kopiert die Shards aller Quellen in den
+Zielordner, benennt sie nach ihrer **Familie**, rechnet die Shard-Metadaten (Datensaetze,
+Nutzlast, Dateigroesse, FNV-1a-64-Pruefsumme) **neu aus den kopierten Bytes** - nicht aus dem
+Quellmanifest - mischt die `tasks`-Zuordnung und schreibt **ein** gemeinsames Manifest.
+
+**Warum kopieren statt verweisen:** der Zielordner ist damit **selbsttragend** (Pod, Volume,
+Archiv) und die Pruefsumme ist **am Ziel gemessen**, also die Gegenprobe, dass die Kopie
+angekommen ist.
+
+### Der Korpus
+
+```text
+shiro data combine --src data/seq/train --src data/quant/train \
+                   --src data/logic-large/train --out data/kombi/train
+```
+
+| Familie | Datensaetze | Nutzlast | Pruefsumme |
+|---|---|---|---|
+| `seq` (Zahlenfolgen, D-045) | 50.000 | 11.164.275 B | `a26dd6e8` |
+| `quant` (Quantoren/Syllogistik/Mengen, D-039) | 30.000 | 14.279.272 B | `e113c0a1` |
+| `logic-large` (Logik Stufe 1) | 50.000 | 17.750.168 B | `9c800a4a` |
+| **GESAMT** | **130.000** | **43.193.715 B** (41,2 MiB) | 3 Shards, 75 Aufgaben-Keys |
+
+**Beide Validatorstufen gruen** (`SHIRO_DATA=data/kombi/train shiro validate-data` meldet je
+Shard Datensaetze, Nutzbytes, Laengenbereich, Spezialbytes, Pruefsumme und schliesst mit
+`Alle Shards gueltig.`), **zweiter Lauf byteidentisch** (Manifest **und** alle drei Shards),
+Shards **byteweise** die der Quellen. Der Korpus ist untracked - wie alle Korpora ausser
+`data/sample` - und per Befehl reproduzierbar.
+
+### Ein eigener Fehler, vom Validator gefunden
+
+Der **erste** Lauf benannte die Zieldateien nach dem **letzten** Pfadteil der Quelle. Alle
+Quellen heissen aber `.../train`, also hiessen alle Ziele `train-shard-0000.bin`: die drei
+Kopien **ueberschrieben sich gegenseitig**, nur **ein** Shard lag auf der Platte, und das
+Manifest zeigte auf drei. Das ist **dieselbe Fehlerklasse wie der Namenszusammenstoss aus
+D-048** - stiller Datenverlust, der erst beim Nachrechnen auffaellt.
+
+Aufgefallen ist er **durch die Validierung**, nicht durch Hinsehen: `validate-data` meldete
+`Manifest meldet 11164275 Nutzbytes, Datei enthaelt 17750168`. Zwei Korrekturen: der
+Familienname ist der Ordner **ueber** dem Split-Namen (`data/seq/train` -> `seq`), und eine
+**Sperre gegen doppelte Zielnamen** bricht den Lauf mit Begruendung ab, statt zu ueberschreiben.
+Beides ist in `tests/kombi.rs` festgehalten (zusammen mit "nur eine Quelle" und "Quelle ohne
+Manifest").
+
+### Was diese Runde NICHT zeigt
+
+**Trainiert wurde auf dem kombinierten Korpus nicht.** Ob das negative Transfer verschwindet,
+kann erst ein Trainingslauf zeigen - und der gehoert als **eine** Variable in den Loop (Manifest
+gegen Familienkorpus). Ebenso ist das Verhaeltnis 50k/30k/50k die **vorhandene** Groesse der
+Familien, **keine gewaehlte Gewichtung**; eine Gewichtung waere eine eigene, pruefbare Variable.
+
+### D-047 hat jetzt einen Stand - und der Stand nennt die Form
+
+Die Registerzeile D-047 trug seit exp-015 nur den Panel-Nachtrag und **keinen** Stand nach
+exp-021/024/025/026. Nachgezogen: die Marke ist **ERREICHT** - in der **Delta-Form**, dreifach
+belegt (874-876/960 = 91,04-91,25 %). In der **absoluten** Form erreicht sie **kein** Stand
+(88,96 / 89,17 / 89,27 %); das ist als **O-D34** festgehalten. In der **erweiterten** Delta-Form
+(`reparatur1`-Wertfragen ebenfalls in Delta) liegt der angenommene Stand aus exp-026 bei
+862/960 = 89,79 %, also 0,21 Pp unter der Marke (SE 0,95) - **kein Typ unter 75 %**.
+
+### Reihenfolge der Mathematik-Phase (Nutzerwortlaut)
+
+Im Plan-Dokument (`docs/trainingsloop-logik-plan.md` Abschnitt 5) wortwoertlich festgehalten:
+
+> **"Mathematic Training Fokus auf Algebra, Formel Verstaendnis und Function, dann Math Basic."**
+
+Drei Stufen **M1 Algebra -> M2 Formel-Verstaendnis und Funktion -> M3 Math Basic**, ausgefuehrt
+**nach** dem kombinierten Korpus und **in ihm** - nicht als Neustart. Sachliche Begruendung:
+Algebra und Funktion sind regelgebunden und damit wie die Logik-Familien verifizierbar; Math
+Basic liegt teils schon vor (`data/add`, `data/seq`). Die Verifier-Regel bleibt: ohne externen
+Pruefer kein Trainingsziel (Roadmap Z. 539).
+
+### Gates
+
+`cargo fmt --check` gruen; `cargo test` **410 Tests / 0 failed** (314 lib + 96 Integration,
++2 neue in `tests/kombi.rs`); `cargo clippy --all-targets -D warnings` unveraendert 7 Befunde,
+alle in fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in `agent.rs`/`cli.rs`/
+`main.rs`/`seq.rs`; `build --release` und CUDA-Build gruen; `shiro smoke` Digest
+**a6a53c95abd7f622** unveraendert; Doku-Gates (check-table-pipes, check-doc-links, lernstufen,
+programmiersprachen) 0 Befunde; Register 42 IDs (D-010..D-051), LF-only.
