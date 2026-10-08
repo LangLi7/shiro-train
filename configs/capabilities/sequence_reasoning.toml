@@ -40,8 +40,19 @@ adversarial = false
 kurzantwort_typen = ["vergleich"]
 
 [pass_criteria]
-# Trefferquote auf dem festen Referenzsatz (24 Datensaetze, jeder stride-te).
-exact_match_min = 0.60
+# Trefferquote auf dem festen Referenzsatz (120 Datensaetze, jeder 41.).
+#
+# **0.90 statt 0.60 (exp-010, D-047).** Die alte Schwelle 0,60 war mit 84,2 %
+# laengst erfuellt - und hat den Loop dadurch **angehalten**: `passes()` meldete
+# "Schwellen erfuellt", es wurde nicht mehr trainiert, obwohl drei Aufgabentypen
+# unter 75 % lagen. Eine Schwelle, die unter dem Projektziel liegt, ist kein
+# Fortschrittsmass, sondern eine Bremse. Sie ist jetzt die D-047-Marke.
+exact_match_min = 0.90
+# **D-047: kein inhaltlicher Aufgabentyp unter 75 %.** Begruendung im Register
+# (D-047): bei der kleinsten Stichprobe (n = 12) verlangt 75 % mindestens
+# 9 Treffer, also mehr als ein Zufallstreffer; 0 von 12 (der reparatur-Fall)
+# kann damit nicht mehr neben einer erfuellten Gesamtquote stehen.
+typ_min = 0.75
 # Verlust auf dem Held-out-Band (gemessen auf den ersten vier Batches).
 held_out_loss_max = 0.80
 # Erlaubter Anstieg des Verlusts auf dem TRAININGSBAND (Regression, Spec §9).
@@ -62,9 +73,17 @@ adversarial = 0.20
 max_iterations = 3
 # Der feste Referenzsatz. KORREKTUR einer alten Schaetzung: die erste Fassung
 # rechnete mit ~30 s je Datensatz (abgeleitet aus exp-002). Der Trockenlauf des
-# Loops hat 8 Datensaetze in ~10 s gemessen, also ~1,3 s je Datensatz - der
-# Satz ist deshalb 48 Datensaetze gross (Granularitaet 2,1 Prozentpunkte).
-eval_records = 48
+# Loops hat 8 Datensaetze in ~10 s gemessen, also ~1,3 s je Datensatz.
+#
+# **120 statt 48 (exp-010, n18a).** Gemessener Anlass: mit 48 Datensaetzen auf
+# acht Aufgabentypen entfallen nur 3-6 auf jeden Typ. In exp-009 enthielt der
+# Satz genau DREI zweiteilige `reparatur`-Datensaetze (das 120er-Panel hat 16) -
+# der Loop hat die Runde deshalb angenommen, obwohl dieser Typ im Panel von
+# 9/16 auf 2/16 einbrach. Eine Annahmeregel, die eine Typ-Regression nicht sehen
+# kann, ist keine Annahmeregel. Die Kostenschaetzung, die den Satz klein hielt,
+# ist ueberholt: die Sonde erzeugt mit Budget `soll.len()+2` und misst 120
+# Datensaetze in Minuten.
+eval_records = 120
 regression_records = 32
 # **Dosis 600 statt 150 (genehmigter naechster Schritt 1).** Gemessener Grund:
 # 150 Schritte x Batch 16 = 2400 Datensaetze, der Trainingsshard hat 50.000 -

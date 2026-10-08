@@ -114,6 +114,14 @@ pub struct PassCriteria {
     pub compositional_min: Option<f64>,
     #[serde(default)]
     pub adversarial_min: Option<f64>,
+    /// **Mindest-Trefferquote JE AUFGABENTYP** (D-047).
+    ///
+    /// Ohne diese Bedingung ist die Gesamtschwelle blind fuer einen voellig
+    /// ungeloesten Typ: `reparatur` stand 0 von 12, waehrend die Gesamtquote die
+    /// Schwelle schon erfuellte. Geprueft wird nur gegen Typen mit mindestens
+    /// [`MIN_FAELLE`] gestellten Faellen - 0 von 1 ist kein Befund.
+    #[serde(default)]
+    pub typ_min: Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -193,6 +201,11 @@ pub struct Metrics {
     /// Komposition und Adversarial: erst gemessen, wenn ein Satz existiert.
     pub compositional: Option<f64>,
     pub adversarial: Option<f64>,
+    /// Schwaechster inhaltlicher Aufgabentyp: Name, Quote, gestellte Faelle.
+    /// Grundlage der D-047-Bedingung "kein Typ unter 75 %".
+    pub schwaechster_typ: Option<String>,
+    pub schwaechster_quote: f64,
+    pub schwaechster_gestellt: usize,
     pub asked: usize,
 }
 
@@ -226,6 +239,19 @@ pub fn passes(cap: &Capability, m: &Metrics) -> bool {
     }
     if m.held_out_loss > p.held_out_loss_max {
         return false;
+    }
+    // **D-047: kein inhaltlicher Typ unter `typ_min`.** Ohne diese Bedingung
+    // konnte ein voellig ungeloester Typ (0 von 12) neben einer erfuellten
+    // Gesamtquote stehen - genau der `reparatur`-Fall in exp-007. Ist kein Typ
+    // ausreichend gestellt, gilt die Bedingung als NICHT erfuellt: eine
+    // Faehigkeit ohne messbare Typbreite ist nicht nachgewiesen.
+    if let Some(min) = p.typ_min {
+        if m.schwaechster_gestellt < MIN_FAELLE {
+            return false;
+        }
+        if m.schwaechster_quote < min {
+            return false;
+        }
     }
     if let Some(min) = p.compositional_min {
         if m.compositional.unwrap_or(0.0) < min {
@@ -293,6 +319,33 @@ pub fn metrics_aus(
 ) -> Metrics {
     let (inhalt, kurz) = teile(cases, metric);
     let (gesamt, strukt) = summarize(cases);
+    // Schwaechster inhaltlicher Typ - nur Typen mit genug Faellen (D-047).
+    let mut pro_typ: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for c in cases {
+        if metric.ist_kurzantwort(&c.category) {
+            continue;
+        }
+        let e = pro_typ.entry(c.category.clone()).or_insert((0, 0));
+        e.0 += 1;
+        if c.correct {
+            e.1 += 1;
+        }
+    }
+    let mut schwaechster: Option<(String, f64, usize)> = None;
+    for (typ, (n, ok)) in &pro_typ {
+        if *n < MIN_FAELLE {
+            continue;
+        }
+        let quote = *ok as f64 / *n as f64;
+        match &schwaechster {
+            Some((_, q, _)) if *q <= quote => {}
+            _ => schwaechster = Some((typ.clone(), quote, *n)),
+        }
+    }
+    let (s_name, s_quote, s_n) = match schwaechster {
+        Some((n, q, k)) => (Some(n), q, k),
+        None => (None, 0.0, 0),
+    };
     Metrics {
         exact_match: gesamt,
         exact_match_content: inhalt.anteil(),
@@ -308,6 +361,9 @@ pub fn metrics_aus(
         regression_exact: 0.0,
         compositional: None,
         adversarial: None,
+        schwaechster_typ: s_name,
+        schwaechster_quote: s_quote,
+        schwaechster_gestellt: s_n,
         asked: cases.len(),
     }
 }
@@ -556,7 +612,7 @@ pub fn dominant(cases: &[Case]) -> Option<(FailureClass, usize)> {
 // ---------------------------------------------------------------------------
 
 /// Das Lernpaket, das zur dominanten Fehlerklasse passt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Pack {
     /// Gegen `missing_stop`/`repetition`: kurze Datensaetze, damit die
     /// ENDE-Marke frueh im Fenster steht und viel Verlustsignal bekommt.
@@ -590,6 +646,18 @@ pub enum Pack {
     /// **ein** Antwortfeld (nur Stelle oder nur Wert). Getrenntes Paket, damit
     /// die Typachse die Variante und nicht die zweiteilige Form trainiert.
     ReparaturEinzeln,
+    /// **Aufgabentyp-getrieben:** nur `offen` (ableiten, Grenzfall).
+    ///
+    /// Der Typ ist zweigeteilt: bei **entscheidbaren** Folgen ist die Antwort
+    /// eine Zahl, bei **nicht entscheidbaren** das feste Wort
+    /// `nicht entscheidbar`. In exp-010 war er der **einzige** Typ, der auf die
+    /// breite Runde nicht reagierte (11 von 16 = 68,8 %, Verlauf 10 -> 12 -> 11),
+    /// und die Fehlerbilder waren **byte-nahe Wortverfehlungen**
+    /// (`nicht entscheidbar` -> `nicht entscheichart`) - also Worttreue, nicht
+    /// Rechnen. Genau dafuer braucht die Typachse ein eigenes Paket: vorher
+    /// lieferte [`Pack::for_schwaechsten_typ`] fuer `offen` **`None`**, und der
+    /// Loop waere still auf eine andere Achse ausgewichen.
+    Offen,
 }
 
 impl Pack {
@@ -651,6 +719,7 @@ impl Pack {
             "reparatur" => Some(Pack::Reparatur),
             "reparatur1" => Some(Pack::ReparaturEinzeln),
             "stelle" => Some(Pack::Stelle),
+            "offen" => Some(Pack::Offen),
             _ => None,
         }
     }
@@ -663,8 +732,26 @@ impl Pack {
             Pack::Reparatur => "reparatur",
             Pack::ReparaturEinzeln => "reparatur1",
             Pack::Stelle => "stelle",
+            Pack::Offen => "offen",
             Pack::Breit => "breit",
         }
+    }
+
+    /// Umkehrung von [`Pack::key`] - fuer die ausdrueckliche Vorgabe `--pack`.
+    pub fn parse(text: &str) -> Option<Pack> {
+        let t = text.trim().to_ascii_lowercase();
+        [
+            Pack::Terminierung,
+            Pack::Frageart,
+            Pack::Stellenwert,
+            Pack::Reparatur,
+            Pack::ReparaturEinzeln,
+            Pack::Stelle,
+            Pack::Offen,
+            Pack::Breit,
+        ]
+        .into_iter()
+        .find(|p| p.key() == t)
     }
 
     pub fn reason(self) -> &'static str {
@@ -683,6 +770,9 @@ impl Pack {
             Pack::ReparaturEinzeln => {
                 "nur Aufgabentyp reparatur1 (MINIMIEREN, einfeldrig): gleiche Suche, aber die zweiteilige Antwortform entfaellt"
             }
+            Pack::Offen => {
+                "nur Aufgabentyp offen (ableiten, Grenzfall): Worttreue von 'nicht entscheidbar' und die Entscheidung entscheidbar/nicht entscheidbar"
+            }
             Pack::Breit => "kein klarer Schwerpunkt: dieselbe Verteilung wie der Basiskorpus",
         }
     }
@@ -692,6 +782,52 @@ impl Pack {
 pub const MIN_FAELLE: usize = 6;
 /// Unter dieser Quote gilt ein Aufgabentyp als schwach (Pack-Kandidat).
 pub const SCHWACH: f64 = 0.75;
+
+/// **Obergrenze der Anforderung fuer ein Ein-Typ-Paket.**
+///
+/// Der Korpus enthaelt je Aufgabentyp **6250** Datensaetze im Trainingsband
+/// (50000 Datensaetze / 8 Typen, `shiro gen-seq`). Mehr *verschiedene*
+/// Datensaetze eines einzigen Typs kann es also nicht geben. Eine hoehere
+/// Anforderung erzeugt nur Wiederholungen, die die Deduplizierung ohnehin
+/// verwirft - und treibt den Generator in seine Abbruchgrenze.
+///
+/// **Gemessen (exp-011-Vorbereitung):** `Pack::Offen` forderte mit dem alten
+/// Faktor 6 **74880** Datensaetze an und brach ab:
+/// `Erzeugung kommt nicht voran: 33055 von 74880 Datensaetzen nach 14981001
+/// Versuchen`. Die Abbruchgrenze ist `count * 200 + 5000`, die Annahmequote fuer
+/// `offen` liegt bei rund 0,22 % (die Grenzfall-Konstruktionen scheitern
+/// meist); damit ist **jede** Anforderung oberhalb von etwa 20 Datensaetzen
+/// rechnerisch nicht mehr erfuellbar. Der Deckel allein genuegt deshalb nicht -
+/// er muss zusammen mit der echten Lieferung gerechnet werden (siehe
+/// `run()`: die Wiederholung fuellt die Luecke).
+pub const TYP_DECKEL: usize = 6250;
+
+/// **Wie viele Datensaetze ein Paket beim Generator anfordert.**
+///
+/// Die eine Quelle fuer alle Pakete - damit die Anforderung nicht an vier
+/// Stellen getrennt gepflegt wird.
+///
+/// * Ein-Typ-Pakete fordern **genau** die gewuenschte Zahl, hoechstens aber
+///   [`TYP_DECKEL`]. Der alte Faktor 6 war fuer die **filternden** Pakete
+///   gedacht und ist fuer ein Paket, das der Generator schon nach Kategorie
+///   liefert, reine Verschwendung: er erzeugt sechsmal so viel, `build_pack`
+///   schneidet danach auf `n` ab - und beim Typ `offen` treibt der Faktor den
+///   Generator in die Abbruchgrenze.
+/// * Die filternden Pakete (`terminierung`, `stellenwert`) und das breite
+///   Paket behalten ihren Faktor, weil ihr Filter wirklich Datensaetze
+///   wegwerfen kann.
+/// * `frageart` fordert **je Kategorie** an und verteilt die Zahl ueber alle
+///   Aufgabentypen.
+pub fn anfrage_fuer(pack: Pack, n: usize) -> usize {
+    match pack {
+        Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln | Pack::Offen => {
+            n.min(TYP_DECKEL).max(MIN_FAELLE)
+        }
+        Pack::Frageart => (n / seq::Category::ALL.len()).max(6),
+        Pack::Breit => n.saturating_mul(2).max(120),
+        Pack::Terminierung | Pack::Stellenwert => n.saturating_mul(6).max(240),
+    }
+}
 
 /// Stellt die `Frage:`-Zeile im Aufgabentext nach vorn.
 ///
@@ -732,7 +868,7 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
         Pack::Terminierung | Pack::Stellenwert => {
             // Reichlich erzeugen und dann filtern (Auswahlkriterium unten).
             let opts = seq::Options {
-                train_records: n.saturating_mul(6).max(240),
+                train_records: anfrage_fuer(pack, n),
                 val_percent: 0,
                 seed,
                 category: None,
@@ -742,10 +878,10 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
             roh = g.train.into_iter().map(|r| r.record).collect();
         }
         Pack::Frageart => {
-            // Ausgewogen ueber alle sieben Typen, Fragezeile zuerst.
+            // Ausgewogen ueber alle Aufgabentypen, Fragezeile zuerst.
             for cat in seq::Category::ALL {
                 let opts = seq::Options {
-                    train_records: (n / seq::Category::ALL.len()).max(6),
+                    train_records: anfrage_fuer(pack, n),
                     val_percent: 0,
                     seed: seed.wrapping_add(cat as u64),
                     category: Some(cat),
@@ -761,16 +897,21 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
                 }
             }
         }
-        Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln => {
+        Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln | Pack::Offen => {
             // **Ein Aufgabentyp, sonst nichts.** Der Generator kann nach
             // Kategorie filtern; genau das braucht ein typ-getriebenes Paket.
+            // Die Anforderung bleibt bei der gewuenschten Zahl (kein Faktor 6):
+            // der Generator dedupliziert selbst, mehr Anforderung liefert keine
+            // zusaetzlichen *verschiedenen* Datensaetze, sondern nur Versuche -
+            // und treibt ihn in die Abbruchgrenze (`anfrage_fuer`).
             let cat = match pack {
                 Pack::Reparatur => seq::Category::Reparatur,
                 Pack::ReparaturEinzeln => seq::Category::ReparaturEinzeln,
+                Pack::Offen => seq::Category::Offen,
                 _ => seq::Category::Stelle,
             };
             let opts = seq::Options {
-                train_records: n.saturating_mul(6).max(240),
+                train_records: anfrage_fuer(pack, n),
                 val_percent: 0,
                 seed,
                 category: Some(cat),
@@ -781,7 +922,7 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
         }
         Pack::Breit => {
             let opts = seq::Options {
-                train_records: n.saturating_mul(2).max(120),
+                train_records: anfrage_fuer(pack, n),
                 val_percent: 0,
                 seed,
                 category: None,
@@ -1152,6 +1293,12 @@ pub struct AgentOptions {
     pub iterations: Option<usize>,
     pub eval_records: Option<usize>,
     pub train_steps: Option<usize>,
+    /// **Ausdrueckliche Paketvorgabe** (`--pack`) - schlaegt beide Auswahlachsen.
+    ///
+    /// Fuer geplante Experimente, in denen der Experimentator das Paket bewusst
+    /// setzt (z.B. `breit`, damit **beide** Reparaturformen gemeinsam trainiert
+    /// werden). Ohne Vorgabe entscheidet der Loop selbst.
+    pub pack_override: Option<String>,
     pub dry_run: bool,
 }
 
@@ -1170,6 +1317,7 @@ impl Default for AgentOptions {
             iterations: None,
             eval_records: None,
             train_steps: None,
+            pack_override: None,
             dry_run: false,
         }
     }
@@ -1248,8 +1396,9 @@ pub enum Hebel {
     Replay(f64),
     /// Lernrate der naechsten Runde.
     Lernrate(f32),
-    /// Lernpaket: die Zielklasse wechseln.
-    Paket,
+    /// Lernpaket: die Zielklasse wechseln. Traegt das **Ziel**, damit der
+    /// Wechsel nachweisbar etwas aendert (siehe [`strategiewechsel`]).
+    Paket(Pack),
 }
 
 /// Ein dokumentierter Strategiewechsel (O-T9).
@@ -1333,13 +1482,47 @@ pub fn strategiewechsel(
                 hebel: Hebel::Lernrate(neu),
             }
         }
-        _ => Strategiewechsel {
-            parameter: "pack",
-            vorher: letztes_paket.to_string(),
-            nachher: Pack::Breit.key().to_string(),
-            grund: "Lernpaket: dieselbe Zielklasse zweimal erfolglos - die Ursache wechseln, nicht die Menge",
-            hebel: Hebel::Paket,
-        },
+        _ => {
+            // **Der Zielwert muss sich vom Ausgangswert unterscheiden.** Vorher
+            // stand hier fest `Pack::Breit` - war das letzte Paket schon
+            // `breit`, dann war `vorher == nachher`: ein "Wechsel", der nichts
+            // aendert, und die naechste Runde eine Wiederholung. Genau das
+            // sollte O-T9 verhindern. Deshalb alterniert der Hebel.
+            let ziel = if letztes_paket == Pack::Breit.key() {
+                Pack::Frageart
+            } else {
+                Pack::Breit
+            };
+            Strategiewechsel {
+                parameter: "pack",
+                vorher: letztes_paket.to_string(),
+                nachher: ziel.key().to_string(),
+                grund: "Lernpaket: dieselbe Zielklasse zweimal erfolglos - die Ursache wechseln, nicht die Menge",
+                hebel: Hebel::Paket(ziel),
+            }
+        }
+    }
+}
+
+/// **O-T9 als reine Regel.** Eine angenommene Runde braucht keinen Wechsel -
+/// eine **verworfene muss einen erzeugen**, sonst wiederholt die naechste Runde
+/// denselben Aufbau und liefert dasselbe Ergebnis.
+///
+/// Eigene Funktion, damit die Regel **pruefbar** ist und nicht im Schleifenkoerper
+/// versteckt liegt: der Test `verworfene_runde_erzwingt_dokumentierten_wechsel`
+/// haengt genau hier.
+pub fn wechsel_der_runde(
+    accepted: bool,
+    verworfen: usize,
+    dosis: usize,
+    replay: f64,
+    lr: f32,
+    paket: &str,
+) -> Option<Strategiewechsel> {
+    if accepted {
+        None
+    } else {
+        Some(strategiewechsel(verworfen, dosis, replay, lr, paket))
     }
 }
 
@@ -1609,17 +1792,33 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // ein eindeutig schwacher **Aufgabentyp** Vorrang vor der Fehlerklasse.
         let typ_pack = Pack::for_schwaechsten_typ(&before_cases, &cap.metric);
         let klasse_pack = dom.map(Pack::for_class).unwrap_or(Pack::Breit);
-        let mut pack = match typ_pack {
-            Some(p) => {
+        let mut pack = match opts.pack_override.as_deref() {
+            Some(k) => {
+                let p = Pack::parse(k).ok_or_else(|| {
+                    crate::error::anyhow!(
+                        "--pack: '{k}' ist unbekannt. Erlaubt: terminierung, frageart, stellenwert, reparatur, reparatur1, stelle, breit"
+                    )
+                })?;
                 println!(
-                    "Auswahlachse  : Aufgabentyp -> {} ({}) statt Fehlerklasse {}",
+                    "Auswahlachse  : ERZWUNGEN per --pack -> {} - schlaegt Typachse ({}) und Fehlerklasse ({})",
                     p.key(),
-                    p.reason(),
+                    typ_pack.map(|t| t.key()).unwrap_or("-"),
                     klasse_pack.key()
                 );
                 p
             }
-            None => klasse_pack,
+            None => match typ_pack {
+                Some(p) => {
+                    println!(
+                        "Auswahlachse  : Aufgabentyp -> {} ({}) statt Fehlerklasse {}",
+                        p.key(),
+                        p.reason(),
+                        klasse_pack.key()
+                    );
+                    p
+                }
+                None => klasse_pack,
+            },
         };
         // Ein erzwungener Paketwechsel (O-T9) hat Vorrang vor beiden Achsen:
         // er ist die begruendete Antwort darauf, dass das vorige Paket nicht
@@ -1646,11 +1845,19 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // (3) Gezielte Daten erzeugen und als Shard schreiben.
         let gesamt = dosis * basis.data.batch_size;
         let ziel_n = ((gesamt as f64) * (1.0 - replay_share)).round() as usize;
-        let replay_n = gesamt.saturating_sub(ziel_n);
         let mut train_records = build_pack(pack, ziel_n.max(8), iter_seed)?;
         // Tatsaechlich gelieferte gezielte Datensaetze (der Filter kann weniger
         // durchlassen als angefordert - der Bericht muss die echte Zahl nennen).
         let gezielt = train_records.len();
+        // **Die Wiederholung fuellt die Luecke, statt sie stehen zu lassen.**
+        // Ein Ein-Typ-Paket kann weniger liefern als angefordert, weil ein
+        // Aufgabentyp nur so viele *verschiedene* Datensaetze hat, wie der
+        // Korpus je Typ enthaelt (`TYP_DECKEL`). Wird der Anteil - wie vorher -
+        // aus der **Anforderung** gerechnet, schrumpft der Trainingssatz still
+        // unter die eingestellte Dosis; gerechnet aus der **Lieferung** bleibt
+        // die Dosis erhalten. Sichtbar bleibt beides im Bericht, weil dort
+        // "gezielt + Wiederholung" getrennt steht.
+        let replay_n = gesamt.saturating_sub(gezielt);
         if replay_n > 0 {
             let (replay, _) =
                 reference_set(&opts.train_band_dir, &opts.held_out_manifest, replay_n)?;
@@ -1888,23 +2095,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // deshalb **genau ein** Parameter gezogen; die Aenderung wirkt in der
         // naechsten Runde, weil `dosis`, `replay_share` und `lr` ausserhalb der
         // Schleife stehen. Zwei Hebel gleichzeitig waeren nicht unterscheidbar.
-        let wechsel = if accepted {
-            None
-        } else {
-            Some(strategiewechsel(
-                verworfen,
-                dosis,
-                replay_share,
-                lr,
-                pack.key(),
-            ))
-        };
+        let wechsel = wechsel_der_runde(accepted, verworfen, dosis, replay_share, lr, pack.key());
         if let Some(w) = &wechsel {
             match w.hebel {
                 Hebel::Dosis(neu) => dosis = neu,
                 Hebel::Replay(neu) => replay_share = neu,
                 Hebel::Lernrate(neu) => lr = neu,
-                Hebel::Paket => erzwungenes_pack = Some(Pack::Breit),
+                Hebel::Paket(ziel) => erzwungenes_pack = Some(ziel),
             }
             println!(
                 "Strategiewechsel (O-T9): {} {} -> {} - {}",
@@ -2386,6 +2583,126 @@ mod tests {
             kurz.push(fall("luecke", true));
         }
         assert_eq!(Pack::for_schwaechsten_typ(&kurz, &metric), None);
+
+        // **Gegentest zum stillen Ausweichen (exp-010).** `offen` war der
+        // schwaechste Typ des Panels (11 von 16 = 68,8 %), hatte aber **kein**
+        // Paket: die Typachse lieferte `None`, und der Loop waere still auf eine
+        // andere Achse ausgewichen, ohne dass im Log etwas gefehlt haette. Der
+        // Test haelt fest, dass der schwaechste Typ auch dann ein Paket ergibt,
+        // wenn er nicht `reparatur`, `reparatur1` oder `stelle` heisst.
+        let mut offen = Vec::new();
+        for _ in 0..11 {
+            offen.push(fall("offen", false));
+        }
+        for _ in 0..5 {
+            offen.push(fall("offen", true));
+        }
+        for _ in 0..12 {
+            offen.push(fall("luecke", true));
+        }
+        assert_eq!(
+            Pack::for_schwaechsten_typ(&offen, &metric),
+            Some(Pack::Offen),
+            "der schwaechste Typ 'offen' muss ein Paket ergeben, nicht None"
+        );
+    }
+
+    /// **Die Anforderung an den Generator ist gedeckelt** - der Abbruch aus der
+    /// exp-011-Vorbereitung darf nicht wiederkommen.
+    ///
+    /// Gegentest zum gemessenen Fehler: `Pack::Offen` forderte 6x die Dosis an
+    /// (74880) und lief in `Erzeugung kommt nicht voran: 33055 von 74880
+    /// Datensaetzen nach 14981001 Versuchen`. Der Deckel ist `TYP_DECKEL`, und
+    /// die filternden Pakete behalten ihren Faktor.
+    #[test]
+    fn anforderung_ist_gedeckelt() {
+        // Ein-Typ-Pakete: genau die gewuenschte Zahl, nie ueber den Deckel.
+        for p in [
+            Pack::Offen,
+            Pack::Reparatur,
+            Pack::ReparaturEinzeln,
+            Pack::Stelle,
+        ] {
+            assert_eq!(anfrage_fuer(p, 100), 100, "{p:?} soll genau n fordern");
+            assert_eq!(
+                anfrage_fuer(p, 10 * TYP_DECKEL),
+                TYP_DECKEL,
+                "{p:?} muss am Deckel gekappt werden"
+            );
+            // Nie unter MIN_FAELLE - ein Paket mit einem Datensatz ist keines.
+            assert_eq!(
+                anfrage_fuer(p, 0),
+                MIN_FAELLE,
+                "{p:?} braucht eine Untergrenze"
+            );
+        }
+        // Filternde Pakete behalten ihren Faktor 6 (der Filter wirft weg).
+        assert_eq!(anfrage_fuer(Pack::Terminierung, 100), 600);
+        assert_eq!(anfrage_fuer(Pack::Stellenwert, 100), 600);
+        // `frageart` fordert je Kategorie an.
+        assert_eq!(
+            anfrage_fuer(Pack::Frageart, 800),
+            800 / seq::Category::ALL.len()
+        );
+        // **Gegenprobe zum gemessenen Abbruch:** die Dosis 1200 verlangt
+        // ziel_n = 12480 Ein-Typ-Datensaetze; die Anforderung darf den
+        // gemessenen Abbruchwert 74880 nicht mehr erreichen.
+        let anfrage = anfrage_fuer(Pack::Offen, 12480);
+        assert_eq!(anfrage, TYP_DECKEL);
+        assert!(
+            anfrage < 74880,
+            "die Anforderung {anfrage} liegt wieder im Abbruchbereich"
+        );
+    }
+
+    /// **Das Paket `offen` liefert genau den Aufgabentyp `offen`** - und jeder
+    /// Datensatz ist verifiziert.
+    ///
+    /// Geprueft wird ueber den **Verifier**, nicht ueber eine Textsuche: das
+    /// `category`-Feld stammt aus `seq::verify` und ist damit dieselbe Quelle,
+    /// aus der auch die Typentafel des Loops ihre Spalten zieht. Eine
+    /// Textsuche nach "offen" waere ein Namenszufall und kein Nachweis.
+    #[test]
+    fn offen_paket_ist_eintypig_und_verifiziert() {
+        // **In Dosisgroesse, nicht in Spielgroesse.** Genau hier ist der Abbruch
+        // gemessen worden (`Erzeugung kommt nicht voran: 33055 von 74880 ...`);
+        // mit 24 Datensaeten haette der Test ihn nie ausgeloest. Die Anforderung
+        // wird durch `anfrage_fuer` auf `TYP_DECKEL` gekappt und ist damit in
+        // rund zwei Sekunden erfuellt (gemessen).
+        let recs = build_pack(Pack::Offen, 12480, 1337).expect("Paket muss bauen");
+        // Geliefert wird die gekappte Anforderung; gemessen sind es genau 6250.
+        // Ein Einbruch der Lieferung wuerde die Dosis still schrumpfen lassen
+        // (dagegen fuellt `run()` mit Wiederholung auf), ein Fehlschlag des
+        // Generators kommt hier als `Err` an.
+        assert!(
+            recs.len() >= 6000,
+            "zu wenige Datensaetze im Paket: {}",
+            recs.len()
+        );
+        let mut formen = std::collections::BTreeSet::new();
+        for r in &recs {
+            let t = frage_zuerst(r);
+            let pruef = t.as_deref().unwrap_or(r);
+            let v = seq::verify(pruef).expect("unverifizierter Datensatz im Paket");
+            assert_eq!(
+                v.category,
+                seq::Category::Offen,
+                "Paket enthaelt einen anderen Typ: {:?}",
+                v.category
+            );
+            // Der Typ ist zweigeteilt: Zahl bei entscheidbaren Folgen, das
+            // feste Wort bei nicht entscheidbaren. Beide Formen werden
+            // festgehalten, damit ein Generatorwechsel auffaellt.
+            formen.insert(if v.answer == "nicht entscheidbar" {
+                "wort"
+            } else {
+                "zahl"
+            });
+        }
+        assert!(
+            !formen.is_empty(),
+            "das Paket muss mindestens eine Antwortform enthalten"
+        );
     }
 
     #[test]
@@ -2414,24 +2731,62 @@ mod tests {
             vec!["vergleich".to_string()],
             "der 1-Byte-Typ muss in der Capability stehen, nicht im Code"
         );
+        // **Der Typ-Anteil gehoert zur Schwelle (D-047).** Ein Stand, der die
+        // Gesamtquote erfuellt, aber einen Typ unter `typ_min` hat, gilt NICHT
+        // als bestanden - das war der reparatur-Fall (0 von 12 bei erfuellter
+        // Gesamtquote).
+        let typ_min = cap.pass.typ_min.expect("typ_min muss gesetzt sein");
         let m = Metrics {
             exact_match: cap.pass.exact_match_min,
             exact_match_content: cap.pass.exact_match_min,
             held_out_loss: 0.0,
-            asked: 24,
-            content_asked: 24,
+            asked: 120,
+            content_asked: 120,
+            schwaechster_typ: Some("luecke".into()),
+            schwaechster_quote: typ_min,
+            schwaechster_gestellt: 15,
             ..Metrics::default()
         };
-        assert!(passes(&cap, &m));
+        assert!(passes(&cap, &m), "genau auf der Schwelle muss bestehen");
         let m2 = Metrics {
             exact_match: cap.pass.exact_match_min - 0.01,
             exact_match_content: cap.pass.exact_match_min - 0.01,
             held_out_loss: 0.0,
-            asked: 24,
-            content_asked: 24,
+            asked: 120,
+            content_asked: 120,
+            schwaechster_typ: Some("luecke".into()),
+            schwaechster_quote: typ_min,
+            schwaechster_gestellt: 15,
             ..Metrics::default()
         };
         assert!(!passes(&cap, &m2));
+        // **Gesamtquote erfuellt, aber ein Typ ungeloest -> NICHT bestanden.**
+        let ein_typ_null = Metrics {
+            exact_match_content: cap.pass.exact_match_min,
+            held_out_loss: 0.0,
+            asked: 120,
+            content_asked: 120,
+            schwaechster_typ: Some("reparatur".into()),
+            schwaechster_quote: 0.0,
+            schwaechster_gestellt: 16,
+            ..Metrics::default()
+        };
+        assert!(
+            !passes(&cap, &ein_typ_null),
+            "ein voellig ungeloester Aufgabentyp darf nicht durchgehen (D-047)"
+        );
+        // Zu wenige Faelle je Typ sind ebenfalls kein Nachweis.
+        let zu_duenn = Metrics {
+            exact_match_content: cap.pass.exact_match_min,
+            held_out_loss: 0.0,
+            asked: 120,
+            content_asked: 120,
+            schwaechster_typ: Some("luecke".into()),
+            schwaechster_quote: 1.0,
+            schwaechster_gestellt: MIN_FAELLE - 1,
+            ..Metrics::default()
+        };
+        assert!(!passes(&cap, &zu_duenn));
         // Ohne Messung gilt nichts als bestanden.
         assert!(!passes(&cap, &Metrics::default()));
         // **Ohne einen einzigen inhaltlichen Fall gilt nichts als bestanden** -
@@ -2489,8 +2844,16 @@ mod tests {
         // Runde 3: Paketwechsel.
         let w3 = strategiewechsel(3, dosis_aus, replay_aus, lr_aus, "terminierung");
         assert_eq!(w3.parameter, "pack");
-        assert_eq!(w3.hebel, Hebel::Paket);
+        assert_eq!(w3.hebel, Hebel::Paket(Pack::Breit));
         assert_eq!(w3.nachher, Pack::Breit.key());
+        // **Und der Paketwechsel darf kein No-Op sein:** war das letzte Paket
+        // schon `breit`, muss er auf ein anderes zielen.
+        let w3b = strategiewechsel(3, dosis_aus, replay_aus, lr_aus, Pack::Breit.key());
+        assert_ne!(
+            w3b.vorher, w3b.nachher,
+            "Paketwechsel ohne Aenderung ist eine Wiederholung"
+        );
+        assert_eq!(w3b.hebel, Hebel::Paket(Pack::Frageart));
 
         // **Kein Hebel wiederholt sich unmittelbar**: vier Verwuerfe, vier
         // verschiedene Parameter.
@@ -2505,6 +2868,56 @@ mod tests {
             HEBEL_LEITER,
             "die Leiter hat Doppelte: {alle:?}"
         );
+    }
+
+    /// **O-T9 als Abnahmetest.** Ein Verwurf **ohne** dokumentierten
+    /// Strategiewechsel ist eine Wiederholung und muss auffallen; ein Verwurf
+    /// **mit** Wechsel ist bestanden.
+    ///
+    /// Der Test prueft die reine Regel (`wechsel_der_runde`), nicht den
+    /// Schleifenkoerper - nur so ist er ohne Modell und ohne Training lauffaehig.
+    #[test]
+    fn verworfene_runde_erzwingt_dokumentierten_wechsel() {
+        let (dosis, replay, lr) = (600usize, 0.35f64, 3e-4f32);
+
+        // Angenommen: kein Wechsel noetig.
+        assert!(
+            wechsel_der_runde(true, 0, dosis, replay, lr, "breit").is_none(),
+            "eine angenommene Runde darf keinen Wechsel erzwingen"
+        );
+
+        // Verworfen: MUSS einen benannten, begruendeten Wechsel liefern.
+        let w = wechsel_der_runde(false, 0, dosis, replay, lr, "breit")
+            .expect("VERWORFEN ohne Strategiewechsel = Wiederholung (O-T9)");
+        assert!(!w.parameter.is_empty(), "der Hebel muss benannt sein");
+        assert!(!w.grund.is_empty(), "der Wechsel muss begruendet sein");
+        assert_ne!(
+            w.vorher, w.nachher,
+            "ein Wechsel, der nichts aendert, ist kein Wechsel"
+        );
+
+        // Ueber die ganze Leiter: jeder Verwurf liefert einen anderen Hebel,
+        // und jeder aendert tatsaechlich etwas.
+        let mut namen = Vec::new();
+        for i in 0..HEBEL_LEITER {
+            let wi = wechsel_der_runde(false, i, dosis, replay, lr, "terminierung")
+                .unwrap_or_else(|| panic!("Verwurf {i} ohne Wechsel"));
+            assert_ne!(wi.vorher, wi.nachher, "Hebel {i} aendert nichts");
+            namen.push(wi.parameter);
+        }
+        let mut sortiert = namen.clone();
+        sortiert.sort_unstable();
+        sortiert.dedup();
+        assert_eq!(
+            sortiert.len(),
+            HEBEL_LEITER,
+            "Hebel wiederholen sich: {namen:?}"
+        );
+
+        // **Gegenprobe:** die Regel muss auch bei einem bereits breiten Paket
+        // etwas aendern - genau dort war der alte Pakethebel ein No-Op.
+        let wb = wechsel_der_runde(false, 3, dosis, replay, lr, Pack::Breit.key()).unwrap();
+        assert_ne!(wb.vorher, wb.nachher);
     }
 
     /// Der Dosis-Hebel darf nicht ins Unendliche wachsen.

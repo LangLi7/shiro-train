@@ -1272,3 +1272,216 @@ verlieren. Wenn das gelingt, ist die Antwortform nicht der Engpass, sondern nur
 die Dosisverteilung; wenn nicht, ist die zweiteilige Ausgabe ein eigener
 Lerngegenstand und gehoert als solcher behandelt. **Vorher** den Referenzsatz auf
 120 erhoehen, damit die Annahmeregel eine Typ-Regression ueberhaupt sehen kann.
+
+---
+
+## exp-010 - Breite Runde: die verdraengte zweiteilige Form kommt zurueck
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` (`Device<Cuda(0)>`, RTX 3060, `LD_LIBRARY_PATH=/usr/lib/wsl/lib`) ·
+**Stichprobe:** derselbe **fixierte 120er-Referenzsatz** (jeder 41. des val-Shards),
+identisch mit dem Loop-Satz und mit den Panels aus exp-007/exp-009 ·
+**Elternstand:** `checkpoints/agent-sequence_reasoning-from3400-i1-step004000.state`,
+SHA-256 `8d8dc99e6a565eee0a54c74a95f1d9122a4f261ce270e0e33fe29fcb04265fb9` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--pack breit --train-steps 1200 --iterations 2 --backend auto`.
+
+**Frage.** exp-009 hat den negativen Transfer **innerhalb** der Reparatur-Familie
+gemessen: die einfeldrige Form ging von 0 % auf 76,9 %, die zweiteilige Form
+fiel von 56,3 % auf 12,5 %. Die dort gezogene Schlussfolgerung lautete: beide
+Formen muessen **gemeinsam** trainiert werden. Diese Runde setzt genau das um -
+der Korpus enthaelt seit exp-009 beide Formen (`reparatur` 6250 + `reparatur1`
+6250), und `--pack breit` erzwingt fuer **beide** Runden das breite Paket statt
+der Typachse.
+
+**Ergebnis in einem Satz: die verdraengte Form kommt zurueck, und die
+verdraengende bleibt.** Der negative Transfer aus exp-009 war ein
+**Dosisverteilungs-Artefakt des Trainingsgemischs**, kein eigener Lerngegenstand
+und keine Kapazitaetsgrenze.
+
+### Loop-Verlauf (zwei Runden, beide angenommen)
+
+| Runde | Baseline | nachher | Score | Urteil |
+|---|---|---|---|---|
+| 1 | 65,4 % (68/104) | **77,9 % (81/104)** | +0,043 | ANGENOMMEN |
+| 2 | 80,8 % (97/120) | **83,3 % (100/120)** | +0,010 | ANGENOMMEN |
+
+Die Runde-1-Zahl ist die **inhaltliche** Quote (ohne `vergleich`, 104 Fragen);
+Runde 2 fuehrt zusaetzlich die Gesamtquote, weil der Loop seit dieser Runde die
+Kurzantwort-Typen getrennt ausweist. Beide Runden wurden angenommen, **keine
+wurde verworfen** - damit hat der O-T9-Regler (verworfene Runde -> genau ein
+dokumentierter Hebel) in dieser Runde **nicht** ausgeloest. Das ist
+regelkonform und kein Versaeumnis: O-T9 greift nur bei Verwerfung.
+
+Regressionsverlust 0,1958 -> 0,1374 -> 0,1204; die Annahme stuetzt sich beide
+Male auf Score-Zuwachs **und** fallenden Regressionsverlust (Delta -0,0583,
+-0,0171), nicht auf die Trefferquote allein.
+
+### Die vier Werte, die der Nutzer verlangt hat - drei Messpunkte auf demselben Panel
+
+Gemessen mit `src/probe.rs` (`shiro eval --probe --answers 120`), Band ueber
+`SHIRO_DATA` gewaehlt. `--probe` liefert (A) Teacher forcing, (B) freie greedy
+Erzeugung, (C) Inhalt bei erzwungenem Abschluss; (1) ist das **Trainingsband**
+(`data/seq/train`, jeder 416.), (2)-(4) das **Held-out-Band** (`data/seq/val`).
+
+| # | Kennzahl | step4000 (Eltern) | step5200 (Runde 1) | **step6400 (angenommen)** | step6400, **Train** |
+|---|---|---|---|---|---|
+| 1 | Train EM | - | 100,0 % (120/120) | **100,0 % (120/120)** | 100,0 % (120/120) |
+| 2 | Held-out EM (frei, B) | 70,0 % (84/120) | 80,8 % (97/120) | **83,3 % (100/120)** | - |
+| 3 | Teacher-forced (A exakt) | 72,5 % (87/120) | 81,7 % (98/120) | **84,2 % (101/120)** | 100,0 % |
+| 4 | Exact Match mit sauberem EOS (C) | 72,5 % (87/120) | 81,7 % (98/120) | **84,2 % (101/120)** | 100,0 % |
+| - | ENDE an der richtigen Stelle | 94,2 % | 99,2 % (119/120) | **99,2 % (119/120)** | 100,0 % |
+| - | nur der Abschluss fehlt (C und nicht B) | 0 | 1 | **1 (0,8 %)** | 0 |
+| - | Inhalt falsch (Faehigkeitsanteil) | - | 22 (18,3 %) | **19 (15,8 %)** | 0 |
+
+**Die Werte 1-4 gehoeren zusammen gelesen.** Der Abstand zwischen Wert 1 und
+Wert 2 ist die **Generalisierungsnaht**: 100,0 % gegen 83,3 % = **16,7 Punkte**.
+Der Abstand zwischen Wert 3 und Wert 2 ist der **Terminierungsanteil**: 84,2 %
+gegen 83,3 % = **0,8 Punkte, genau ein Datensatz**. Wert 4 ist mit Wert 3
+**identisch** (101 = 101).
+
+### Einordnung in die Faelle A-D des Nutzers
+
+| Fall | Bedeutung | Befund |
+|---|---|---|
+| **A** | Generalisierungsproblem | **Restbefund, 16,7 Pp Naht** (100 % Train gegen 83,3 % Held-out, 19 Inhaltsfehler) |
+| **B** | Ausfuehrungs-/Terminationsproblem | **widerlegt**, 1 Fall von 120 (0,8 %); ENDE wird in 99,2 % richtig gesetzt |
+| **C** | Faehigkeit funktioniert | **zutreffend** fuer 100 von 120 Fragen; Lehrer-forciert 97,3 % der Antwortbytes (865/889), mittleres log10 P(Antwort) -0,38 |
+| **D** | Aufgabenfamilie/Kapazitaet unzureichend | **widerlegt** - der Micro erreicht 100 % Train EM, also ist Kapazitaet nicht der Engpass |
+
+**Das Urteil der Sonde selbst lautet "Mischlage"** - das ist **kein**
+Widerspruch, sondern die Eigenschaft ihrer Entscheidungstabelle: sie kennt nur
+die beiden **Fehler**hypothesen (Terminierung oder Faehigkeit). Liegen A, B und C
+alle drei hoch (hier 84,2 / 83,3 / 84,2 gegen die Schwellen hoch >= 70,
+niedrig < 50), trifft keine der beiden zu. "Mischlage" heisst hier also
+**weder Terminierungs- noch Faehigkeitsproblem** und ist damit die Aussage von
+Fall C. Die Sonde ist gegen die Nutzervorgabe gegengeprueft: das Vorgabebeispiel
+92/18/71 wird als Terminierung gelesen, das Beispiel 35/18/21 als Faehigkeit
+(Belege in `src/probe.rs` an `HOCH`).
+
+### Je Aufgabentyp - und hier liegt der eigentliche Befund
+
+Dieselben 120 Fragen, A-exakt = C-Inhalt:
+
+| Typ | step4000 (Eltern) | step5200 | **step6400** | Quote | D-047 (>= 75 %) |
+|---|---|---|---|---|---|
+| `luecke` | 12/15 | 14/15 | **14/15** | 93,3 % | erfuellt |
+| `naechste` | 15/20 | 15/20 | **17/20** | 85,0 % | erfuellt |
+| `offen` | 10/16 | 12/16 | **11/16** | **68,8 %** | **nicht erfuellt** |
+| `regel` | 10/11 | 9/11 | **9/11** | 81,8 % | erfuellt |
+| `reparatur` (zwei Felder) | **2/16** | 11/16 | **12/16** | 75,0 % | erfuellt (exakt) |
+| `reparatur1` (ein Feld) | 10/13 | 11/13 | **12/13** | 92,3 % | erfuellt |
+| `stelle` | 9/13 | 10/13 | **10/13** | 76,9 % | erfuellt |
+| `vergleich` | 16/16 | 16/16 | **16/16** | 100,0 % | erfuellt |
+
+**Die Kernzeile ist `reparatur` + `reparatur1`.** Der Vergleich mit exp-009 auf
+demselben Panel:
+
+| Form | exp-009 (nur zweiteilige Dosis) | exp-010 (beide Formen) |
+|---|---|---|
+| `reparatur1` (ein Feld) | 10/13 = 76,9 % | **12/13 = 92,3 %** |
+| `reparatur` (zwei Felder) | **2/16 = 12,5 %** | **12/16 = 75,0 %** |
+
+**Beide steigen.** Die zweiteilige Form wird von 12,5 % auf 75,0 % zurueckgeholt
+(+10 Datensaetze), **ohne** die einfeldrige zu verlieren (76,9 -> 92,3 %). Damit
+ist die exp-009-Hypothese bestaetigt und die dort offen gelassene Alternative
+entschieden: **die Antwortform war eine Frage der Dosisverteilung, kein eigener
+Lerngegenstand.** Waere sie ein eigener Gegenstand, haette die breite Runde die
+zweiteilige Form nicht mitgezogen.
+
+**Zwei Nebenbefunde, die gegen ein reines Dosis-Argument sprechen und deshalb
+mitgeschrieben werden:**
+
+* `offen` ist der **einzige** Typ, der sich ueber die drei Punkte **nicht**
+  verbessert (10 -> 12 -> 11). Die breite Runde hat ihn nicht adressiert; dass er
+  sich nicht mitbewegt hat, ist ein Hinweis darauf, dass er eine eigene Ursache
+  hat (siehe n18c unten).
+* `regel` verliert einen Datensatz (10 -> 9 -> 9). Bei n = 11 ist ein Datensatz
+  9,1 Punkte - das ist innerhalb der Stichprobenunschaerfe und wird **nicht** als
+  Regression gefuehrt, aber auch nicht verschwiegen.
+
+### Die Fehlerbilder sind systematisch, nicht zufaellig
+
+Fehlerklassen der freien Erzeugung auf dem 120er-Panel: `wrong_parameter` 6,
+`premature_stop` 5, `arithmetic_error` 3, `missing_stop` 3, `place_value_error`
+2, `wrong_question_type` 1 (Vorstand: dieselbe Verteilung, nur `arithmetic_error`
+2 statt 3). Drei Muster in den Beispielen sind wiederkehrend:
+
+1. **Systematische Eins-daneben bei der Stelle:** `Stelle 7` -> `Stelle 6`
+   **dreimal** in der Stichprobe. Das ist kein Rauschen, das ist ein
+   Offset-Fehler in der Positionszaehlung.
+2. **Verschluckte Ziffer:** `3064` -> `306`, `1849` -> `843`, `2750` -> `275`,
+   `17500` -> `700`. Die Antwort bricht eine Ziffer zu frueh ab bzw. laesst die
+   letzte Stelle fallen.
+3. **Buchstabennahe Verfehlung bei Woertern:** `nicht entscheidbar` ->
+   `nicht entscheichart`, `gleichbleibender Faktor` -> `gleibender Faktor`. Das
+   Modell kennt das Wort, trifft es aber nicht byte-genau - ein
+   **Byte-Treue**-Problem, kein Rechenproblem.
+
+Punkt 3 betrifft genau den Typ, der unter der Marke liegt, und ist der Grund,
+warum n18c `offen` nicht mit blosser Dosis angeht.
+
+**Zahlenantworten haben Informationsgehalt** (Messung G): mittlerer |Fehler|
+503,13 gegen eine Zufallsdistanz von 1203,09 -> Verhaeltnis **0,418**. Auf dem
+Trainingsband 0,00 gegen 46,00 -> 0,000. Das Modell raet also nicht, sondern
+liegt um den Faktor 2,4 naeher an der Wahrheit als der Zufall - auch dort, wo es
+daneben liegt.
+
+### Was die Runde am Werkzeug geaendert hat
+
+Zwei Aenderungen, beide aus exp-009 abgeleitet, beide vor dieser Runde gebaut und
+mit Tests belegt:
+
+1. **Referenzsatz 48 -> 120** (`eval_records`). exp-009 konnte die
+   `reparatur`-Regression auf seinem 48er-Satz **nicht sehen**, weil dort nur
+   drei zweiteilige Faelle lagen (das 120er-Panel hat 16). Ein Typ mit drei
+   Faellen kann nicht als regressiert erkannt werden. Mit 120 Faellen liegen
+   11-20 je Typ an - eine Regression von 10 Datensaetzen ist jetzt sichtbar, und
+   genau diese ist in exp-009 gemessen worden.
+2. **`typ_min = 0.75` und `exact_match_min = 0.90`** im Capability-Vertrag plus
+   `schwaechster_typ` / `schwaechster_quote` / `schwaechster_gestellt` in
+   `Metrics` und `metrics_aus`. Ohne diese Felder haette `passes()` die Runde bei
+   65,4 % wegen der alten 60-Prozent-Schwelle als "bestanden" gemeldet und
+   **gar nicht trainiert**; der Loop brach beim ersten Versuch genau so ab
+   ("Schwellen erfuellt - keine weitere Runde noetig"). Der Vertrag ist damit an
+   die D-047-Marke gebunden statt an eine Zahl, die zwei ungeloeste Typen
+   zulaesst.
+
+Zusaetzlich: `--pack <name>` als CLI-Uebersteuerung der Auswahlachse (fuer diese
+Runde `--pack breit`), und der `Paket`-Hebel traegt seit dieser Runde sein Ziel
+selbst (`Hebel::Paket(Pack)`) und alterniert - vorher war `nachher` auf `breit`
+festgenagelt, wodurch der Hebel ein **No-op** sein konnte, wenn der letzte
+Versuch schon `breit` war. Beide mit Gegentest.
+
+### D-047-Status (ehrlich)
+
+**Nicht erreicht, aber deutlich naeher.** Held-out EM **83,3 %** gegen das Ziel
+**>= 90 %** (es fehlen **8 Datensaetze** von 120). Von acht Aufgabentypen liegt
+jetzt **genau einer** unter 75 % (`offen` 68,8 %); in exp-009 waren es **drei**
+(`reparatur` 12,5 %, `offen` 62,5 %, `stelle` 69,2 %).
+
+**Vorbehalt, der dazugehoert:** `reparatur` erfuellt die Marke mit **exakt**
+75,0 % (12/16) - ein einziger Datensatz kippt den Typ unter die Marke. Die Marke
+ist damit **nominell** erfuellt und **praktisch** noch nicht gesichert. Fuer den
+Abschluss der Familie muss `reparatur` deutlich ueber 75 % liegen, nicht auf der
+Kante.
+
+**Zwei Zahlen sind nicht vergleichbar:** die 84,2 % in der D-047-Zeile sind auf
+dem 7-Typen-Panel gemessen, die 83,3 % hier auf dem 8-Typen-Panel. Belastbar ist
+der **Vorher/Nachher-Vergleich auf demselben Panel** (step4000 -> step6400:
+70,0 -> 83,3 %) und der Loop-Verlauf innerhalb der Runde (65,4 -> 77,9 -> 83,3 %
+Gesamtquote).
+
+### Naechster Schritt (n18c)
+
+`offen` ist der letzte Typ unter der Marke **und** der einzige, der auf die
+breite Runde nicht reagiert hat. Sein Fehlerbild ist ein anderes als das der
+Rechen-Typen: die zweiteilige Reparatur war eine Ausgabeform, `offen` ist eine
+**Byte-Treue-Frage an ein Wort** (`nicht entscheidbar`) plus die Entscheidung
+"entscheidbar oder nicht". Die Runde dafuer ist die Typachse (`--pack` ohne
+Override waehlt sie von selbst: der Loop meldete "Typachse (reparatur)" als
+naechste Achse). **Erwartung, die geprueft werden muss:** wenn die Worttreue
+die Ursache ist, hilft gezielte Dosis auf `offen`; wenn die
+Entscheidbarkeits-Entscheidung die Ursache ist, hilft sie nicht, und der Typ
+braucht eine eigene Behandlung wie `reparatur` sie gebraucht hat.
+

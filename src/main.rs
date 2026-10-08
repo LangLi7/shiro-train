@@ -66,6 +66,7 @@ fn real_main() -> Result<()> {
             iterations,
             eval_records,
             train_steps,
+            pack,
             dry_run,
         } => cmd_agent(
             &capability,
@@ -74,6 +75,7 @@ fn real_main() -> Result<()> {
             iterations,
             eval_records,
             train_steps,
+            pack,
             dry_run,
         ),
         Command::ValidateData => cmd_validate_data(&args),
@@ -2083,6 +2085,7 @@ fn cmd_agent(
     iterations: Option<usize>,
     eval_records: Option<usize>,
     train_steps: Option<usize>,
+    pack: Option<String>,
     dry_run: bool,
 ) -> Result<()> {
     let pfad = PathBuf::from(format!("configs/capabilities/{capability}.toml"));
@@ -2099,6 +2102,7 @@ fn cmd_agent(
         iterations,
         eval_records,
         train_steps,
+        pack_override: pack,
         dry_run,
         ..shiro::agent::AgentOptions::default()
     };
@@ -2142,6 +2146,10 @@ fn cmd_agent(
     Ok(())
 }
 
+/// Temperatur der pass@k-Proben der Sonde. Fest, damit die Zahl reproduzierbar
+/// bleibt; sie steht im Bericht.
+const PROBE_TEMPERATUR: f32 = 0.8;
+
 fn cmd_eval(args: &cli::Args) -> Result<()> {
     let cfg = cli::resolve_config(args)?;
 
@@ -2165,6 +2173,8 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             manifest: &cfg.data.manifest,
             limit: args.answers.unwrap_or(120),
             puffer: 2,
+            samples: args.probe_samples,
+            temperatur: PROBE_TEMPERATUR,
         })?;
         print!("{}", rep.bericht());
         return Ok(());

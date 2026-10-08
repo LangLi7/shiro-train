@@ -501,3 +501,72 @@ wohin" bleibt dort, wo sie entstanden ist
 Registerzeile **D-046**. Kein Quelltext, keine Config, keine Daten, kein Training,
 kein Commit.
 
+
+---
+
+## Status der sieben Zielpunkte (Stand Runde 14, nach exp-009)
+
+| # | Zielpunkt | Status | Beleg |
+|---|---|---|---|
+| 1 | Geraetewahl `auto\|cuda\|cpu` mit ausdruecklichem Rueckfall | **erledigt** | `src/backend.rs` (`resolve`, `geraet`, `beschreibung`), `--backend` in `src/cli.rs`, `SHIRO_BACKEND`; 7 Aufrufstellen ersetzt; acht Faelle live geprueft; jeder Loop-Lauf zeigt `Backend : Wunsch 'auto' -> cuda (Device<Cube(Cuda(Cuda(0)))>)` |
+| 2 | Plan-Dokument + Registerzeile **D-046** | **erledigt** | dieses Dokument + `docs/abschluss-vorbereitungsphase.md` (D-046) |
+| 3 | Metrik schaerfen: Trefferquote je Typ, `vergleich` getrennt | **erledigt** | `MetricConfig::kurzantwort_typen` in `configs/capabilities/sequence_reasoning.toml`, gelesen in `src/agent.rs`; `Metrics::score` und `passes` nutzen `exact_match_content`; je Runde wird die Typ-Tabelle gedruckt |
+| 4 | **O-T9**: verworfene Runde erzeugt dokumentierten Strategiewechsel | **erledigt** | `wechsel_der_runde` + `strategiewechsel` + `Hebel`-Leiter; Tests `verwurf_erzwingt_genau_einen_strategiewechsel`, `verworfene_runde_erzwingt_dokumentierten_wechsel`, `dosis_hat_einen_deckel`, `replay_bleibt_nicht_negativ` |
+| 5 | O-Z6 / O-Z8-Stufe-1+2 / O-Z9 als kleine Korpora mit Verifiern | **erledigt** (n6) | `src/data/seqgen.rs`, `tests/seqgen.rs`, `scripts/seqgen-check.sh`, `docs/zahlenfolgen-generalisierung.md`; je 40 Datensaetze, FNV `83e1b625ddc693df` / `0e70f07c2709e62a` / `2d39c2d47c43fe2c`, Zweitlauf byteidentisch, Pruefer 99 ok / 0 Fehler |
+| 6 | Referenzmessung auf dem Trainingsband | **erledigt** (n7) | `measure_answers` auf `data/seq/train`, je Runde als `Trainingsband`-Block gedruckt; exp-007 hat damit den 24-Byte-Budgetfehler aufgedeckt |
+| 7 | Loop autonom weiterfahren, jede Runde dokumentiert und committet | **laeuft** | exp-004 bis exp-009 in `docs/experiment-log.md`, je eigenes Commit; noch **nicht** am Ziel (siehe unten) |
+
+**Ausdruecklich weiter offen:** **O-Z7** (Minimalpaare) und **O-Z8 Stufe 3**
+(Zahlwoerter statt Ziffern) sind **nicht** gebaut - beide stehen in
+`docs/zahlenfolgen-generalisierungstests.md` §4.2 / §4.3 als Entwurf. Ebenso
+offen: **O-T6** (Fenster packen, ~2,3x) und **O-T7** (KV-Cache fuer Langtext).
+
+## Loop-Politik (verbindlich, in dieser Reihenfolge)
+
+1. **Referenzsatz 120 Datensaetze** (`eval_records = 120`). Anlass: mit 48
+   Datensaetzen auf acht Typen entfallen 3-6 je Typ; in exp-009 enthielt der
+   Satz genau **drei** zweiteilige `reparatur`-Datensaetze, waehrend das
+   120er-Panel 16 hat - der Loop nahm die Runde an, obwohl dieser Typ von
+   9/16 auf 2/16 einbrach. **Eine Annahmeregel, die eine Typ-Regression nicht
+   sehen kann, ist keine Annahmeregel.**
+2. **Score ueber die inhaltlichen Typen**, `vergleich` (1-Byte-Antwort) wird
+   **getrennt** berichtet und geht nicht in die Annahme ein.
+3. **Jede Runde berichtet die Trefferquote je Aufgabentyp** - die Gesamtquote
+   allein verdeckt genau die Verschiebungen, die exp-009 gezeigt hat.
+4. **O-T9:** eine **angenommene** Runde braucht keinen Wechsel; eine
+   **verworfene muss genau einen** Strategiehebel ziehen (Dosis, Datenmischung,
+   Lernrate, Paket), mit altem Wert, neuem Wert und Begruendung im Log und in
+   der Registry-Zeile. Ein Wechsel, der nichts aendert, ist keiner.
+5. **Kein stiller Datenverlust:** der Laufname enthaelt den Startschritt
+   (`agent-<cap>-from<start>-i<n>`), und `resume_state` wird nie geloescht (n15).
+6. **Kein Abschneiden von Antworten:** das Erzeugungsbudget ist
+   `max(Antwortlaenge + 2, max_new)` (`budget_fuer`, exp-007).
+
+## Naechste Schritte (n18, in dieser Reihenfolge)
+
+* **(b) ERLEDIGT (exp-010).** Breite Runde mit Dosis 1200 auf dem Korpus mit
+  **beiden** Reparaturformen, zwei Runden, beide angenommen
+  (65,4 -> 77,9 -> 83,3 % Gesamtquote). **Antwort: ja** - die in exp-009
+  verdraengte zweiteilige Form kommt zurueck (`reparatur` 12,5 -> **75,0 %**),
+  ohne die einfeldrige zu verlieren (`reparatur1` 76,9 -> **92,3 %**). Damit war
+  die Antwortform eine **Dosisverteilungsfrage**, kein eigener Lerngegenstand.
+  Neue Messung auf dem fixierten 120er-Panel: Werkzeug 1-4 = **100,0 / 83,3 /
+  84,2 / 84,2 %**; Generalisierungsnaht 16,7 Pp, Terminierungsanteil 0,8 %
+  (1 Fall) -> **Fall C mit Fall-A-Rest**.
+* **(c) JETZT: `offen` 68,8 % (11/16) - der letzte Typ unter 75 %** und der
+  einzige, der auf die breite Runde **nicht** reagiert hat (10 -> 12 -> 11).
+  Fehlerbild: byte-nahe Wortverfehlung (`nicht entscheidbar` ->
+  `nicht entscheichart`) plus die Entscheidung "entscheidbar oder nicht".
+  Zu pruefen: hilft gezielte Dosis (dann ist es Worttreue) oder nicht (dann ist
+  es die Entscheidung und braucht eine eigene Behandlung)?
+  **Mitnehmen:** `reparatur` steht mit **exakt** 75,0 % auf der Kante - ein
+  Datensatz kippt den Typ unter die Marke.
+* **(d)** Erst **nach** der D-047-Marke: kombiniertes Mehr-Familien-Manifest
+  (n5 - Begruendung: negatives Transfer zwischen Familien, exp-008 Nachtrag) und
+  danach Mathematik **im selben Korpus**, nicht als Neustart.
+
+**Zurueckgestellt:** Modell S (n3) - Kapazitaet ist nicht der Engpass; der
+Micro erreicht 100 % Train EM auf dem aktuellen Korpus **und** auf dem
+Trainingsband der Breiten Runde (exp-010, Wert 1). **D-047 nicht erreicht:**
+Held-out EM **83,3 %** (Ziel >= 90 %, es fehlen 8 von 120 Datensaetzen), aber
+nur noch **ein** Typ unter 75 % (in exp-009 waren es drei).

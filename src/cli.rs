@@ -71,6 +71,8 @@ pub enum Command {
         iterations: Option<usize>,
         eval_records: Option<usize>,
         train_steps: Option<usize>,
+        /// Ausdrueckliche Paketvorgabe (`--pack`); ohne Angabe waehlt der Loop.
+        pack: Option<String>,
         dry_run: bool,
     },
     ValidateData,
@@ -286,6 +288,11 @@ pub struct Args {
     ///
     /// Braucht `--checkpoint`. Ohne `--answers` gilt eine Stichprobe von 120.
     pub probe: bool,
+    /// pass@k fuer `--probe`: so viele Temperatur-Proben je Datensatz. `0` = aus.
+    ///
+    /// Beantwortet die Kernfrage "Ausfuehrung oder Faehigkeit": taucht die
+    /// richtige Antwort unter Proben auf, obwohl greedy sie verfehlt?
+    pub probe_samples: usize,
     /// Geraetewahl `auto` | `cuda` | `cpu` (**O-T8**). `None` = `SHIRO_BACKEND`
     /// oder `auto`.
     ///
@@ -311,6 +318,7 @@ impl Default for Args {
             top_k: 0,
             answers: None,
             probe: false,
+            probe_samples: 0,
             backend: None,
         }
     }
@@ -403,6 +411,9 @@ OPTIONEN FUER eval:
                           bei erzwungenem Abschluss (C) auf derselben
                           Stichprobe, mit Entscheidungstabelle (braucht
                           --checkpoint; ohne --answers gilt N = 120)
+    --probe-samples <K>   pass@k fuer die A/B-Frage: K Temperatur-Proben je
+                          Datensatz (Standard 0 = aus). Die Proben werden mit
+                          Temperatur 0,8 gezogen und je Probe mit eigenem Seed.
 
 OPTIONEN FUER agent capability run:
     --parent <PFAD>       Trainingsstand (.state) zum Fortsetzen; ohne Angabe
@@ -412,6 +423,10 @@ OPTIONEN FUER agent capability run:
     --iterations <N>      Obergrenze der Runden (Standard: aus der Capability)
     --eval-records <N>    Datensaetze im festen Referenzsatz (Standard: 24)
     --train-steps <N>     Schritte je Runde (Standard: aus der Capability)
+    --pack <PAKET>        Lernpaket erzwingen statt den Loop waehlen zu lassen.
+                          Erlaubt: terminierung, frageart, stellenwert,
+                          reparatur, reparatur1, stelle, breit. `breit` trainiert
+                          die volle Verteilung (beide Reparaturformen).
     --dry-run             planen und Daten erzeugen, aber nicht trainieren
 
 GERAET:
@@ -463,6 +478,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_iterations: Option<usize> = None;
     let mut agent_eval: Option<usize> = None;
     let mut agent_steps: Option<usize> = None;
+    let mut agent_pack: Option<String> = None;
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -546,6 +562,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                         .map_err(|_| crate::error::anyhow!("--train-steps: {v} ist keine Zahl"))?,
                 );
             }
+            "--pack" => agent_pack = Some(take_value(&mut iter, "--pack")?),
             "--dry-run" => agent_dry = true,
             "validate-data" => {
                 out.command = Command::ValidateData;
@@ -674,6 +691,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out.answers = Some(n);
             }
             "--probe" => out.probe = true,
+            "--probe-samples" => {
+                let v = take_value(&mut iter, "--probe-samples")?;
+                out.probe_samples = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--probe-samples: {v} ist keine Zahl"))?;
+            }
             "--temp" => {
                 let v = take_value(&mut iter, "--temp")?;
                 out.temperature = v
@@ -824,6 +847,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             iterations: agent_iterations,
             eval_records: agent_eval,
             train_steps: agent_steps,
+            pack: agent_pack,
             dry_run: agent_dry,
         };
     }
