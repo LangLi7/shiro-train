@@ -360,8 +360,8 @@ Daraus folgt ein **Protokoll in sechs Schritten**. Mathematik ist **gesperrt**, 
 | # | Schritt | Stand |
 |---|---|---|
 | **A** | Die **Output-Konvention** des Korpus ist festgenagelt, **bevor** Mathematik hineinkommt | **erfuellt** (D-053: `--antwortform absolut\|delta`, Delta gerendert) |
-| **B** | Der kombinierte Korpus ist als **Baseline/Elternstand eingefroren** | offen |
-| **C** | Seine Faehigkeiten sind **vollstaendig** gemessen: **Held-out je Familie** UND die **Antwortform getrennt** | offen |
+| **B** | Der kombinierte Korpus ist als **Baseline/Elternstand eingefroren** | **erfuellt** (Runde 30, D-054: `data/kombi-delta/train` + `checkpoints/kombi-delta-step21200.safetensors`, SHA-256 `7a18da50...`) |
+| **C** | Seine Faehigkeiten sind **vollstaendig** gemessen: **Held-out je Familie** UND die **Antwortform getrennt** | **erfuellt** (Runde 30, D-054: fuenf Held-out-Sets je Familie; Delta 87,95 % inhaltlich / 89,48 % Kopfzahl gegen absolut 83,05 % / 85,21 %) |
 | **D** | **Erst dann** kommt Mathematik als eine **klar definierte weitere Familie** hinzu | gesperrt bis C |
 | **E** | Erneut **Held-out je Familie** UND **Antwortform getrennt** messen | offen |
 | **F** | Damit ist die Aussage **"Mathematik verbessert Algebra, ohne `seq`, `quant` und `logic-large` zu beschaedigen"** belegbar - statt nur ein Gesamtscore | offen |

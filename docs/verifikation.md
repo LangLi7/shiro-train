@@ -2218,3 +2218,50 @@ Runde-28-Block nennt an dieser Stelle "43 IDs (D-010..D-052)" - das waren damals
 Zeilen; die Zahl hier ist am Dateiinhalt nachgezaehlt, nicht fortgeschrieben.) Zeilenenden der
 Registerdatei und des Experiment-Logs: LF-only, kein BOM; dieser Block ist CRLF wie die
 Datei.
+## Runde 30 - Phase-Elternstand eingefroren und vollstaendig gemessen (D-054)
+
+**Nutzerauflage Runde 29, Schritte (B) und (C):** den kombinierten Korpus als Baseline/Elternstand
+einfrieren und seine Faehigkeiten **vollstaendig** messen - Held-out **je Familie** und die
+**Antwortform getrennt**. Mathematik bleibt bis dahin gesperrt.
+
+**Der Lauf aendert gegenueber Runde 28 GENAU EINE Groesse:** `data.dir` = `data/kombi-delta/train`
+(Delta-Form, D-053) statt `data/kombi/train`. Modell, Dosis (2000 Schritte), Rate (1e-4 konstant),
+Seed 1337, Batch 16 x 512 und Elternstand `kombi-step019200.state` unveraendert. Backend
+`Device<Cube(Cuda(Cuda(0)))>` (**GPU**), **429,594 s**, **661,64 GFLOPS** effektiv, 23.681 Bytes/s.
+Stand **`checkpoints/kombi-delta-step21200.safetensors`**, SHA-256 `7a18da50...`; Elternstand
+unversehrt.
+
+**(1) Breite gehalten.** Held-out je Familie gegen die untrainierte Baseline (Runde-28-Stand in
+Klammern): `seq/val` 5,7449 -> **0,5409** (0,5269); `quant/val` 5,6612 -> **0,3836** (0,3756);
+`logic-large/val` 5,7055 -> **0,9478** (0,9401); `add/eval-3d` 5,8605 -> **5,1127** (5,3401);
+`add/eval-4d` 5,8143 -> **5,1479** (Runde 28 nicht gemessen). Alle **fuenf** Saetze weit unter der
+Baseline, negativen Transfer bleibt weg, Additionsfamilie **deutlich besser**.
+
+**(2) D-053 bestaetigt - der Ort der Form ist der Korpus.** Dieselben 2 x 480 disjunkten Panels,
+gepoolt 960: **Delta-Form** inhaltlich 737/838 = **87,95 %**, Kopfzahl 859/960 = **89,48 %**,
+`reparatur` **121/123 = 98,4 %**, `reparatur1` **120/122 = 98,4 %**, **Form kaputt 0/0**;
+**absolute Form** inhaltlich 696/838 = **83,05 %**, Kopfzahl 818/960 = **85,21 %**, `reparatur`
+87/123 = 70,7 %, Form kaputt 5/4. Gegen den **Runde-28-Stand auf denselben Delta-Panels**
+(inhaltlich 73,0/73,8 %, `reparatur` **1/63** und **1/60**, Form kaputt 4/5) bedeutet das
+**`reparatur` 1,6 % -> 98,4 %** und **Form kaputt 4/5 -> 0/0**.
+
+**(3) NEUER BEFUND: der Preis sind `regel` und `naechste`.** Runde-28-Stand -> Runde-30-Stand auf
+den Delta-Panels: `regel` **127/133 = 95,5 % -> 87/133 = 65,4 %** (-30,1 Pp), `naechste`
+**108/121 = 89,3 % -> 87/121 = 71,9 %** (-17,4 Pp), **beide unter der 75-%-Marke**; unveraendert
+`luecke` 106/109, `offen` 104/114, `stelle` 112/116, `vergleich` 122/122. **Auf beiden Formen mit
+identischen Zaehlern** - der **Beweis**, dass die Formachse diese Typen nicht beruehrt. Das
+**Trainingsband** zeigt `Band-Typ regel 1/5` (Runde-28-Stand `5/5`): **Vergessen, nicht
+Generalisierung** - **O-D33** damit auf der Phasenebene verstaerkt. **Nicht zugeordnet:** die
+`regel`-Daten sind byte-identisch; Kandidaten sind die zweite Phase auf derselben Verteilung und
+die verschobenen Batch-Fenster (`shuffle = false`, laengerer `seq`-Shard).
+
+**(4) D-047 mit diesem Stand NICHT erreicht.** Delta 859/960 = 89,48 % (SE 0,99, innerhalb eines
+SE) **und** zwei Typen unter 75 %; absolut 818/960 = 85,21 % und drei Typen unter 75 %. Der
+angenommene Delta-Stand aus exp-021/024 (874-876/960 = 91,04-91,25 %) **bleibt** der D-047-Stand
+in der Delta-Form; `kombi-delta-step21200` ist der **breite Phase-Stand**, kein Ersatz.
+
+**Gates.** Reine Messrunde plus ein Trainingslauf, **keine Codeaenderung** - der Stand aus
+Runde 29 gilt unveraendert (`cargo test` 413/0, fmt gruen, `build --release` gruen, clippy
+unveraendert 7 fremde Befunde, Smoke-Digest `a6a53c95abd7f622`, alle Doku-Tore exit 0). Neu im
+Baum: `configs/train.kombi-delta.toml`, `data/kombi-delta/` (untracked),
+`checkpoints/kombi-delta-step*.{safetensors,state}`, `logs/kombi-delta-*.jsonl`.
