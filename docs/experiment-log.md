@@ -2987,3 +2987,93 @@ Form von 72,4 % auf **75,6 %** - der Typ liegt damit erstmals ueber der 75-%-Mar
 Kopfzahl blieb mit 88,96 % gegen 89,06 % praktisch gleich (0,1 Pp, weit innerhalb eines
 Standardfehlers). Die Delta-Form ist also **kein** Verlust fuer die alte Form, aber auch
 kein Gewinn, der D-047 auf ihr erreichen wuerde.
+
+## exp-022 - Die Gegenrichtung: absolute Form vom DELTA-Stand wird verworfen, und der Vergleich ist geschlossen
+
+**Frage.** exp-021 hat die Delta-Form gegen den absoluten Stand geprueft (delta <- absolut,
+angenommen). Der faire Vergleich verlangt auch die **Gegenrichtung**: trainiert die absolute
+Form, wenn man vom Delta-Stand aus weiterlernt? Damit ist das 2 x 2 vollstaendig.
+
+**Aufbau.** Elternteil `checkpoints/agent-sequence_reasoning-from12400-i1-d5217b90dfe8cbac-step017200.state`
+(der Delta-Stand aus exp-021), Paket `reparatur` (**absolute** Form), Dosis 4800, Replay 0,35,
+lr 3e-4, `--ohne-hebel`, eine Iteration, 32:08 min, GPU. **Genau eine Variable: die Antwortform
+der Trainingsdaten** - die Panels bleiben in der absoluten Form, weil der Pack sie nicht
+umschreibt.
+
+**Die Trainingsdaten sind byteweise dieselben wie in exp-020** (`70000 Datensaetze
+(20000 gezielt + 56800 Wiederholung), 16348928 B Nutzlast`) - gleicher Pack, gleicher Seed. Damit
+ist die Verwerfung kein Zufall der Daten, sondern **wiederholt sich unter einem anderen
+Elternteil**.
+
+### Ergebnis
+
+| Groesse | Panel A (480) | Panel B (480, disjunkt) |
+|---|---|---|
+| Score | 0,530 -> **0,522** (**-0,008**) | 0,527 -> **0,522** (**-0,005**) |
+| inhaltlich | 87,8 % -> **85,9 %** | 86,9 % -> **85,9 %** |
+| Regressionsdelta | -0,0126 | -0,0126 |
+
+**Urteil: VERWORFEN, einstimmig.** Determinismus-Probe byte-identisch, Elternstand unveraendert.
+
+**Nebenbefund, der die Messkette stuetzt:** die *Baseline* dieser Runde ist der Delta-Stand auf
+den absoluten Panels - und sie reproduziert die Transfer-Messung aus exp-021 **exakt**
+(Panel A 87,8 % inhaltlich / 89,6 % gesamt, `reparatur` 50/63; Panel B 86,9 % / 88,3 %,
+`reparatur` 43/60; Kopfzahl gepoolt 854/960 = 88,96 %). Zwei unabhaengige Laeufe, dieselben Zahlen.
+
+### Der geschlossene 2 x 2-Vergleich
+
+| trainiert auf | gemessen absolut | gemessen Delta |
+|---|---|---|
+| absolut (Stand `from7600-i1-step12400`) | Kopf **89,06 %**, `reparatur` **72,4 %** | `reparatur` **0 %** (Form nie gesehen) |
+| Delta (Stand `...-d5217b90dfe8cbac`) | Kopf **88,96 %**, `reparatur` **75,6 %** (Transfer) | Kopf **91,04 %**, `reparatur` **91,9 %** - **D-047 erreicht** |
+| absolut **vom Delta-Stand** (exp-022) | **verworfen** (-0,008 / -0,005) | nicht gemessen |
+
+**Drei Aussagen, die daraus folgen:**
+
+1. **Die Delta-Form ist der einzige Weg zur Marke.** In der absoluten Form bleibt die Kopfzahl bei
+   88,96 % (0,96 Standardfehler unter 90 %), in der Delta-Form steigt sie auf 91,04 %.
+2. **Weitertrainieren auf der absoluten Form schadet** - und zwar auch von einem besseren Stand
+   aus. Das ist der **zweite** unabhaengige Beleg dafuer (exp-020 verwarf denselben Korpus unter
+   dem alten Elternteil mit -0,007/-0,008, exp-022 unter dem Delta-Elternteil mit -0,008/-0,005).
+   Der absolute `reparatur`-Korpus ist damit nicht nur unwirksam, sondern **gegenlaeufig** - was
+   rueckblickend erklaert, warum fuenf Einstellungshebel scheiterten: sie alle bewegten einen
+   Korpus, der nicht trug.
+3. **Es gibt keinen Transfer von der absoluten in die Delta-Form.** Der absolute Stand macht auf
+   den Delta-Panels 0 von 123; die Form muss eigens gelernt werden, und sie wird in einer Runde
+   gelernt (0 -> 91,9 %).
+
+### Ein eigener Fehler in dieser Runde, offen gelegt
+
+Der erste Startversuch von exp-022 brach ab:
+`FEHLER: Stand nicht gefunden: checkpoints/...-step17200.state - ohne Stand startet der Lauf von vorn`,
+`Exit status: 1`. **Ursache: ich hatte den `.state`-Namen falsch geschrieben.** Die `.state`-Dateien
+sind **sechsstellig** (`...-step017200.state`), die `.safetensors` **nicht** (`...-step17200.safetensors`);
+die Endung entscheidet ueber die Nullauffuellung. Der Waechter hat den Fehler gefangen: **kein
+Training, kein Schaden**, der angenommene Stand ist unversehrt (SHA vor und nach dem Lauf gleich).
+
+**Und die Lehre daraus ist unangenehm:** meine Transfer-Messung aus exp-021 hatte **denselben**
+falschen Pfad benutzt und trotzdem gemessen - weil `derive_weights` die Nullauffuellung
+normalisiert und die Gewichte daher fand, und weil ein `--dry-run` den fehlenden Resume-Stand
+nicht braucht. Die **Zahlen waren richtig** (exp-022 beweist das, indem es dieselbe Baseline
+reproduziert), aber die Zeile `FEHLER: Stand nicht gefunden` stand unbeanstandet im Log und ich
+habe sie beim Auswerten nicht gelesen. Ab jetzt gilt: **jedes Loop-Log wird auf `FEHLER` geprueft**,
+nicht nur auf die Messzeilen.
+
+### D-047-Status
+
+**Erreicht - in der Delta-Form** (Kopf 874/960 = 91,04 %, inhaltlich 752/838 = 89,74 %, kein Typ
+unter 86,0 %). In der absoluten Form nicht erreicht (88,96 %), und exp-022 zeigt, dass sie sich
+durch Weitertrainieren **nicht** erreichen laesst. Der Stand bleibt
+`checkpoints/agent-sequence_reasoning-from12400-i1-d5217b90dfe8cbac-step17200` (Delta-Form).
+D-049 gilt unveraendert: ein D-047-Status wird **immer mit der Antwortform** genannt.
+
+**Naechster Schritt:** die Formkonvention auf die anderen Typen pruefen - allen voran
+`reparatur1` (86,9 %) und `offen` (86,8 %), die in der Delta-Form die schwaechsten sind. Und:
+die **Zufallsbaseline der 19 Delta-Antworten** explizit messen, damit der Vorbehalt
+"kleinerer Antwortraum" eine Zahl bekommt statt einer Schaetzung.
+
+### Gates (keine Codeaenderung in dieser Runde)
+
+`cargo test` 306 lib + 90 Integrationstests, 0 Fehler; `fmt`/`build --release` gruen; clippy
+unveraendert 7 (nur fremde `quant.rs`/`probe.rs`); Smoke-Digest `a6a53c95abd7f622` unveraendert;
+alle sechs Doku-Gates 0 Befunde; `deploy/` unberuehrt.
