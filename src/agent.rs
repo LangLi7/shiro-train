@@ -206,6 +206,16 @@ pub struct Metrics {
     pub schwaechster_typ: Option<String>,
     pub schwaechster_quote: f64,
     pub schwaechster_gestellt: usize,
+    /// **Die vollstaendige Typentafel**: je inhaltlichem Aufgabentyp
+    /// `(gestellt, richtig)`.
+    ///
+    /// Noetig fuer die Replikationspflicht (exp-013): der schwaechste Typ allein
+    /// genuegt **nicht**, um einen Typeneinbruch festzustellen - wechselt der
+    /// schwaechste Typ zwischen zwei Messungen, wuerde man zwei verschiedene
+    /// Typen vergleichen. Die Regel braucht je Typ den Vorher- und den
+    /// Nachher-Wert.
+    #[serde(default)]
+    pub pro_typ: BTreeMap<String, (usize, usize)>,
     pub asked: usize,
 }
 
@@ -364,6 +374,7 @@ pub fn metrics_aus(
         schwaechster_typ: s_name,
         schwaechster_quote: s_quote,
         schwaechster_gestellt: s_n,
+        pro_typ,
         asked: cases.len(),
     }
 }
@@ -1051,6 +1062,27 @@ pub fn check_no_leak(train: &[Vec<u8>], eval: &[Vec<u8>]) -> Result<()> {
 /// **Der feste Referenzsatz.** Immer derselbe: jeder `stride`. Datensatz des
 /// Shards, beginnend bei 0. `stride = gesamt / n`, mindestens 1.
 pub fn reference_set(dir: &Path, manifest: &str, n: usize) -> Result<(Vec<Vec<u8>>, usize)> {
+    reference_set_ab(dir, manifest, n, 0)
+}
+
+/// Wie [`reference_set`], aber mit **Startversatz** - die Grundlage der
+/// Replikationspflicht.
+///
+/// **Warum ein Versatz und kein zweiter Korpus (exp-013).** Die Vorgabe verlangt
+/// ein zweites, unabhaengiges Panel "mit anderem Generation-Seed, gleicher
+/// Typverteilung". Der Held-out-Shard ist aber **eingefroren** (Pruefsumme
+/// `c0efa5e0...`, Byteidentitaet im Zweitlauf belegt); ihn neu zu erzeugen
+/// wuerde die Vergleichbarkeit mit allen bisherigen Messungen zerstoeren.
+/// Zwei **disjunkte** Panels aus demselben eingefrorenen Shard erreichen dasselbe
+/// Ziel: unabhaengige Stichproben aus derselben Verteilung. Bei `stride = 41` und
+/// Versatz 20 sind die Indizes `0, 41, 82, ...` und `20, 61, 102, ...` paarweise
+/// verschieden - **kein Datensatz liegt in beiden Panels**.
+pub fn reference_set_ab(
+    dir: &Path,
+    manifest: &str,
+    n: usize,
+    offset: usize,
+) -> Result<(Vec<Vec<u8>>, usize)> {
     let ds = Dataset::load(dir, manifest)?;
     let total = ds.total_records() as usize;
     if total == 0 {
@@ -1058,7 +1090,7 @@ pub fn reference_set(dir: &Path, manifest: &str, n: usize) -> Result<(Vec<Vec<u8
     }
     let stride = (total / n.max(1)).max(1);
     let mut out = Vec::new();
-    let mut i = 0usize;
+    let mut i = offset % stride;
     while i < total && out.len() < n {
         if let Some(r) = ds.nth_record(i) {
             out.push(r.to_vec());
@@ -1243,6 +1275,20 @@ pub struct RegistryEntry {
     pub accepted: bool,
     pub score: f64,
     pub score_before: f64,
+    /// **Replikationspflicht (exp-013):** das Urteil ueber ALLE Panels.
+    #[serde(default)]
+    pub urteil: String,
+    /// Die Determinismus-Probe (Panel A zweimal gemessen).
+    #[serde(default)]
+    pub deterministisch: bool,
+    /// Ergebnis je Panel - der Beleg, dass nicht aus einer Stichprobe
+    /// entschieden wurde.
+    ///
+    /// **Nur schreibend:** [`Metrics`] ist bewusst nur `Serialize` (es ist ein
+    /// Messergebnis, kein Eingabefeld). Die Paneltafel ist ein Protokoll fuer
+    /// die Nachvollziehbarkeit und wird beim Ruecklesen uebersprungen.
+    #[serde(default, skip_deserializing)]
+    pub panels: Vec<PanelBefund>,
 }
 
 /// Haengt eine Zeile an die Registry an (JSON Lines, eine Zeile je Experiment).
@@ -1338,6 +1384,15 @@ pub struct Iteration {
     pub before: Metrics,
     pub after: Option<Metrics>,
     pub accepted: bool,
+    /// **Das replizierte Urteil (exp-013):** `ANGENOMMEN`, `VERWORFEN` oder
+    /// `UNENTSCHIEDEN`. Getrennt von `accepted`, weil "nicht angenommen" zwei
+    /// verschiedene Dinge heissen kann: eine widerlegte Runde und eine
+    /// **ungeklaerte**.
+    pub urteil: String,
+    /// Die Determinismus-Probe: Panel A zweimal gemessen, byte-identisch.
+    pub deterministisch: bool,
+    /// Ergebnis je Panel - der Beleg der Replikation.
+    pub panels: Vec<PanelBefund>,
     pub next_action: String,
     pub next_reason: String,
     /// **O-T9:** der Strategiewechsel, den diese Runde fuer die naechste
@@ -1563,6 +1618,151 @@ fn naechste_aktion(
     )
 }
 
+// ---------------------------------------------------------------------------
+// Replikationspflicht (exp-013)
+// ---------------------------------------------------------------------------
+
+/// So viele Panels muessen mindestens uebereinstimmen, bevor eine Runde
+/// angenommen wird.
+///
+/// **Nutzerauflage woertlich:** *"du solltest fakten basierend arbeiten
+/// pessimistisch sein. das es nicht nur nach 1 stichprobe sondern mehrere das es
+/// replizierbare test ist. ansonsten koennte es fatal sein wenn es nicht
+/// replizierbar ist und einmaliges erfolg"*.
+///
+/// **Der Anlass ist gemessen, nicht theoretisch.** exp-009 hat auf dem
+/// fixierten 120er-Panel einen **Tausch** als Gewinn verbucht: die
+/// Gesamtquote stieg um 1,7 Punkte (2 Datensaetze = Rauschen), waehrend
+/// `reparatur` von 56,3 % auf 12,5 % **einbrach**. Und auf dem damaligen
+/// **48er**-Satz war dieser Einbruch **ueberhaupt nicht sichtbar**, weil er nur
+/// **drei** zweiteilige Reparatur-Datensaetze enthielt. Ein Erfolg aus einer
+/// Stichprobe ist damit zweimal belegt unzuverlaessig.
+pub const PANELS_MINDESTENS: usize = 2;
+
+/// Der Befund **eines** Panels: dieselbe Messung vorher und nachher.
+#[derive(Debug, Clone, Serialize)]
+pub struct PanelBefund {
+    /// Name des Panels (z. B. `panel-a`).
+    pub name: String,
+    /// Versatz der Auswahlregel - belegt, dass die Panels disjunkt sind.
+    pub offset: usize,
+    pub score_vorher: f64,
+    pub score_nachher: f64,
+    pub vorher: Metrics,
+    pub nachher: Metrics,
+}
+
+impl PanelBefund {
+    pub fn score_delta(&self) -> f64 {
+        self.score_nachher - self.score_vorher
+    }
+
+    /// Zusaetzliche byte-genau richtige Antworten im **inhaltlichen** Topf.
+    pub fn em_delta(&self) -> f64 {
+        self.nachher.content_correct as f64 - self.vorher.content_correct as f64
+    }
+
+    pub fn regression_delta(&self) -> f64 {
+        self.nachher.regression_loss - self.vorher.regression_loss
+    }
+
+    /// Hat dieser Typ die Marke in **diesem** Panel unterschritten?
+    ///
+    /// Verglichen wird **je Typ** gegen sich selbst - nicht der schwaechste Typ
+    /// gegen den schwaechsten Typ. Wechselt der schwaechste Typ zwischen zwei
+    /// Messungen, waere der Vergleich zweier verschiedener Typen sonst
+    /// bedeutungslos.
+    ///
+    /// Der Sonderfall `reparatur` aus exp-010 gehoert hierher: der Typ stand mit
+    /// **exakt** 75,0 % genau auf der Marke. Ein einziger Datensatz kippt ihn
+    /// darunter - und genau solche Kantenfaelle soll die Regel in **jedem**
+    /// Panel sehen, nicht nur im Mittel.
+    pub fn typeneinbruch(&self, typ_min: f64) -> Vec<String> {
+        let mut einbrueche = Vec::new();
+        for (typ, (n_v, ok_v)) in &self.vorher.pro_typ {
+            let Some((n_n, ok_n)) = self.nachher.pro_typ.get(typ) else {
+                continue;
+            };
+            // Nur Faelle mit genug Grundlage (wie MIN_FAELLE bei der Auswahl).
+            if *n_v < MIN_FAELLE || *n_n < MIN_FAELLE {
+                continue;
+            }
+            let q_v = *ok_v as f64 / *n_v as f64;
+            let q_n = *ok_n as f64 / *n_n as f64;
+            if q_v >= typ_min && q_n < typ_min {
+                einbrueche.push(format!(
+                    "{typ}: {:.1} % -> {:.1} % ({ok_v}/{n_v} -> {ok_n}/{n_n})",
+                    q_v * 100.0,
+                    q_n * 100.0
+                ));
+            }
+        }
+        einbrueche
+    }
+
+    /// Traegt **dieses** Panel die Runde?
+    fn traegt(&self, pass: &PassCriteria) -> bool {
+        self.score_delta() >= pass.score_gain_min
+            || (self.em_delta() >= 2.0 && self.regression_delta() <= 0.0)
+    }
+}
+
+/// Das Urteil einer Runde unter Replikationspflicht.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum Rundenurteil {
+    /// **Alle** Panels tragen die Runde und keines zeigt einen Typeneinbruch.
+    Angenommen,
+    /// Mindestens ein Panel zeigt eine kritische Regression oder einen
+    /// Typeneinbruch - oder kein Panel traegt die Runde.
+    Verworfen,
+    /// Die Panels **widersprechen sich**. Es wird **weder angenommen noch
+    /// verworfen**: eine einzelne Stichprobe entscheidet nicht.
+    Unentschieden,
+}
+
+impl Rundenurteil {
+    pub fn key(self) -> &'static str {
+        match self {
+            Rundenurteil::Angenommen => "ANGENOMMEN",
+            Rundenurteil::Verworfen => "VERWORFEN",
+            Rundenurteil::Unentschieden => "UNENTSCHIEDEN",
+        }
+    }
+}
+
+/// **Die Annahmeregel unter Replikationspflicht** - bewusst eine reine Funktion,
+/// damit sie ohne Modell und ohne GPU pruefbar ist.
+///
+/// Die Regel ist **pessimistisch** gebaut: angenommen wird nur, was **jedes**
+/// Panel bestaetigt. Ein Widerspruch fuehrt zu [`Rundenurteil::Unentschieden`],
+/// nicht zur Annahme.
+pub fn entscheide_runde(befunde: &[PanelBefund], pass: &PassCriteria) -> Rundenurteil {
+    // Ohne die geforderte Zahl unabhaengiger Panels wird gar nichts entschieden.
+    if befunde.len() < PANELS_MINDESTENS {
+        return Rundenurteil::Unentschieden;
+    }
+    let typ_min = pass.typ_min.unwrap_or(0.0);
+    // Harte Vetos zuerst: eine kritische Regression oder ein Typeneinbruch in
+    // IRGENDEINEM Panel verwirft die Runde, auch wenn andere Panels sie tragen.
+    for b in befunde {
+        if b.regression_delta() > pass.regression_drop_max {
+            return Rundenurteil::Verworfen;
+        }
+        if !b.typeneinbruch(typ_min).is_empty() {
+            return Rundenurteil::Verworfen;
+        }
+    }
+    let tragend = befunde.iter().filter(|b| b.traegt(pass)).count();
+    if tragend == befunde.len() {
+        Rundenurteil::Angenommen
+    } else if tragend == 0 {
+        Rundenurteil::Verworfen
+    } else {
+        // Widerspruch: einige Panels tragen, andere nicht.
+        Rundenurteil::Unentschieden
+    }
+}
+
 /// **Der Loop.** Eine Iteration = messen -> klassifizieren -> gezielt erzeugen ->
 /// trainieren -> erneut messen -> annehmen/verwerfen -> begruendete naechste Aktion.
 pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
@@ -1595,8 +1795,21 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     let mut replay_share = cap.budget.replay_share;
     let mut lr = basis.optim.lr;
 
+    // **Zwei disjunkte Panels statt einem (Replikationspflicht, exp-013).**
+    // Panel A ist das historische Panel (Versatz 0, jeder `stride`. Datensatz) -
+    // es bleibt unveraendert, damit alle bisherigen Messungen vergleichbar
+    // bleiben. Panel B ist dieselbe Auswahlregel mit einem **Versatz von einem
+    // halben Schritt**: dadurch ist es von A **paarweise verschieden**, also eine
+    // unabhaengige Stichprobe aus derselben Verteilung.
     let (eval_records, stride) =
         reference_set(&opts.held_out_dir, &opts.held_out_manifest, eval_n)?;
+    let versatz_b = (stride / 2).max(1);
+    let (eval_records_b, _) = reference_set_ab(
+        &opts.held_out_dir,
+        &opts.held_out_manifest,
+        eval_n,
+        versatz_b,
+    )?;
     let (reg_records, _) = reference_set(
         &opts.train_band_dir,
         &opts.held_out_manifest,
@@ -1605,9 +1818,17 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
 
     println!("=== Agentischer Loop: {} ({}) ===", cap.id, cap.level);
     println!(
-        "Referenzsatz  : {} Datensaetze, jeder {stride}. aus {}",
+        "Referenzsatz  : Panel A {} Datensaetze, jeder {stride}. aus {}",
         eval_records.len(),
         opts.held_out_dir.display()
+    );
+    println!(
+        "                Panel B {} Datensaetze, jeder {stride}. mit Versatz {versatz_b} (disjunkt)",
+        eval_records_b.len()
+    );
+    println!(
+        "Replikation   : Annahme nur, wenn ALLE {} Panels tragen (pessimistisch, Nutzerauflage)",
+        PANELS_MINDESTENS
     );
     println!(
         "Regressionssatz: {} Datensaetze aus {}",
@@ -1674,8 +1895,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         let iter_seed = seed.wrapping_add((nr as u64).wrapping_mul(7919));
         println!("\n--- Iteration {nr}/{max_iter} ({exp_id}) ---");
 
-        // (1) Baseline bestimmen.
+        // (1) Baseline bestimmen - auf BEIDEN Panels (Replikationspflicht).
         let before_cases = measure_answers(&basis.model, seed, &aktuell, &eval_records, 24)?;
+        let before_cases_b = measure_answers(&basis.model, seed, &aktuell, &eval_records_b, 24)?;
         let reg_before = measure_loss(
             &basis.model,
             seed,
@@ -1698,12 +1920,14 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             4,
         )?;
         let before = metrics_aus(&before_cases, &cap.metric, held_before, reg_before);
+        let before_b = metrics_aus(&before_cases_b, &cap.metric, held_before, reg_before);
         let (dom, dom_n) = match dominant(&before_cases) {
             Some((k, n)) => (Some(k), n),
             None => (None, 0),
         };
         let dist = distribution(&before_cases);
         let score_before = before.score(&cap.score);
+        let score_before_b = before_b.score(&cap.score);
         println!(
             "Baseline      : inhaltlich {:.1} % ({} von {}) | Kurzantwort {:.1} % ({} von {}) | gesamt {:.1} % | Antwortform {:.1} % | Score {:.3}",
             before.exact_match_content * 100.0,
@@ -1722,6 +1946,20 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         for (cat, (n, ok)) in per_category(&before_cases) {
             println!("   Typ {cat:<11} {ok}/{n} richtig");
         }
+        // Panel B ist die unabhaengige Gegenprobe - derselbe Stand, andere
+        // Stichprobe. Weicht schon die BASELINE ab, ist die Paneldifferenz
+        // selbst ein Befund und gehoert ins Protokoll.
+        println!(
+            "Baseline B    : inhaltlich {:.1} % ({} von {}) | gesamt {:.1} % | Score {:.3}",
+            before_b.exact_match_content * 100.0,
+            before_b.content_correct,
+            before_b.content_asked,
+            before_b.exact_match * 100.0,
+            score_before_b
+        );
+        for (cat, (n, ok)) in per_category(&before_cases_b) {
+            println!("   Typ B {cat:<9} {ok}/{n} richtig");
+        }
         let samples: Vec<(usize, String, String, String)> = before_cases
             .iter()
             .filter(|c| !c.correct)
@@ -1737,12 +1975,25 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             .collect();
 
         // Passiert der Stand die Schwelle schon? Dann keine weitere Trainingsrunde.
-        if passes(&cap, &before) {
+        // **Auch der Erfolg braucht zwei Panels.** Eine Erfolgsmeldung auf einer
+        // einzigen Stichprobe waere derselbe Fehler wie eine Annahme auf einer
+        // einzigen Stichprobe - nur teurer, weil sie den Loop beendet. Deshalb
+        // muss die Marke auf **beiden** Panels liegen. Das ist die Stelle, an
+        // der die Nutzerauflage "einmaliger Erfolg zaehlt nicht" am haertesten
+        // wirkt: bei 120 Fragen je Panel sind die beiden Quoten nicht
+        // unabhaengig gleich, und ein Stand, der die 90-%-Marke nur knapp
+        // reisst, faellt hier auf.
+        let pass_a = passes(&cap, &before);
+        let pass_b = passes(&cap, &before_b);
+        if pass_a && pass_b {
             let (aktion, grund) = (
                 "capability_pass".to_string(),
-                "Schwellen erfuellt: Stand einfrieren und zur naechsten Faehigkeit".to_string(),
+                "Schwellen auf BEIDEN Panels erfuellt: Stand einfrieren und zur naechsten Faehigkeit"
+                    .to_string(),
             );
-            println!("Urteil        : Schwellen erfuellt - keine weitere Runde noetig");
+            println!(
+                "Urteil        : Schwellen auf beiden Panels erfuellt - keine weitere Runde noetig"
+            );
             eintrag(
                 opts,
                 &cap,
@@ -1759,6 +2010,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 false,
                 score_before,
                 score_before,
+                "KEINE_RUNDE",
+                false,
+                &[],
                 &samples,
                 dosis,
             )?;
@@ -1773,6 +2027,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 before,
                 after: None,
                 accepted: false,
+                urteil: "KEINE_RUNDE".to_string(),
+                deterministisch: false,
+                panels: Vec::new(),
                 next_action: aktion,
                 next_reason: grund,
                 strategiewechsel: None,
@@ -1780,6 +2037,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 samples,
             });
             break;
+        }
+        if pass_a != pass_b {
+            println!(
+                "Replikation    : Schwellen nur auf EINEM Panel erfuellt (A: {}, B: {}) - gilt NICHT als bestanden",
+                if pass_a { "ja" } else { "nein" },
+                if pass_b { "ja" } else { "nein" }
+            );
         }
 
         // (2) Lernpaket waehlen (Spec §6/§7) - **zwei Achsen, nicht eine**.
@@ -1963,6 +2227,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 before,
                 after: None,
                 accepted: false,
+                urteil: "DRY_RUN".to_string(),
+                deterministisch: false,
+                panels: Vec::new(),
                 next_action: "dry_run".to_string(),
                 next_reason: "Testlauf ohne Training".to_string(),
                 strategiewechsel: None,
@@ -1998,8 +2265,29 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             .ok_or_else(|| crate::error::anyhow!("neuer Modellstand nicht gefunden"))?;
         println!("Neuer Stand   : {}", neu.display());
 
-        // (7) Erneut auf DEMSELBEN Daten messen.
+        // (7) Erneut messen - auf BEIDEN Panels und Panel A ZWEIMAL.
+        //
+        // Die Doppelmessung von A ist die geforderte **Determinismus-Probe**:
+        // greedy Erzeugung ist prefix-deterministisch, zwei Laeufe muessen also
+        // **byte-identisch** sein. Weichen sie ab, ist die Messkette selbst
+        // unzuverlaessig - dann ist jede Zahl dieser Runde wertlos, und das muss
+        // sichtbar sein, statt sich als Modellfortschritt zu tarnen.
         let after_cases = measure_answers(&basis.model, seed, &neu, &eval_records, 24)?;
+        let after_cases_wdh = measure_answers(&basis.model, seed, &neu, &eval_records, 24)?;
+        let after_cases_b = measure_answers(&basis.model, seed, &neu, &eval_records_b, 24)?;
+        let deterministisch = after_cases.len() == after_cases_wdh.len()
+            && after_cases
+                .iter()
+                .zip(after_cases_wdh.iter())
+                .all(|(a, b)| a.correct == b.correct && a.got == b.got);
+        println!(
+            "Determinismus : Panel A zweimal gemessen -> {}",
+            if deterministisch {
+                "byte-identisch (Gegenprobe bestanden)"
+            } else {
+                "ABWEICHUNG - die Messkette ist nicht reproduzierbar, diese Runde ist ungueltig"
+            }
+        );
         let reg_after = measure_loss(
             &basis.model,
             seed,
@@ -2021,7 +2309,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             4,
         )?;
         let after = metrics_aus(&after_cases, &cap.metric, held_after, reg_after);
+        let after_b = metrics_aus(&after_cases_b, &cap.metric, held_after, reg_after);
         let score_after = after.score(&cap.score);
+        let score_after_b = after_b.score(&cap.score);
         println!(
             "Nachher       : inhaltlich {:.1} % ({} von {}) | Kurzantwort {:.1} % ({} von {}) | gesamt {:.1} % | Antwortform {:.1} % | Score {:.3}",
             after.exact_match_content * 100.0,
@@ -2035,25 +2325,67 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             score_after
         );
 
-        // (8) Annehmen oder verwerfen - nie allein wegen des Losses (Spec §9).
+        // (8) Annehmen oder verwerfen - **repliziert**, nie aus einer Stichprobe.
+        //
+        // Die alte Regel entschied auf EINEM Panel. Genau daran ist exp-009
+        // gescheitert: +1,7 Punkte auf dem 120er-Panel (2 Datensaetze = Rauschen)
+        // bei einem Einbruch von `reparatur` von 56,3 % auf 12,5 %; auf dem
+        // damaligen 48er-Satz war der Einbruch unsichtbar. Deshalb entscheidet
+        // jetzt `entscheide_runde` ueber ALLE Panels - und ein Widerspruch
+        // fuehrt zu UNENTSCHIEDEN, nicht zur Annahme.
         let verbesserung = score_after - score_before;
         let regression = reg_after - reg_before;
+        let befunde = vec![
+            PanelBefund {
+                name: "A".to_string(),
+                offset: 0,
+                score_vorher: score_before,
+                score_nachher: score_after,
+                vorher: before.clone(),
+                nachher: after.clone(),
+            },
+            PanelBefund {
+                name: "B".to_string(),
+                offset: versatz_b,
+                score_vorher: score_before_b,
+                score_nachher: score_after_b,
+                vorher: before_b.clone(),
+                nachher: after_b.clone(),
+            },
+        ];
+        let urteil = entscheide_runde(&befunde, &cap.pass);
+        let typ_min = cap.pass.typ_min.unwrap_or(0.0);
+        for b in &befunde {
+            let einbrueche = b.typeneinbruch(typ_min);
+            println!(
+                "Panel {}       : Score {:+.3} ({:.3} -> {:.3}) | inhaltlich {:.1} % -> {:.1} % | Regression {:+.4}{}",
+                b.name,
+                b.score_delta(),
+                b.score_vorher,
+                b.score_nachher,
+                b.vorher.exact_match_content * 100.0,
+                b.nachher.exact_match_content * 100.0,
+                b.regression_delta(),
+                if einbrueche.is_empty() {
+                    String::new()
+                } else {
+                    format!(" | TYPENEINBRUCH: {}", einbrueche.join(", "))
+                }
+            );
+        }
         let kritische_regression = regression > cap.pass.regression_drop_max;
-        // Annahme: Score-Gewinn ueber der Schwelle ODER mindestens zwei zusaetzlich
-        // byte-genau richtige Antworten **im inhaltlichen Topf** ohne
-        // Verschlechterung des Verlusts. Die zweite Bedingung ist noetig, weil auf
-        // einem 48er-Satz eine einzelne Antwort nur +0,0073 Score bedeutet.
-        // Gezaehlt wird seit der Metrik-Schaerfung **inhaltlich**: ein zusaetzlicher
-        // Treffer im 1-Byte-Typ `vergleich` ist kein Faehigkeitsfortschritt.
-        let em_delta =
-            (after.exact_match_content - before.exact_match_content) * after.content_asked as f64;
-        let accepted = !kritische_regression
-            && (verbesserung >= cap.pass.score_gain_min || (em_delta >= 2.0 && regression <= 0.0));
-        let verbessert = after.exact_match_content > before.exact_match_content;
+        let accepted = urteil == Rundenurteil::Angenommen && deterministisch;
+        let verbessert = after.exact_match_content > before.exact_match_content
+            && after_b.exact_match_content > before_b.exact_match_content;
         println!(
-            "Urteil        : {} (Score {:+.3}, Regressionsdelta {:+.4}{})",
-            if accepted { "ANGENOMMEN" } else { "VERWORFEN" },
+            "Urteil        : {} (Panel A Score {:+.3}, Panel B {:+.3}; Regressionsdelta {:+.4}{})",
+            if !deterministisch {
+                "UNGUELTIG (Messkette nicht reproduzierbar)"
+            } else {
+                urteil.key()
+            },
             verbesserung,
+            score_after_b - score_before_b,
             regression,
             if kritische_regression {
                 ", KRITISCHE REGRESSION"
@@ -2061,6 +2393,12 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 ""
             }
         );
+        if urteil == Rundenurteil::Unentschieden {
+            println!(
+                "   -> Die Panels WIDERSPRECHEN sich: es wird weder angenommen noch verworfen."
+            );
+            println!("   -> Eine einzelne Stichprobe entscheidet nicht (Nutzerauflage).");
+        }
         if kritische_regression {
             println!("   -> Ruecknahme: Vorgaenger bleibt der gueltige Stand");
         }
@@ -2097,7 +2435,24 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // deshalb **genau ein** Parameter gezogen; die Aenderung wirkt in der
         // naechsten Runde, weil `dosis`, `replay_share` und `lr` ausserhalb der
         // Schleife stehen. Zwei Hebel gleichzeitig waeren nicht unterscheidbar.
-        let wechsel = wechsel_der_runde(accepted, verworfen, dosis, replay_share, lr, pack.key());
+        // **Ein UNENTSCHIEDENES Urteil zieht KEINEN Hebel.** Das ist der Kern der
+        // pessimistischen Regel (exp-013): wenn die Panels sich widersprechen,
+        // ist die Messung ungeklaert. Wuerde jetzt ein Hebel gezogen, wuerde die
+        // naechste Runde eine ZWEITE Variable aendern - und der Widerspruch
+        // liesse sich nie mehr aufloesen, weil niemand mehr weiss, welche
+        // Aenderung welche Wirkung hatte. Die richtige Antwort auf eine
+        // ungeklaerte Messung ist **wiederholen**, nicht umstellen.
+        let unentschieden = urteil == Rundenurteil::Unentschieden;
+        let wechsel = if unentschieden {
+            None
+        } else {
+            wechsel_der_runde(accepted, verworfen, dosis, replay_share, lr, pack.key())
+        };
+        if unentschieden {
+            println!(
+                "   -> KEIN Strategiewechsel: die Runde wird mit UNVERAENDERTER Einstellung wiederholt"
+            );
+        }
         if let Some(w) = &wechsel {
             match w.hebel {
                 Hebel::Dosis(neu) => dosis = neu,
@@ -2133,6 +2488,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             accepted,
             score_before,
             score_after,
+            if !deterministisch {
+                "UNGUELTIG"
+            } else {
+                urteil.key()
+            },
+            deterministisch,
+            &befunde,
             &samples,
             dosis_trainiert,
         )?;
@@ -2150,6 +2512,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             before,
             after: Some(after),
             accepted,
+            urteil: if !deterministisch {
+                "UNGUELTIG".to_string()
+            } else {
+                urteil.key().to_string()
+            },
+            deterministisch,
+            panels: befunde.clone(),
             next_action: aktion,
             next_reason: grund,
             strategiewechsel: wechsel,
@@ -2191,6 +2560,9 @@ fn eintrag(
     accepted: bool,
     score_before: f64,
     score_after: f64,
+    urteil: &str,
+    deterministisch: bool,
+    panels: &[PanelBefund],
     samples: &[(usize, String, String, String)],
     steps: usize,
 ) -> Result<()> {
@@ -2226,6 +2598,9 @@ fn eintrag(
         accepted,
         score: score_after,
         score_before,
+        urteil: urteil.to_string(),
+        deterministisch,
+        panels: panels.to_vec(),
     };
     let _ = (dom, samples);
     registry_append(&opts.registry, &entry)
@@ -2936,5 +3311,263 @@ mod tests {
         let w = strategiewechsel(1, 600, 0.05, 3e-4, "breit");
         assert_eq!(w.hebel, Hebel::Replay(0.0));
         assert_eq!(w.nachher, "0.00");
+    }
+
+    // -----------------------------------------------------------------------
+    // Replikationspflicht (exp-013)
+    // -----------------------------------------------------------------------
+
+    /// Die Typentafel eines Testpanels: `(Typ, vorher, nachher)`.
+    type Typentafel = [(&'static str, (usize, usize), (usize, usize))];
+
+    /// Ein Panel mit vorgegebenen Werten - die Bausteine der Regelpruefung.
+    ///
+    /// `#[allow(clippy::too_many_arguments)]` ist hier **absichtlich und
+    /// begruendet**: der Helfer bildet eine Tabelle ab, und eine flache
+    /// Argumentliste ist in den Testfaellen lesbarer als ein Zwischenstruct,
+    /// weil die Zahlen dann direkt unter der Behauptung stehen, die sie
+    /// belegen. Die Alternative waere ein Struct mit 15 Anpassungsstellen.
+    #[allow(clippy::too_many_arguments)]
+    fn panel(
+        name: &str,
+        score_v: f64,
+        score_n: f64,
+        content_v: (usize, usize),
+        content_n: (usize, usize),
+        typen: &Typentafel,
+        reg_v: f64,
+        reg_n: f64,
+    ) -> PanelBefund {
+        let mut pro_typ_v: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        let mut pro_typ_n: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        for (t, v, n) in typen {
+            pro_typ_v.insert((*t).to_string(), *v);
+            pro_typ_n.insert((*t).to_string(), *n);
+        }
+        PanelBefund {
+            name: name.to_string(),
+            offset: 0,
+            score_vorher: score_v,
+            score_nachher: score_n,
+            vorher: Metrics {
+                exact_match_content: content_v.1 as f64 / content_v.0.max(1) as f64,
+                content_asked: content_v.0,
+                content_correct: content_v.1,
+                regression_loss: reg_v,
+                pro_typ: pro_typ_v,
+                ..Metrics::default()
+            },
+            nachher: Metrics {
+                exact_match_content: content_n.1 as f64 / content_n.0.max(1) as f64,
+                content_asked: content_n.0,
+                content_correct: content_n.1,
+                regression_loss: reg_n,
+                pro_typ: pro_typ_n,
+                ..Metrics::default()
+            },
+        }
+    }
+
+    fn pruefregel() -> PassCriteria {
+        PassCriteria {
+            exact_match_min: 0.90,
+            held_out_loss_max: 0.80,
+            regression_drop_max: 0.05,
+            score_gain_min: 0.01,
+            compositional_min: None,
+            adversarial_min: None,
+            typ_min: Some(0.75),
+        }
+    }
+
+    /// **Der Kern der Nutzerauflage: EIN Panel entscheidet nicht.**
+    #[test]
+    fn ein_einziges_panel_entscheidet_nie() {
+        let a = panel("A", 0.50, 0.60, (104, 80), (104, 90), &[], 0.10, 0.10);
+        assert_eq!(
+            entscheide_runde(std::slice::from_ref(&a), &pruefregel()),
+            Rundenurteil::Unentschieden,
+            "ein einzelnes Panel darf niemals eine Annahme erzeugen"
+        );
+        assert_eq!(
+            entscheide_runde(&[], &pruefregel()),
+            Rundenurteil::Unentschieden
+        );
+    }
+
+    /// **Widerspruch ist UNENTSCHIEDEN, nicht ANGENOMMEN.** Das ist der Fall,
+    /// den die alte Regel falsch behandelt haette: Panel A traegt, Panel B nicht.
+    #[test]
+    fn widerspruch_ist_unentschieden() {
+        let a = panel("A", 0.50, 0.60, (104, 80), (104, 90), &[], 0.10, 0.10);
+        let b = panel("B", 0.52, 0.50, (104, 82), (104, 80), &[], 0.10, 0.10);
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Unentschieden
+        );
+    }
+
+    /// Nur wenn **beide** Panels tragen, wird angenommen.
+    #[test]
+    fn einigkeit_wird_angenommen() {
+        let a = panel("A", 0.50, 0.60, (104, 80), (104, 90), &[], 0.10, 0.10);
+        let b = panel("B", 0.50, 0.58, (104, 79), (104, 88), &[], 0.10, 0.10);
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Angenommen
+        );
+    }
+
+    /// Kein Panel traegt -> verworfen (nicht unentschieden).
+    #[test]
+    fn kein_fortschritt_wird_verworfen() {
+        let a = panel("A", 0.50, 0.50, (104, 80), (104, 80), &[], 0.10, 0.10);
+        let b = panel("B", 0.50, 0.49, (104, 80), (104, 79), &[], 0.10, 0.10);
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Verworfen
+        );
+    }
+
+    /// **Der Typeneinbruch ist ein hartes Veto** - auch wenn BEIDE Panels beim
+    /// Score gewinnen. Genau dieser Fall war exp-009: die Gesamtquote stieg,
+    /// `reparatur` brach ein.
+    #[test]
+    fn typeneinbruch_verwirft_trotz_scoregewinn() {
+        // Score steigt in beiden Panels deutlich ...
+        let a = panel(
+            "A",
+            0.50,
+            0.62,
+            (104, 80),
+            (104, 92),
+            &[("reparatur", (16, 14), (16, 4))],
+            0.10,
+            0.10,
+        );
+        let b = panel(
+            "B",
+            0.50,
+            0.60,
+            (104, 79),
+            (104, 90),
+            &[("reparatur", (16, 13), (16, 5))],
+            0.10,
+            0.10,
+        );
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Verworfen,
+            "ein Typeneinbruch muss die Runde verwerfen, auch bei Scoregewinn"
+        );
+    }
+
+    /// Ein Typ, der schon **vorher** unter der Marke lag, ist **kein**
+    /// Einbruch - sonst waere jede Runde mit einem bekannten schwachen Typ
+    /// automatisch verworfen und der Loop koennte nie vorankommen.
+    #[test]
+    fn bereits_schwacher_typ_ist_kein_einbruch() {
+        let a = panel(
+            "A",
+            0.50,
+            0.60,
+            (104, 80),
+            (104, 90),
+            &[("offen", (16, 10), (16, 12))],
+            0.10,
+            0.10,
+        );
+        let b = panel(
+            "B",
+            0.50,
+            0.58,
+            (104, 79),
+            (104, 88),
+            &[("offen", (16, 11), (16, 13))],
+            0.10,
+            0.10,
+        );
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Angenommen
+        );
+    }
+
+    /// **Verglichen wird JE TYP, nicht schwaechster gegen schwaechsten.**
+    /// Wechselt der schwaechste Typ die Identitaet, darf daraus kein falscher
+    /// Einbruch entstehen: hier faellt `naechste` von 80 % auf 73,3 %, aber der
+    /// schwaechste Typ ist in beiden Messungen `offen` (68,8 % -> 68,8 %).
+    #[test]
+    fn typenvergleich_ist_je_typ_nicht_ueber_den_schwaechsten() {
+        let a = panel(
+            "A",
+            0.50,
+            0.60,
+            (104, 80),
+            (104, 90),
+            &[
+                ("offen", (16, 11), (16, 11)),
+                ("naechste", (20, 16), (20, 15)),
+            ],
+            0.10,
+            0.10,
+        );
+        let b = panel(
+            "B",
+            0.50,
+            0.58,
+            (104, 79),
+            (104, 88),
+            &[
+                ("offen", (16, 11), (16, 12)),
+                ("naechste", (20, 17), (20, 17)),
+            ],
+            0.10,
+            0.10,
+        );
+        assert!(
+            a.typeneinbruch(0.75).is_empty(),
+            "20 auf 15 von 20 sind 80 -> 75 %, das ist KEIN Einbruch unter die Marke"
+        );
+        assert!(b.typeneinbruch(0.75).is_empty());
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Angenommen
+        );
+    }
+
+    /// Eine kritische Regression verwirft in JEDEM Fall - auch bei Einigkeit
+    /// beim Score.
+    #[test]
+    fn kritische_regression_verwirft_alles() {
+        let a = panel("A", 0.50, 0.60, (104, 80), (104, 90), &[], 0.10, 0.30);
+        let b = panel("B", 0.50, 0.58, (104, 79), (104, 88), &[], 0.10, 0.11);
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Verworfen
+        );
+    }
+
+    /// Die Regel braucht mindestens zwei Panels - als Zahl festgehalten.
+    #[test]
+    fn panels_mindestens_ist_zwei() {
+        assert_eq!(PANELS_MINDESTENS, 2);
+    }
+
+    /// **Die beiden Panels sind disjunkt** - belegt ueber die Auswahlregel:
+    /// gleicher Schritt, verschiedene Restklassen.
+    #[test]
+    fn panels_sind_disjunkt() {
+        // stride 41 (5000 val-Datensaetze, 120 gewuenscht) -> Versatz 20.
+        let stride = 41usize;
+        let versatz = (stride / 2).max(1);
+        assert_eq!(versatz, 20);
+        let a: Vec<usize> = (0..120).map(|k| k * stride).collect();
+        let b: Vec<usize> = (0..120).map(|k| versatz + k * stride).collect();
+        for i in &a {
+            assert!(!b.contains(i), "Index {i} liegt in beiden Panels");
+        }
+        assert_eq!(a.len(), 120);
+        assert_eq!(b.len(), 120);
     }
 }

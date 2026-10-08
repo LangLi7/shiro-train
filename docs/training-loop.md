@@ -265,3 +265,101 @@ GPU-Speedup weiter nicht messbar.
    traegt Kapazitaet bei gleichen Daten mehr? (Erstlauf ueberhaupt mit Modell S.)
 3. Fenster packen (O-T6) und den Durchsatzgewinn messen.
 4. Datenausbau Richtung 430 MB - jetzt mit **fuenf** Familien statt nur groesserem `--n`.
+
+---
+
+## 10. Die Annahmeregel: Replikationspflicht (exp-013)
+
+**Nutzerauflage, Wortlaut:**
+
+> *"du solltest fakten basierend arbeiten pessimistisch sein. das es nicht nur
+> nach 1 stichprobe sondern mehrere das es replizierbare test ist. ansonsten
+> koennte es fatal sein wenn es nicht replizierbar ist und einmaliges erfolg"*
+
+### 10.1 Warum - der Anlass ist gemessen, nicht theoretisch
+
+Die alte Regel entschied **auf einem einzigen Panel**. Zwei belegte Faelle zeigen,
+dass das nicht traegt:
+
+* **exp-009, Tausch als Gewinn verbucht.** Auf dem fixierten 120er-Panel stieg die
+  Gesamtquote um **+1,7 Punkte** - das sind **2 Datensaetze** und damit Rauschen -
+  waehrend `reparatur` (zweiteilige Form) von **56,3 % auf 12,5 %** einbrach. Der
+  Loop sah nur die steigende Kopfzahl.
+* **exp-009, Einbruch unsichtbar.** Auf dem damaligen **48er**-Satz war derselbe
+  Einbruch **ueberhaupt nicht zu sehen**, weil dieser Satz nur **drei**
+  zweiteilige Reparatur-Datensaetze enthielt (das 120er-Panel hat **16**). Ein
+  Typ mit drei Faellen kann nicht als regressiert erkannt werden.
+
+Ein einmaliger Erfolg auf einer Stichprobe ist damit **zweimal belegt**
+unzuverlaessig. Deshalb ist die Annahme jetzt replikationspflichtig.
+
+### 10.2 Die Regel
+
+Vier Bestandteile, alle in `src/agent.rs` umgesetzt und getestet:
+
+1. **Zwei Panels statt einem.** Panel **A** ist das historische Panel (Versatz 0,
+   jeder `stride`. Datensatz) und bleibt **unveraendert**, damit alle bisherigen
+   Messungen vergleichbar bleiben. Panel **B** ist dieselbe Auswahlregel mit
+   **Versatz `stride / 2`** - bei `stride = 41` also 20. Die Indizes
+   `0, 41, 82, ...` und `20, 61, 102, ...` sind paarweise verschieden: **kein
+   Datensatz liegt in beiden Panels** (`panels_sind_disjunkt`).
+   *Abweichung von der Vorgabe, offen gelegt:* die Vorgabe nennt "anderer
+   Generation-Seed". Der Held-out-Shard ist aber **eingefroren** (Pruefsumme
+   `c0efa5e0...`, Byteidentitaet im Zweitlauf belegt); ihn neu zu erzeugen wuerde
+   die Vergleichbarkeit mit allen bisherigen Messungen zerstoeren. Zwei disjunkte
+   Panels aus demselben eingefrorenen Shard erreichen dasselbe Ziel -
+   unabhaengige Stichproben aus derselben Verteilung.
+2. **Determinismus-Probe.** Panel A wird **zweimal** gemessen; die Laeufe muessen
+   **byte-identisch** sein (greedy Erzeugung ist prefix-deterministisch, also
+   muss das gelten). Eine Abweichung bedeutet, dass die **Messkette** selbst nicht
+   reproduzierbar ist - dann ist jede Zahl der Runde wertlos, und das Urteil
+   lautet `UNGUELTIG` statt "angenommen".
+3. **Annahme nur bei Einstimmigkeit.** Angenommen wird nur, wenn **jedes** Panel
+   die Runde traegt (Score-Gewinn `>= score_gain_min` oder `+2` inhaltliche
+   Treffer bei nicht steigendem Verlust).
+4. **Harte Vetos.** Eine **kritische Regression** oder ein **Typeneinbruch** in
+   **irgendeinem** Panel verwirft die Runde - auch wenn alle Panels beim Score
+   gewinnen. Ein Typeneinbruch ist: ein Typ lag vorher `>= typ_min` und liegt
+   nachher `< typ_min`. Verglichen wird **je Typ gegen sich selbst**, nicht
+   schwaechster gegen schwaechsten - sonst vergliche man bei wechselndem
+   schwaechstem Typ zwei verschiedene Typen.
+
+### 10.3 Widerspruch heisst UNENTSCHIEDEN - und zieht keinen Hebel
+
+Widersprechen sich die Panels, lautet das Urteil **`UNENTSCHIEDEN`**: es wird
+**weder angenommen noch verworfen**. Eine einzelne Stichprobe entscheidet nicht.
+
+**Ein unentschiedenes Urteil zieht KEINEN Strategiewechsel (O-T9).** Das ist
+Absicht: wuerde jetzt ein Hebel gezogen, aenderte die naechste Runde eine
+**zweite** Variable, und der Widerspruch liesse sich nie mehr aufloesen - niemand
+wuesste danach, welche Aenderung welche Wirkung hatte. Die richtige Antwort auf
+eine ungeklaerte Messung ist **wiederholen**, nicht umstellen.
+
+### 10.4 Auch der Erfolg braucht zwei Panels
+
+Die Erfolgsmeldung (`capability_pass`) prueft die Schwellen jetzt auf **beiden**
+Panels. Eine Erfolgsmeldung auf einer einzigen Stichprobe waere derselbe Fehler
+wie eine Annahme auf einer einzigen Stichprobe - nur teurer, weil sie den Loop
+beendet. Erfuellt nur ein Panel die Marke, wird das ausdruecklich berichtet und
+gilt **nicht** als bestanden.
+
+### 10.5 Was das kostet - offen benannt
+
+Pro Runde fallen jetzt **fuenf** Auswertungen zu je 120 Fragen an (A vorher,
+B vorher, A nachher, A nachher zur Determinismus-Probe, B nachher) statt zwei.
+Das verlaengert jede Runde messbar, und die Regel ist **strenger**: eine Runde,
+die nur auf einem Panel gewinnt, wird nicht mehr angenommen. Dass dadurch mehr
+Runden `UNENTSCHIEDEN` oder `VERWORFEN` lauten, ist **gewollt** - ein
+zurueckgewiesener Scheinerfolg ist billiger als ein uebernommener.
+
+### 10.6 Tests
+
+Zehn Regressionstests in `src/agent.rs` (`mod tests`), die die Regel ohne Modell
+und ohne GPU pruefen: `ein_einziges_panel_entscheidet_nie`,
+`widerspruch_ist_unentschieden`, `einigkeit_wird_angenommen`,
+`kein_fortschritt_wird_verworfen`, `typeneinbruch_verwirft_trotz_scoregewinn`,
+`bereits_schwacher_typ_ist_kein_einbruch`,
+`typenvergleich_ist_je_typ_nicht_ueber_den_schwaechsten`,
+`kritische_regression_verwirft_alles`, `panels_mindestens_ist_zwei`,
+`panels_sind_disjunkt`. Jeder Test traegt den Fall, den er ausschliesst, als
+Kommentar.
