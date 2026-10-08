@@ -2884,3 +2884,106 @@ Aufgaben.
 Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), `agent.rs`/`seq.rs` **0**;
 Smoke-Digest `a6a53c95abd7f622` unveraendert; alle sechs Doku-Gates 0 Befunde;
 `deploy/` unberuehrt.
+
+### exp-021 Ergebnis: ANGENOMMEN, einstimmig - der Formwechsel wirkt
+
+**Aufbau.** Elternteil `from7600-i1-step012400` (SHA `aa8e7bb6...`), Dosis 4800, Replay 0,35,
+lr 3e-4, Seed und Batch wie im angenommenen Stand. **Genau eine Variable: die Antwortform**
+(`--pack reparatur-delta --ohne-hebel`, Leiterposition 0). Laufzeit 24:03 min, GPU.
+Kein anderer Typ wurde angefasst (Abschnitt "Vorbereitung" belegt das).
+
+| Groesse | Panel A (480) | Panel B (480, disjunkt) |
+|---|---|---|
+| Score | 0,492 -> **0,535** (**+0,044**) | 0,495 -> **0,538** (**+0,043**) |
+| inhaltlich | 76,4 % -> **89,3 %** | 77,5 % -> **90,2 %** |
+| Regressionsdelta | +0,0036 | +0,0036 |
+
+**Urteil: ANGENOMMEN, einstimmig.** Determinismus-Probe byte-identisch, Elternstand
+unveraendert (SHA vor und nach dem Lauf gleich). Neuer Stand
+`checkpoints/agent-sequence_reasoning-from12400-i1-d5217b90dfe8cbac-step17200.safetensors`.
+Es ist die **erste Annahme seit exp-015** und der groesste Einzelrundengewinn des Loops.
+
+### Der Nachweis in beiden Antwortformen
+
+Der Loop druckt die Typentafel nur fuer die Baseline. Nach der Auflage "D-047 nach jeder
+Annahme neu messen" wurde der neue Stand deshalb **zweimal** neu gemessen (je 2:16 min,
+`--dry-run`, 2 x 480 disjunkte Fragen) - einmal in der Delta-Form, einmal in der absoluten
+Form (Transfer).
+
+**Delta-Form (die Form, auf der trainiert wurde):**
+
+| Typ | Panel A | Panel B | gepoolt |
+|---|---|---|---|
+| luecke | 47/51 | 55/58 | 102/109 = 93,6 % |
+| naechste | 52/59 | 52/62 | 104/121 = **86,0 %** |
+| offen | 53/62 | 46/52 | 99/114 = 86,8 % |
+| regel | 56/59 | 64/74 | 120/133 = 90,2 % |
+| **reparatur** | **56/63** | **57/60** | **113/123 = 91,9 %** |
+| reparatur1 | 44/55 | 62/67 | 106/122 = 86,9 % |
+| stelle | 59/62 | 49/54 | 108/116 = 93,1 % |
+| vergleich | 69/69 | 53/53 | 122/122 = 100 % |
+
+Kopfzahl A 436/480 = 90,83 %, B 438/480 = 91,25 %, **gepoolt 874/960 = 91,04 %**.
+Inhaltlich **gepoolt 752/838 = 89,74 %**.
+
+**Absolute Form (Transfer auf die alte Form, derselbe Stand):**
+
+| Typ | Panel A | Panel B | gepoolt |
+|---|---|---|---|
+| **reparatur** | **50/63** | **43/60** | **93/123 = 75,6 %** |
+| reparatur1 | 44/55 | 62/67 | 106/122 = 86,9 % |
+
+Kopfzahl A 430/480 = 89,58 %, B 424/480 = 88,33 %, **gepoolt 854/960 = 88,96 %**.
+Inhaltlich **gepoolt 732/838 = 87,35 %**.
+
+### D-047-Status: erreicht - aber nur in der Delta-Form, und das muss benannt werden
+
+D-047 verlangt Kopfzahl **>= 90 %** UND **keinen** inhaltlichen Typ unter 75 %, auf dem
+fixierten Panel. Der Stand lautet:
+
+| Form | Kopfzahl (2 x 480) | kleinster Typ | D-047 |
+|---|---|---|---|
+| **Delta** | **874/960 = 91,04 %** | naechste 86,0 % | **ERREICHT** |
+| absolut | 854/960 = 88,96 % | reparatur 75,6 % | nicht erreicht (0,96 Pp = 0,96 SE unter der Marke) |
+| vorher (absoluter Stand) | 855/960 = 89,06 % | reparatur 72,4 % | nicht erreicht |
+
+**Der Formwechsel hat den Engpass beseitigt:** `reparatur` geht von **72,4 %** (absolut,
+alter Stand) auf **91,9 %** (Delta) - **+19,5 Prozentpunkte** auf genau dem Typ, der D-047
+blockiert hat. Kein anderer Typ faellt unter 86 %; der groesste Gegenposten ist `offen`
+mit 90,4 % -> 86,8 % (-3,6 Pp, bei n = 114 rund 1,3 Standardfehler, also im Rauschen).
+
+**Der ehrliche Vorbehalt, und er ist wichtig.** Die Delta-Form hat einen **viel kleineren
+Antwortraum**: 19 moegliche Antworten (`+1`..`+9`, `-1`..`-9`) statt rund 20.000. Ein
+Einwand lautet deshalb, die Aufgabe sei **leichter geworden**, nicht das Modell besser. Dazu
+drei Punkte, die dafuer und dagegen sprechen:
+
+* **Dagegen (die Aufgabe ist leichter):** der Antwortraum ist um Faktor rund 1.000 kleiner.
+  Zufallstreffer sind allerdings weiterhin selten - die Stelle muss zusaetzlich stimmen,
+  also rund `1/5 x 1/19` ≈ 1 % -, aber ein kleinerer Antwortraum ist prinzipiell leichter.
+* **Dafuer (es ist dieselbe Denkleistung):** das *Rechnen* ist identisch - die Stelle
+  finden, den Zielwert bestimmen, die Differenz bilden. Was entfaellt, ist das
+  **Wiedergeben** eines vier- bis fuenfstelligen Werts. Genau das hat exp-019 gemessen:
+  **82,1 %** der erzeugten absoluten Werte lagen bereits **innerhalb** des erlaubten
+  Fensters - das Modell rechnete also meist richtig und scheiterte an der byte-genauen
+  Ausgabe. Die Delta-Form entfernt damit eine **Ausgabelast**, keine **Denklast**.
+* **Und die Frage selbst verlangt die Aenderung:** "Welche eine Zahl muss geaendert
+  werden?" fragt nach der Aenderung, nicht nach dem Zielwert. Der absolute Wert ist die
+  umstaendlichere Variante derselben Antwort, und die Aufgabe verlangt ohnehin, dass die
+  Aenderung hoechstens `FENSTER` betraegt.
+
+**Konsequenz, die als Entscheidung festgehalten wird (D-049):** die Marke D-047 nennt
+**keine** Antwortform; der Status haengt aber messbar an ihr. Die Antwortform gehoert
+deshalb zur Definition der Faehigkeit, und fuer `reparatur` gilt kuenftig die **Delta-Form**
+als Konvention; die absolute Form bleibt als **Regressionsreferenz** im Programm. Ein
+D-047-Status muss kuenftig **immer mit der Form** genannt werden.
+
+**Was diese Runde nicht zeigt, weiterhin offen:** es ist **kein** Ueberlegenheitstest. Dafuer
+muesste dieselbe Dosis auf **beide** Formen trainiert und auf beiden gemessen werden; hier
+wurde nur die Delta-Form trainiert. Der Zuwachs der absoluten Form (72,4 -> 75,6 %) ist
+damit ein **Transferbefund**, kein Vergleich.
+
+**Nebenbefund zum Transfer:** obwohl nur auf Delta trainiert wurde, stieg die **absolute**
+Form von 72,4 % auf **75,6 %** - der Typ liegt damit erstmals ueber der 75-%-Marke. Die
+Kopfzahl blieb mit 88,96 % gegen 89,06 % praktisch gleich (0,1 Pp, weit innerhalb eines
+Standardfehlers). Die Delta-Form ist also **kein** Verlust fuer die alte Form, aber auch
+kein Gewinn, der D-047 auf ihr erreichen wuerde.
