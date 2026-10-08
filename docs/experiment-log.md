@@ -3915,3 +3915,131 @@ in 14 Suiten; Runde 28: 410/0, also **+2 lib** durch die zwei neuen Modultests i
 `check-table-pipes` (123 Dateien, 0 zerbrochene Tabellenzeilen), `check-doc-links` (0 tote Links),
 `lernstufen-check`, `programmiersprachen-check`, `seq-korpus-check` alle exit 0; der angenommene
 Elternstand `.state` **unveraendert** (`bd72ee18...`), kein Trainingslauf, keine GPU-Zeit.
+
+## Runde 30 - Der Phase-Elternstand wird eingefroren und VOLLSTAENDIG gemessen (D-054)
+
+**Auftrag (Nutzerauflage Runde 29, Schritte B und C).** *"kombinierten Korpus als
+Baseline/Elternstand einfrieren, seine aktuellen Faehigkeiten vollstaendig messen"* - und zwar
+**Held-out je Familie** und die **Antwortform getrennt**, damit spaeter unterscheidbar bleibt,
+ob Mathematik gewirkt hat oder nur die Ausgabeform gewechselt wurde. **Mathematik bleibt
+gesperrt**, bis diese Messung vorliegt.
+
+### Der Lauf: derselbe Plan, EINE geaenderte Groesse
+
+```text
+shiro train --config configs/train.kombi-delta.toml \
+            --resume checkpoints/kombi-step019200.state
+```
+
+Gegenueber Runde 28 ist **genau eine** Groesse geaendert: `data.dir` zeigt auf
+`data/kombi-delta/train` (**Delta-Form**, D-053) statt `data/kombi/train`. Modell, Dosis
+(2000 Schritte), Rate (1e-4 konstant), Seed (1337), Batch (16 x 512) und Elternstand sind
+unveraendert. **Der Lauf beantwortet damit genau die Frage, die D-052/D-053 aufgeworfen haben:
+Kann eine breite Phase die Konvention ihres Korpus uebernehmen, ohne die Breite zu verlieren?**
+
+| Kennzahl | Wert |
+|---|---|
+| Backend | `Device<Cube(Cuda(Cuda(0)))>` - **GPU**, wie gefordert |
+| Dauer | **429,594 s** (7:10 min) fuer 2000 Schritte |
+| Durchsatz | **661,64 GFLOPS** effektiv, 23.681 Bytes/s |
+| Verlust | 1,2 -> 1,2 Perplexitaet (Start bereits konvergiert) |
+| Stand | `checkpoints/kombi-delta-step21200.safetensors`, SHA-256 `7a18da50...` |
+| Elternstand | `checkpoints/kombi-step019200.state` **unversehrt** |
+
+### (1) Held-out je Familie - die Breite haelt
+
+| Datensatz | untrainierte Baseline | Runde 28 (`kombi-step19200`) | **Runde 30 (`kombi-delta-step21200`)** |
+|---|---|---|---|
+| `seq/val` | 5,7449 | 0,5269 | **0,5409** |
+| `quant/val` | 5,6612 | 0,3756 | **0,3836** |
+| `logic-large/val` | 5,7055 | 0,9401 | **0,9478** |
+| `add/eval-3d` | 5,8605 | 5,3401 | **5,1127** |
+| `add/eval-4d` | 5,8143 | (nicht gemessen) | **5,1479** |
+
+**Befund:** alle **fuenf** Held-out-Saetze liegen weit unter der **untrainierten** Baseline. Auf
+den drei Korpus-Familien ist der neue Stand minimal **schlechter** als der Stand aus Runde 28
+(+0,014 / +0,008 / +0,008 Loss), auf der **Additionsfamilie deutlich besser** (5,3401 -> 5,1127
+und 5,1479). Das negative Transfer (O-D21) bleibt weg. **Die Breite ist gehalten.**
+
+### (2) Die Antwortform getrennt - die Delta-Konvention ist zurueck
+
+Beide Panels sind dieselben 2 x 480 disjunkten Fragen; nur die **Form der `reparatur`-Antworten**
+unterscheidet sich (absolute Panels: Zielwert; erweiterte Delta-Panels: Aenderung, D-049).
+Gepoolt ueber 960 Fragen:
+
+| Form | inhaltlich | Kopfzahl | `reparatur` | `reparatur1` | Form kaputt |
+|---|---|---|---|---|---|
+| **Delta** (erweitert) | 737/838 = **87,95 %** | 859/960 = **89,48 %** | **121/123 = 98,4 %** | **120/122 = 98,4 %** | **0 / 0** |
+| **Absolut** | 696/838 = **83,05 %** | 818/960 = **85,21 %** | 87/123 = 70,7 % | 113/122 = 92,6 % | 5 / 4 |
+
+**Der Vergleich mit Runde 28 auf DENSELBEN Panels ist der Kern der Runde:**
+
+| Kennzahl (Delta-Panels) | Runde-28-Stand | **Runde-30-Stand** |
+|---|---|---|
+| inhaltlich (A / B) | 73,0 % / 73,8 % | **89,8 % / 86,2 %** |
+| `reparatur` | **1/63** und **1/60** | **61/63** und **60/60** |
+| `reparatur1` | 23/55 und 35/67 | **53/55 und 67/67** |
+| Form kaputt | 4 / 5 | **0 / 0** |
+
+**Damit ist D-053 bestaetigt: der Ort der Form ist der Korpus.** Derselbe Plan auf demselben
+Korpus in der Delta-Form holt die Konvention **vollstaendig** zurueck (`reparatur` 1,6 % -> 98,4 %),
+waehrend Runde 28 auf dem absoluten Korpus sie **vollstaendig zerstoert** hatte.
+
+**In der absoluten Ansicht ist der neue Stand dagegen schlechter** als der Runde-28-Stand
+(inhaltlich 90,0/91,3 % -> 84,9/81,3 %; Kopfzahl 882/960 = 91,88 % -> 818/960 = 85,21 %). Das ist
+**kein Widerspruch, sondern der gemessene Preis der Formkonvention** - und genau der Grund, warum
+der Nutzer die Form **getrennt** gemessen haben wollte.
+
+### (3) NEUER BEFUND: der Preis sind `regel` und `naechste`, auf BEIDEN Formen
+
+| Typ | Runde-28-Stand (Delta-Panels) | **Runde-30-Stand** | Marke 75 % |
+|---|---|---|---|
+| `reparatur` | 2/123 = **1,6 %** | **121/123 = 98,4 %** | erfuellt |
+| `reparatur1` | 58/122 = 47,5 % | **120/122 = 98,4 %** | erfuellt |
+| `regel` | 127/133 = **95,5 %** | **87/133 = 65,4 %** | **VERFEHLT** |
+| `naechste` | 108/121 = **89,3 %** | **87/121 = 71,9 %** | **VERFEHLT** |
+| `luecke` | 106/109 = 97,2 % | 106/109 = 97,2 % | erfuellt |
+| `offen` | 102/114 = 89,5 % | 104/114 = 91,2 % | erfuellt |
+| `stelle` | 112/116 = 96,6 % | 112/116 = 96,6 % | erfuellt |
+| `vergleich` | 122/122 = 100 % | 122/122 = 100 % | erfuellt |
+
+**Die zweite Phase kostet `regel` (-30,1 Pp) und `naechste` (-17,4 Pp).** Beide liegen damit
+**unter der 75-%-Marke**, und zwar **auf beiden Formen mit identischen Zahlen** - was zugleich
+der **Beweis** ist, dass die Formachse diese Typen nicht beruehrt: `regel` und `naechste` sind in
+beiden Korpora **byte-identisch**, und die Messung ist greedy-deterministisch, also liefert sie
+dieselben Zaehler.
+
+**Der Befund ist schaerfer als der Trainingsverlust vermuten liesse:** das **Trainingsband** des
+neuen Stands zeigt `Band-Typ regel 1/5 richtig` (Runde-28-Stand: `5/5`). Der Typ wird also
+**nicht einmal auf den Trainingsdaten** mehr getroffen. Das ist **kein Generalisierungsproblem,
+sondern ein Vergessen** - und es erweitert **O-D33** (bisher: `regel` verliert 12,0 und 9,8 Pp im
+Rundenloop) auf die **Phasenebene** mit einem groesseren Betrag.
+
+**Nicht abschliessend zugeordnet, offen benannt:** die `regel`-Daten sind in beiden Korpora
+byte-identisch, der Formwechsel kann den Typ also nicht direkt treffen. Zwei Kandidaten bleiben:
+(a) die **zweite Phase auf derselben breiten Verteilung** (weitere 2000 Schritte bei 1e-4), (b) die
+**verschobenen Batch-Fenster** - der `seq`-Shard ist in der Delta-Form laenger, also liegen die
+Fenster ueber denselben Datensaetzen anders (`shuffle = false`). Die Messung trennt das **nicht**;
+dafuer braeuchte es eine dritte Runde mit unveraendertem Korpus.
+
+### (4) D-047: mit diesem Stand NICHT erreicht - und die Form muss genannt werden
+
+| Form | Kopfzahl | Typen unter 75 % |
+|---|---|---|
+| Delta | 859/960 = **89,48 %** (SE 0,99 -> 0,52 Pp unter der Marke, **innerhalb eines SE**) | `regel` 65,4 %, `naechste` 71,9 % |
+| Absolut | 818/960 = 85,21 % | `reparatur` 70,7 %, `regel` 65,4 %, `naechste` 71,9 % |
+
+Die D-047-Marke (Kopfzahl >= 90 % **und** kein inhaltlicher Typ unter 75 %) ist damit **nicht
+erreicht**. **Der angenommene Delta-Stand aus exp-021/024 bleibt der D-047-Stand in der
+Delta-Form** (874-876/960 = 91,04-91,25 %); `kombi-delta-step21200` ist der **breite Phase-Stand**,
+nicht sein Ersatz. Beide werden getrennt gefuehrt, und ein D-047-Status nennt ab jetzt **immer**
+die Antwortform (D-049).
+
+### Gates
+
+Reine Messrunde plus ein Trainingslauf: **keine Codeaenderung** in dieser Runde, also keine neuen
+Tore noetig - der Stand nach Runde 29 gilt unveraendert (`cargo test` 413/0, fmt gruen,
+`build --release` gruen, clippy unveraendert 7 fremde Befunde, Smoke-Digest `a6a53c95abd7f622`,
+alle Doku-Tore exit 0). Neu in den Baum gekommen: `configs/train.kombi-delta.toml`,
+`data/kombi-delta/` (untracked, per Befehl reproduzierbar), `checkpoints/kombi-delta-step*.{safetensors,state}`
+und `logs/kombi-delta-*.jsonl`. Der Elternstand `kombi-step019200.state` ist **unversehrt**.

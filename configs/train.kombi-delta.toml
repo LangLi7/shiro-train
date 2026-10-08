@@ -1,0 +1,74 @@
+# Trainingslauf auf dem KOMBINIERTEN Korpus in der DELTA-Form (Runde 30, D-053).
+#
+# WAS DIESER LAUF BEANTWORTET. Runde 28 hat gemessen, dass eine breite Phase die
+# Antwortform IHRES Korpus uebernimmt: `kombi-step19200` ist auf allen vier
+# geprueften Held-out-Sets besser als die untrainierte Baseline, verliert aber die
+# DELTA-Konvention vollstaendig (`reparatur` 2 von 123 auf den Delta-Panels,
+# 91,88 % Kopfzahl auf den absoluten). D-053 hat den Ort der Form in den KORPUS
+# gelegt; dieser Lauf ist die Gegenprobe: **derselbe Lauf auf demselben Korpus in
+# der Delta-Form.** Er soll die Breite HALTEN und die Delta-Konvention
+# ZURUECKHOLEN.
+#
+# GENAU EINE GEAENDERTE GROESSE gegenueber Runde 28: `data.dir` zeigt auf
+# `data/kombi-delta/train` statt `data/kombi/train`. Alles andere - Modell, Dosis,
+# Rate, Seed, Batch, Elternstand - ist unveraendert.
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data combine --src data/seq/train --src data/quant/train \
+#                      --src data/logic-large/train --out data/kombi-delta/train \
+#                      --antwortform delta
+#
+# WARUM KONSTANTE LERNRATE. Der Schrittzaehler ist seit B6 global, und
+# learning_rate_over() rechnet den Kosinus ueber `start_step + run.steps`. Ein
+# fortgesetzter Lauf von Schritt 19200 mit 2000 geplanten Schritten haette einen
+# Horizont von 21200 und startete bei t = 0,906 - die Rate waere ~7e-6, also
+# praktisch null. Fuer eine PHASE (neuer Korpus, neuer Plan) ist die Kosinusformel
+# die falsche Form.
+#
+# Die Rate 1e-4 ist dieselbe wie in Runde 28 - sie ist GEWAEHLT, nicht ausgetestet,
+# und wird hier bewusst nicht mitveraendert, damit der Lauf eine Aussage ueber die
+# FORM und nicht ueber die Rate macht.
+#
+# Der Elternstand ist `checkpoints/kombi-step019200.state` (Runde 28). Fortsetzen
+# ist bit-exakt nur INNERHALB eines Backends (D-023) - dieser Lauf laeuft auf der
+# GPU wie Runde 28.
+
+[run]
+name = "kombi-delta"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi-delta/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

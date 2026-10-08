@@ -200,3 +200,47 @@ Erst damit ist die Aussage *"Mathematik verbessert Algebra, ohne seq, quant und
 logic-large zu beschaedigen"* belegbar - und nicht nur ein Gesamtscore.
 Reihenfolge der Mathematik: **Algebra -> Formel-Verstaendnis und Funktion -> Math
 Basic** (Abschnitt 5 des Plan-Dokuments, Nutzerwortlaut).
+
+## 9 Der eingefrorene Phase-Elternstand (Runde 30, D-054)
+
+Der Korpus aus Abschnitt 7 ist **benutzt** worden: `shiro train --config
+configs/train.kombi-delta.toml --resume checkpoints/kombi-step019200.state` -
+**genau eine** Groesse geaendert gegenueber Runde 28 (`data.dir`), GPU,
+429,594 s, 661,64 GFLOPS effektiv. Stand:
+`checkpoints/kombi-delta-step21200.safetensors` (SHA-256 `7a18da50...`).
+
+**Die Breite haelt** (Held-out je Familie, gegen die untrainierte Baseline; in
+Klammern der Stand aus Runde 28):
+
+| Datensatz | Baseline | **Runde 30** |
+|---|---|---|
+| `seq/val` | 5,7449 | **0,5409** (0,5269) |
+| `quant/val` | 5,6612 | **0,3836** (0,3756) |
+| `logic-large/val` | 5,7055 | **0,9478** (0,9401) |
+| `add/eval-3d` | 5,8605 | **5,1127** (5,3401) |
+| `add/eval-4d` | 5,8143 | **5,1479** (nicht gemessen) |
+
+**Und die Delta-Konvention ist zurueck** - dieselben 2 x 480 disjunkten Panels,
+Form **getrennt** gemessen:
+
+| Form | inhaltlich | Kopfzahl | `reparatur` | Form kaputt |
+|---|---|---|---|---|
+| **Delta** | **87,95 %** | **89,48 %** | **98,4 %** | **0 / 0** |
+| Absolut | 83,05 % | 85,21 % | 70,7 % | 5 / 4 |
+
+Runde 28 hatte auf denselben Delta-Panels 73,0/73,8 % inhaltlich und `reparatur`
+**1 von 63** bzw. **1 von 60**. **Damit ist D-053 bestaetigt: der Ort der Form ist
+der Korpus.**
+
+**Der Preis ist neu gemessen und offen benannt:** `regel` faellt von 95,5 % auf
+**65,4 %** und `naechste` von 89,3 % auf **71,9 %** - beide unter die 75-%-Marke,
+auf beiden Formen mit identischen Zaehlern. Das Trainingsband zeigt
+`Band-Typ regel 1/5` statt `5/5`: **Vergessen, nicht Generalisierung** (**O-D33**
+auf der Phasenebene). **D-047 ist mit diesem Stand nicht erreicht** (Delta-Kopfzahl
+89,48 %, SE 0,99); der angenommene Delta-Stand aus exp-021/024 bleibt der
+D-047-Stand in der Delta-Form.
+
+**Damit sind die Schritte (B) und (C) der Nutzerauflage erfuellt.** Offen bleibt
+(D): Mathematik als weitere Familie - **mit** `regel` und `naechste` in der
+Messung, sonst wird ein Mathematik-Gewinn auf Kosten zweier schon beschaedigter
+Typen gutgeschrieben.
