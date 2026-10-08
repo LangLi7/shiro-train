@@ -1662,8 +1662,19 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         println!("Integritaet   : kein Messdatensatz im Trainings-Shard (geprueft)");
 
         // (5) Trainingsconfig schreiben (reproduzierbar, im Arbeitsordner).
+        //
+        // **Der Laufname enthaelt den Startschritt.** Das ist keine Kosmetik,
+        // sondern die Korrektur eines DATENVERLUSTS (exp-008): hiess der Lauf
+        // nur `agent-<cap>-i<n>`, dann erzeugte ein ZWEITER Aufruf des Loops
+        // dieselben Namen wie der erste - und die Aufraeumroutine unten loeschte
+        // damit die Staende des vorigen Aufrufs. Im konkreten Fall verschwand
+        // der ANGENOMMENE Stand `agent-sequence_reasoning-i2-step1600`
+        // einschliesslich des `.state`, von dem die Runde fortsetzen wollte
+        // (`FEHLER: Stand nicht gefunden`). Mit `-from<start>` im Namen kann
+        // der Praefix den Elternstand nicht mehr treffen.
+        let start_step = resume_state.as_deref().and_then(step_aus_name).unwrap_or(0);
         let mut lauf = basis.clone();
-        lauf.run.name = format!("agent-{exp_id}");
+        lauf.run.name = format!("agent-{}-from{start_step}-i{nr}", cap.id);
         lauf.run.steps = dosis;
         lauf.run.log_every = 10;
         lauf.run.checkpoint_every = dosis.max(1);
@@ -1680,15 +1691,36 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // Alte Staende DIESES Experiments entfernen. Sonst scheitert ein erneuter
         // Lauf desselben Experiments an `File already exists` (gefunden im
         // zweiten Anlauf: der abgebrochene Vorlauf hatte denselben Dateinamen
-        // belegt). Es werden ausschliesslich Dateien angefasst, deren Name mit
-        // dem eigenen Laufnamen beginnt.
+        // belegt).
+        //
+        // **Zwei Sicherungen, beide aus einem echten Schaden gelernt (exp-008):**
+        //  1. `resume_state` wird NIE geloescht - der Stand, von dem diese Runde
+        //     fortsetzt, ist die einzige Quelle des Fortschritts. Der Vorfall:
+        //     der Praefix `agent-sequence_reasoning-i2-step` traf den eigenen
+        //     Elternstand `...-i2-step001600.state`, die Runde brach mit
+        //     "Stand nicht gefunden" ab, und der angenommene Stand war weg.
+        //  2. Geloescht wird nur, was nachweislich zu DIESEM Lauf gehoert
+        //     (Praefix mit Startschritt). Ein zweiter Loop-Aufruf kann die
+        //     Staende des ersten damit nicht mehr erreichen.
         let praefix = format!("{}-step", lauf.run.name);
+        let geschuetzt = resume_state.as_deref().map(|p| p.to_path_buf());
         if let Ok(eintraege) = std::fs::read_dir(&lauf.run.output_dir) {
             for e in eintraege.flatten() {
+                let pfad = e.path();
                 let n = e.file_name().to_string_lossy().to_string();
-                if n.starts_with(&praefix) {
-                    let _ = std::fs::remove_file(e.path());
+                if !n.starts_with(&praefix) {
+                    continue;
                 }
+                if let Some(g) = &geschuetzt {
+                    if pfad == *g {
+                        println!(
+                            "Hinweis       : Elternstand wird NICHT geloescht ({})",
+                            pfad.display()
+                        );
+                        continue;
+                    }
+                }
+                let _ = std::fs::remove_file(&pfad);
             }
         }
 
@@ -1730,8 +1762,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // eine ANGENOMMENE Runde ihren Fortschritt in der naechsten Runde
         // wieder verloren, und der Vergleich vorher/nachher waere schief
         // gewesen: vorher = angenommener Stand, nachher = Neustart vom
-        // Elternteil.
-        let start_step = resume_state.as_deref().and_then(step_aus_name).unwrap_or(0);
+        // Elternteil. `start_step` wird bereits beim Laufnamen bestimmt.
         println!(
             "Training      : {dosis} Schritte ab Schritt {start_step} (resume: {})",
             resume_state

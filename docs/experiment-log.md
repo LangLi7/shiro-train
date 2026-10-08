@@ -787,3 +787,292 @@ nicht gueltig bleibt: die absoluten Quoten und die Aussage "`regel` steht bei 0"
   `--answers`-Pfad (`answers_core`, groesseres Budget), nicht den Loop-Pfad;
   deshalb war dort **nicht** abgeschnitten. Die Staende unterscheiden sich
   (200 gegen 400 Schritte), die Zahlen sind also nicht identisch messbar.
+
+---
+
+## exp-008 - Ausfuehrung oder Faehigkeit? Die Frage ist typabhaengig entschieden
+
+> **Nummerierung.** Dieser Eintrag lief zuerst als `exp-007`, waehrend die
+> Parallelsitzung unter derselben Nummer ihr 4-Werte-Messpanel veroeffentlichte.
+> Er laeuft deshalb ab jetzt als **exp-008**; das Panel bleibt `exp-007`. Beide
+> messen denselben Gegenstand und **widersprechen sich nicht** - das Panel
+> reproduziert fuer `i2-step1600` genau die Zahlen, die diese Sonde fuer denselben
+> Stand gemessen hat (Held-out 65,8 % / 79 von 120, Teacher-forced 68,3 % / 82 von
+> 120, Antwortbytes 92,3 % / 946 von 1025, CE 0,2964).
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cpu` (`Device<Flex(Cpu)>`) fuer alle Laeufe · **Sonde:**
+`src/probe.rs`, `shiro eval --answers N --probe --probe-samples 8` ·
+**Kosten:** ~13 min je Lauf auf der CPU, ~90 s ohne Sampling.
+
+**Der zu pruefende Satz.** "Was fehlt, ist die **byte-genaue Antwort**, nicht die
+**Faehigkeit**." Er stand nach exp-002 als Folgerung in der Doku (Held-out 0,6370
+/ PPL 1,9 gegen 18,3 % byte-genau). Der Nutzer hat ihn als **unbewiesen**
+zurueckgewiesen - zu Recht: aus guten Einzelbyte-Zahlen und einer schwachen
+Trefferquote folgt **keine** der beiden Hypothesen.
+
+| | Hypothese A | Hypothese B |
+|---|---|---|
+| Behauptung | Faehigkeit da, **Ausfuehrung** instabil | nur **lokale Struktur**, keine Faehigkeit |
+| Vorhersage | Sampling findet die Antwort, greedy nicht | Sampling findet sie ebenso wenig |
+
+**Vier Messungen je Lauf, Regel VORHER festgelegt** (in `urteil_ab`, mit
+Konstanten und Tests): A teacher-forced exakt · B greedy · **pass@8**
+(Temperatur 0,8, eigener Seed je Probe) · **Fehlerweite bei Zahlen gegen die
+Zufallsdistanz desselben Typs** · dazu die **Position der ersten Abweichung** und
+die **Antwortform-Quote**. Urteil: Zuwachs `>= +10 Pp` -> A; Zuwachs `<= +2 Pp`
+und (erstes Byte falsch `>= 50 %` oder Fehler/Zufall `>= 0,8`) -> B; sonst
+unentschieden. Eine **fehlende** Messung zaehlt nicht als Evidenz.
+
+| Lauf | Stand | Band | A exakt | B frei | k-exakt | Zuwachs | Byte0 falsch | Fehler/Zufall | Urteil |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `seq-step200` | val | 30 (25,0 %) | 22 (18,3 %) | 42 (35,0 %) | +16,7 Pp | 35,0 % | 9,349 | A |
+| 2 | `seq-step200` | train | 38 (31,7 %) | 35 (29,2 %) | 63 (52,5 %) | +23,3 Pp | 25,0 % | 0,621 | A |
+| 3 | `i3-step2200` | val | 81 (67,5 %) | 81 (67,5 %) | 89 (74,2 %) | +6,7 Pp | 5,8 % | 0,644 | unentschieden |
+
+B reproduziert in Lauf 1 die Referenzzahl aus exp-002 **exakt** (22 von 120 =
+18,3 %), dreimal identisch in getrennten Laeufen.
+
+**Befund 1 - die Kopfzahl "A" ist ein Mittelungsartefakt.** Der Zuwachs in Lauf 1
+betraegt +20 Datensaetze; davon stammen **18 aus zwei Typen**: `stelle` +10 (7 ->
+17 von 27) und `vergleich` +8 (7 -> 15 von 15). Die drei Inhaltstypen liefern
+**0**. Ein aggregiertes pass@k beschreibt damit 35 % der Stichprobe und keinen
+einzigen Inhaltstyp - derselbe Fehler wie bei der Kopfzahl 18,3 %.
+
+**Befund 2 - wo Teacher forcing scheitert, hilft Sampling nicht.**
+
+| Typ | gestellt | A-Byte % | A-exakt | B-exakt | k-exakt | Byte0 % | Fehler/Z | Urteil |
+|---|---|---|---|---|---|---|---|---|
+| luecke | 17 | 7,1 | 0 | 0 | **0** | 82,4 | 0,730 | **B** |
+| naechste | 15 | 12,5 | 0 | 0 | **0** | 73,3 | 41,002 | **B** |
+| offen | 18 | 18,8 | 0 | 0 | **0** | 66,7 | 0,513 | **B** |
+| regel | 16 | 95,7 | 9 | 8 | 10 | 25,0 | - | A |
+| reparatur | 12 | 75,5 | 0 | 0 | 0 | **0,0** | - | ? |
+| stelle | 27 | 90,7 | 7 | 7 | 17 | 0,0 | - | A |
+| vergleich | 15 | 93,3 | 14 | 7 | **15** | 6,7 | - | A |
+
+In sechs von sieben Faellen gilt: **A-exakt = 0 -> B, A-exakt > 0 -> A oder
+offen.** Bei `luecke`, `naechste`, `offen` taucht in 8 x 50 = 400 Proben **keine**
+richtige Antwort auf, das erste Byte ist in 67-82 % falsch, und der Zahlenfehler
+ist bis **41-mal** so gross wie ein Zufallsgriff. Dort **fehlt der Inhalt**.
+
+**Befund 3 - das Trainingsband trennt Generalisierung von Faehigkeit.** Gleicher
+Stand, gleiche Messung, anderer Shard: `luecke` **0 von 17** (val) gegen **9 von
+19** (train), `naechste` 0 von 15 gegen 7 von 16. Auf dem Trainingsband ist der
+Zahlenfehler **kleiner als zufaellig** (0,621), auf dem Held-out-Band neunmal
+groesser (9,349). Das Modell kann diese Typen **im gelernten Zahlenbereich** -
+das ist ein Generalisierungsbefund, weder "Ausfuehrung instabil" noch "kann es
+gar nicht". Vorbehalt: die 400 Schritte hatten erst ~6-13 % des Korpus gesehen,
+das Trainingsband ist **kein** Auswendiglernen.
+
+**Befund 4 - `reparatur` ist ein dritter Fall.** In allen Laeufen A-exakt 0,
+pass@8 0, aber erstes Byte falsch **0 %** und A-Byte 75,5-80,8 %. Das Modell
+faengt **immer** richtig an und wird nie fertig. Die Entscheidung sitzt, die
+Ausfuehrung der ganzen Sequenz nicht - und die Antwort ist auch unter acht Proben
+nicht erreichbar. exp-005 und der Korpus-Bericht meldeten hier 0 Treffer; **woran**
+es liegt, ist damit zum ersten Mal gemessen.
+
+**Befund 5 - mehr Dosis verschiebt das Urteil.** step200 -> i3-step2200:
+A-exakt 25,0 % -> 67,5 %, erstes Byte falsch 35,0 % -> **5,8 %**, Fehler/Zufall
+9,349 -> **0,644**, Typen mit Urteil B **3 -> 0**, Terminierungsanteil 8 -> **0**,
+`missing_stop` 25 -> **2**. Der Zuwachs durch Sampling schrumpft gleichzeitig von
++16,7 auf +6,7 Pp: **wenn der Inhalt da ist, wird auch greedy richtig.** Die
+verbleibenden 39 Fehler sind **spaet** in der Antwort (`wrong_parameter` 19,
+`place_value_error` 8, `arithmetic_error` 6).
+
+**Urteil.** Der Satz ist **halb richtig und halb falsch**: richtig, dass die
+Faehigkeit nicht generell fehlt (pass@8 hebt die Quote in jedem Lauf); falsch, dass
+sie **nicht** fehlt - bei `luecke`, `naechste` und `offen` ist die richtige Antwort
+unter acht Proben **nicht erreichbar**. Die belegte Fassung ersetzt den Satz an
+allen Fundstellen (vier Dokumente).
+
+**Neu: `O-Z12`** (typabhaengiges Urteil; die Kopfzahl ist irrefuehrend; der Loop
+waehlt Lernpakete ueber die Fehlerklasse, nicht ueber den Aufgabentyp).
+
+**`O-Z13` - gefunden, erklaert und behoben.** Auf demselben 48er-Referenzsatz
+zaehlte diese Messung andere Trefferzahlen je Typ als exp-005 (`regel` **7 von 8**
+gegen **0 von 8**) bei **exakt gleichen** Datensatzzahlen je Typ. Die
+Parallelsitzung hat die Ursache im selben Zeitraum gemessen und behoben: **das
+Budget des Loops war auf 24 Bytes festgenagelt**, die Antworten des Typs `regel`
+sind 23-33 Bytes lang (**94,1 % ueber 24**) - jede Regelantwort wurde
+**abgeschnitten** und zwangslaeufig als falsch gezaehlt. Das ist kein
+Modellfehler, sondern ein **Messfehler**, und er hat in exp-005 sowohl die
+Hauptzahl (2,2 %) als auch die Diagnose "`regel` und `reparatur` stehen bei 0"
+erzeugt. Fix: `budget_fuer(rec, prompt_len, max_new, seq_len)` =
+`max(antwortlaenge + 2, max_new)` plus Regressionstest. Die Sonde benutzte dieses
+Prinzip von Anfang an (`soll.len() + 2`).
+
+**Empfehlung aus den Messdaten.** Die Arbeitsteilung "dominiert A -> KV-Cache,
+dominiert B -> Datenausbau" traegt nicht. Auf dem Stand des Satzes dominiert B bei
+den Inhaltstypen - aber wegen fehlender **Dosis**, nicht fehlender Daten: 2200
+Schritte heben alle drei auf A. Der Ausfuehrungsanteil schrumpft mit der Dosis
+mit. **Reihenfolge:** (1) Dosis und Lernkurve ueber einen echten Epochendurchlauf
+(O-T2); (2) `reparatur` und `wrong_parameter` als eigene Lernpakete; (3) KV-Cache
+(O-T7) erst fuer Benchmarks ueber 500+ Datensaetze - er ist ein **Kosten**hebel,
+kein Faehigkeitshebel.
+
+**Grenzen.** n = 120 je Lauf, eine Auswahl, nicht proportional (der Shard ist
+nicht typgleich verteilt: `stelle` 27 von 120, `reparatur` 12). `k = 8`
+bedeutet "nicht mit 8 Proben erreichbar", nicht "Wahrscheinlichkeit null".
+Temperatur 0,8 fest. Nur Familie Zahlenfolgen. Der in exp-005 **angenommene**
+Stand (i2-step1600) war waehrend der Messung nicht mehr vorhanden
+(Checkpoint-Rotation der Parallelsitzung) - Lauf 3 nutzt `i3-step2200`, das auf
+dem 120er-Satz nur einen Treffer daneben liegt (81 gegen 82). Kein
+Backendvergleich (O-Z13).
+---
+
+## exp-008 - GPU-Runde: `reparatur` vom Null weg, Capability-Schwelle erreicht
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` · **Backend:**
+`cuda` (`Device<Cube(Cuda(Cuda(0)))>`, Wunsch `auto`) · **Elternstand:**
+`checkpoints/agent-sequence_reasoning-i3-step002200.state` · **Dosis:** 600,
+dann 1200 Schritte · **Panel:** fixierte 120 Datensaetze je Band (jeder 41.).
+
+### ZUERST: ein selbst verursachter DATENVERLUST, offen gelegt
+
+**Was passiert ist.** Der erste Versuch dieser Runde (Elternstand
+`agent-sequence_reasoning-i2-step001600.state`) brach in Runde 2 ab:
+
+```text
+Training      : 1200 Schritte ab Schritt 1600 (resume: ...-i2-step001600.state)
+FEHLER: Stand nicht gefunden: checkpoints/agent-sequence_reasoning-i2-step001600.state
+```
+
+**Ursache, in zwei Teilen - beide in `src/agent.rs`:**
+
+1. **Der Laufname war nicht eindeutig.** Er lautete `agent-<cap>-i<n>`. Ein
+   ZWEITER Aufruf des Loops erzeugt dieselben Namen wie der erste - und die
+   Aufraeumroutine loescht vor dem Training jede Datei, deren Name mit
+   `<laufname>-step` beginnt.
+2. **Die Aufraeumroutine traf damit den eigenen Elternstand.** Der Praefix
+   `agent-sequence_reasoning-i2-step` passt auf
+   `agent-sequence_reasoning-i2-step001600.state` - also auf genau den Stand,
+   von dem die Runde fortsetzen wollte.
+
+**Schaden, gemessen statt geschaetzt.** Verloren sind
+`agent-sequence_reasoning-i2-step1600.safetensors` (der in exp-005/007
+**angenommene** Stand, Held-out EM 65,8 %) und dessen `.state`, dazu
+`agent-sequence_reasoning-i1-step1000.safetensors`. Die Gewichte sind **nicht
+wiederherstellbar**: `checkpoints/` ist von `.gitignore` erfasst, es gab keinen
+`shiro export`-Ordner und keine zweite Kopie.
+**Was gerettet war, ist Zufall:** der Stand der VORIGEN Loop-Serie,
+`agent-sequence_reasoning-i3-step2200` (in exp-007 mit **67,5 %** gemessen,
+also sogar besser als der verlorene), hiess nicht `i2` und ueberlebte deshalb.
+
+**Fix, zwei Sicherungen:**
+
+1. **Der Laufname enthaelt den Startschritt:** `agent-<cap>-from<start>-i<n>`
+   (hier `agent-sequence_reasoning-from2200-i2`). Der Loeschpraefix kann einen
+   Elternstand damit **strukturell** nicht mehr treffen.
+2. **`resume_state` wird nie geloescht** - der Stand, von dem die Runde
+   fortsetzt, ist die einzige Quelle des Fortschritts; ein Treffer wird
+   gemeldet statt ausgefuehrt.
+
+**Gegenprobe am Binary** (2 Runden x 2 Schritte, Elternstand
+`seq-step000400.state`): Elternstand und `.safetensors` **leben danach noch**,
+die neuen Staende heissen `agent-sequence_reasoning-from400-i1-step402` bzw.
+`...-i2-step404`. Die Sicherung ist damit nicht behauptet, sondern gezeigt.
+
+**Lehre, die im Code steht:** ein Aufraeumschritt, der aus einer Namenskonvention
+abgeleitet wird, muss gegen die Datei geprueft werden, die er **braucht**. Der
+erste Loop-Lauf hatte diesen Fehler nur deshalb nicht gezeigt, weil er der erste
+war.
+
+### Die Runde (nach dem Fix, mit dem korrigierten Messbudget aus exp-007)
+
+| Runde | Paket | vorher (inhaltlich) | nachher | Score | Urteil |
+|---|---|---|---|---|---|
+| 1 | `reparatur` (Typachse) | 57,8 % (26/45) | 51,1 % (23/45) | -0,024 | VERWORFEN |
+| 2 | `breit` (Dosis 1200) | 57,8 % (26/45) | **75,6 % (34/45)** | +0,063 | **ANGENOMMEN** |
+| 3 | - | 75,6 % (34/45) | - | - | **Schwellen erfuellt** |
+
+Angenommener Stand:
+`checkpoints/agent-sequence_reasoning-from2200-i2-step3400.safetensors`,
+SHA-256 `6a11871c35994a3a8d92953332a58c3c0d836e4417cee2211ffdc6b67bfd9cee`,
+18.631.832 B, Schritt 3400.
+
+**Runde 3 hat nicht trainiert.** `passes()` hat den Stand aus Runde 2 gegen den
+Vertrag geprueft (`exact_match_min` 0,60) und ihn **durchgelassen**: 75,6 %
+liegen darueber. Der Loop hat die Runde korrekt mit `capability_pass` beendet.
+
+### Die Typachse: griff, half aber nicht - und das ist der Befund
+
+Die neue `Pack::for_schwaechsten_typ`-Auswahl (exp-008-Code) hat `reparatur`
+korrekt als schwaechsten Typ erkannt und in Runde 1 **allein** diesen Typ
+trainiert. Ergebnis: **schlechter** (57,8 -> 51,1 %, verworfen). In Runde 2 hat
+die bestehende Demotion (`letztes Paket brachte nichts -> breit`) auf die
+breite Verteilung mit **doppelter Dosis** umgeschaltet - und das hob alles,
+einschliesslich `reparatur`.
+
+**Das ist eine echte Korrektur meiner Annahme aus exp-007.** Dort stand, dem Typ
+fehle "gezielte Dosis". Gemessen ist: ein **schmales** Typ-Paket schadet
+(es verdraengt die anderen Typen), und geholfen hat **Dosis plus Breite**. Die
+Typachse bleibt trotzdem richtig - sie hat das Ziel benannt und die
+Fehlklassifikation aufgedeckt -, aber die Behandlung ist nicht "nur dieser Typ".
+
+### Die vier Werte nach der Runde (Benchmark auf dem angenommenen Stand)
+
+| # | Kennzahl | Training (120) | Held-out (120) | vorher (exp-007) |
+|---|---|---|---|---|
+| 1 | Train EM | **96,7 %** (116/120) | - | 87,5 % |
+| 2 | Held-out EM | - | **84,2 %** (101/120) | 65,8 % |
+| 3 | Teacher-forced | 96,7 % | **84,2 %** (101/120) | 68,3 % |
+| 4 | EOS-fixed | 96,7 % | **84,2 %** (101/120) | 68,3 % |
+
+Rohwerte Held-out: Antwortbyte-Treffer unter Teacher forcing **96,9 %**
+(993/1025), **ENDE in 100 % der Faelle gesetzt** (120/120), und weiterhin
+**0 Faelle**, in denen nur der Abschluss fehlt (`C == B`) - das
+Terminierungsproblem ist damit endgueltig keines.
+
+**Trefferquote je Aufgabentyp (Held-out, 120):**
+
+| Typ | gestellt | B-exakt | Quote | vorher (exp-007) |
+|---|---|---|---|---|
+| `luecke` | 17 | 14 | 82,4 % | 11/17 (64,7 %) |
+| `naechste` | 15 | 11 | **73,3 %** | 8/15 (53,3 %) |
+| `offen` | 18 | 14 | 77,8 % | 13/18 (72,2 %) |
+| `regel` | 16 | **16** | **100,0 %** | 14/16 (87,5 %) |
+| `reparatur` | 12 | **5** | **41,7 %** | **0/12 (0,0 %)** |
+| `stelle` | 27 | **26** | **96,3 %** | 19/27 (70,4 %) |
+| `vergleich` | 15 | 15 | 100,0 % | 14/15 (93,3 %) |
+
+**Damit ist das Erfolgskriterium des Auftrags erfuellt: ein vorheriger
+0-Treffer-Typ ist ueber null** - `reparatur` von **0 auf 5** von 12. Und die
+Held-out-Quote ist **nicht gefallen**, sondern von 65,8 auf 84,2 % gestiegen.
+
+### Zielmarke (neue Entscheidung D-047)
+
+`docs/denken-erweitern.md` und der Lehrplan nennen **keine feste Marke**; die
+Capability-Datei fordert nur `exact_match_min = 0.60`. Diese Schwelle ist jetzt
+erreicht (84,2 %) und taugt trotzdem **nicht** als "die Faehigkeit funktioniert":
+bei 60 % auf einer Familie mit sieben Typen koennen zwei Typen voellig ungeloest
+bleiben - genau das war der `reparatur`-Fall (0 von 12 bei 60 % Gesamtschwelle).
+
+**Entscheidung D-047 - Zielmarke fuer den Abschluss der Logik-/Analytik-Familien:**
+**Held-out EM >= 90 % auf dem fixierten 120er-Panel UND kein inhaltlicher
+Aufgabentyp unter 75 %.** Begruendung: (a) 90 % von 120 Fragen lassen 12 Fehler
+zu; das liegt ueber jeder gemessenen Shortcut-Baseline der Familie (hoechste
+49,3 % bei `vergleich`); (b) 75 % je Typ schliesst aus, dass ein Typ strukturell
+ungeloest bleibt - bei der kleinsten Stichprobe (n = 12) verlangt es mindestens
+9 Treffer, also mehr als ein Zufallstreffer; (c) die Marke ist mit dem
+bestehenden Werkzeug in **einer** Messung pruefbar (Sonde, 120 Datensaetze,
+Minuten), also ohne neue Infrastruktur.
+
+**Ist-Stand gegen die Marke:** 84,2 % gesamt (Ziel 90 %) und zwei Typen unter
+75 % (`reparatur` 41,7 %, `naechste` 73,3 %). Die Marke ist **nicht** erreicht;
+die Faehigkeit gilt nach ihrem eigenen Vertrag als bestanden, nach D-047 nicht.
+
+### Offene Punkte
+
+* **`reparatur` bleibt der Engpass** (5 von 12, 41,7 %). Er ist der einzige Typ
+  mit einer Antwortform, die eine **Stelle und einen Wert** nennt
+  (`Stelle p: wert`, 12-15 Byte); die anderen Typen sind kurz oder
+  Zahlen/Regelnamen. Naechster Schritt: eigene Aufgabentyp-Variante mit
+  mehrstufiger Antwort statt nur mehr Dosis.
+* **`naechste` 73,3 %** liegt knapp unter der Marke; die Stichprobe ist mit 15
+  Fragen grob (eine Frage = 6,7 Punkte).
+* **Der Transfer-Test (O-D21) laeuft noch** (`data/add/eval-3d`, `eval-4d`,
+  Verlustmessung ueber den ganzen Ordner, CPU). Ergebnis wird nachgetragen.
+* **Verlorener Stand:** die 65,8 %-Messung aus exp-007 ist dokumentiert, aber der
+  Stand selbst ist weg (siehe oben). Reproduzierbar ist der Nachfolger
+  `from2200-i2-step3400` (84,2 %).
