@@ -1508,36 +1508,65 @@ pub fn strategiewechsel(
     lr: f32,
     letztes_paket: &str,
 ) -> Strategiewechsel {
-    match verworfen % HEBEL_LEITER {
+    // **Wirkungslose Hebel werden uebersprungen** (exp-015). Gemessener Anlass:
+    // in exp-015 stand die Dosis bereits am Leiterende, und der Loop meldete
+    //
+    //   Strategiewechsel (O-T9): train_steps 4800 -> 4800
+    //
+    // Das ist ein "Wechsel", der nichts aendert - dieselbe Fehlerklasse wie der
+    // frueher behobene Paket-No-op. Ein Hebel, der nichts aendert, ist keiner,
+    // und die naechste Runde waere eine Wiederholung dessen, was gerade
+    // verworfen wurde. Deshalb sucht die Leiter ab `verworfen` den **ersten
+    // wirksamen** Hebel; nur wenn alle vier wirkungslos waeren (kann nicht
+    // eintreten, der Pakethebel alterniert immer), bliebe der letzte.
+    for offset in 0..HEBEL_LEITER {
+        let i = (verworfen + offset) % HEBEL_LEITER;
+        if let Some(w) = hebel_an(i, dosis, replay, lr, letztes_paket) {
+            return w;
+        }
+    }
+    hebel_an(HEBEL_LEITER - 1, dosis, replay, lr, letztes_paket)
+        .expect("der Pakethebel alterniert immer und ist damit nie wirkungslos")
+}
+
+/// Ein einzelner Hebel der Leiter; `None`, wenn er **nichts aendern wuerde**.
+pub fn hebel_an(
+    i: usize,
+    dosis: usize,
+    replay: f64,
+    lr: f32,
+    letztes_paket: &str,
+) -> Option<Strategiewechsel> {
+    match i % HEBEL_LEITER {
         0 => {
             let neu = (dosis * 2).min(DOSIS_MAX);
-            Strategiewechsel {
+            (neu != dosis).then(|| Strategiewechsel {
                 parameter: "train_steps",
                 vorher: dosis.to_string(),
                 nachher: neu.to_string(),
                 grund: "Dosis: der erste Lauf sah 6,4 % des Korpus einmal - Untertraining, nicht Unfaehigkeit",
                 hebel: Hebel::Dosis(neu),
-            }
+            })
         }
         1 => {
             let neu = (replay - 0.15).max(0.0);
-            Strategiewechsel {
+            ((neu - replay).abs() > 1e-12).then(|| Strategiewechsel {
                 parameter: "replay_share",
                 vorher: format!("{replay:.2}"),
                 nachher: format!("{neu:.2}"),
                 grund: "Datenmischung: mehr gezielte Daten statt Wiederholung - die Schwaeche soll oefter vorkommen",
                 hebel: Hebel::Replay(neu),
-            }
+            })
         }
         2 => {
             let neu = lr * 1.5;
-            Strategiewechsel {
+            (neu != lr).then(|| Strategiewechsel {
                 parameter: "lr",
                 vorher: format!("{lr:.3e}"),
                 nachher: format!("{neu:.3e}"),
                 grund: "Lernrate: der Score bewegte sich, blieb aber unter der Schwelle - groessere Schritte",
                 hebel: Hebel::Lernrate(neu),
-            }
+            })
         }
         _ => {
             // **Der Zielwert muss sich vom Ausgangswert unterscheiden.** Vorher
@@ -1550,13 +1579,13 @@ pub fn strategiewechsel(
             } else {
                 Pack::Breit
             };
-            Strategiewechsel {
+            Some(Strategiewechsel {
                 parameter: "pack",
                 vorher: letztes_paket.to_string(),
                 nachher: ziel.key().to_string(),
                 grund: "Lernpaket: dieselbe Zielklasse zweimal erfolglos - die Ursache wechseln, nicht die Menge",
                 hebel: Hebel::Paket(ziel),
-            }
+            })
         }
     }
 }
@@ -3392,11 +3421,24 @@ mod tests {
     }
 
     /// Der Dosis-Hebel darf nicht ins Unendliche wachsen.
+    ///
+    /// **Dieser Test hat frueher den No-op festgeschrieben.** Er verlangte bei
+    /// `dosis == DOSIS_MAX` einen Hebel `Hebel::Dosis(DOSIS_MAX)` - also
+    /// `vorher == nachher`. Genau das trat in exp-015 auf
+    /// (`train_steps 4800 -> 4800`) und wurde dort als Fehler erkannt. Jetzt
+    /// prueft der Test die **Deckelung** und nicht mehr den Stillstand.
     #[test]
     fn dosis_hat_einen_deckel() {
-        let w = strategiewechsel(0, DOSIS_MAX, 0.35, 3e-4, "breit");
-        assert_eq!(w.hebel, Hebel::Dosis(DOSIS_MAX));
-        assert_eq!(w.nachher, DOSIS_MAX.to_string());
+        // Unter dem Deckel verdoppelt der Hebel.
+        let w = strategiewechsel(0, 1200, 0.35, 3e-4, "breit");
+        assert_eq!(w.hebel, Hebel::Dosis(2400));
+        // Knapp darunter wird auf den Deckel gekappt, nicht darueber hinaus.
+        let w2 = strategiewechsel(0, 3000, 0.35, 3e-4, "breit");
+        assert_eq!(w2.hebel, Hebel::Dosis(DOSIS_MAX));
+        // **Am Deckel ist der Dosishebel wirkungslos und wird uebersprungen.**
+        let w3 = strategiewechsel(0, DOSIS_MAX, 0.35, 3e-4, "breit");
+        assert_ne!(w3.hebel, Hebel::Dosis(DOSIS_MAX), "kein No-op mehr");
+        assert_ne!(w3.vorher, w3.nachher);
     }
 
     /// Die Replay-Rate darf nicht negativ werden.
@@ -3646,6 +3688,40 @@ mod tests {
     #[test]
     fn panels_mindestens_ist_zwei() {
         assert_eq!(PANELS_MINDESTENS, 2);
+    }
+
+    /// **Ein Hebel, der nichts aendert, ist keiner.** Der gemessene Fall aus
+    /// exp-015: die Dosis stand am Leiterende, und der Loop meldete
+    /// `train_steps 4800 -> 4800`. Die Leiter muss dann den **naechsten
+    /// wirksamen** Hebel nehmen.
+    #[test]
+    fn gesaettigter_hebel_wird_uebersprungen() {
+        // Dosis am Deckel, Replay am Boden -> beide wirkungslos.
+        let w = strategiewechsel(0, DOSIS_MAX, 0.0, 3e-4, "breit");
+        assert_ne!(w.vorher, w.nachher, "der Hebel muss etwas aendern");
+        assert_ne!(
+            w.parameter, "train_steps",
+            "die gesaettigte Dosis taugt nicht"
+        );
+        assert_ne!(
+            w.parameter, "replay_share",
+            "der leere Replay-Anteil auch nicht"
+        );
+        assert_eq!(
+            w.parameter, "lr",
+            "der naechste wirksame Hebel ist die Lernrate"
+        );
+
+        // Alle drei Zahlenhebel gesaettigt -> nur das Paket bleibt, und das
+        // alterniert immer.
+        let w2 = strategiewechsel(0, DOSIS_MAX, 0.0, 0.0, "breit");
+        assert_eq!(w2.parameter, "pack");
+        assert_ne!(w2.vorher, w2.nachher);
+
+        // **Gegenprobe:** ohne Saettigung bleibt die Reihenfolge wie bisher.
+        let w3 = strategiewechsel(0, 600, 0.35, 3e-4, "breit");
+        assert_eq!(w3.parameter, "train_steps");
+        assert_eq!(w3.nachher, "1200");
     }
 
     /// **Der Fall aus exp-014, Lauf 2: das Veto darf ihn NICHT mehr ausloesen.**

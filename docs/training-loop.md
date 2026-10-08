@@ -354,12 +354,46 @@ zurueckgewiesener Scheinerfolg ist billiger als ein uebernommener.
 
 ### 10.6 Tests
 
-Zehn Regressionstests in `src/agent.rs` (`mod tests`), die die Regel ohne Modell
-und ohne GPU pruefen: `ein_einziges_panel_entscheidet_nie`,
+**Dreizehn** Regressionstests in `src/agent.rs` (`mod tests`), die die Regel ohne
+Modell und ohne GPU pruefen: `ein_einziges_panel_entscheidet_nie`,
 `widerspruch_ist_unentschieden`, `einigkeit_wird_angenommen`,
 `kein_fortschritt_wird_verworfen`, `typeneinbruch_verwirft_trotz_scoregewinn`,
 `bereits_schwacher_typ_ist_kein_einbruch`,
 `typenvergleich_ist_je_typ_nicht_ueber_den_schwaechsten`,
 `kritische_regression_verwirft_alles`, `panels_mindestens_ist_zwei`,
-`panels_sind_disjunkt`. Jeder Test traegt den Fall, den er ausschliesst, als
-Kommentar.
+`panels_sind_disjunkt`, `unentschieden_wiederholt_statt_zu_verwerfen`,
+`veto_prueft_ueber_beide_panels_zusammengelegt`,
+`gepoolter_einbruch_verwirft_weiter`. Jeder Test traegt den Fall, den er
+ausschliesst, als Kommentar.
+
+### 10.7 Die Panels sind gewachsen: 480 statt 120 Fragen (exp-015)
+
+Die Replikationspflicht schuetzt gegen einen **einmaligen** Erfolg. Sie schuetzt
+nicht gegen eine Stichprobe, die zu **klein** ist, um die Frage ueberhaupt zu
+entscheiden. Genau das war der Fall:
+
+| Fragen | Standardfehler | Abstand zur 90-%-Marke |
+|---|---|---|
+| 120 (bisher) | 3,18 Pp | **1,31 SE - nicht entscheidbar** |
+| 480 je Panel (2 x 480 = 960 gepoolt) | 1,13 Pp | 3,70 SE - entscheidbar |
+| je Aufgabentyp, n = 16 (bisher) | 11,46 Pp | - |
+| je Aufgabentyp, n = 120 (neu) | 4,18 Pp | - |
+
+Gerechnet mit `sqrt(p(1-p)/n)`, `p = 0,858` (103 von 120), Abstand 4,17 Pp. **Ein
+Modell, das wirklich bei 90 % liegt, liefert in rund jedem zehnten Lauf 103/120
+oder schlechter.** Die Aussage "D-047 nicht erreicht" war auf dem 120er-Panel
+deshalb **nicht statistisch tragfaehig** - sie war innerhalb des Rauschens der
+Marke.
+
+Dazu kommt der zweite, gemessene Grund (exp-014): zwei disjunkte 120er-Panels
+wichen je Aufgabentyp um bis zu **31 Prozentpunkte** voneinander ab. Bei 16
+Fragen je Typ ist das erwartbar - 31 Pp sind rund 2,7 Standardfehler.
+
+**Folge:** `eval_records` steht auf **480**. Der val-Shard hat 5000 Datensaetze,
+die Schrittweite ist damit 10; Panel A hat Versatz 0, Panel B Versatz 5, beide 480
+und **disjunkt**. Je Aufgabentyp sind es rund 120 Fragen, gepoolt 240.
+
+**Vorbehalt:** alle frueheren Werte auf dem 120er-Panel (jeder 41.) sind mit den
+neuen Zahlen **nicht** vergleichbar - andere Stichprobe. Der historische Anker
+bleibt der Stand `from6400-i1-step7600` mit **85,8 % auf dem 120er-Panel**.
+

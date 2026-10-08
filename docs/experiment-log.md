@@ -1944,6 +1944,184 @@ nach diesem Befund ohnehin nicht mehr belastbar zu pruefen.
 Laufzeit 21:44, CPU-Auslastung im Mittel **131 %**, Spitzenspeicher 471 MiB - die
 Runde ist auch mit nun **fuenf** Auswertungen je Runde GPU-gebunden geblieben.
 
+---
+
+## exp-015 - Die groesseren Panels kehren die Diagnose um: nicht `offen` ist schwach, sondern `reparatur`
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` (`Device<Cube(Cuda(Cuda(0)))>`, RTX 3060) ·
+**Elternstand:** `checkpoints/agent-sequence_reasoning-from6400-i1-step007600.state` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--train-steps 4800 --iterations 2 --backend auto`. **Dosis 4800** ist der von
+O-T9 in exp-014 gesetzte Hebel (Leiterende, `DOSIS_MAX`); **ohne `--pack`**.
+
+**Zwei Aenderungen gegenueber exp-014, beide aus gemessenen Gruenden:**
+
+1. **Panel 120 -> 480 je Panel** (Auswahlregel jeder 10. statt jeder 41.; Panel A
+   Versatz 0, Panel B Versatz 5, disjunkt, zusammen **960** Fragen). Grund:
+   bei n = 120 ist der Standardfehler **3,18 Pp** und der Abstand zur
+   90-%-Marke **4,17 Pp** - also nur **1,31 SE**. Die Marke war damit **nicht
+   entscheidbar**.
+2. **Das Typurteil laeuft ueber beide Panels zusammengelegt** (exp-014 Nachtrag,
+   `tafel_zusammen` / `typeneinbruch_gepoolt`).
+
+### Der Kernbefund: das kleine Panel hat den FALSCHEN Typ als schwach bezeichnet
+
+Derselbe Modellstand, zwei disjunkte Panels zu je 480 Fragen:
+
+| Typ | Panel A | Panel B | **gepoolt (960)** | SE | 120er-Panel (exp-014) |
+|---|---|---|---|---|---|
+| `reparatur` | 44/63 = 69,8 % | 40/60 = 66,7 % | **84/123 = 68,3 %** | 4,2 | 81,3 % |
+| `naechste` | 49/59 = 83,1 % | 47/62 = 75,8 % | **96/121 = 79,3 %** | 3,7 | 90,0 % |
+| `reparatur1` | 42/55 = 76,4 % | 57/67 = 85,1 % | **99/122 = 81,1 %** | 3,5 | 92,3 % |
+| `stelle` | 56/62 = 90,3 % | 47/54 = 87,0 % | **103/116 = 88,8 %** | 2,9 | **69,2 %** |
+| `luecke` | 47/51 = 92,2 % | 50/58 = 86,2 % | **97/109 = 89,0 %** | 3,0 | 93,3 % |
+| `offen` | 56/62 = 90,3 % | 46/52 = 88,5 % | **102/114 = 89,5 %** | 2,9 | **68,8 %** |
+| `regel` | 54/59 = 91,5 % | 67/74 = 90,5 % | **121/133 = 91,0 %** | 2,5 | 81,8 % |
+| `vergleich` (Kurzantwort) | 69/69 = 100 % | 52/53 = 98,1 % | **121/122 = 99,2 %** | - | 100 % |
+
+**`offen` steht bei 89,5 % und `stelle` bei 88,8 % - beide waren nie das
+Problem.** `reparatur` steht bei **68,3 %** und ist der **einzige** Typ unter der
+75-%-Marke.
+
+**Was das ueber die alten Zahlen sagt.** Auf dem 120er-Panel hatte dieselbe
+Modellstufe `offen` mit 68,8 % und `stelle` mit 69,2 % gemessen - beide unter der
+Marke - und `reparatur` mit 81,3 % **ueber** der Marke. Das war **genau
+verkehrt**. Bei 16 Fragen je Typ liegt der Standardfehler bei **11,46 Pp**; die
+alte Messung konnte einen Typ nicht von einem anderen unterscheiden. **Die
+Panel-Spannen sind mit dem groesseren Panel von bis zu 31 Pp auf 1,0 bis 8,7 Pp
+gefallen** - und `reparatur` ist der einzige Typ, den **beide** Panels
+uebereinstimmend unter der Marke sehen (69,8 % und 66,7 %, Abstand 3,2 Pp).
+
+**Zwei frueher gezogene Schluesse sind damit widerlegt:**
+
+* **exp-011** ("`offen` ist ein Strukturproblem und braucht eine Aufteilung des
+  Typs") - `offen` liegt bei 89,5 %. Es war nie strukturell ungeloest; die
+  Nullbewegung ueber drei Messungen galt fuer **16 bestimmte Datensaetze**, nicht
+  fuer den Typ. Der Umbau des Generators waere also Arbeit an einem Problem
+  gewesen, das es nicht gibt.
+* **exp-014** (die Typachse waehlte `offen` als schwaechsten Typ) - sie waehlte
+  ihn aus einer Stichprobe von 16. Mit gepoolten 960 Faellen waehlt sie
+  **`reparatur`**:
+  ```
+  Auswahlachse  : Aufgabentyp -> reparatur (MINIMIEREN) statt Fehlerklasse stellenwert
+  ```
+
+### Und die Marke ist jetzt wirklich entscheidbar
+
+| Groesse | Wert |
+|---|---|
+| Kopfzahl gepoolt | **823 von 960 = 85,73 %** |
+| Standardfehler | **1,13 Pp** |
+| Abstand zur 90-%-Marke | **4,17 Pp = 3,70 SE** |
+
+**Damit ist "D-047 nicht erreicht" erstmals statistisch belegt** - auf dem
+120er-Panel war derselbe Abstand nur **1,31 SE** und damit innerhalb des
+Rauschens der Marke. Die Aussage ist also nicht neu, aber sie ist **jetzt
+tragfaehig**, und das ist der Unterschied.
+
+> **Eigene Korrektur.** Zuerst stand hier "824 von 960 = 85,8 %". Richtig ist
+> **823/960 = 85,73 %**: bei Panel B sind **52 von 53** `vergleich`-Faellen
+> richtig, nicht 53. Der Fehler entstand, weil ich die *gestellte* Zahl (53) zur
+> richtigen addiert habe. Er aendert keine Aussage (85,7 statt 85,8 Prozent,
+> Abstand 3,70 statt 3,62 SE), wird aber berichtigt statt stehen gelassen.
+
+### Die Runde: Dosis 4800 wirkt, und zwar in beiden Panels
+
+**Lauf 1: ANGENOMMEN** - die **erste Annahme unter der Replikationspflicht
+ueberhaupt**, und sie ist einstimmig:
+
+```
+Determinismus : Panel A zweimal gemessen -> byte-identisch (Gegenprobe bestanden)
+Panel A       : Score +0.010 (0.521 -> 0.532) | inhaltlich 84.7 % -> 87.8 %
+Panel B       : Score +0.015 (0.515 -> 0.530) | inhaltlich 82.9 % -> 87.4 %
+Urteil        : ANGENOMMEN
+```
+
+**Lauf 2: VERWORFEN** - diesmal **ohne Widerspruch**: beide Panels sehen eine
+Verschlechterung (A 87,8 -> 85,6 %, B 87,4 -> 84,5 %). Ein einstimmiges Nein ist
+die angenehme Haelfte der Replikationspflicht; das Urteil ist damit belastbar.
+Der Stand wurde verworfen, gueltig bleibt Lauf 1.
+
+| Groesse (gepoolt, 960 Fragen) | vorher | **nach Lauf 1 (angenommen)** | Lauf 2 (verworfen) |
+|---|---|---|---|
+| gesamt | 823/960 = 85,73 % | **855/960 = 89,06 %** | - |
+| inhaltlich | 702/838 = 83,77 % | **734/838 = 87,59 %** | 713/838 = 85,1 % |
+| Standardfehler | 1,13 Pp | **1,01 Pp** | - |
+| **Abstand zur Marke** | 4,17 Pp = **3,70 SE** | 0,94 Pp = **0,93 SE** | - |
+
+**Die Dosis war also der richtige Hebel.** Der von O-T9 in exp-014 gesetzte
+Schritt von 2400 auf 4800 Schritte hob die Kopfzahl um **+3,3 Prozentpunkte**
+(85,73 -> 89,06 %) und den inhaltlichen Anteil um **+3,8 Pp** - und zwar in
+**beiden** Panels gleichsinnig. Damit ist auch die fruehere Aussage aus exp-011
+("Dosis hilft nicht") auf die Dosis **insgesamt** bezogen widerlegt: sie half
+nicht fuer `offen`, aber sie hilft fuer die Familie.
+
+**Je Aufgabentyp (gepoolt, vorher -> nachher):**
+
+| Typ | vorher | nachher | Delta |
+|---|---|---|---|
+| `naechste` | 96/121 = 79,3 % | **106/121 = 87,6 %** | +8,3 Pp |
+| `reparatur1` | 99/122 = 81,1 % | **108/122 = 88,5 %** | +7,4 Pp |
+| `stelle` | 103/116 = 88,8 % | **110/116 = 94,8 %** | +6,0 Pp |
+| `reparatur` | 84/123 = 68,3 % | **89/123 = 72,4 %** | +4,1 Pp |
+| `luecke` | 97/109 = 89,0 % | **101/109 = 92,7 %** | +3,7 Pp |
+| `offen` | 102/114 = 89,5 % | **103/114 = 90,4 %** | +0,9 Pp |
+| `regel` | 121/133 = 91,0 % | **117/133 = 88,0 %** | -3,0 Pp |
+| `vergleich` | 121/122 = 99,2 % | **121/122 = 99,2 %** | 0,0 Pp |
+
+Sechs von sieben inhaltlichen Typen steigen, `reparatur` als **Zieltyp** steigt
+mit (+4,1 Pp). `regel` faellt um 3 Pp - bei n = 133 ist ein Datensatz 0,75 Pp,
+das sind vier Datensaetze und damit rund ein Standardfehler; **kein**
+Typeneinbruch im Sinne der Regel (der Typ blieb ueber 75 %), aber als
+Schwankung benannt.
+
+### Ein echter Fehler, den dieser Lauf aufgedeckt hat: der Dosishebel war ein No-op
+
+Im Log von Lauf 2 steht:
+
+```
+Strategiewechsel (O-T9): train_steps 4800 -> 4800 - Dosis: ... Untertraining ...
+```
+
+**Die Dosis stand bereits am Leiterende (`DOSIS_MAX` = 4800), der Hebel verdoppelt
+sie auf 4800 - also gar nicht.** Der Loop meldete einen Strategiewechsel, der
+nichts aendert, und die naechste Runde waere eine Wiederholung dessen gewesen, was
+gerade verworfen wurde. Das ist **dieselbe Fehlerklasse wie der frueher behobene
+Paket-No-op**, nur an einer anderen Stelle der Leiter; auch der Replay-Hebel kann
+leerlaufen, wenn der Anteil schon 0 ist.
+
+**Behoben:** die Leiter ueberspringt wirkungslose Hebel und nimmt den **naechsten
+wirksamen** (`hebel_an` liefert `None`, wenn `vorher == nachher` waere). Ein
+Test hat dabei den Fehler **festgeschrieben** gehabt:
+`dosis_hat_einen_deckel` verlangte bei `dosis == DOSIS_MAX` genau
+`Hebel::Dosis(DOSIS_MAX)` - also den Stillstand. Er prueft jetzt die **Deckelung**
+(1200 -> 2400; 3000 -> 4800) und dass am Deckel der naechste Hebel greift; der
+neue Test `gesaettigter_hebel_wird_uebersprungen` deckt den gemessenen Fall ab.
+
+### D-047-Status nach exp-015
+
+**Nicht erreicht - aber erstmals knapp und belastbar gemessen.**
+
+* **Held-out EM 89,06 %** (855/960), Marke 90 %. Abstand **0,94 Pp = 0,93 SE**:
+  der Punktwert liegt unter der Marke, der Abstand ist aber **kleiner als ein
+  Standardfehler**. "Erreicht" ist damit **nicht** belegbar - richtig ist:
+  die Marke ist **noch nicht nachgewiesen**, und der Abstand ist von 3,70 SE auf
+  0,93 SE gefallen.
+* **Ein Typ unter 75 %:** `reparatur` **72,4 %** (89/123, SE 4,0 Pp). Auch hier
+  liegt der Abstand mit **0,66 SE** innerhalb des Rauschens der Typmarke.
+
+**Angenommener Stand:** `checkpoints/agent-sequence_reasoning-from7600-i1-step12400.safetensors`.
+
+**Rangfolge fuer die naechste Runde:** (1) `reparatur` bleibt der einzige
+reproduzierte Engpass - ihn ueber die 75-%-Marke und die Kopfzahl ueber 90 % zu
+heben sind **dieselbe** Aufgabe, weil die restlichen sieben Typen im Mittel
+knapp 92 % liefern und die Kopfzahl nur durch den schwaechsten Typ gedrueckt wird;
+(2) danach die Familie abschliessen und nach D-047 zur naechsten Familie bzw. zur
+Mathematik im selben Korpus (n5).
+
+
+
 
 
 

@@ -83,7 +83,43 @@ max_iterations = 3
 # kann, ist keine Annahmeregel. Die Kostenschaetzung, die den Satz klein hielt,
 # ist ueberholt: die Sonde erzeugt mit Budget `soll.len()+2` und misst 120
 # Datensaetze in Minuten.
-eval_records = 120
+# **480 statt 120 (exp-015). Der gemessene Anlass ist ein Auflösungsproblem.**
+#
+# Der Stand lag auf dem 120er-Panel bei **103 von 120 = 85,8 %**, die Marke D-047
+# bei 90 % - der Abstand betraegt also **4,17 Prozentpunkte**. Der Standardfehler
+# einer Quote bei n = 120 ist aber sqrt(p(1-p)/n) = **3,18 Pp**. Der Abstand ist
+# damit nur **1,31 Standardfehler** gross: ein Modell, das WIRKLICH bei 90 % liegt,
+# liefert in rund jedem zehnten Lauf eine Stichprobe von 103/120 oder schlechter.
+# **Die Messung konnte die Marke also gar nicht entscheiden** - "D-047 nicht
+# erreicht" war auf dieser Stichprobe keine statistisch tragfaehige Aussage.
+#
+# Gerechnet (p = 0,858, Abstand 4,17 Pp):
+#   n =  120 -> SE 3,18 Pp -> 1,31 SE   (heute, nicht entscheidbar)
+#   n =  480 -> SE 1,59 Pp -> 2,62 SE   (je Panel)
+#   n =  960 -> SE 1,13 Pp -> 3,70 SE   (beide Panels zusammen, = 2 x 480)
+#   n = 5000 -> SE 0,49 Pp -> 8,45 SE   (ganzer val-Shard)
+#
+# **480 je Panel ist der gewaehlte Kompromiss.** Zwei disjunkte Panels zu je 480
+# ergeben **960 Fragen** und damit 3,70 SE - die Marke wird entscheidbar. Je
+# Aufgabentyp sind es dann rund **120** statt 16 Fragen; der Standardfehler je Typ
+# faellt von **11,46 auf 4,18 Pp**. Das ist der zweite Grund: die gemessene Spanne
+# zwischen zwei disjunkten 120er-Panels lag bei bis zu **31 Prozentpunkten**
+# (exp-014), also rund 2,7 Standardfehlern - genau das, was Rauschen erzeugt.
+#
+# Auswahlregel: val-Shard 5000 Datensaetze, n = 480 -> Schrittweite 10; Panel A
+# mit Versatz 0, Panel B mit Versatz 5 (stride/2). Die Indizes 0,10,20,... und
+# 5,15,25,... sind paarweise verschieden - **kein Datensatz liegt in beiden**.
+#
+# **Vorbehalt, der dazugehoert:** alle frueheren Messungen auf dem 120er-Panel
+# (jeder 41.) sind mit den neuen Zahlen **nicht** direkt vergleichbar - es ist
+# eine andere Stichprobe. Der historische Anker bleibt der Stand
+# `from6400-i1-step7600` mit **85,8 % auf dem 120er-Panel**; neue Werte sind auf
+# dem 480er-Panel zu lesen.
+#
+# Kosten: fuenf Auswertungen je Runde zu je 480 Fragen statt 120. Gemessen kostet
+# eine Frage rund 0,1 s auf der GPU, das sind also rund vier Minuten je Runde
+# zusaetzlich - gegenueber rund 20 Minuten Trainingszeit vertretbar.
+eval_records = 480
 regression_records = 32
 # **Dosis 600 statt 150 (genehmigter naechster Schritt 1).** Gemessener Grund:
 # 150 Schritte x Batch 16 = 2400 Datensaetze, der Trainingsshard hat 50.000 -
