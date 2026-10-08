@@ -1076,3 +1076,46 @@ die Faehigkeit gilt nach ihrem eigenen Vertrag als bestanden, nach D-047 nicht.
 * **Verlorener Stand:** die 65,8 %-Messung aus exp-007 ist dokumentiert, aber der
   Stand selbst ist weg (siehe oben). Reproduzierbar ist der Nachfolger
   `from2200-i2-step3400` (84,2 %).
+
+### Nachtrag exp-008: Transfer-Test (O-D21) - NEGATIVER TRANSFER, und zwar deutlich
+
+Derselbe angenommene Stand (`from2200-i2-step3400`), dieselbe Messung
+(`shiro eval`, Mittel-Loss ueber den ganzen Ordner, 125 Batches a 16 x 512,
+ohne Gewichtsaktualisierung), drei Datenordner:
+
+| Datenordner | Baseline (untrainiert) | Sequenz-trainiert | Differenz |
+|---|---|---|---|
+| `data/add/eval-3d` (dreistellig) | 5,8605 / PPL 350,9 | **7,7844 / PPL 2402,9** | **+1,9239** |
+| `data/add/eval-4d` (vierstellig) | 5,8143 / PPL 335,0 | **7,0273 / PPL 1126,9** | **+1,2130** |
+| `data/seq/val` (Kontrolle) | 5,7442 / PPL 312,4 | **0,5284 / PPL 1,7** | **-5,2157** |
+
+**Der Befund.** Auf der eigenen Familie ist das Modell um den Faktor **183**
+besser als die Baseline (PPL 1,7 gegen 312,4). Auf der Additionsfamilie ist es
+**schlechter als ein untrainiertes Modell** - und nicht ein wenig: die
+Perplexitaet steigt von 351 auf **2403**, also um den Faktor **6,8**. Ein
+zufaellig initialisiertes Netz haelt Additionsdaten fuer wahrscheinlicher als
+dieses trainierte.
+
+**Was das heisst.** Das Modell hat sich **scharf auf das Sequenzformat
+spezialisiert** und dabei Verteilung aufgebaut, die auf anders formatierte
+Aufgaben aktiv **schaedlich** wirkt. Es ist damit **kein** allgemeiner
+Logik-Kern, der auf eine zweite Familie uebertraegt, sondern ein Spezialist.
+Damit ist die in `docs/logisches-abgleichen-und-verallgemeinerung.md` offen
+gelassene Frage (O-D21) beantwortet, und zwar **negativ**.
+
+**Zwei Vorbehalte, die dazugehoeren.** (1) Verglichen wird der **Verlust**, nicht
+die Trefferquote - Verlust ist hier das empfindlichere Mass, weil er die ganze
+Verteilung sieht; fuer eine Aufgabenaussage muesste die Trefferquote je Typ
+gemessen werden. (2) `data/add` hat ein **anderes Antwortformat** als `seq`
+(Spaltenrechnen statt Folge); ein Teil des Verlusts ist Formatfremdheit, nicht
+Denkfremdheit. Beide Einwaende schwaechten die Aussage aber nur ab, sie heben
+sie nicht auf: die Richtung ist eindeutig und der Effekt gross.
+
+**Folge fuer die Planung, konkret.** Die naechste Ausbaustufe darf **nicht**
+"Familie fuer Familie spezialisieren" heissen. Der Korpus muss die Familien
+**gemeinsam** enthalten (ein Manifest, mehrere Shards - der Loader kann das
+laut `docs/korpus-folgeauftraege.md`, gebaut ist es noch nicht), sonst bezahlt
+jede neue Familie mit dem Rueckfall der vorigen. Das ist die Begruendung, den
+Punkt "Datenausbau" (n5) von "mehr MB" auf **"mehr Familien in EINEM
+Trainingslauf"** umzustellen - und die Mathematik-Phase (D-047-Marke erreicht
+vorausgesetzt) **im selben Korpus** zu fahren, nicht als Neustart.
