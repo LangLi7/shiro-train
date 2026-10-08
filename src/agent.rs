@@ -773,10 +773,10 @@ impl Pack {
             Pack::Frageart => "Fragezeile zuerst: die Frageart muss vor den Zahlen gelesen werden",
             Pack::Stellenwert => "nur Antworten ab drei Ziffern: Stellenwert statt Ziffernmuster",
             Pack::Reparatur => {
-                "nur Aufgabentyp reparatur (MINIMIEREN): er steht in beiden Baendern bei null - die Fehlerklasse zeigt dorthin nicht"
+                "nur Aufgabentyp reparatur (MINIMIEREN, zweiteilige Antwort 'Stelle p: wert'): der EINZIGE Typ unter der 75-%-Marke (exp-015: 72,4 % aus 123 gepoolten Fragen, auf beiden Panels unter der Marke) - die Fehlerklasse zeigt dorthin nicht"
             }
             Pack::Stelle => {
-                "nur Aufgabentyp stelle (LOKALISIEREN): unterdurchschnittlich trotz kurzer Antwort"
+                "nur Aufgabentyp stelle (LOKALISIEREN): war unterdurchschnittlich, ist seit exp-015 bei 94,8 % - nur noch als gezieltes Paket, nicht als Schwaeche"
             }
             Pack::ReparaturEinzeln => {
                 "nur Aufgabentyp reparatur1 (MINIMIEREN, einfeldrig): gleiche Suche, aber die zweiteilige Antwortform entfaellt"
@@ -3688,6 +3688,35 @@ mod tests {
     #[test]
     fn panels_mindestens_ist_zwei() {
         assert_eq!(PANELS_MINDESTENS, 2);
+    }
+
+    /// **Die Paketbegruendungen duerfen keine widerlegte Aussage tragen.**
+    ///
+    /// Sie wandern ins Log UND in die Registry-Zeile (`reason_for_action`) - eine
+    /// falsche Begruendung ist damit ein falscher Nachweis, kein Schoenheitsfehler.
+    /// Konkreter Anlass: `Pack::Reparatur` trug bis exp-016 den Satz *"er steht in
+    /// beiden Baendern bei null"*. Das war bei exp-007 wahr, ist aber seit
+    /// exp-010/015 falsch (`reparatur` liegt bei **72,4 %** aus 123 gepoolten
+    /// Fragen). Der Test haelt die Korrektur fest.
+    #[test]
+    fn paketbegruendungen_tragen_keine_widerlegte_aussage() {
+        let reparatur = Pack::Reparatur.reason();
+        assert!(
+            !reparatur.contains("bei null"),
+            "die Null-Aussage ist widerlegt (exp-015: 72,4 %): {reparatur}"
+        );
+        assert!(
+            reparatur.contains("72,4 %"),
+            "die Begruendung muss den gemessenen Wert nennen: {reparatur}"
+        );
+        // Auch `stelle` war nie bei null, ist aber seit exp-015 keine Schwaeche
+        // mehr (94,8 %) - die Begruendung darf das nicht verschweigen.
+        let stelle = Pack::Stelle.reason();
+        assert!(
+            !stelle.contains("unterdurchschnittlich trotz kurzer Antwort")
+                || stelle.contains("94,8 %"),
+            "die alte Stelle-Begruendung ohne den neuen Messwert ist irrefuehrend: {stelle}"
+        );
     }
 
     /// **Ein Hebel, der nichts aendert, ist keiner.** Der gemessene Fall aus
