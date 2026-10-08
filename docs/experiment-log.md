@@ -2211,6 +2211,130 @@ den Replay-Hebel erneut ziehen, obwohl er bereits widerlegt ist. Fuer die naechs
 Runde ist deshalb der ueber die CLI setzbare Hebel zu nehmen (`--pack`) oder die
 Leiterposition dauerhaft zu machen.
 
+---
+
+## exp-017 - Determinismus bewiesen, und die Leiter greift: Hebel 4 = Paket
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` · **Elternstand:**
+`checkpoints/agent-sequence_reasoning-from7600-i1-step012400.state`,
+SHA-256 `aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--train-steps 4800 --iterations 2 --backend auto`, Panel 2 x 480. Laufzeit 51:32,
+CPU im Mittel 142 %, Elternstand per SHA unversehrt.
+
+### Die Leiterposition ist jetzt dauerhaft - und sie hat gegriffen
+
+Der Lauf meldete beim Start:
+
+```
+Hebelleiter   : 3 verworfene Runde(n) aus der Registry fortgesetzt -> naechster Hebel ist Nr. 4
+```
+
+und zog dann in Runde 1 tatsaechlich **Hebel 4**:
+
+```
+Strategiewechsel (O-T9): pack reparatur -> breit
+Strategie     : erzwungener Paketwechsel (O-T9) reparatur -> breit
+```
+
+**Damit ist die in exp-016 gebaute dauerhafte Leiterposition im Betrieb belegt** -
+vorher haette der Aufruf wieder bei Hebel 1 (Dosis) begonnen. Zugleich greift die
+Paket-Sperre aus exp-016: es steht **keine** Plateau-Zeile daneben, es wurde also
+**genau eine** Variable geaendert.
+
+### Beide Runden verworfen
+
+| Runde | Panel A | Panel B | Urteil |
+|---|---|---|---|
+| 1 | 87,8 % -> **87,6 %**, Score -0,003 | 87,4 % -> **86,9 %**, Score -0,003 | **VERWORFEN** |
+| 2 | 87,8 % -> **85,6 %**, Score -0,009 | 87,4 % -> **85,7 %**, Score -0,007 | **VERWORFEN** |
+
+Beide einstimmig, Determinismus-Probe bestanden. Kein Stand angenommen; gueltig
+bleibt `from7600-i1-step12400` mit gepoolt **89,06 %**.
+
+### Der Kernbefund: das Training ist bit-reproduzierbar
+
+exp-017 und exp-016 liefen vom **selben Elternstand** mit demselben Paket, derselben
+Dosis und demselben Seed. Die Registry zeigt:
+
+| Runde | Verlust exp-016 | Verlust exp-017 | bitgleich |
+|---|---|---|---|
+| i1 (`reparatur`, Dosis 4800, Replay 0,35) | `0.08192774131978153` | `0.08192774131978153` | **ja** |
+| i2 (`breit`, Replay **0,20** gegen **0,35**) | `0.08363291165749369` | `0.08048208559760132` | nein |
+
+**Runde 1 ist auf 17 Stellen identisch** - gleicher Verlust, gleiches Exact Match
+(0,893750), gleicher Score (0,528922). **Runde 2 ist es nicht**, und der Grund ist
+gemessen und erklaerbar: exp-016 Runde 2 lief mit Replay-Anteil **0,20** (der
+Replay-Hebel war dort in Runde 1 gefallen), exp-017 Runde 2 mit **0,35** (dort
+fiel in Runde 1 der **Paket**-Hebel, der Replay-Anteil blieb unberuehrt).
+
+Das ist ein Determinismus-Beweis **mit eingebauter Kontrolle**: gleiche
+Konfiguration -> bitgleiches Ergebnis, andere Konfiguration -> anderes Ergebnis.
+Die Messkette war schon aus exp-013 als reproduzierbar bekannt; **jetzt ist auch
+das Training selbst reproduzierbar**, und zwar bis auf die letzte Stelle des
+Verlusts.
+
+**Drei Folgerungen, die daraus direkt folgen:**
+
+1. **Eine wiederholte Konfiguration liefert keine neue Information.** exp-017
+   Runde 1 war eine exakte Wiederholung von exp-016 Runde 1 - sie hat nichts
+   gelernt, was nicht schon bekannt war. Das ist kein Fehler des Laufs, sondern
+   eine Eigenschaft des deterministischen Trainings.
+2. **Deshalb muss jede Runde genau EINE Variable aendern** - sonst wiederholt sie
+   sich, oder sie vermischt zwei Ursachen. Die O-T9-Regel ("genau ein Hebel") und
+   die Plateau-Sperre aus exp-016 sind damit von einer **voellig unabhaengigen**
+   Seite her begruendet: nicht durch Plausibilitaet, sondern durch Determinismus.
+3. **Ein ueberschriebener Stand ist reproduzierbar.** Siehe den Namensbefund unten.
+
+### Namensbefund: gleichnamige Staende werden ueberschrieben - und das ist hier harmlos
+
+Der Laufname enthaelt Startschritt und Iteration
+(`agent-<cap>-from<start>-i<n>-step<end>`), aber **nicht** die Konfiguration.
+exp-017 Runde 1 hat deshalb die Dateien von exp-016 Runde 1 **ueberschrieben**
+(beide heissen `...-from12400-i1-step14400` bzw. `-step17200`). Dass dabei nichts
+verloren geht, ist **kein Zufall, sondern durch die Determinismus-Messung oben
+belegt**: die ueberschriebene Datei war bitgleich zu der, die sie ersetzt hat.
+
+**Der Risikofall bleibt trotzdem bestehen und wird offen benannt:** ein Lauf, der
+vom Stand `from6400-i1-step7600` mit Dosis 4800 startet, schreibt genau den Namen
+des **angenommenen** Stands `from7600-i1-step12400` und wuerde ihn ueberschreiben.
+Wiederherstellbar waere er nur, solange der `.state` seines Elternstands existiert
+(er existiert). Die Run-Namen sind bewusst deterministisch - sie sind damit
+auffindbar, aber nicht eindeutig; das ist ein bewusster Tausch und keine
+Nachlaessigkeit, aber die Kollision sollte sichtbar sein statt still.
+
+### Ein echter Fehler in der Registry, gefunden und behoben
+
+`parent_checkpoint` nannte bei **angenommenen** Runden das **Kind statt des
+Elternstands**. Ursache im Code: `aktuell = neu.clone()` laeuft im Annahme-Zweig
+**vor** dem `eintrag`-Aufruf, und `eintrag` schrieb `aktuell` als
+`parent_checkpoint`. Gemessen: exp-015 Runde 1 (ANGENOMMEN) trug
+`parent_checkpoint = ...from7600-i1-step12400.safetensors`, obwohl sie von
+`...from6400-i1-step7600.safetensors` abstammt. Bei **verworfenen** Runden blieb
+`aktuell` unveraendert und das Feld war zufaellig richtig - die Kette war also
+genau an den Runden unterbrochen, die zaehlen. Behoben (`elternstand` wird vor dem
+Annahme-Zweig festgehalten), Commit `22c1486`.
+
+**Abgrenzung, ehrlich benannt:** das ist eine **Reihenfolge** im
+Schleifenkoerper, kein Logikfehler einer reinen Funktion - ein Unit-Test kann ihn
+nicht fangen, ohne den ganzen Loop zu fahren. Belegt ist er aus der echten
+Registry; die positive Gegenprobe liefert die naechste **angenommene** Runde.
+
+### D-047-Status nach exp-017
+
+**Unveraendert nicht erreicht.** Gueltig bleibt `from7600-i1-step12400` mit
+Kopfzahl **89,06 %** (855/960, Abstand zur Marke **0,93 SE**) und einem Typ unter
+75 %: `reparatur` **72,4 %**. exp-017 hat daran nichts geaendert - beide Runden
+wurden einstimmig verworfen.
+
+**Stand der Hebel-Leiter nach exp-017:** fuenf Verwuerfe am Ende der Registry ->
+naechster Hebel ist Nr. 2 (Replay-Anteil 0,35 -> 0,20). Die Leiter hat damit
+Dosis (ausgeschoepft am Deckel), Replay (zweimal), Lernrate (noch nie) und Paket
+(einmal) durchlaufen; **die Lernrate ist der einzige noch nie gezogene Hebel** und
+sollte als naechstes an die Reihe kommen.
+
+
 
 
 
