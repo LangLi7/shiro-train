@@ -79,8 +79,7 @@ pub enum Command {
         replay_share: Option<f64>,
         /// Ausdrueckliche Lernrate (`--lr`); ohne Angabe gilt die Basisconfig.
         lr: Option<f32>,
-        /// **Ausdrueckliche Seed-Vorgabe** (`--seed`) fuer die **Datenziehung**
-        /// der Runde.
+        /// **Ausdrueckliche Seed-Vorgabe** (`--seed`) fuer die **Datenziehung**        /// der Runde.
         ///
         /// Gemessener Anlass (exp-017): das Training ist bei gleicher Seed
         /// **bit-reproducibel** - eine wiederholte Konfiguration liefert deshalb
@@ -106,6 +105,16 @@ pub enum Command {
         /// Eine so gefahrene Runde setzt die **Leiterposition auf 0 zurueck**:
         /// die alten Stufen wurden gegen eine andere Basis widerlegt.
         ohne_hebel: bool,
+        /// **`--formgleiche-wiederholung`: die Wiederholung traegt die neue
+        /// Antwortform** (exp-026).
+        ///
+        /// Gemessener Anlass (exp-025): die Wiederholungsfaelle stammen aus dem
+        /// **absoluten** Korpus. Eine Runde, die die Delta-Form eines Typs
+        /// trainiert, wiederholt damit die **alte** Form - und die Delta-Form
+        /// des *anderen* Typs verfaellt (gemessen: `reparatur` 91,9 -> 49,6 %,
+        /// 57 von 123 Antworten "Form kaputt"). Dieser Schalter rendert die
+        /// Wiederholung in dieselbe Form wie die gezielten Daten.
+        formreplay: bool,
         dry_run: bool,
     },
     ValidateData,
@@ -463,6 +472,12 @@ OPTIONEN FUER agent capability run:
                           Codehebel). Setzt die Leiterposition auf 0 zurueck.
                           STARTWERT der Runde setzen, nicht nur als Reaktion
                           auf einen Verwurf
+    --formgleiche-wiederholung
+                          die Wiederholungsfaelle in DERSELBEN Antwortform
+                          rendern wie die gezielten Daten (exp-026). Ohne den
+                          Schalter traegt die Wiederholung die absolute Form aus
+                          dem Korpus - eine Formrunde TAUSCHT dann eine
+                          Konvention gegen die andere (exp-025).
     --lr <F>              Lernrate als Startwert der Runde setzen
     --seed <N>            Seed der Runde setzen (Standard: aus der Basisconfig).
                           Aendert NUR die Ziehung der Trainingsdaten, nicht die
@@ -532,6 +547,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_replay: Option<f64> = None;
     let mut agent_lr: Option<f32> = None;
     let mut agent_ohne_hebel = false;
+    let mut agent_formreplay = false;
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -617,6 +633,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--pack" => agent_pack = Some(take_value(&mut iter, "--pack")?),
             "--ohne-hebel" => agent_ohne_hebel = true,
+            "--formgleiche-wiederholung" => agent_formreplay = true,
             "--replay-share" => {
                 let v = take_value(&mut iter, "--replay-share")?;
                 agent_replay =
@@ -924,6 +941,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             // der Seed der Basisconfig - der Regelfall, unveraendert.
             seed: out.seed,
             ohne_hebel: agent_ohne_hebel,
+            formreplay: agent_formreplay,
             dry_run: agent_dry,
         };
     }

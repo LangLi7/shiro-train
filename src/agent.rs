@@ -1174,6 +1174,45 @@ fn delta_panel_einzeln(records: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, usize) {
     (out, n)
 }
 
+/// **Formgleiche Wiederholung (exp-026).**
+///
+/// Die Wiederholungsfaelle des Loops stammen aus dem **urspruenglichen** Korpus
+/// und tragen damit die **absolute** Antwortform. exp-025 hat gemessen, was
+/// daraus folgt: die Runde trainierte die Delta-Form von `reparatur1` und
+/// zerstoerte dabei die Delta-Form von `reparatur` (91,9 -> 49,6 %), weil der
+/// Bestand in seiner **Delta**-Form **gar nicht** wiederholt wurde - die
+/// Wiederholung trug die alte Konvention.
+///
+/// Diese Funktion rendert die Wiederholung deshalb in **dieselbe** Form wie die
+/// gezielten Daten: `reparatur` ueber [`seq::als_delta`], die Wertfragen von
+/// `reparatur1` ueber [`seq::als_delta_einzeln`]. Alle uebrigen Typen haben
+/// keine zweite Form und bleiben **byteweise unveraendert** - sie sind die
+/// Regressionsreferenz.
+///
+/// Gibt die neuen Datensaetze und die zwei Zaehlungen zurueck, damit die
+/// Log-Zeile die **gelieferte** Zahl nennt und nicht die beabsichtigte.
+fn formgleiche_wiederholung(records: Vec<Vec<u8>>) -> (Vec<Vec<u8>>, usize, usize) {
+    let mut reparatur = 0usize;
+    let mut einzeln = 0usize;
+    let out = records
+        .into_iter()
+        .map(|r| {
+            if let Some(neu) = seq::als_delta(&r) {
+                reparatur += 1;
+                return neu;
+            }
+            if seq::ist_wertfrage(&r) {
+                if let Some(neu) = seq::als_delta_einzeln(&r) {
+                    einzeln += 1;
+                    return neu;
+                }
+            }
+            r
+        })
+        .collect();
+    (out, reparatur, einzeln)
+}
+
 pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
     let mut out: Vec<Vec<u8>> = Vec::with_capacity(n);
     let mut roh: Vec<Vec<u8>> = Vec::new();
@@ -1862,6 +1901,10 @@ pub struct AgentOptions {
     /// Eine so gefahrene Runde setzt die Leiterposition auf 0 zurueck - die
     /// alten Stufen wurden gegen eine andere Basis widerlegt.
     pub ohne_hebel: bool,
+    /// **`--formgleiche-wiederholung`** (exp-026): die Wiederholungsfaelle in
+    /// derselben Antwortform rendern wie die gezielten Daten. Siehe
+    /// [`formgleiche_wiederholung`].
+    pub formreplay: bool,
     pub dry_run: bool,
 }
 
@@ -1885,6 +1928,7 @@ impl Default for AgentOptions {
             lr_override: None,
             seed_override: None,
             ohne_hebel: false,
+            formreplay: false,
             dry_run: false,
         }
     }
@@ -2005,12 +2049,49 @@ pub fn runden_fingerabdruck(
     paket: &str,
     seed: u64,
 ) -> String {
+    runden_fingerabdruck_mit(start_step, nr, dosis, replay, lr, paket, seed, false)
+}
+
+/// Wie [`runden_fingerabdruck`], **zusaetzlich mit der formgleichen
+/// Wiederholung** (exp-026).
+///
+/// **Warum das noetig ist - siebter Defekt derselben Klasse wie in D-048.**
+/// `--formgleiche-wiederholung` aendert die **Trainingsdaten** (die
+/// Wiederholungsfaelle werden in die Delta-Form gerendert), ging aber **nicht**
+/// in den Laufnamen ein. Eine Runde mit dem Schalter haette damit denselben
+/// Namen getragen wie dieselbe Runde ohne ihn - und den Stand der Vorrunde
+/// **ueberschrieben**, obwohl die Registry-Zeile der Vorrunde auf genau diesen
+/// Pfad zeigt. Der Fingerabdruck geht laut seiner eigenen Zusage ueber **alle**
+/// Groessen, die in die Gewichte eingehen; der Schalter gehoert dazu.
+///
+/// **Die historischen Namen bleiben unveraendert:** das Kennzeichen wird
+/// **nur angehaengt, wenn der Schalter gesetzt ist**. Ohne ihn lautet der
+/// Abdruck Zeichen fuer Zeichen wie bisher - die drei belegten Namen der
+/// Formachse (exp-021/024) bleiben damit gueltig.
+// Acht Parameter sind Absicht: jeder einzelne geht in die Gewichte ein, und ein
+// vergessener Parameter ist genau der Fehler, den diese Funktion verhindern
+// soll (D-048, Defekt b). Ein Sammel-Struct wuerde das Verschachteln nur an die
+// Aufrufstelle verschieben.
+#[allow(clippy::too_many_arguments)]
+pub fn runden_fingerabdruck_mit(
+    start_step: usize,
+    nr: usize,
+    dosis: usize,
+    replay: f64,
+    lr: f32,
+    paket: &str,
+    seed: u64,
+    formreplay: bool,
+) -> String {
     // Feste Feldreihenfolge und feste Zahlendarstellung: der Abdruck muss bei
     // gleicher Einstellung **immer** gleich lauten, sonst taugt er nicht als
     // Wiedererkennung.
-    let roh = format!(
+    let mut roh = format!(
         "start{start_step}|i{nr}|dosis{dosis}|replay{replay:.6}|lr{lr:.9e}|paket{paket}|seed{seed}"
     );
+    if formreplay {
+        roh.push_str("|formreplay");
+    }
     format!("{:016x}", crate::data::manifest::fnv1a64(roh.as_bytes()))
 }
 
@@ -3188,7 +3269,21 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         if replay_n > 0 {
             let (replay, _) =
                 reference_set(&opts.train_band_dir, &opts.held_out_manifest, replay_n)?;
-            train_records.extend(replay);
+            // **Formgleiche Wiederholung (exp-026).** Ohne diesen Schalter traegt
+            // die Wiederholung die **absolute** Form aus dem Korpus, und eine
+            // Runde, die eine Delta-Form trainiert, wiederholt die alte
+            // Konvention - exp-025 hat gemessen, dass die Delta-Form des anderen
+            // Typs dadurch verfaellt (91,9 -> 49,6 %).
+            if opts.formreplay {
+                let (neu, n_rep, n_ein) = formgleiche_wiederholung(replay);
+                println!(
+                    "Wiederholung  : FORMGLEICH gerendert - {n_rep} reparatur-Faelle und {n_ein} reparatur1-Wertfragen in der DELTA-Form, {} Faelle unveraendert (andere Typen haben keine zweite Form)",
+                    neu.len() - n_rep - n_ein
+                );
+                train_records.extend(neu);
+            } else {
+                train_records.extend(replay);
+            }
         }
         let ziel_dir = opts.work_dir.join(&exp_id).join("train");
         let size = write_corpus(
@@ -3227,8 +3322,16 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // `...-from12400-i2-step17200.safetensors`). Der zweite Lauf ueberschrieb
         // den ersten, und die Registry zeigte fuer beide auf denselben Pfad.
         // Siehe [`runden_fingerabdruck`].
-        let fingerabdruck =
-            runden_fingerabdruck(start_step, nr, dosis, replay_share, lr, pack.key(), seed);
+        let fingerabdruck = runden_fingerabdruck_mit(
+            start_step,
+            nr,
+            dosis,
+            replay_share,
+            lr,
+            pack.key(),
+            seed,
+            opts.formreplay,
+        );
         lauf.run.name = format!("agent-{}-from{start_step}-i{nr}-{fingerabdruck}", cap.id);
         lauf.run.steps = dosis;
         lauf.run.log_every = 10;
@@ -5253,6 +5356,108 @@ mod tests {
         }
         assert!(wert > 0, "keine Wertfrage im Paket");
         assert!(stelle > 0, "keine Stellenfrage im Paket");
+    }
+
+    /// **Die formgleiche Wiederholung rendert genau die Faelle um, die eine
+    /// zweite Form haben** (exp-026).
+    ///
+    /// Geprueft wird dreierlei: (a) `reparatur` wird umgeschrieben und bleibt
+    /// gueltig, (b) die **Wertfragen** von `reparatur1` werden umgeschrieben,
+    /// die **Stellenfragen** aber nicht, (c) alle uebrigen Typen bleiben
+    /// **byteweise unveraendert** - sie sind die Regressionsreferenz. Die
+    /// Zaehlungen muessen die gelieferte Zahl nennen, nicht die beabsichtigte.
+    #[test]
+    fn formgleiche_wiederholung_rendert_genau_die_zweiformigen_faelle() {
+        let mut band: Vec<Vec<u8>> = Vec::new();
+        for p in [
+            Pack::Reparatur,
+            Pack::ReparaturEinzeln,
+            Pack::Stelle,
+            Pack::Offen,
+            Pack::Breit,
+        ] {
+            band.extend(build_pack(p, 6, 2024).expect("Paket"));
+        }
+        let ist =
+            |r: &[u8], c: seq::Category| seq::verify(r).map(|v| v.category == c).unwrap_or(false);
+        let n_rep_vorher = band
+            .iter()
+            .filter(|r| ist(r, seq::Category::Reparatur))
+            .count();
+        let n_wert_vorher = band
+            .iter()
+            .filter(|r| ist(r, seq::Category::ReparaturEinzeln) && seq::ist_wertfrage(r))
+            .count();
+        let n_stelle_vorher = band
+            .iter()
+            .filter(|r| ist(r, seq::Category::ReparaturEinzeln) && !seq::ist_wertfrage(r))
+            .count();
+        assert!(n_rep_vorher > 0 && n_wert_vorher > 0 && n_stelle_vorher > 0);
+
+        let (neu, n_rep, n_ein) = formgleiche_wiederholung(band.clone());
+        assert_eq!(neu.len(), band.len(), "kein Datensatz darf verschwinden");
+        assert_eq!(n_rep, n_rep_vorher, "gezaehlte reparatur-Faelle");
+        assert_eq!(n_ein, n_wert_vorher, "gezaehlte Wertfragen");
+
+        let mut gesehen_rep = 0usize;
+        let mut gesehen_ein = 0usize;
+        for (a, b) in band.iter().zip(neu.iter()) {
+            assert!(seq::verify(b).is_ok(), "umgeschriebener Fall ungueltig");
+            if ist(a, seq::Category::Reparatur) {
+                gesehen_rep += 1;
+                assert_ne!(a, b, "reparatur haette umgeschrieben werden muessen");
+                let antwort = seq::answer_in(b).unwrap_or_default().to_string();
+                assert!(
+                    antwort.contains(": +") || antwort.contains(": -"),
+                    "reparatur ohne Vorzeichen: {antwort}"
+                );
+            } else if ist(a, seq::Category::ReparaturEinzeln) && seq::ist_wertfrage(a) {
+                gesehen_ein += 1;
+                assert_ne!(a, b, "die Wertfrage haette umgeschrieben werden muessen");
+                let antwort = seq::answer_in(b).unwrap_or_default().trim().to_string();
+                assert!(
+                    antwort.starts_with('+') || antwort.starts_with('-'),
+                    "Wertfrage ohne Vorzeichen: {antwort}"
+                );
+            } else {
+                assert_eq!(a, b, "ein Fall ohne zweite Form wurde veraendert");
+            }
+        }
+        assert_eq!(gesehen_rep, n_rep_vorher);
+        assert_eq!(gesehen_ein, n_wert_vorher);
+    }
+
+    /// **Die formgleiche Wiederholung aendert die Trainingsdaten - also MUSS sie
+    /// den Laufnamen unterscheiden** (exp-026).
+    ///
+    /// Ohne diese Unterscheidung traegt die Runde mit dem Schalter denselben
+    /// Namen wie dieselbe Runde ohne ihn und **ueberschreibt** deren Stand -
+    /// obwohl die Registry-Zeile der Vorrunde auf genau diesen Pfad zeigt. Das
+    /// ist derselbe Fehler wie der Namenszusammenstoss aus D-048 (Defekt b).
+    ///
+    /// **Die historischen Namen bleiben gueltig:** das Kennzeichen wird nur
+    /// angehaengt, wenn der Schalter gesetzt ist; ohne ihn lautet der Abdruck
+    /// unveraendert - nachgeprueft am belegten Namen der Formachse.
+    #[test]
+    fn formgleiche_wiederholung_steht_im_laufnamen() {
+        let ohne = runden_fingerabdruck(17200, 1, 4800, 0.35, 3e-4, "reparatur1-delta", 1337);
+        let mit =
+            runden_fingerabdruck_mit(17200, 1, 4800, 0.35, 3e-4, "reparatur1-delta", 1337, true);
+        assert_ne!(
+            ohne, mit,
+            "mit und ohne formgleiche Wiederholung darf nicht derselbe Stand entstehen"
+        );
+        // Der Schalter ist die EINZIGE Aenderung: alles andere gleich.
+        assert_eq!(
+            ohne,
+            runden_fingerabdruck_mit(17200, 1, 4800, 0.35, 3e-4, "reparatur1-delta", 1337, false)
+        );
+        // Und der belegte Name der Formachse bleibt unveraendert (exp-021).
+        assert_eq!(
+            runden_fingerabdruck(12400, 1, 4800, 0.35, 3e-4, "reparatur-delta", 1337),
+            "d5217b90dfe8cbac",
+            "das Kennzeichen darf die historischen Namen nicht verschieben"
+        );
     }
 
     /// **Die Registry muss den Lauf beschreiben, den sie protokolliert.**

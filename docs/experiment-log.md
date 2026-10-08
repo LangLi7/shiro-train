@@ -3476,3 +3476,125 @@ gezielten Daten (`als_delta` auch auf die Wiederholung). Vorhersage: `reparatur1
 wieder auf ~92 %, und `reparatur`-Delta **haelt** diesmal. Bleibt der Einbruch aus, ist die
 Ursache bestaetigt; bleibt er, ist sie widerlegt und die Interferenz sitzt tiefer (dann ist der
 naechste Kandidat eine **unterscheidbare Frageformulierung**).
+
+## exp-026 - Die formgleiche Wiederholung: die Ursache aus exp-025 ist bestaetigt, die Runde ist ANGENOMMEN
+
+**Die Vorhersage stand vor dem Lauf fest** (aus exp-025): wenn der Einbruch daher kommt, dass die
+Wiederholung die **alte** Antwortform traegt, dann muss dieselbe Runde mit **formgleicher
+Wiederholung** den Zieltyp heben **und** den Bestand halten - ohne jede Formulierungsaenderung.
+
+### Die eine geaenderte Groesse: die Form der Wiederholung
+
+Neuer Schalter **`--formgleiche-wiederholung`**. Er rendert die Wiederholungsfaelle in dieselbe
+Form wie die gezielten Daten: `reparatur` ueber `als_delta`, die Wertfragen von `reparatur1` ueber
+`als_delta_einzeln`. Alle uebrigen Typen haben **keine** zweite Form und bleiben **byteweise
+unveraendert** (Regressionsreferenz). Die Log-Zeile nennt die **gelieferte** Zahl:
+
+```text
+Wiederholung  : FORMGLEICH gerendert - 6250 reparatur-Faelle und 3180 reparatur1-Wertfragen
+                in der DELTA-Form, 40570 Faelle unveraendert
+Trainingsdaten: 70000 Datensaetze (20000 gezielt + 56800 Wiederholung), 17632840 B Nutzlast
+```
+
+Gegenprobe, dass wirklich **nur** die Form der Wiederholung anders ist: die Nutzlast steigt von
+**16.963.379 B** (exp-025) auf **17.632.840 B**, und die **Baseline ist zeichengleich** zu exp-025
+(A 84,4 % / Score 0,518, B 84,1 % / Score 0,517) - gleicher Elternteil, gleiche Panels, gleicher
+Messpfad.
+
+### Ein siebter Defekt, der **vor** dem Lauf auffiel: der Laufname kannte den Schalter nicht
+
+`--formgleiche-wiederholung` aendert die **Trainingsdaten**, ging aber **nicht** in
+`runden_fingerabdruck` ein. Die Runde haette damit denselben Namen getragen wie exp-025
+(`...-from17200-i1-cabec2b6e870414a-...`) und **denen Stand ueberschrieben** - obwohl die
+Registry-Zeile von exp-025 auf genau diesen Pfad zeigt. Das ist derselbe Fehler wie der
+Namenszusammenstoss aus D-048 (Defekt b), und er wurde **durch Nachdenken vor dem Start** gefunden,
+nicht durch Schaden. Behoben mit `runden_fingerabdruck_mit(.., formreplay)`: das Kennzeichen wird
+**nur angehaengt, wenn der Schalter gesetzt ist**, damit die drei belegten Namen der Formachse
+(exp-021/024) gueltig bleiben - der Test
+`formgleiche_wiederholung_steht_im_laufnamen` prueft beides. Der neue Stand traegt den
+Fingerabdruck **78877c318528a5d3**, exp-025 behaelt **cabec2b6e870414a**.
+
+### Das Ergebnis: die Vorhersage trifft
+
+GPU, `Device<Cube(Cuda(Cuda(0)))>`, **genau eine** geaenderte Groesse, `--ohne-hebel`, Dosis 4800:
+
+| Groesse (erweiterte Delta-Panels, gepoolt) | vorher | nachher | Delta |
+|---|---|---|---|
+| Panel A Score | 0,5184 | **0,5316** | +0,013 |
+| Panel B Score | 0,5171 | **0,5298** | +0,013 |
+| Kopfzahl | 828/960 = 86,25 % | **862/960 = 89,79 %** | +3,54 Pp |
+| inhaltlich | 706/838 = 84,25 % | **740/838 = 88,31 %** | +4,06 Pp |
+| Regressionsdelta | - | **-0,0011** | (unkritisch) |
+| Determinismus-Probe | - | byte-identisch | - |
+| **Urteil** | - | **ANGENOMMEN (einstimmig, beide Panels +0,013)** | - |
+
+| Typ (erweiterte Delta-Panels, gepoolt) | vorher | nachher | Delta |
+|---|---|---|---|
+| **`reparatur1`** (Ziel der Runde) | 60/122 = 49,2 % | **112/122 = 91,8 %** | **+42,6 Pp** |
+| **`reparatur`** (Bestand, Delta) | 113/123 = 91,9 % | **112/123 = 91,1 %** | **-0,8 Pp (haelt)** |
+| `regel` | 120/133 = 90,2 % | 107/133 = 80,5 % | -9,8 Pp |
+| `naechste` | 104/121 = 86,0 % | 99/121 = 81,8 % | -4,1 Pp |
+| `offen` | 99/114 = 86,8 % | 101/114 = 88,6 % | +1,8 Pp |
+| `luecke` | 102/109 = 93,6 % | 102/109 = 93,6 % | 0,0 Pp |
+| `stelle` | 108/116 = 93,1 % | 107/116 = 92,2 % | -0,9 Pp |
+
+**Damit ist die Ursache aus exp-025 bestaetigt:** derselbe Zielgewinn (+42,6 gegen +43,4 Pp), aber
+der Bestand **haelt** (-0,8 statt -42,3 Pp). Die Form der Wiederholung entscheidet, ob eine
+Formrunde eine Konvention **hinzufuegt** oder eine **gegen die andere tauscht**. Es brauchte
+**keine** Formulierungsaenderung - die zweite Alternative aus exp-025 ist damit nicht mehr noetig.
+
+**Und die Formdiagnose zeigt denselben Befund von der anderen Seite** (zwei zusaetzliche
+`--dry-run`-Messungen, weil der Loop die Antwortform-Zerlegung nur fuer den Stand *vor* der Runde
+druckt):
+
+| Antwortform, neuer Stand | exp-025 (verworfen) | exp-026 (angenommen) |
+|---|---|---|
+| `reparatur` Delta: **Form kaputt** (A / B) | **31 / 26** | **0 / 0** |
+| `reparatur` Delta richtig (A / B) | 29/63, 32/60 | **57/63, 55/60** |
+| `reparatur1`-**Wertfragen** richtig | 26/28, 28/28 | 25/28, 28/28 |
+
+Beide Staende beherrschen die Wertfragen (53-54 von 56). Der Unterschied liegt **allein** in der
+zweiteiligen Form: bei exp-025 war sie in 46 % der Faelle zerbrochen, bei exp-026 in **keinem**.
+
+### Der Stand ist nicht in jeder Ansicht besser - und das gehoert daneben
+
+Der neue Stand wurde zusaetzlich auf den **urspruenglichen** Delta-Panels (nur `reparatur` in
+Delta, wie exp-021/024) und auf den **absoluten** Panels gemessen:
+
+| Panelform (gepoolt 2 x 480) | Stand exp-021/024 (`d5217b90dfe8cbac`) | Stand exp-026 (`78877c318528a5d3`) |
+|---|---|---|
+| **urspruengliche Delta-Form** | Kopf **874/960 = 91,04 %** | Kopf 857/960 = **89,27 %** |
+| **erweiterte Delta-Form** (neu) | Kopf 828/960 = 86,25 % | Kopf **862/960 = 89,79 %** |
+| **absolute Form** | Kopf 854/960 = 88,96 % | Kopf 832/960 = **86,67 %** |
+| `reparatur` in der absoluten Form | 93/123 = 75,6 % | **87/123 = 70,7 %** (unter der 75-%-Marke) |
+
+**Das ist kein Widerspruch zur Annahme, sondern eine Folge der Replikationsregel:** angenommen wird
+auf der Form, auf der die Runde misst (D-049), und dort steigt die Kopfzahl um 3,54 Pp. **Der neue
+Stand ist aber nicht einfach "der bessere"**: auf der urspruenglichen Form liegt er 1,77 Pp unter
+dem alten, weil er fuer den Zielgewinn mit `regel` (-9,8 Pp) und `naechste` (-4,1 Pp) bezahlt - und
+in der absoluten Ansicht faellt `reparatur` sogar **unter** die 75-%-Marke. Beide Staende bleiben
+erhalten; die Ablage ist ausdruecklich formabhaengig.
+
+**`regel` ist damit zweimal in dieselbe Richtung gefallen** (-12,0 Pp in exp-025, -9,8 Pp in
+exp-026), obwohl `regel` von der Formachse **nicht beruehrt** wird (byte-identisch in beiden
+Formen). Eine Erklaerung dafuer gibt es nicht; sie wird als **O-D33** festgehalten und nicht
+erfunden.
+
+### Folgen
+
+**Fuer D-049:** die formgleiche Wiederholung ist ab jetzt **Teil der Regel**, nicht ein Zusatz -
+eine Runde, die eine Antwortform aendert, muss die Wiederholung mitrendern, sonst tauscht sie eine
+Konvention gegen die andere. Der Nachtrag steht im Register.
+
+**Fuer D-047:** auf der erweiterten Delta-Form fehlen zur Kopfmarke **0,21 Pp** (89,79 % gegen
+90 %), auf der urspruenglichen **0,73 Pp**, und **kein Typ liegt unter 75 %** in den Delta-Formen.
+Auf der erweiterten Form ist die Marke damit **innerhalb eines Fuenftels eines Standardfehlers**
+(SE 0,95 Pp) - aber nicht erreicht. Die angenommene Zeile nennt die Form, wie D-049 es verlangt.
+
+**Naechster Schritt:** der unerklaerte `regel`-Verlust ist jetzt der groesste Einzelposten auf der
+urspruenglichen Form (-13 Faelle). Zwei Kandidaten, beide als **eine** Variable pruefbar: (a) der
+Anteil des Zieltyps ist mit 20.000 von 76.800 Saetzen sehr hoch - ein **Replay-Anteil** von 0,20
+gibt `regel` mehr Raum; (b) `regel` gehoert in die **formgleiche Wiederholung**-Pruefung als
+eigener Kontrolltyp. Vor einer neuen Runde ist ausserdem der **faire Ueberlegenheitstest** der
+Formachse offen (beide Formen, dieselbe Dosis, auf beiden gemessen) - er ist mit den zwei
+Formstaenden jetzt erstmals **in Reichweite**.

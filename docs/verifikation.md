@@ -1949,3 +1949,70 @@ fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in `agent.rs`/`
 **a6a53c95abd7f622** unveraendert. Naechster Schritt: **exp-026** - dieselbe Runde mit
 **formgleicher Wiederholung** als einziger Variable.
 
+## exp-026 - Formgleiche Wiederholung: Ursache aus exp-025 bestaetigt, Runde ANGENOMMEN
+
+**Vorhersage vor dem Lauf.** exp-025 hat als Ursache benannt, dass die Wiederholung (56.800 Saetze)
+die **absolute** Form aus dem Korpus traegt - eine Formrunde **tauscht** deshalb eine Konvention
+gegen die andere. Wenn das stimmt, muss dieselbe Runde mit **formgleicher Wiederholung** den
+Zieltyp heben **und** den Bestand halten, ohne jede Formulierungsaenderung.
+
+**Gebaut.** Schalter `--formgleiche-wiederholung` (`src/cli.rs`, `src/main.rs`,
+`AgentOptions.formreplay`); die reine Funktion `formgleiche_wiederholung` rendert `reparatur` ueber
+`als_delta` und die Wertfragen von `reparatur1` ueber `als_delta_einzeln`, alle uebrigen Typen
+bleiben **byteweise unveraendert**. Log-Zeile der Runde: `FORMGLEICH gerendert - 6250
+reparatur-Faelle und 3180 reparatur1-Wertfragen in der DELTA-Form, 40570 Faelle unveraendert`;
+Nutzlast **16.963.379 -> 17.632.840 B**, Baseline **zeichengleich** zu exp-025.
+
+**Siebter Loop-Defekt, VOR dem Lauf gefunden und behoben.** Der Schalter aenderte die
+Trainingsdaten, ging aber **nicht** in `runden_fingerabdruck` ein - die Runde haette denselben
+Namen getragen wie exp-025 und **dessen Stand ueberschrieben**, obwohl die Registry-Zeile von
+exp-025 auf genau diesen Pfad zeigt (dieselbe Klasse wie D-048 Defekt b). Behoben mit
+`runden_fingerabdruck_mit(.., formreplay)`; das Kennzeichen wird **nur bei gesetztem Schalter**
+angehaengt, damit die drei belegten Namen der Formachse gueltig bleiben (Test
+`formgleiche_wiederholung_steht_im_laufnamen` prueft beides). Neuer Stand
+**78877c318528a5d3**, exp-025 behaelt **cabec2b6e870414a**.
+
+**Ergebnis (GPU, genau eine Variable, Dosis 4800). ANGENOMMEN, einstimmig, beide Panels +0,013.**
+
+| Groesse (erweiterte Delta-Panels, gepoolt) | vorher | nachher | Delta |
+|---|---|---|---|
+| Kopfzahl | 828/960 = 86,25 % | **862/960 = 89,79 %** | +3,54 Pp |
+| inhaltlich | 706/838 = 84,25 % | **740/838 = 88,31 %** | +4,06 Pp |
+| `reparatur1` | 60/122 = 49,2 % | **112/122 = 91,8 %** | +42,6 Pp |
+| `reparatur` (Delta, Bestand) | 113/123 = 91,9 % | **112/123 = 91,1 %** | -0,8 Pp |
+| `regel` | 120/133 = 90,2 % | 107/133 = 80,5 % | -9,8 Pp |
+| `naechste` | 104/121 = 86,0 % | 99/121 = 81,8 % | -4,1 Pp |
+| Regressionsdelta | - | -0,0011 | unkritisch |
+
+Determinismus-Probe byte-identisch, Elternstand unversehrt (`bd72ee18...`). **Formdiagnose**
+(zwei zusaetzliche `--dry-run`-Messungen, weil der Loop die Zerlegung nur fuer den Stand *vor* der
+Runde druckt): `reparatur` Delta **Form kaputt 0/0** gegen **31/26** in exp-025, bei gleicher
+Wertfragen-Guete (53-54 von 56). Der Zielgewinn ist derselbe (+42,6 gegen +43,4 Pp) - **aber der
+Bestand haelt**, weil die Wiederholung die neue Form traegt.
+
+**Der Stand ist nicht in jeder Ansicht besser - ausdruecklich festgehalten.**
+
+| Panelform (gepoolt 2 x 480) | Stand exp-021/024 | Stand exp-026 |
+|---|---|---|
+| urspruengliche Delta-Form | Kopf **874/960 = 91,04 %** | Kopf 857/960 = 89,27 % |
+| erweiterte Delta-Form | Kopf 828/960 = 86,25 % | Kopf **862/960 = 89,79 %** |
+| absolute Form | Kopf 854/960 = 88,96 % | Kopf 832/960 = 86,67 % |
+| `reparatur` absolut | 93/123 = 75,6 % | **87/123 = 70,7 %** (unter der Marke) |
+
+Angenommen wird auf der Form, auf der die Runde misst (D-049), und dort steigt die Kopfzahl um
+3,54 Pp. Bezahlt wurde der Zielgewinn mit `regel` (-9,8 Pp) und `naechste` (-4,1 Pp); beide bleiben
+ueber der 75-%-Marke. **D-047:** auf der erweiterten Delta-Form fehlen **0,21 Pp** zur Kopfmarke
+(SE 0,95 Pp), auf der urspruenglichen 0,73 Pp, **kein Typ unter 75 %** in den Delta-Formen.
+**Nicht erklaert und offen benannt (O-D33):** `regel` faellt zweimal in dieselbe Richtung (-12,0 Pp
+in exp-025, -9,8 Pp in exp-026), obwohl der Typ von der Formachse nicht beruehrt wird.
+
+**Gates.** `cargo fmt --check` gruen; `cargo test` **408 Tests / 0 failed** (314 lib + 94
+Integration, +2 neue); `cargo clippy --all-targets -D warnings` unveraendert 7 Befunde, alle in
+fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in `agent.rs`/`cli.rs`/
+`main.rs`/`seq.rs`; `build --release` und CUDA-Build gruen; `shiro smoke` Digest
+**a6a53c95abd7f622** unveraendert. **Naechster Schritt:** der unerklaerte `regel`-Verlust ist der
+groesste Einzelposten auf der urspruenglichen Form; pruefbar als eine Variable sind (a) ein
+niedrigerer Replay-Anteil (0,20), (b) `regel` als eigener Kontrolltyp der formgleichen
+Wiederholung. Ausserdem ist der **faire Ueberlegenheitstest** der Formachse mit zwei Formstaenden
+jetzt erstmals in Reichweite.
+

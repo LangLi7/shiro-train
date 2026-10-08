@@ -71,6 +71,7 @@ fn real_main() -> Result<()> {
             lr,
             seed,
             ohne_hebel,
+            formreplay,
             dry_run,
         } => cmd_agent(
             &capability,
@@ -84,6 +85,7 @@ fn real_main() -> Result<()> {
             lr,
             seed,
             ohne_hebel,
+            formreplay,
             dry_run,
         ),
         Command::ValidateData => cmd_validate_data(&args),
@@ -2098,6 +2100,7 @@ fn cmd_agent(
     lr: Option<f32>,
     seed: Option<u64>,
     ohne_hebel: bool,
+    formreplay: bool,
     dry_run: bool,
 ) -> Result<()> {
     let pfad = PathBuf::from(format!("configs/capabilities/{capability}.toml"));
@@ -2119,6 +2122,7 @@ fn cmd_agent(
         lr_override: lr,
         seed_override: seed,
         ohne_hebel,
+        formreplay,
         dry_run,
         ..shiro::agent::AgentOptions::default()
     };
