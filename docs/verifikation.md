@@ -2133,3 +2133,88 @@ wuerde das Problem nur verschieben, solange der Korpus die alte Form traegt.
 Befunde; `build --release` und CUDA-Build gruen; `shiro smoke` Digest **a6a53c95abd7f622**
 unveraendert; Doku-Gates 0 Befunde; Register 43 IDs (D-010..D-052), LF-only.
 
+## Runde 29 - Form-Rendering im Korpus (D-053): die Antwortform entsteht beim Bauen
+
+**Auftrag und Ausgangslage.** D-052 (Runde 28) hat gemessen, dass eine **breite Phase** die
+Antwortform **ihres** Korpus uebernimmt: `kombi-step19200` erreicht in der absoluten Form
+91,88 % Kopfzahl, in der Delta-Form 73,39 % inhaltlich und `reparatur` **2 von 123**. Der in
+D-052 benannte naechste Schritt war **Form-Rendering im Korpus**. Der Nutzer hat ihn um eine
+Reihenfolge-Auflage ergaenzt (Mathematik bleibt gesperrt, bis die Konvention festgenagelt und
+der Korpus vollstaendig gemessen ist).
+
+**Gebaut.** `shiro data combine --antwortform <absolut|delta>`. `Antwortform` (`Absolut`
+Vorgabe / `Delta`), `Formwirkung` (`Gerendert` / `SchonDelta` / `NichtBetroffen`) und
+`forme_um_delta(record) -> Result<(Vec<u8>, Formwirkung), String>` in `src/data/seq.rs`; der
+Schalter in `src/cli.rs` (unbekanntes Wort -> Fehler, nicht geraten); der Korpusbau in
+`src/main.rs`. Die Umstellung ist **dieselbe** wie in exp-021/025/026 (`als_delta`,
+`als_delta_einzeln`) - **kein zweiter Umbau**. **Der Unterschied ist die Fehlerbehandlung:**
+`als_delta` gibt `None` zurueck und der Aufrufer *verwirft*; auf Korpusebene waere Verwerfen
+**stiller Datenverlust** (der Datensatz bliebe absolut, der Korpus truege zwei Formen).
+`forme_um_delta` **bricht ab**.
+
+**Familienzugehoerigkeit aus Bytes, gemessen.** Vorpruefung auf die Aufgabenzeile `Folge:`;
+ausgezaehlt an den ausgelieferten Shards: `seq` **50.000 von 50.000**, `logic-large` **0 von
+50.000**, `games` **0 von 40.000**, `format` **0 von 50.000**, `quant` **0 von 30.000**. Ein
+Datensatz **mit** `Folge:`, den der Verifier nicht akzeptiert, bleibt ein Fehler (Test
+`fremde_familie_geht_durch_kaputte_eigene_nicht`).
+
+**Ergebnis (`data/kombi-delta/train`).** `seq` 50.000 Datensaetze, Nutzlast 11.164.275 ->
+**11.833.736 B** (`cd0a49a3`); `quant` 30.000 / 14.279.272 B (`e113c0a1`) und `logic-large`
+50.000 / 17.750.168 B (`9c800a4a`) **byteweise identisch zur Quelle**; GESAMT 130.000
+Datensaetze / **43.863.176 B**, 3 Shards, 75 Aufgaben-Keys. **Formbilanz: 9.430
+umgeschrieben, 0 schon Delta, 120.570 nicht betroffen.** Am **geschriebenen** Shard
+nachgezaehlt: `Form: Aenderung` steht 9.430-mal - **6.250**-mal zweiteilige `reparatur`
+(alle) und **3.180**-mal `reparatur1`-**Wertfragen** (alle); der absolute Korpus traegt bei
+**denselben** 6.250/3.180 **0** Formzeilen. `reparatur1` mischt damit **zwei** Frageformen
+(3.180 Wertfragen, 3.070 Stellenfragen). **Kosten: +71 B je umgeschriebenem Datensatz**
+(+669.461 B).
+
+**Nachweise.** Beide Validatorstufen gruen (`Alle Shards gueltig.`, exit 0). Zweiter Lauf
+**byteidentisch** (Manifest und alle drei Shards). Vorgabe `absolut` **byteidentisch** zum
+Korpus aus Runde 27 - **kein Verhaltenswechsel**. `quant` und `logic-large` byteweise ihre
+Quellen. **Idempotent:** erneutes Rendern meldet `0 umgeschrieben, 9.430 schon Delta` und der
+Shard ist byteidentisch. Fixpunkt am geschriebenen Shard im Programm erzwungen. Unbekannter
+Schalterwert: exit 1 mit Begruendung.
+
+**Drei eigene Fehler in dieser Runde, jeder belegt.** (1) Die erste Fassung liess
+`seq::verify` ueber **jeden** Datensatz laufen und brach an `data/quant/train` Datensatz 1 ab
+(`Datensatz nicht verifizierbar: unbekannte Frage`) - behoben durch die Vorpruefung auf
+`Folge:`. (2) Der erste Lauf brach mit `note darf maximal 8 ASCII-Zeichen haben` ab
+(`NOTE_SIZE = 8`); die Marke nennt jetzt die Form (`"delta"`), nicht die Familie. (3) Der
+Zweig "nichts umgestellt -> byteweise kopieren" war zuerst ein `continue` und haette die
+Per-Familie-Zaehlung uebersprungen (die Ausgabe haette **0 Datensaetze** gemeldet, obwohl der
+Shard dalag) - auf `if/else` umgebaut.
+
+**Nebenbefund, vorbestehend.** `validate-data` meldet fuer denselben Shard **4 B je
+Datensatz weniger** als das Manifest (`seq` 11.633.736 gegen 11.833.736). Ursache im Code:
+`Shard::payload_bytes()` summiert die Datensatzlaengen, `ShardReport::payload_bytes` summiert
+`bytes::payload_len` **ohne die vier Strukturmarken** (`bytes.rs` Z. 85). Nachgeprueft am
+**unveraenderten** Korpus aus Runde 27 (11.164.275 gegen 10.964.275) - **nicht** durch diese
+Runde entstanden. Beide Zahlen sind fuer sich richtig, sie sind nur nicht dieselbe Groesse.
+
+**Nutzerauflage, verbindlich (Protokoll A-F).** (A) Die Output-Konvention des Korpus ist
+festgenagelt, **bevor** Mathematik hineinkommt - mit dieser Runde erfuellt. (B) Der
+kombinierte Korpus wird als **Baseline/Elternstand eingefroren**. (C) Seine Faehigkeiten
+werden **vollstaendig** gemessen: **Held-out je Familie** UND die **Antwortform getrennt**.
+(D) **Erst dann** Mathematik als **klar definierte weitere Familie**. (E) Danach erneut
+Held-out je Familie und Antwortform getrennt. (F) Damit ist *"Mathematik verbessert Algebra,
+ohne `seq`, `quant` und `logic-large` zu beschaedigen"* belegbar statt nur ein Gesamtscore.
+**Mathematik ist gesperrt, bis (C) erfuellt ist.** Festgehalten in
+`docs/trainingsloop-logik-plan.md` Abschnitt 5a und in der Zielsetzung.
+
+**Gates.** `cargo fmt --check` gruen; `cargo test` **413 Tests / 0 failed** (316 lib + 97
+Integration in 14 Suiten; Runde 28: 410/0 - **+2 lib**, **+1 Integration**); `cargo clippy
+--all-targets -D warnings` **unveraendert 7 Befunde, alle fremd** (`src/data/quant.rs` 6,
+`src/probe.rs` 1); `cargo build --release` gruen; `shiro smoke` Digest **a6a53c95abd7f622**
+unveraendert; `check-table-pipes` 123 Dateien / 0 zerbrochene Tabellenzeilen,
+`check-doc-links` 0 tote Links, `lernstufen-check`, `programmiersprachen-check`,
+`seq-korpus-check` alle exit 0; angenommener Elternstand `.state` unveraendert
+(`bd72ee187e44b0fc8cb54090533710312a49daf7c119a06fc121968dc20ebc66`); **kein Trainingslauf,
+keine GPU-Zeit** in dieser Runde.
+
+**Registerintegritaet, gemessen.** 43 Registerzeilen, alle eindeutig: D-010, D-013..D-041,
+**D-041a**, D-042..**D-053**. Die Nummern **D-011 und D-012 kommen nicht vor**. (Der
+Runde-28-Block nennt an dieser Stelle "43 IDs (D-010..D-052)" - das waren damals **42**
+Zeilen; die Zahl hier ist am Dateiinhalt nachgezaehlt, nicht fortgeschrieben.) Zeilenenden der
+Registerdatei und des Experiment-Logs: LF-only, kein BOM; dieser Block ist CRLF wie die
+Datei.

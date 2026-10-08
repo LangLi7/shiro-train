@@ -3793,3 +3793,125 @@ alle in fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in `age
 `main.rs`/`seq.rs`; `build --release` und CUDA-Build gruen; `shiro smoke` Digest
 **a6a53c95abd7f622** unveraendert; Doku-Gates (check-table-pipes, check-doc-links, lernstufen,
 programmiersprachen) 0 Befunde; Register 42 IDs (D-010..D-051), LF-only.
+
+## Runde 29 - Die Antwortform wird eine KORPUS-Eigenschaft: Form-Rendering beim Bauen (D-053)
+
+**Anlass.** Runde 28 hat gemessen, dass eine **breite Phase** die Antwortform **ihres Korpus**
+uebernimmt und die andere Konvention ueberschreibt (`kombi-step19200`: absolute Panels 91,88 %
+Kopfzahl, Delta-Panels 73,39 % inhaltlich und `reparatur` **2 von 123**). Daraus folgt die
+Registerzeile **D-052**: die Form gehoert dem **Korpus**, nicht der Runde. Der in D-052 und
+`docs/kombi-korpus.md` §7 benannte naechste Schritt war deshalb **Form-Rendering im Korpus** -
+und genau er ist diese Runde.
+
+**Nutzerauflage (Runde 29), woertlich:** *"Mathematik wuerde ich trotzdem nicht voreilig mit
+hineinwerfen ... ich wuerde vor dem Mathematiklauf einen Punkt explizit festnageln: Was soll der
+kombinierte Korpus als Output-Konvention lehren? ... Daher waere ein sauberer naechster Zustand:
+kombinierten Korpus als Baseline/Elternstand einfrieren, seine aktuellen Faehigkeiten vollstaendig
+messen, Mathematik als eine klar definierte zusaetzliche Familie hinzufuegen, wieder Held-out pro
+Familie messen, zusaetzlich die Antwortform getrennt messen."* Das Protokoll ist als **(A)-(F)**
+in `docs/trainingsloop-logik-plan.md` Abschnitt 5a festgehalten und in der Zielsetzung verankert.
+Mathematik bleibt damit **gesperrt bis (C) erfuellt ist**.
+
+### Gebaut: `shiro data combine --antwortform <absolut|delta>`
+
+| Teil | Ort | Was es tut |
+|---|---|---|
+| `Antwortform` | `src/data/seq.rs` | `Absolut` (Vorgabe) / `Delta`, `key()`, `parse()` |
+| `forme_um_delta` | `src/data/seq.rs` | stellt **einen** Datensatz um, gibt `(Vec<u8>, Formwirkung)` oder `Err` |
+| `Formwirkung` | `src/data/seq.rs` | `Gerendert` / `SchonDelta` / `NichtBetroffen` |
+| Schalter | `src/cli.rs` | `--antwortform`, geprueft statt geraten (unbekanntes Wort -> Fehler) |
+| Korpusbau | `src/main.rs` | delta-Zweig schreibt neu, kopiert unberuehrte Shards **byteweise**, Fixpunkt-Gegenprobe, **Formbilanz** |
+
+Die Umstellung selbst ist **dieselbe** wie in exp-021/025/026 (`als_delta`, `als_delta_einzeln`) -
+es gibt keinen zweiten Umbau, der von der geprueften Fassung auseinanderlaufen koennte.
+**Der Unterschied ist die Fehlerbehandlung:** `als_delta` gibt `None` zurueck und der Aufrufer
+*verwirft*; auf Korpusebene waere Verwerfen **stiller Datenverlust** - der Datensatz bliebe
+absolut im Korpus und der Korpus truege **zwei** Antwortformen. `forme_um_delta` meldet den Fall
+deshalb als **Fehler** und bricht den Korpusbau ab.
+
+### Drei eigene Fehler in dieser Runde, jeder mit Beleg
+
+1. **Der Verifier lief ueber jede fremde Familie.** Die erste Fassung rief `seq::verify` fuer
+   **jeden** Datensatz auf und brach an `data/quant/train` ab:
+   `FEHLER: data/quant/train/shard-0000.bin Datensatz 1: Datensatz nicht verifizierbar:
+   unbekannte Frage`. Ursache: der `seq`-Verifier ist nur fuer die **eigene** Familie zustaendig.
+   **Korrektur:** die Familienzugehoerigkeit wird **aus Bytes** entschieden, ueber die
+   Aufgabenzeile `Folge:`. **Gemessen, dass sie die Familie trennt** (ausgezaehlt an den
+   ausgelieferten Shards): `seq` **50.000 von 50.000**, `logic-large` **0 von 50.000**, `games`
+   **0 von 40.000**, `format` **0 von 50.000**, `quant` **0 von 30.000**. Ein Datensatz **mit**
+   `Folge:`, den der Verifier nicht akzeptiert, bleibt weiterhin ein Fehler (Test).
+2. **Der Shard-Kopf hat nur 8 Zeichen.** Der erste Lauf brach ab mit
+   `FEHLER: note darf maximal 8 ASCII-Zeichen haben` (`NOTE_SIZE = 8`). Meine erste Marke
+   `"<familie> (Antwortform delta)"` war 28 Zeichen. **Korrektur:** die Marke nennt jetzt die
+   **Form** (`"delta"`), nicht die Familie - die Familie steht im Dateinamen, und laut D-052 ist
+   die Form die Angabe, die **immer** mitgenannt werden muss.
+3. **Ein `continue` haette die Bilanz uebersprungen.** Der Zweig "nichts umgestellt -> byteweise
+   kopieren" war zuerst als `continue` gebaut und haette die Per-Familie-Zaehlung
+   (`rec_quelle`, `pay_quelle`) uebersprungen - die Ausgabe haette **0 Datensaetze** gemeldet,
+   obwohl der Shard dalag. Beim Lesen des eigenen Codes gefunden und auf `if/else` umgebaut
+   (dieselbe Fehlerklasse wie der Dosis-No-op: eine Zahl, die nicht das beschreibt, was lief).
+
+### Ergebnis (gemessen, nicht behauptet)
+
+```text
+shiro data combine --src data/seq/train --src data/quant/train --src data/logic-large/train \
+    --out data/kombi-delta/train --antwortform delta
+```
+
+| Familie | Datensaetze | Nutzlast (absolut) | Nutzlast (delta) | Pruefsumme |
+|---|---|---|---|---|
+| `seq` | 50.000 | 11.164.275 B | **11.833.736 B** | `cd0a49a3` |
+| `quant` | 30.000 | 14.279.272 B | 14.279.272 B (**byteweise gleich**) | `e113c0a1` |
+| `logic-large` | 50.000 | 17.750.168 B | 17.750.168 B (**byteweise gleich**) | `9c800a4a` |
+| **GESAMT** | **130.000** | 43.193.715 B | **43.863.176 B** | 3 Shards, 75 Keys |
+
+**Formbilanz (ausgegeben und am Shard nachgezaehlt): 9.430 umgeschrieben, 0 schon Delta,
+120.570 nicht betroffen.** Die Gegenprobe am **geschriebenen** Shard ergibt genau dieselbe Zahl:
+`Form: Aenderung` steht **9.430**-mal in der Aufgabenzeile, und zwar **6.250**-mal bei der
+zweiteiligen `reparatur` (alle 6.250) und **3.180**-mal bei den `reparatur1`-**Wertfragen**
+(alle 3.180). Der **absolute** Korpus traegt bei **denselben** 6.250 und 3.180 Datensaetzen
+**0** Formzeilen. Damit ist belegt: die Formachse trifft **genau** die Aufgaben mit einem
+absoluten Wert - und `reparatur1` mischt **zwei** Frageformen (3.180 Wertfragen, 3.070
+Stellenfragen), wie exp-025 vorhergesagt hat.
+
+**Kosten der Umstellung:** +669.461 B im `seq`-Shard = **+71 B je umgeschriebenem Datensatz**.
+Das ist die Formzeile `Form: Aenderung` plus die verlaengerte Frage, gegen eine um rund 2 Byte
+kuerzere Antwort. Der Korpus wird also **nicht kleiner** - der kleinere **Antwortraum** (18 statt
+rund 20.000) senkt die Nutzlast nicht, weil die Form **benannt** werden muss (D-049).
+
+### Nachweise
+
+| Nachweis | Ergebnis |
+|---|---|
+| beide Validatorstufen (`validate-data`) | **gruen**, `Alle Shards gueltig.`, exit 0 |
+| zweiter Delta-Lauf | **byteidentisch** (Manifest + alle drei Shards) |
+| Vorgabe `absolut` gegen `data/kombi/train` (Runde 27) | **byteidentisch** - kein Verhaltenswechsel |
+| fremde Familien | `quant` und `logic-large` **byteweise identisch** zur Quelle |
+| Idempotenz | erneutes Rendern: **0 umgeschrieben, 9.430 schon Delta**, Shard byteidentisch |
+| Fixpunkt am geschriebenen Shard | jede umgeschriebene Antwort traegt die Formzeile (im Programm erzwungen) |
+| unbekannter Schalterwert | exit 1, `unbekannte Antwortform ... erlaubt sind absolut und delta` |
+
+### Befund zur Zahl "Nutzbytes" - zwei verschiedene Groessen unter einem Namen
+
+`validate-data` meldet fuer den Delta-Korpus `seq` **11.633.736** Nutzbytes, das Manifest
+**11.833.736** `payload_bytes`. Die Differenz ist **genau 200.000 = 50.000 x 4** (bei `quant`
+120.000 = 30.000 x 4). Ursache, im Code nachgelesen: `Shard::payload_bytes()` summiert die
+**Datensatzlaengen** (`format.rs` Z. 123), `ShardReport::payload_bytes` summiert
+`bytes::payload_len` (`validate_shard`, Z. 255) - und `payload_len` zaehlt die vier Strukturmarken
+`<AUFGABE>`, `<DENKWEG>`, `<ANTWORT>`, `<ENDE>` **nicht** mit (`bytes.rs` Z. 85).
+**Das ist vorbestehend und nicht durch diese Runde entstanden:** nachgeprueft am **unveraenderten**
+Korpus aus Runde 27 (`seq` Manifest 11.164.275 gegen Validator 10.964.275). Beide Zahlen sind
+fuer sich richtig; sie sind nur **nicht dieselbe Groesse**, und die Dokumentation nennt
+durchgehend die Manifest-Zahl.
+
+### Gates
+
+`cargo fmt --check` **gruen**; `cargo test` **413 Tests / 0 failed** (316 lib + 97 Integration
+in 14 Suiten; Runde 28: 410/0, also **+2 lib** durch die zwei neuen Modultests in `seq.rs` und
+**+1 Integration** durch `combine_setzt_die_antwortform_des_korpus` in `tests/kombi.rs`);
+`cargo clippy --all-targets -D warnings` **unveraendert 7 Befunde, alle in fremden Dateien**
+(`src/data/quant.rs` 6, `src/probe.rs` 1) - keine in den geaenderten Dateien; `cargo build
+--release` gruen; `shiro smoke` Digest **a6a53c95abd7f622** unveraendert; Doku-Gates
+`check-table-pipes` (123 Dateien, 0 zerbrochene Tabellenzeilen), `check-doc-links` (0 tote Links),
+`lernstufen-check`, `programmiersprachen-check`, `seq-korpus-check` alle exit 0; der angenommene
+Elternstand `.state` **unveraendert** (`bd72ee18...`), kein Trainingslauf, keine GPU-Zeit.

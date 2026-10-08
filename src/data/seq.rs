@@ -2095,6 +2095,130 @@ pub fn als_delta_einzeln(record: &[u8]) -> Option<Vec<u8>> {
     }
 }
 
+/// Die **Antwortform eines Korpus** (**D-052**: die Form gehoert dem Korpus,
+/// nicht der Runde).
+///
+/// Die Achse ist gemessen und nicht geschmacklich: derselbe Stand erreicht auf
+/// der Delta-Form `reparatur` 91,9 % und auf der absoluten 75,6 % (D-049), und
+/// eine breite Phase-Runde uebernimmt die Form **ihres Korpus** und ueberschreibt
+/// die andere Konvention (Runde 28, D-052). Deshalb ist die Form eine Eigenschaft
+/// des Korpus und wird beim **Bauen** des Korpus gesetzt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Antwortform {
+    /// Absolute Werte (`Stelle 5: 4096`) - die Form, in der die vorhandenen
+    /// Korpora gebaut sind. Die Vorgabe: ein `combine` ohne Schalter kopiert
+    /// die Shards **byteweise** und aendert nichts.
+    #[default]
+    Absolut,
+    /// Die Aenderung (`Stelle 5: +7`, Zeile `Form: Aenderung`) - die Konvention
+    /// aus D-049.
+    Delta,
+}
+
+impl Antwortform {
+    /// Schluesselwort fuer die Kommandozeile und die Ausgabe.
+    pub fn key(self) -> &'static str {
+        match self {
+            Antwortform::Absolut => "absolut",
+            Antwortform::Delta => "delta",
+        }
+    }
+
+    /// Liest den Schalterwert; `None` bei unbekanntem Wort.
+    pub fn parse(text: &str) -> Option<Antwortform> {
+        match text {
+            "absolut" | "absolute" => Some(Antwortform::Absolut),
+            "delta" | "aenderung" => Some(Antwortform::Delta),
+            _ => None,
+        }
+    }
+}
+
+/// Was die Formumstellung mit **einem** Datensatz gemacht hat (D-053).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Formwirkung {
+    /// Der Datensatz trug einen absoluten Wert und wurde auf die Aenderung
+    /// umgeschrieben.
+    Gerendert,
+    /// Der Datensatz trug die Delta-Form bereits (Zeile `Form: Aenderung`) und
+    /// wurde byteweise uebernommen - die Umstellung ist **idempotent**.
+    SchonDelta,
+    /// Der Datensatz gehoert nicht zur Formachse: eine andere Familie, oder eine
+    /// `reparatur1`-**Stellenfrage**, die gar keinen absoluten Wert traegt.
+    NichtBetroffen,
+}
+
+/// Stellt **einen** Datensatz auf die Delta-Form um - dieselbe Umstellung wie
+/// in exp-021/025/026, nur auf **Korpusebene** (D-052: die Antwortform gehoert
+/// dem Korpus, nicht der Runde).
+///
+/// Aufgebaut auf [`als_delta`] und [`als_delta_einzeln`], also **derselben**
+/// Rechnung und **demselben** Verifier - es gibt keine zweite Umstellung, die
+/// von der geprueften auseinanderlaufen koennte.
+///
+/// **Der Unterschied zu `als_delta` ist die Fehlerbehandlung, und sie ist der
+/// Punkt.** `als_delta` gibt `None` zurueck und der Aufrufer *verwirft*. Auf
+/// Korpusebene waere Verwerfen **stiller Datenverlust**: der Datensatz traegt
+/// einen absoluten Wert, bliebe also in der absoluten Form im Korpus, und der
+/// Korpus truege **zwei** Antwortformen. Genau das ist der gemessene Fehler aus
+/// exp-025 (dort auf Rundeneinstellung, hier auf Korpusebene). Der Fall ist
+/// deshalb ein Fehler nach aussen ([`Err`]) und kein stilles Behalten.
+pub fn forme_um_delta(record: &[u8]) -> Result<(Vec<u8>, Formwirkung), String> {
+    let task = task_in(record);
+    // **Gehoert der Datensatz ueberhaupt zur Zahlenfolgen-Familie?** Die
+    // Entscheidung faellt aus Bytes, nicht aus dem Ordnernamen: die
+    // Aufgabenzeile `Folge:` gibt es **nur** in dieser Familie. Nachgezaehlt an
+    // den ausgelieferten Korpora: `seq` 50.000 von 50.000, `logic-large` 0 von
+    // 50.000, `games` 0 von 40.000, `format` 0 von 50.000, `quant` 0 von 30.000.
+    //
+    // Ohne diese Vorpruefung liefe der `seq`-Verifier ueber **jeden** Datensatz
+    // des Korpus und wuerde an jeder fremden Familie mit `unbekannte Frage`
+    // scheitern - der gemessene Grund, warum die erste Fassung dieser Funktion
+    // an `data/quant/train` abgebrochen ist. Ein Datensatz **mit** `Folge:`, den
+    // der Verifier nicht akzeptiert, ist dagegen ein echter Fehler und wird
+    // weiterhin gemeldet.
+    if zeile(&task, "Folge:").is_none() {
+        return Ok((record.to_vec(), Formwirkung::NichtBetroffen));
+    }
+    // **Erst verifizieren, dann umstellen.** Ein Datensatz, den der Verifier
+    // nicht akzeptiert, ist in keiner Form brauchbar - und die Delta-Form wird
+    // vom Verifier in beide Richtungen geprueft (`w - s[p]`).
+    let v = verify(record).map_err(|e| format!("Datensatz nicht verifizierbar: {e}"))?;
+    // Die Form steht als Zeile IM Datensatz. Ein bereits umgestellter Datensatz
+    // wird deshalb nicht zweimal gerechnet: die Idempotenz folgt aus der
+    // Struktur, nicht aus dem Zufall.
+    if ist_delta_form(&task) {
+        return Ok((record.to_vec(), Formwirkung::SchonDelta));
+    }
+    match v.category {
+        Category::Reparatur => match als_delta(record) {
+            Some(neu) => Ok((neu, Formwirkung::Gerendert)),
+            None => Err(
+                "zweitielige `reparatur` traegt einen absoluten Wert, der sich nicht \
+                 umstellen laesst (eindeutige Reparatur nicht nachrechenbar)"
+                    .to_string(),
+            ),
+        },
+        Category::ReparaturEinzeln => {
+            // Die **Stellenfrage** nennt keine Zahl; sie ist von der Formachse
+            // nicht betroffen und bleibt byteweise stehen.
+            if !ist_wertfrage(record) {
+                return Ok((record.to_vec(), Formwirkung::NichtBetroffen));
+            }
+            match als_delta_einzeln(record) {
+                Some(neu) => Ok((neu, Formwirkung::Gerendert)),
+                None => Err(
+                    "`reparatur1`-Wertfrage traegt einen absoluten Wert, der sich nicht \
+                     umstellen laesst"
+                        .to_string(),
+                ),
+            }
+        }
+        // Alle uebrigen Familien tragen keinen absoluten Reparaturwert.
+        _ => Ok((record.to_vec(), Formwirkung::NichtBetroffen)),
+    }
+}
+
 /// Die eindeutige Minimalreparatur einer Folge; `None`, wenn es nicht genau
 /// eine gibt. Dieselbe erschoepfende Suche wie im Verifier - eine Quelle.
 fn eindeutige_reparatur(s: &[Option<i64>], regel: Regel) -> Option<(usize, i64)> {
@@ -2765,5 +2889,103 @@ mod tests {
             "Datensatz zu lang: {}",
             g.max_record_len()
         );
+    }
+
+    /// **Die Formumstellung auf Korpusebene (D-053).** Geprueft wird genau das,
+    /// was eine Phase traegt: jede `reparatur`-Antwort nennt die Aenderung, jede
+    /// andere Aufgabe bleibt byteweise stehen - und die Umstellung ist
+    /// **idempotent**, weil die Form als Zeile im Datensatz steht.
+    #[test]
+    fn formumstellung_trifft_nur_die_reparatur_familie() {
+        let g = probe(600);
+        let mut gerendert = 0usize;
+        let mut unberuehrt = 0usize;
+        for r in g.train.iter().chain(g.val.iter()) {
+            let (neu, wirkung) = forme_um_delta(&r.record).expect("Umstellung");
+            // **Erst die Umstellung, dann die Umstellung der Umstellung:** das
+            // Ergebnis muss ein Fixpunkt sein. Genau diese Eigenschaft traegt die
+            // Zusage, dass eine zweite Phase den Korpus nicht weiter veraendert.
+            let (nochmal, wirkung2) = forme_um_delta(&neu).expect("zweite Umstellung");
+            assert_eq!(nochmal, neu, "die Umstellung ist nicht idempotent");
+            // Ein umgestellter Datensatz traegt die Formzeile jetzt; ein
+            // unberuehrter bleibt unberuehrt - er wird nicht nachtraeglich
+            // umgestellt.
+            let erwartet2 = match wirkung {
+                Formwirkung::Gerendert => Formwirkung::SchonDelta,
+                andere => andere,
+            };
+            assert_eq!(wirkung2, erwartet2, "zweite Umstellung aendert die Wirkung");
+            // **Die Laenge wird gemessen, nicht behauptet.** Die Formzeile und
+            // die verlaengerte Frage kommen hinzu, die Antwort wird kuerzer -
+            // das Ergebnis muss aber im Datenformat bleiben.
+            assert!(
+                neu.len() < crate::data::format::MAX_RECORD_LEN,
+                "umgestellter Datensatz zu lang: {}",
+                neu.len()
+            );
+            match wirkung {
+                Formwirkung::Gerendert => {
+                    gerendert += 1;
+                    // Die Antwort nennt die Aenderung, nicht den Zielwert - und
+                    // zwar in der Form ihrer Kategorie: `reparatur` zweiteilig
+                    // (`Stelle 5: +7`), `reparatur1` **ein** Feld (`+7`).
+                    let antwort = neu
+                        .split(|b| *b == crate::data::bytes::B_ANSWER)
+                        .nth(1)
+                        .expect("Antwortfeld");
+                    let text = String::from_utf8_lossy(antwort);
+                    let text = text.trim_end_matches(['\u{fffd}', '\u{feff}']).to_string();
+                    let hat_vorzeichen = text
+                        .as_bytes()
+                        .windows(2)
+                        .any(|w| (w[0] == b'+' || w[0] == b'-') && w[1].is_ascii_digit());
+                    assert!(hat_vorzeichen, "Antwort ist nicht die Aenderung: {text:?}");
+                    match r.category {
+                        Category::Reparatur => assert!(
+                            text.starts_with("Stelle ") && text.contains(": "),
+                            "zweiteilige Antwort erwartet: {text:?}"
+                        ),
+                        Category::ReparaturEinzeln => {
+                            assert!(!text.contains(':'), "reparatur1 hat EIN Feld: {text:?}")
+                        }
+                        andere => panic!("unerwartete Kategorie umgestellt: {andere:?}"),
+                    }
+                    assert!(ist_delta_form(&task_in(&neu)), "Formzeile fehlt");
+                }
+                Formwirkung::NichtBetroffen | Formwirkung::SchonDelta => {
+                    unberuehrt += 1;
+                    assert_eq!(neu, r.record, "unberuehrter Datensatz wurde geaendert");
+                }
+            }
+        }
+        assert!(gerendert > 0, "kein einziger Datensatz umgestellt");
+        assert!(unberuehrt > 0, "die anderen Typen fehlen in der Probe");
+        // Die Probe traegt acht Typen zu gleichen Teilen; die Formachse trifft
+        // **zwei** davon (`reparatur` ganz, `reparatur1` nur die Wertfrage).
+        assert!(
+            gerendert < unberuehrt,
+            "die Formachse darf nicht die Mehrheit der Typen treffen"
+        );
+    }
+
+    /// **Eine fremde Familie darf nicht scheitern - und eine kaputte eigene
+    /// schon.** Die erste Fassung dieser Funktion liess den `seq`-Verifier ueber
+    /// **jeden** Datensatz laufen und brach an `data/quant/train` mit
+    /// `unbekannte Frage` ab; die Vorpruefung auf die Aufgabenzeile `Folge:` ist
+    /// die Korrektur. Sie darf aber keine echte Beschaedigung durchlassen.
+    #[test]
+    fn fremde_familie_geht_durch_kaputte_eigene_nicht() {
+        // (a) Ein Datensatz ohne die Aufgabenzeile `Folge:` gehoert nicht zur
+        // Zahlenfolgen-Familie und wird **byteweise** durchgereicht.
+        let fremd = b"\xfeFormel: P(a) -> Q(a)\nFrage: Folgt Q(a)?\xfdDenkweg\xfcja\xff".to_vec();
+        let (neu, wirkung) = forme_um_delta(&fremd).expect("fremde Familie");
+        assert_eq!(wirkung, Formwirkung::NichtBetroffen);
+        assert_eq!(neu, fremd);
+
+        // (b) Ein Datensatz MIT `Folge:`, den der Verifier nicht akzeptiert, ist
+        // ein echter Fehler - er wird nicht stillschweigend uebernommen.
+        let kaputt = b"\xfeFolge: 1, 2, 3\nFrage: Welche Zahl fehlt?\xfdDenkweg\xfc2\xff".to_vec();
+        let e = forme_um_delta(&kaputt);
+        assert!(e.is_err(), "kaputte eigene Aufgabe muss auffallen");
     }
 }

@@ -58,7 +58,11 @@ fn real_main() -> Result<()> {
         Command::GenerateGames { opts } => cmd_generate_games(&opts),
         Command::GenerateFormat { opts } => cmd_generate_format(&opts),
         Command::GenerateQuant { opts } => cmd_generate_quant(&opts),
-        Command::Combine { sources, out_dir } => cmd_data_combine(&sources, &out_dir),
+        Command::Combine {
+            sources,
+            out_dir,
+            antwortform,
+        } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::Agent {
             capability,
@@ -1156,7 +1160,8 @@ fn write_seq_jsonl(path: &std::path::Path, records: &[seq::GenRecord]) -> Result
 /// Antwort aus dem geschlossenen Regelkatalog neu. Die beiden Nutzerbeispiele
 /// sind direkt enthalten: `1, 2, 3, 5, 6` (Luecke, Regel genannt) und
 /// `1, 2, 4, 8` (naechstes Glied beim Faktor 2).
-/// **Mehrere Familien in EIN Manifest** (n5, D-051).
+/// **Mehrere Familien in EIN Manifest** (n5, D-051) und die **Antwortform als
+/// Korpus-Eigenschaft** (D-052, D-053).
 ///
 /// Gemessener Anlass (O-D21): das sequenz-spezialisierte Modell ist auf der
 /// Additionsfamilie **schlechter als die untrainierte Baseline** (PPL 351 ->
@@ -1170,8 +1175,20 @@ fn write_seq_jsonl(path: &std::path::Path, records: &[seq::GenRecord]) -> Result
 /// Zahlen sind am Ziel nachgemessen, nicht behauptet. Die Shard-Dateien werden
 /// nach ihrer Herkunft umbenannt (`<familie>-<name>`), weil die Generatoren alle
 /// `shard-0000.bin` heissen und sich sonst gegenseitig ueberschreiben wuerden.
-fn cmd_data_combine(sources: &[PathBuf], out_dir: &Path) -> Result<()> {
+///
+/// Mit `--antwortform delta` wird **jeder** Datensatz zusaetzlich durch
+/// `seq::forme_um_delta` gefuehrt: die `reparatur`-Antworten nennen dann die
+/// Aenderung statt des absoluten Werts. Die Shards werden dabei **neu
+/// geschrieben** (die Nutzlast aendert sich - ein absoluter Wert ist laenger als
+/// eine Aenderung). Die Vorgabe `absolut` kopiert byteweise; der vorhandene
+/// Korpus `data/kombi/train` bleibt damit unveraendert reproduzierbar.
+fn cmd_data_combine(
+    sources: &[PathBuf],
+    out_dir: &Path,
+    antwortform: shiro::data::seq::Antwortform,
+) -> Result<()> {
     use shiro::data::manifest::Manifest;
+    use shiro::data::seq::{Formwirkung, forme_um_delta};
     if sources.len() < 2 {
         shiro::error::bail!(
             "`data combine` braucht mindestens zwei Quellkorpora (`--src <ordner>`)"
@@ -1189,9 +1206,24 @@ fn cmd_data_combine(sources: &[PathBuf], out_dir: &Path) -> Result<()> {
     );
     let mut entries: Vec<shiro::data::manifest::ShardEntry> = Vec::new();
     let mut naechste_id: u32 = 0;
+    // **Die Formbilanz** - was die Umstellung mit dem Korpus gemacht hat. Ohne
+    // diese Zahlen waere nicht nachpruefbar, ob wirklich umgestellt wurde oder
+    // nur der Schalter gesetzt war (die Lehre aus den Loop-Defekten D-048).
+    let mut bilanz_gerendert = 0u64;
+    let mut bilanz_schon_delta = 0u64;
+    let mut bilanz_unberuehrt = 0u64;
 
     println!("Kombinierter Korpus (n5, D-051)");
     println!("Quellen      : {}", sources.len());
+    println!(
+        "Antwortform  : {} ({})",
+        antwortform.key(),
+        if antwortform == shiro::data::seq::Antwortform::Absolut {
+            "Shards werden byteweise kopiert"
+        } else {
+            "reparatur wird auf die Aenderung umgestellt"
+        }
+    );
     for src in sources {
         let manifest_pfad = src.join("manifest.json");
         if !manifest_pfad.is_file() {
@@ -1235,8 +1267,90 @@ fn cmd_data_combine(sources: &[PathBuf], out_dir: &Path) -> Result<()> {
                     nach.display()
                 );
             }
-            std::fs::copy(&von, &nach)
-                .map_err(|e| shiro::error::anyhow!("Shard kopieren {}: {e}", von.display()))?;
+            // **Die Antwortform wird beim BAUEN gesetzt** (D-052/D-053), nicht in
+            // der Runde. `absolut` kopiert byteweise - nur so bleibt der
+            // vorhandene Korpus `data/kombi/train` unveraendert reproduzierbar.
+            if antwortform == shiro::data::seq::Antwortform::Absolut {
+                std::fs::copy(&von, &nach)
+                    .map_err(|e| shiro::error::anyhow!("Shard kopieren {}: {e}", von.display()))?;
+            } else {
+                let quelle_shard = format::read_shard(&von)?;
+                let mut neu: Vec<Vec<u8>> = Vec::with_capacity(quelle_shard.records.len());
+                // Welche Datensaetze wirklich umgeschrieben wurden - nur an
+                // DIESEN wird unten die geschriebene Datei gegengeprueft.
+                let mut gerendert: Vec<usize> = Vec::new();
+                for (i, rec) in quelle_shard.records.iter().enumerate() {
+                    let (r, wirkung) = forme_um_delta(rec).map_err(|e| {
+                        shiro::error::anyhow!(
+                            "{} Datensatz {}: {e} - der Korpus truege sonst zwei Antwortformen",
+                            von.display(),
+                            i + 1
+                        )
+                    })?;
+                    match wirkung {
+                        Formwirkung::Gerendert => {
+                            bilanz_gerendert += 1;
+                            gerendert.push(i);
+                        }
+                        Formwirkung::SchonDelta => bilanz_schon_delta += 1,
+                        Formwirkung::NichtBetroffen => bilanz_unberuehrt += 1,
+                    }
+                    neu.push(r);
+                }
+                // **Nur schreiben, wenn die Formachse diesen Shard wirklich
+                // beruehrt.** Ein Shard ohne umgestellten Datensatz wird
+                // **byteweise kopiert** - damit ist nachweisbar, dass fremde
+                // Familien unberuehrt bleiben (Kopf und Note eingeschlossen), und
+                // es wird nicht ohne Anlass ueber 100.000 Datensaetze neu
+                // geschrieben.
+                if gerendert.is_empty() {
+                    std::fs::copy(&von, &nach).map_err(|e| {
+                        shiro::error::anyhow!("Shard kopieren {}: {e}", von.display())
+                    })?;
+                } else {
+                    // **Die Marke im Shard-Kopf nennt die Form, nicht die
+                    // Familie.** Der Kopf hat nur `NOTE_SIZE` = 8 ASCII-Zeichen;
+                    // die Familie steht im Dateinamen
+                    // (`<familie>-shard-0000.bin`). Die Form ist die Angabe, die
+                    // laut D-052 **immer** mitgenannt werden muss - wer einen
+                    // Shard ohne Kontext in der Hand haelt, muss sehen koennen,
+                    // welche Antwortform er traegt.
+                    format::write_shard(&nach, &neu, "delta")?;
+                    // **Gegenprobe an den GESCHRIEBENEN Bytes**, nicht an den
+                    // gerechneten. Der Shard wird zurueckgelesen und muss ein
+                    // FIXPUNKT der Umstellung sein: jede umgeschriebene Antwort
+                    // traegt die Zeile `Form: Aenderung`. Bliebe eine absolut,
+                    // truege der Korpus zwei Formen - genau der Fehler aus
+                    // exp-025, hier auf Korpusebene.
+                    let zurueck = format::read_shard(&nach)?;
+                    if zurueck.records.len() != neu.len() {
+                        shiro::error::bail!(
+                            "{}: {} Datensaetze geschrieben, {} gelesen",
+                            nach.display(),
+                            neu.len(),
+                            zurueck.records.len()
+                        );
+                    }
+                    for (a, b) in zurueck.records.iter().zip(neu.iter()) {
+                        if a != b {
+                            shiro::error::bail!(
+                                "{}: ein Datensatz ist nicht byteweise angekommen",
+                                nach.display()
+                            );
+                        }
+                    }
+                    for i in &gerendert {
+                        let rec = &zurueck.records[*i];
+                        if !shiro::data::seq::ist_delta_form(&shiro::data::seq::task_in(rec)) {
+                            shiro::error::bail!(
+                                "{} Datensatz {} ist auch nach der Umstellung noch absolut",
+                                nach.display(),
+                                i + 1
+                            );
+                        }
+                    }
+                }
+            }
             // **Neu gemessen am Ziel**, nicht aus dem Quellmanifest uebernommen.
             let raw = std::fs::read(&nach)?;
             let shard = format::read_shard(&nach)?;
@@ -1275,6 +1389,12 @@ fn cmd_data_combine(sources: &[PathBuf], out_dir: &Path) -> Result<()> {
         "Aufgaben-Keys: {} (bei Namensgleichheit addiert)",
         manifest.tasks.len()
     );
+    if antwortform == shiro::data::seq::Antwortform::Delta {
+        println!(
+            "Formbilanz   : {bilanz_gerendert} umgeschrieben, {bilanz_schon_delta} schon Delta, \
+             {bilanz_unberuehrt} nicht betroffen"
+        );
+    }
     println!("Manifest     : {}", out_dir.join("manifest.json").display());
     println!(
         "Pruefen      : SHIRO_DATA={} shiro validate-data",

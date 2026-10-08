@@ -338,6 +338,52 @@ verifizierbar; "Math Basic" ist teils reines Rechnen und liegt im Projekt schon 
 `data/add`/`data/seq` vor. Die Verifier-Regel bleibt unveraendert: **ohne externen
 Pruefer kein Trainingsziel** (Roadmap Z. 539).
 
+### 5a Die Vorbedingung vor JEDER Mathematik (Nutzerauflage, Runde 29)
+
+Die Reihenfolge oben sagt **was** kommt, aber nicht **wann es reif ist**. Der
+Nutzer hat die Vorbedingung woertlich festgelegt:
+
+> **"Mathematik wuerde ich trotzdem nicht voreilig mit hineinwerfen ... ich wuerde
+> vor dem Mathematiklauf einen Punkt explizit festnageln: Was soll der kombinierte
+> Korpus als Output-Konvention lehren? Denn wenn Mathematik jetzt mit einer
+> weiteren eigenen Antwortform hineinkommt, koennt ihr euch spaeter wieder fragen:
+> Ist die Verbesserung/Verschlechterung mathematisches Lernen oder nur ein Wechsel
+> der bevorzugten Ausgabeform? ... Daher waere ein sauberer naechster Zustand:
+> kombinierten Korpus als Baseline/Elternstand einfrieren, seine aktuellen
+> Faehigkeiten vollstaendig messen, Mathematik als eine klar definierte zusaetzliche
+> Familie hinzufuegen, wieder Held-out pro Familie messen, zusaetzlich die
+> Antwortform getrennt messen."**
+
+Daraus folgt ein **Protokoll in sechs Schritten**. Mathematik ist **gesperrt**, bis
+(A) bis (C) erfuellt sind:
+
+| # | Schritt | Stand |
+|---|---|---|
+| **A** | Die **Output-Konvention** des Korpus ist festgenagelt, **bevor** Mathematik hineinkommt | **erfuellt** (D-053: `--antwortform absolut\|delta`, Delta gerendert) |
+| **B** | Der kombinierte Korpus ist als **Baseline/Elternstand eingefroren** | offen |
+| **C** | Seine Faehigkeiten sind **vollstaendig** gemessen: **Held-out je Familie** UND die **Antwortform getrennt** | offen |
+| **D** | **Erst dann** kommt Mathematik als eine **klar definierte weitere Familie** hinzu | gesperrt bis C |
+| **E** | Erneut **Held-out je Familie** UND **Antwortform getrennt** messen | offen |
+| **F** | Damit ist die Aussage **"Mathematik verbessert Algebra, ohne `seq`, `quant` und `logic-large` zu beschaedigen"** belegbar - statt nur ein Gesamtscore | offen |
+
+**Warum das keine Verzoegerung ist, sondern der Grund fuer D-052.** Gemessen ist,
+dass eine breite Phase die Antwortform **ihres Korpus** uebernimmt: derselbe Stand
+erreicht in der Delta-Form 91,88 % Kopfzahl und in der absoluten 73,39 % inhaltlich
+bei `reparatur` **2 von 123** (Runde 28). Ohne festgenagelte Konvention waere jede
+spaetere Zahl **mehrdeutig** - man koennte nicht unterscheiden, ob Mathematik
+gewirkt hat oder nur die Ausgabeform gewechselt wurde. Ein **Gesamtscore** kann das
+nicht trennen, weil er beide Formen in eine Zahl wirft; deshalb die Forderung
+**Held-out je Familie** plus **Antwortform getrennt**.
+
+**Der Nutzerbefund zu D-052, festgehalten:** *"D-052 ist kein kleiner
+Zwischenstand. Ihr habt damit gerade eine wichtige Hypothese experimentell
+eingegrenzt: Der Engpass war nicht einfach 'zu wenig Daten', sondern die
+Interaktion von Trainingsverteilung und gewuenschter Repraesentation. Und genau
+deshalb ist combine als naechster Schritt sinnvoller als weiteres Hochskalieren
+einzelner Familien."* Das deckt sich mit der gemessenen Generator-Saettigung
+(81,1 / 74,7 / 70,6 % Ausbeute bei 20k / 50k / 100k) und mit dem negativen
+Transfer (**O-D21**).
+
 ---
 
 ## 6. Die drei fehlenden Saetze (O-Z6/O-Z8/O-Z9)

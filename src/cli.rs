@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use crate::config::TrainConfig;
+use crate::data::seq::Antwortform;
 use crate::error::{Result, bail};
 
 /// Subkommando samt seiner Optionen.
@@ -46,6 +47,10 @@ pub enum Command {
         sources: Vec<PathBuf>,
         /// Zielordner fuer die kopierten Shards und das gemeinsame Manifest.
         out_dir: PathBuf,
+        /// Antwortform des Zielkorpus (**D-052/D-053**): `absolut` (Vorgabe,
+        /// Shards werden byteweise kopiert) oder `delta` (die `reparatur`-
+        /// Antworten werden auf die Aenderung umgestellt).
+        antwortform: Antwortform,
     },
     GenerateSemantics {
         opts: SemanticsGenOptions,
@@ -397,6 +402,8 @@ SUBKOMANDOS:
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
     data combine          mehrere Familien in EIN Manifest legen (n5, D-051):
                           --src <ordner> je Quelle (mindestens ZWEI), --out <ziel>
+                          --antwortform <absolut|delta> setzt die Antwortform des
+                          Zielkorpus (D-052/D-053); Vorgabe absolut = byteweise Kopie
     agent capability run  Agentischer Loop: messen, Fehler klassifizieren, gezielt
                           nachtrainieren, annehmen oder verwerfen (Spec §12)
     validate-data         Shards und Manifest pruefen
@@ -566,6 +573,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_formreplay = false;
     let mut want_combine = false;
     let mut combine_sources: Vec<PathBuf> = Vec::new();
+    let mut combine_form: Option<crate::data::seq::Antwortform> = None;
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -622,6 +630,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 saw_data = false;
             }
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
+            // **Die Antwortform des Zielkorpus** (D-052). Sie ist ein
+            // Korpus-Schalter und kein Rundenschalter: eine Runde kann die Form
+            // ueber ein Paket tragen (exp-026), eine Phase nicht (Runde 28).
+            "--antwortform" => {
+                let wert = take_value(&mut iter, "--antwortform")?;
+                match crate::data::seq::Antwortform::parse(&wert) {
+                    Some(f) => combine_form = Some(f),
+                    None => bail!(
+                        "unbekannte Antwortform `{wert}` - erlaubt sind `absolut` (Vorgabe) und `delta`"
+                    ),
+                }
+            }
             "agent" => {
                 saw_agent = true;
                 command_set = true;
@@ -889,6 +909,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             out_dir: out_dir
                 .clone()
                 .unwrap_or_else(|| PathBuf::from("data/kombi/train")),
+            antwortform: combine_form.unwrap_or_default(),
         };
     }
 
