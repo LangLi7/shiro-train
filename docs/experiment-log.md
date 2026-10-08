@@ -1361,18 +1361,34 @@ Fall C. Die Sonde ist gegen die Nutzervorgabe gegengeprueft: das Vorgabebeispiel
 
 ### Je Aufgabentyp - und hier liegt der eigentliche Befund
 
-Dieselben 120 Fragen, A-exakt = C-Inhalt:
+Dieselben 120 Fragen. **Zwei Masse, die auseinandergehalten werden muessen:** die
+Sonde druckt je Typ **A-exakt** (teacher-forced) und **B-exakt** (freie
+Erzeugung). Die D-047-Marke gilt fuer den **Held-out Exact Match**, also fuer die
+**freie** Erzeugung - die Typenspalte der Marke ist deshalb **B-exakt**. Die
+Tabelle fuehrt beide, weil die beiden Werte genau an der Stelle auseinanderfallen,
+an der es weh tut (`stelle`: A = 10, B = 9).
 
-| Typ | step4000 (Eltern) | step5200 | **step6400** | Quote | D-047 (>= 75 %) |
-|---|---|---|---|---|---|
-| `luecke` | 12/15 | 14/15 | **14/15** | 93,3 % | erfuellt |
-| `naechste` | 15/20 | 15/20 | **17/20** | 85,0 % | erfuellt |
-| `offen` | 10/16 | 12/16 | **11/16** | **68,8 %** | **nicht erfuellt** |
-| `regel` | 10/11 | 9/11 | **9/11** | 81,8 % | erfuellt |
-| `reparatur` (zwei Felder) | **2/16** | 11/16 | **12/16** | 75,0 % | erfuellt (exakt) |
-| `reparatur1` (ein Feld) | 10/13 | 11/13 | **12/13** | 92,3 % | erfuellt |
-| `stelle` | 9/13 | 10/13 | **10/13** | 76,9 % | erfuellt |
-| `vergleich` | 16/16 | 16/16 | **16/16** | 100,0 % | erfuellt |
+| Typ | step4000 (Eltern) | step5200 | **step6400** | A-exakt | **B-exakt (frei)** | D-047 (>= 75 %) |
+|---|---|---|---|---|---|---|
+| `luecke` | 12/15 | 14/15 | **14/15** | 14 | **14** | erfuellt (93,3 %) |
+| `naechste` | 15/20 | 15/20 | **17/20** | 17 | **17** | erfuellt (85,0 %) |
+| `offen` | 10/16 | 12/16 | **11/16** | 11 | **11** | **nicht erfuellt (68,8 %)** |
+| `regel` | 10/11 | 9/11 | **9/11** | 9 | **9** | erfuellt (81,8 %) |
+| `reparatur` (zwei Felder) | **2/16** | 11/16 | **12/16** | 12 | **12** | erfuellt, **exakt** (75,0 %) |
+| `reparatur1` (ein Feld) | 10/13 | 11/13 | **12/13** | 12 | **12** | erfuellt (92,3 %) |
+| `stelle` | 9/13 | 10/13 | **10/13** | 10 | **9** | **nicht erfuellt (69,2 %)** |
+| `vergleich` | 16/16 | 16/16 | **16/16** | 16 | **16** | erfuellt (100,0 %) |
+
+> **Berichtigung (nachgetragen).** Die erste Fassung dieser Tabelle hat fuer
+> `stelle` den **A-Wert (10 von 13 = 76,9 %)** gefuehrt und daraus geschlossen,
+> nach exp-010 liege **genau ein** Typ unter der Marke. Das war **falsch**: die
+> Marke gilt fuer die freie Erzeugung, und dort steht `stelle` bei **9 von 13 =
+> 69,2 %**. Der Fehler war nur an dieser einen Zeile moeglich, weil A und B dort
+> als einzige auseinanderfallen - die uebrigen sieben Typen haben A = B. Richtig
+> ist: **zwei** Typen liegen unter der Marke (`offen` und `stelle`). Der Fehler
+> hatte **keine** Wirkung auf den Loop, weil der seine Typentafel ohnehin aus der
+> freien Erzeugung rechnet und `offen` (68,75 %) korrekt als den schwaechsten Typ
+> gewaehlt hat.
 
 **Die Kernzeile ist `reparatur` + `reparatur1`.** Der Vergleich mit exp-009 auf
 demselben Panel:
@@ -1456,15 +1472,20 @@ Versuch schon `breit` war. Beide mit Gegentest.
 ### D-047-Status (ehrlich)
 
 **Nicht erreicht, aber deutlich naeher.** Held-out EM **83,3 %** gegen das Ziel
-**>= 90 %** (es fehlen **8 Datensaetze** von 120). Von acht Aufgabentypen liegt
-jetzt **genau einer** unter 75 % (`offen` 68,8 %); in exp-009 waren es **drei**
-(`reparatur` 12,5 %, `offen` 62,5 %, `stelle` 69,2 %).
+**>= 90 %** (es fehlen **8 Datensaetze** von 120). Von acht Aufgabentypen liegen
+jetzt **zwei** unter 75 % (`offen` 68,8 %, `stelle` 69,2 %); in exp-009 waren es
+**drei** (auf dem 7-Typen-Panel: `reparatur` 12,5 %, `offen` 62,5 %, `stelle`
+69,2 %). Der Fortschritt ist also: **drei -> zwei**, und der groesste Einzelposten
+(`reparatur`) ist von 12,5 % auf 75,0 % gekommen.
 
 **Vorbehalt, der dazugehoert:** `reparatur` erfuellt die Marke mit **exakt**
-75,0 % (12/16) - ein einziger Datensatz kippt den Typ unter die Marke. Die Marke
-ist damit **nominell** erfuellt und **praktisch** noch nicht gesichert. Fuer den
-Abschluss der Familie muss `reparatur` deutlich ueber 75 % liegen, nicht auf der
-Kante.
+75,0 % (12/16) - ein einziger Datensatz kippt den Typ unter die Marke. `stelle`
+liegt mit 69,2 % (9/13) sogar **darunter**, obwohl es sich ueber die drei Punkte
+verbessert hat (9 -> 10 -> 10 in A-exakt, 9 in B-exakt); und bei n = 13 ist ein
+Datensatz 7,7 Punkte, die Stichprobe dort also grob. **Folge fuer den Abschluss:
+die Marke ist weder fuer `reparatur` (auf der Kante) noch fuer `stelle` und
+`offen` (darunter) gesichert** - die Familie ist erst fertig, wenn alle drei
+deutlich ueber 75 % liegen.
 
 **Zwei Zahlen sind nicht vergleichbar:** die 84,2 % in der D-047-Zeile sind auf
 dem 7-Typen-Panel gemessen, die 83,3 % hier auf dem 8-Typen-Panel. Belastbar ist
@@ -1474,14 +1495,220 @@ Gesamtquote).
 
 ### Naechster Schritt (n18c)
 
-`offen` ist der letzte Typ unter der Marke **und** der einzige, der auf die
-breite Runde nicht reagiert hat. Sein Fehlerbild ist ein anderes als das der
-Rechen-Typen: die zweiteilige Reparatur war eine Ausgabeform, `offen` ist eine
+`offen` (68,8 %) ist der **schwaechste** Typ unter der Marke **und** der einzige,
+der auf die breite Runde nicht reagiert hat; `stelle` (69,2 %) liegt ebenfalls
+darunter. Das Fehlerbild von `offen` ist ein anderes als das der Rechen-Typen: die
+zweiteilige Reparatur war eine Ausgabeform, `offen` ist eine
 **Byte-Treue-Frage an ein Wort** (`nicht entscheidbar`) plus die Entscheidung
 "entscheidbar oder nicht". Die Runde dafuer ist die Typachse (`--pack` ohne
-Override waehlt sie von selbst: der Loop meldete "Typachse (reparatur)" als
-naechste Achse). **Erwartung, die geprueft werden muss:** wenn die Worttreue
-die Ursache ist, hilft gezielte Dosis auf `offen`; wenn die
+Override waehlt sie von selbst). **Erwartung, die geprueft werden muss:** wenn die
+Worttreue die Ursache ist, hilft gezielte Dosis auf `offen`; wenn die
 Entscheidbarkeits-Entscheidung die Ursache ist, hilft sie nicht, und der Typ
 braucht eine eigene Behandlung wie `reparatur` sie gebraucht hat.
+**Diese Erwartung ist in exp-011 geprueft worden - Ergebnis: die Dosis hilft
+nicht.**
+
+---
+
+## exp-011 - Gezielte Dosis auf `offen` bewegt den Typ um NULL Datensaetze
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` (`Device<Cube(Cuda(Cuda(0)))>`) ·
+**Stichprobe:** derselbe fixierte 120er-Referenzsatz ·
+**Elternstand:** `checkpoints/agent-sequence_reasoning-from5200-i2-step006400.state`,
+SHA-256 `dd65fdcc4c357ba5046124e6414e3ade3952c196c9d50674409be87e0d9ee70d` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--train-steps 1200 --iterations 2 --backend auto` - **ohne `--pack`**, damit die
+Auswahlachse selbst entscheiden muss.
+
+**Frage.** exp-010 hat vorab festgehalten, was `offen` entscheidet: *"wenn die
+Worttreue die Ursache ist, hilft gezielte Dosis auf `offen`; wenn die
+Entscheidbarkeits-Entscheidung die Ursache ist, hilft sie nicht, und der Typ
+braucht eine eigene Behandlung."* Diese Runde ist genau dieser Test.
+
+**Nebenbei wird hier zum ersten Mal die neue Auswahlachse geprueft.** Vor exp-010
+lieferte `Pack::for_schwaechsten_typ` fuer `offen` **`None`**; der Loop waere
+still auf die Fehlerklassen-Achse ausgewichen. Jetzt waehlt er selbst - und zwar
+in beiden Runden denselben Typ:
+
+```
+Auswahlachse  : Aufgabentyp -> offen (nur Aufgabentyp offen (ableiten, Grenzfall):
+                Worttreue von 'nicht entscheidbar' und die Entscheidung
+                entscheidbar/nicht entscheidbar) statt Fehlerklasse stellenwert
+Trainingsdaten: 19200 Datensaetze (6250 gezielt + 12950 Wiederholung)
+```
+
+Die 12950 Wiederholungen sind die zweite Haelfte der exp-010-Korrektur: das
+Ein-Typ-Paket liefert nur **6250 verschiedene** Datensaetze ([`TYP_DECKEL`]), und
+die Wiederholung wird seit dieser Runde aus der **gelieferten** Zahl gerechnet.
+Ohne die Korrektur waere der Trainingssatz still auf 6250 + 6720 = 12970
+Datensaetze geschrumpft statt 19200 - die Dosis waere unbemerkt kleiner geworden.
+
+### Verlauf
+
+| Runde | Baseline | nachher | Score | Urteil |
+|---|---|---|---|---|
+| 1 | 83,3 % (100/120) | **85,8 % (103/120)** | 0,508 -> 0,518 | ANGENOMMEN |
+| 2 | 85,8 % (103/120) | 83,3 % (100/120) | 0,518 -> 0,507 | **VERWORFEN** |
+
+In Runde 2 hat **O-T9 ausgeloest** - erstmals in dieser Versuchsreihe:
+
+```
+Strategiewechsel (O-T9): train_steps 1200 -> 2400 - Dosis: der erste Lauf sah
+6,4 % des Korpus einmal - Untertraining, nicht Unfaehigkeit
+Naechste Aktion: reject_and_change_pack - kein Fortschritt: Stand verworfen,
+anderes Lernpaket waehlen
+```
+
+Der Regler hat also genau das getan, wofuer er gebaut ist: eine verworfene Runde
+erzwingt **genau einen** dokumentierten Hebel, und der Hebel ist benannt und
+begruendet. **Der Hebel ist damit fuer die naechste Runde gesetzt: Dosis 2400.**
+
+### Der Kernbefund: der Zieltyp bewegt sich nicht
+
+| Typ | step6400 (Start) | nach Runde 1 | nach Runde 2 (verworfen) |
+|---|---|---|---|
+| **`offen` (ZIEL)** | **11/16 = 68,8 %** | **11/16 = 68,8 %** | **11/16 = 68,8 %** |
+| `luecke` | 14/15 | **15/15** | 15/15 |
+| `naechste` | 17/20 | **18/20** | 18/20 |
+| `reparatur` | 12/16 | **13/16** | 13/16 |
+| `regel` | 9/11 | 9/11 | 9/11 |
+| `reparatur1` | 12/13 | 12/13 | 12/13 |
+| `stelle` | 9/13 | 9/13 | 9/13 |
+| `vergleich` | 16/16 | 16/16 | 16/16 |
+| **inhaltlich** | 80,8 % (84/104) | **83,7 % (87/104)** | 80,8 % (84/104) |
+| **gesamt** | 83,3 % | **85,8 %** | 83,3 % |
+
+**Zwei gezielte Runden auf `offen` - 6250 passende Datensaetze je Runde, 1200
+Schritte je Runde - haben `offen` um genau null Datensaetze bewegt: 11/16 vorher,
+11/16 nach Runde 1, 11/16 nach Runde 2.** Das ist kein Rauschen um einen Trend,
+das ist Stillstand auf demselben Wert ueber drei Messungen.
+
+**Und der Zugewinn der Runde kam woanders her.** Die drei Typen, die sich
+verbessert haben (`luecke` 14 -> 15, `naechste` 17 -> 18, `reparatur` 12 -> 13),
+sind **nicht** der Zieltyp. Sie wurden von den 12950 **Wiederholungen**
+mitgezogen, nicht von den 6250 gezielten `offen`-Datensaetzen. Das ist die
+scharfe Fassung des Befunds: **der gezielte Anteil hatte auf seinen eigenen
+Zieltyp keine Wirkung; die Wirkung kam aus dem breiten Anteil.**
+
+### Was das entscheidet
+
+Die in exp-010 vorab festgelegte Alternative ist damit **entschieden** - und zwar
+gegen die Dosis:
+
+* **Widerlegt:** "`offen` ist ein Unterdosis-Problem" oder "die Worttreue braucht
+  mehr Beispiele". Zwei Runden mit 6250 passenden Datensaetzen sind mehr Dosis
+  als jeder andere Typ je bekommen hat, und sie haben nichts bewegt.
+* **Gestuetzt:** die Fehlerursache liegt **in der Aufgabe selbst**, nicht in der
+  Menge ihrer Beispiele. `offen` verlangt zwei Dinge in einer Entscheidung: die
+  Folge auf **Widerspruchsfreiheit** pruefen (entscheidbar oder nicht) und dann
+  **entweder** ein Wort **oder** eine Zahl byte-genau ausgeben. Die
+  Fehlerbeispiele aus exp-010 zeigen beide Seiten
+  (`nicht entscheidbar` -> `nicht entscheichart` und eine falsch gerechnete
+  Zahl), und die Fehlerklassen der Runde nennen `wrong_parameter` als groesste
+  Gruppe.
+* **Folge:** `offen` braucht eine **eigene Behandlung wie `reparatur`** sie
+  gebraucht hat - eine Strukturaenderung an der Aufgabe, nicht mehr Dosis. Der
+  naechste sinnvolle Schritt ist, den Typ **aufzuteilen**, statt ihn ganz zu
+  trainieren: die **Entscheidung** (entscheidbar / nicht entscheidbar) als
+  eigene, kurz beantwortbare Frage und die **Ausgabe** (Wort oder Zahl) getrennt.
+  Das ist dieselbe Bewegung, die `reparatur` gerettet hat (zweiteilige Ausgabe ->
+  zusaetzlich einfeldrige Variante), nur eine Ebene hoeher.
+
+**Nicht uebersehen:** `stelle` hat sich in dieser Runde ebenfalls **nicht**
+bewegt (9/13 in allen drei Messungen) und liegt mit **69,2 %** unter der Marke.
+Es war nicht das Ziel der Runde, aber es ist jetzt der zweite offene Typ.
+
+### D-047-Status nach exp-011
+
+**Bester gemessener Stand: Held-out EM 85,8 % (103 von 120)** - Ziel >= 90 %,
+es fehlen **5 Datensaetze**. Unter der 75-Prozent-Marke liegen **zwei** Typen:
+`offen` **68,8 %** und `stelle` **69,2 %**. `reparatur` steht mit 13/16 = **81,3 %**
+inzwischen **ueber** der Kante (in exp-010 waren es exakt 75,0 %) - der Vorbehalt
+aus exp-010 ist damit entschaerft, aber noch nicht ausgeraeumt.
+
+**Angenommener Stand:** `checkpoints/agent-sequence_reasoning-from6400-i1-step7600.safetensors`.
+
+---
+
+## exp-012 - Die GPU laeuft, aber groessere Batches bringen keinen Durchsatz
+
+**Datum:** 08.10.2026 · **Anlass:** Nutzerbeobachtung *"es wird immer noch nur
+cpu/ram gebraucht keine gpu verbrauch, also GPU wird nicht belastet und deswegen
+braucht das training immer noch so lange"*.
+**Korpus:** `data/seq/train` · **Modell:** `shiro-micro` (4.656.640 Parameter) ·
+**Backend:** `cuda`, `Device<Cube(Cuda(Cuda(0)))>`, RTX 3060 12 GB.
+
+**Frage 1: Wird die GPU ueberhaupt belastet? Antwort: ja, gemessen.**
+
+| Messung | Wert |
+|---|---|
+| Tastgrad waehrend des Trainings (12 Messwerte, 1/s) | **83-84 %** durchgehend |
+| Speicher der GPU | 4232-4385 MiB |
+| Leistungsaufnahme | 110-118 W |
+| Temperatur | 58 Grad C |
+| Prozess | `/home/changchi/.cache/shiro-target-cuda/release/shiro agent capability run ...` |
+| Backend-Zeile im Loop-Log | `Wunsch 'auto' -> cuda (Device<Cube(Cuda(Cuda(0)))>)` |
+
+**Warum es trotzdem so aussehen kann, als liefe nichts auf der GPU.** In WSL2
+ist die Prozesszuordnung der GPU **leer**: `nvidia-smi
+--query-compute-apps=pid,used_memory,process_name` liefert **keine Zeile**,
+waehrend derselbe Aufruf gleichzeitig 81 % Tastgrad meldet. Die CUDA-Arbeit
+laeuft im Kontext der WSL-VM und nicht als Windows-Prozess; entsprechend zeigt
+auch die GPU-Prozessliste des Windows-Task-Managers sie nicht an. **Die
+belastbare Anzeige ist `nvidia-smi` INNERHALB von WSL**, nicht der Task-Manager.
+
+**Frage 2: Wo geht die Zeit der Runde hin? Antwort: fast alles in die
+Trainingsschritte, nicht in CPU-Arbeit.**
+
+Gemessen mit `/usr/bin/time -v` ueber die vollstaendige exp-011-Runde:
+
+| Groesse | Wert |
+|---|---|
+| Wanduhr der Runde | **629 s** (10:28) |
+| User-Zeit | 736,75 s |
+| System-Zeit | 66,56 s |
+| **CPU-Auslastung des Prozesses** | **127 %** |
+| Spitzenspeicher (RAM) | 466 MiB |
+| Trainingsschritte | 2 x 1200 = 2400 |
+| Schrittzeit (gemessen, Batch 16) | 0,2449 s |
+| **Damit Trainingsanteil an der Runde** | 2400 x 0,2449 = **588 s = 93,5 %** |
+
+**Der Prozess belegt im Mittel 1,27 Kerne** - der Rest der Wanduhr ist Warten auf
+die GPU. Die Runde ist also **GPU-gebunden**, nicht CPU-gebunden: Datenzeugung
+und Auswertung machen zusammen rund 7 % aus. (Die Datenzeugung des Zieltyps
+dauert gemessen **2,2 s** fuer 6250 Datensaetze.)
+
+**Frage 3: Bringt eine groessere Batch Durchsatz? Antwort: nein, nur 1,27-fach.**
+
+60 Schritte je Batchgroesse, sonst identische Konfiguration, Zielordner
+ausserhalb von `checkpoints/` (Kontrolle: `checkpoints/` vorher und nachher
+identisch, Pruefsumme `42bb83f5fd1d0892e688d79761be407d`):
+
+| Batch | je Schritt | je Datensatz | GFLOPS (6*N*D) | Bytes/s | GPU-Speicher |
+|---|---|---|---|---|---|
+| 16 | 0,2449 s | **0,015311 s** | 416,64 | 14.912 | ~4,3 GB |
+| 32 | 0,4141 s | 0,012942 s | 482,65 | 17.275 | - |
+| 64 | 0,7690 s | **0,012016 s** | 517,17 | 18.510 | - |
+| 128 | **> 4 s** (abgebrochen) | - | - | - | **12.050 MiB = VRAM-Grenze** |
+
+**Die Schrittzeit waechst nahezu linear mit der Batchgroesse.** Der Durchsatz je
+Datensatz verbessert sich damit von Batch 16 auf Batch 64 nur um **Faktor 1,27**,
+waehrend die Batch um **Faktor 4** steigt. Batch 128 laeuft in die 12-GB-Grenze
+der Karte und wird **drastisch langsamer** (Leistungsaufnahme faellt dabei sogar
+auf 57 W - ein Zeichen fuer Speicherdruck, nicht fuer Rechenlast).
+
+**Folgerung: die Batchgroesse ist kein Hebel.** Sie kostet Speicher, aendert die
+Trainingsdynamik (Lernrate muesste mitskaliert werden) und bringt 1,27-fach -
+dafuer ist das Risiko, die Lernkurve zu veraendern, zu gross.
+
+**Wo die Effizienz wirklich liegt.** Bei 416-517 GFLOPS liegt die Rechnung bei
+**3-4 % der FP32-Spitze** einer RTX 3060 (~12,7 TFLOPS). Die Ursache steht in der
+Konfiguration: `precision.weights = "fp32"` und `precision.autocast = "fp32"`
+schliessen die Tensor-Kerne aus, und mit `d_model = 256` und 512 Byte Kontext ist
+je Kernel ohnehin wenig parallele Arbeit vorhanden. **Der naechste
+Geschwindigkeitshebel ist deshalb die Genauigkeit (bf16/tf32-Autocast), nicht die
+Batchgroesse** - und davor steht die Frage, ob bf16 die Lernkurve unveraendert
+laesst, was zu messen ist und nicht angenommen werden darf.
+
 

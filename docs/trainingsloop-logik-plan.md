@@ -553,20 +553,50 @@ offen: **O-T6** (Fenster packen, ~2,3x) und **O-T7** (KV-Cache fuer Langtext).
   Neue Messung auf dem fixierten 120er-Panel: Werkzeug 1-4 = **100,0 / 83,3 /
   84,2 / 84,2 %**; Generalisierungsnaht 16,7 Pp, Terminierungsanteil 0,8 %
   (1 Fall) -> **Fall C mit Fall-A-Rest**.
-* **(c) JETZT: `offen` 68,8 % (11/16) - der letzte Typ unter 75 %** und der
-  einzige, der auf die breite Runde **nicht** reagiert hat (10 -> 12 -> 11).
-  Fehlerbild: byte-nahe Wortverfehlung (`nicht entscheidbar` ->
-  `nicht entscheichart`) plus die Entscheidung "entscheidbar oder nicht".
-  Zu pruefen: hilft gezielte Dosis (dann ist es Worttreue) oder nicht (dann ist
-  es die Entscheidung und braucht eine eigene Behandlung)?
-  **Mitnehmen:** `reparatur` steht mit **exakt** 75,0 % auf der Kante - ein
-  Datensatz kippt den Typ unter die Marke.
+* **(c) GEPRUEFT (exp-011) - Ergebnis NEGATIV: die Dosis hilft nicht.**
+  Zwei gezielte Runden auf `offen` (6250 passende Datensaetze je Runde, 1200
+  Schritte) haben den Typ um **null Datensaetze** bewegt: 11/16 vorher, 11/16
+  nach Runde 1, 11/16 nach Runde 2. Der Zugewinn der Runde (83,3 -> 85,8 %,
+  angenommen) kam aus `luecke`, `naechste` und `reparatur` - also aus dem
+  **breiten** Anteil, nicht aus dem gezielten. Damit ist entschieden, dass
+  `offen` **kein Mengenproblem** ist, sondern ein **Strukturproblem**: der Typ
+  verlangt die Entscheidung "entscheidbar / nicht entscheidbar" **und** danach
+  entweder ein Wort **oder** eine Zahl byte-genau. **Naechster Schritt: den Typ
+  aufteilen** (Entscheidung und Ausgabe getrennt), dieselbe Bewegung, die
+  `reparatur` gerettet hat.
+  **Offen sind jetzt zwei Typen:** `offen` **68,8 %** und `stelle` **69,2 %**
+  (auch `stelle` hat sich in exp-011 nicht bewegt, 9/13 in allen drei Messungen).
+  `reparatur` steht mit **81,3 %** ueber der Kante.
+  **Gesetzt fuer die naechste Runde (O-T9): Dosis 2400** - der Regler hat in
+  Runde 2 von exp-011 ausgeloest und den Hebel benannt und begruendet.
 * **(d)** Erst **nach** der D-047-Marke: kombiniertes Mehr-Familien-Manifest
   (n5 - Begruendung: negatives Transfer zwischen Familien, exp-008 Nachtrag) und
   danach Mathematik **im selben Korpus**, nicht als Neustart.
 
+## Durchsatz (exp-012) - die GPU ist nicht das Problem
+
+Auf Nutzerbeobachtung *"es wird immer noch nur cpu/ram gebraucht keine gpu
+verbrauch"* gemessen:
+
+* Die GPU **laeuft**: 83-84 % Tastgrad durchgehend, 4,3 GB, 110-118 W, 58 Grad C.
+  Die Runde ist zu **93,5 %** Trainingszeit (2400 Schritte x 0,2449 s = 588 s von
+  629 s Wanduhr); der Prozess belegt im Mittel **1,27 Kerne**, der Rest ist
+  Warten auf die GPU.
+* **Warum es leer aussehen kann:** WSL2 zeigt **keine** GPU-Prozesse -
+  `nvidia-smi --query-compute-apps` bleibt leer, waehrend derselbe Aufruf 81 %
+  meldet. Auch der Windows-Task-Manager fuehrt die CUDA-Arbeit der WSL-VM nicht
+  als Prozess. Belastbar ist nur `nvidia-smi` **innerhalb** von WSL.
+* **Batchgroesse ist kein Hebel:** Batch 16 -> 64 bringt nur **Faktor 1,27**
+  Durchsatz je Datensatz (0,015311 -> 0,012016 s), Batch 128 laeuft in die
+  12-GB-Grenze und wird dramatisch langsamer. **Nicht umstellen.**
+* **Der echte Hebel ist die Genauigkeit:** 416-517 GFLOPS sind **3-4 %** der
+  FP32-Spitze einer RTX 3060, weil `precision.autocast = "fp32"` die Tensor-Kerne
+  ausschliesst. bf16/tf32-Autocast ist der naechste Geschwindigkeitsversuch -
+  **mit Nachweis, dass die Lernkurve unveraendert bleibt.**
+
 **Zurueckgestellt:** Modell S (n3) - Kapazitaet ist nicht der Engpass; der
 Micro erreicht 100 % Train EM auf dem aktuellen Korpus **und** auf dem
 Trainingsband der Breiten Runde (exp-010, Wert 1). **D-047 nicht erreicht:**
-Held-out EM **83,3 %** (Ziel >= 90 %, es fehlen 8 von 120 Datensaetzen), aber
-nur noch **ein** Typ unter 75 % (in exp-009 waren es drei).
+Held-out EM **85,8 %** (bester Stand, exp-011 Runde 1; Ziel >= 90 %, es fehlen
+5 von 120 Datensaetzen) und **zwei** Typen unter 75 % (`offen` 68,8 %,
+`stelle` 69,2 %).

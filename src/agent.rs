@@ -821,7 +821,9 @@ pub const TYP_DECKEL: usize = 6250;
 pub fn anfrage_fuer(pack: Pack, n: usize) -> usize {
     match pack {
         Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln | Pack::Offen => {
-            n.min(TYP_DECKEL).max(MIN_FAELLE)
+            // Genau die gewuenschte Zahl, aber nie unter `MIN_FAELLE` (ein Paket
+            // mit einem Datensatz ist keines) und nie ueber `TYP_DECKEL`.
+            n.clamp(MIN_FAELLE, TYP_DECKEL)
         }
         Pack::Frageart => (n / seq::Category::ALL.len()).max(6),
         Pack::Breit => n.saturating_mul(2).max(120),
