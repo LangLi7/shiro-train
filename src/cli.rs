@@ -67,6 +67,11 @@ pub enum Command {
     ///
     /// Traegt die Nutzerbeispiele "1, 2, 3, 5, 6 - was fehlt?" und
     /// "1, 2, 4, 8, 16 - was kommt als Naechstes?" (`src/data/seq.rs`).
+    /// Korpus "Algebra A1 - Terme mit Variablenbelegung" (**D-030** Stufe A1,
+    /// Eintritt **D-055**).
+    GenerateAlgebra {
+        opts: AlgebraGenOptions,
+    },
     GenerateSeq {
         opts: SeqGenOptions,
     },
@@ -302,6 +307,30 @@ impl Default for SeqGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-algebra` (Mathematik-Stufe A1, **D-030**,
+/// Eintritt **D-055**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AlgebraGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for AlgebraGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/algebra"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 impl Default for LogicGenOptions {
     fn default() -> Self {
         Self {
@@ -400,6 +429,8 @@ SUBKOMANDOS:
     data generate-format  Korpus \"Format-Erkennung aus Bytes\" erzeugen
     data generate-quant   Korpus \"Quantoren, Syllogistik und Mengen\" erzeugen
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
+    data generate-algebra Korpus \"Algebra A1 - Terme mit Variablenbelegung\" erzeugen
+                          (D-030 Stufe A1, D-055)
     data combine          mehrere Familien in EIN Manifest legen (n5, D-051):
                           --src <ordner> je Quelle (mindestens ZWEI), --out <ziel>
                           --antwortform <absolut|delta> setzt die Antwortform des
@@ -555,6 +586,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_format = false;
     let mut want_quant = false;
     let mut want_seq = false;
+    let mut want_algebra = false;
     let mut want_games = false;
     // Agentischer Loop: drei Woerter (`agent capability run`) plus Positional.
     let mut saw_agent = false;
@@ -616,6 +648,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-quant" => {
                 want_quant = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-algebra" => {
+                want_algebra = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -950,6 +987,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out_dir: out_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/quant")),
+            },
+        };
+    }
+
+    if want_algebra {
+        out.command = Command::GenerateAlgebra {
+            opts: AlgebraGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/algebra")),
             },
         };
     }

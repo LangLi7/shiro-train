@@ -12,6 +12,7 @@
 //!   Aufgabentypen, drei Schwierigkeitsgraden und getrennten Trainings- und
 //!   Held-out-Vorraten (`shiro data generate-logic`). Siehe `LOGIC_ANALYTICS.md`.
 
+pub mod algebra;
 pub mod bytes;
 pub mod format;
 pub mod formatgen;

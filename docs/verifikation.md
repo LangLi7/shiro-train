@@ -2376,3 +2376,84 @@ geaendert?). Bei `??`-Dateien ist `git add` **immer** ein Vollimport fremder Arb
 **Gates.** Nur Doku, keine Codeaenderung: Doku-Tore exit 0 (`check-table-pipes` 124 Dateien /
 0 zerbrochene Tabellenzeilen, `check-doc-links` 0 tote Links, `lernstufen`,
 `programmiersprachen`); `deploy/` 0 Aenderungen; alle drei lebenden Dateien LF-only ohne BOM.
+## Runde 33 - Die Algebra-Familie A1 ist GEBAUT und im Korpus (D-057)
+
+**Auftrag: Nutzerauflage Runde 29 Schritt (D)** - Mathematik als eine klar definierte
+weitere Familie, **zuerst Algebra** (Reihenfolge F), erst nach abgeschlossenem (C).
+(D) war der einzige noch offene Buchstabe: (A) D-053, (B)+(C) D-054 sind erledigt,
+(D) war in Runde 31 nur **vorbereitet** (D-055) - gebaut war nichts.
+
+**Gebaut.** `src/data/algebra.rs` (Generator **und** Verifier), `tests/algebra.rs`
+(3 Integrationstests), `configs/train.algebra.toml`, CLI
+`shiro data generate-algebra --n --seed --val-percent --out`. Vier Aufgabentypen ueber
+**alle vier Bewegungen**: `typ.alg-wert` (ABLEITEN), `typ.alg-vergleich` (VERGLEICHEN),
+`typ.alg-stelle` (LOKALISIEREN), `typ.alg-reparatur` (MINIMIEREN).
+
+**Der Termraum ist `a2*x^2 + a1*x + a0`** und **kanonisch** geschrieben - das ist die
+Bedingung dafuer, dass der Verifier nur Bytes liest: ein Zeilenparser ohne Klammerlogik,
+keine zwei Lesarten. Der Verifier **erzwingt** die kanonische Form (`term.text() !=
+term_text` -> Fehler), statt sie zu unterstellen. Schreibkonvention nach D-055: `*` ist
+der Operator, `x` ausschliesslich die Variable.
+
+**Ein ECHTER Generatorfehler, vom eigenen Test gefunden.** Zuerst stand der Schritt-Wert
+hinter dem letzten ` = ` der Zeile. Die Beschreibung eines `x^2`-Schritts enthaelt aber
+selbst ein ` = ` (`x^2 = 4^2`), gelesen wurde `4^2` - keine Zahl. Der Verifier scheiterte,
+`baue` verwarf den Datensatz, und weil das Trainingsband **linear** ist, trat der Fehler
+**nur im Held-out** auf: dort entstanden **0** Datensaetze der Typen `stelle` und
+`reparatur` (Diagnose: `{ABLEITEN: 33, VERGLEICHEN: 27}`). **Behoben** durch einen
+eigenen Trenner ` -> ` am Zeilenende; `ersetze_letzte_zahl` entfiel ersatzlos. Danach
+traegt das Held-out alle vier Bewegungen (14/14/18/14).
+
+**Zwei Baender, konstruktiv getrennt (O-A27).** Training **linear** (`a2 = 0`),
+`a1` 1..9, `a0` 0..20, `x` 1..12; Held-out **quadratisch** (`a2 >= 1`), `a1` 10..25,
+`a0` 21..40, `x` 13..30. Kein Koeffizient und keine Belegung ueberlappt. Nachgeprueft an
+den **Bytes** (`baender_sind_an_den_bytes_getrennt`). Ehrliche Einordnung: das ist ein
+**Parameter- und Struktur-Held-out** (Stufe 2 nach D-035), **kein Regel-Held-out**.
+
+**Der Korpus (gemessen).** `data/algebra/train` = **17.712** Datensaetze / 3.117.376 B
+Nutzlast / Pruefsumme `358521a6`, laengster 200 B; `val` = **5.000** / 1.406.297 B /
+`81e185bb`, laengster 327 B. **Beide Validatorstufen gruen**, **zweiter Lauf
+byteidentisch** (Shard und Manifest, train und val).
+
+**`O-A9` GEMESSEN - `--n` hilft hier nicht.** 20.000 -> 17.712 (88,6 %), 50.000 ->
+**17.712** (35,4 %), 100.000 -> **17.712** (17,7 %). Die Trainingsmenge **saettigt**.
+Nachgerechnet: `a1` 18 Werte x `a0` 21 x `x` 12 = **4.536** Terme je Typ - und `alg-wert`
+liefert **genau 4.536**. Das Trainingsband ist **vollstaendig aufgezaehlt, nicht
+gezogen**. Dieselbe Lehre wie `data/add/train-2d` (8.100 = 90 x 90, gesperrt): mehr
+`--n` ist wirkungslos, **das Band** muss breiter werden - und dann muss das Held-out
+mitwandern. `O-A9` ist damit fuer die Trainingsseite **geschlossen**.
+
+**Eintritt in den eingefrorenen Korpus (D-055 Abschnitt 3) - und die Vorhersage ist
+bestaetigt.** `data combine` mit vier Quellen und `--antwortform delta`:
+**147.712 Datensaetze / 46.980.552 B**, 4 Shards, **91 Aufgaben-Keys**, beide
+Validatorstufen gruen. Der **Algebra-Shard ist byteweise identisch** zu seiner Quelle,
+und die **Formbilanz bleibt 9.430 umgeschrieben / 0 schon Delta** - die Algebra-Aufgaben
+tragen **keine** `Folge:`-Zeile, fallen in `NichtBetroffen`, und der Eintritt kann die
+Formkonvention **nicht** verschieben (in Runde 31 war das eine Vorhersage, jetzt ist es
+eine Messung).
+
+**Eigener Fehler beim Verdrahten, offengelegt.** Der erste Verdrahtungsversuch meldete
+Erfolg, schrieb `src/cli.rs` aber **nicht**: der Python-Helfer gab den geaenderten Text
+zurueck, statt den Puffer zu mutieren (bei `main.rs` tat er es). Aufgefallen am
+Compilerfehler `no variant named GenerateAlgebra`. Danach fehlte `PartialEq`/`Eq` an
+`AlgebraGenOptions` (die `Command`-Enum leitet sie ab) und der Modulpfad in
+`fill_algebra_tasks` war nicht qualifiziert - beides behoben.
+
+**Tore.** `cargo fmt --check` gruen; `cargo test` **425 Tests / 0 failed**
+(vorher 413: **+9 Modultests** in `algebra.rs` und **+3 Integrationstests** in
+`tests/algebra.rs`); `cargo clippy --all-targets -D warnings` - die **zwei eigenen**
+Befunde behoben (`map_identity`, `unnecessary_sort_by`), es bleiben die **7 fremden**
+(`src/data/quant.rs` 6, `src/probe.rs` 1); `cargo build --release` gruen; `shiro smoke`
+Digest **a6a53c95abd7f622** unveraendert; `deploy/` **0 Aenderungen**; `check-doc-links`,
+`lernstufen`, `programmiersprachen` exit 0.
+
+**FREMDBEFUND, offen benannt und NICHT angefasst.** `check-table-pipes` meldet **eine
+zerbrochene Tabellenzeile** in `docs/recursive-self-improvement/README.md` Z. 172 - ein
+unmaskiertes `|` in einem Code-Span (`` `lora|dpo|reward` ``) in der Zeile O-R4. Die
+Datei gehoert zum **rsi1-Paket einer Parallelsitzung** und ist durch den Auftrag
+ausdruecklich gesperrt ("rsi1 nicht anfassen"). Der Befund bleibt deshalb **stehen** und
+wird gemeldet, nicht stillschweigend mitrepariert.
+
+**Kein Training, keine GPU-Zeit.** Die Nachmessung (E) je Familie und je Antwortform
+gehoert hinter den Mathematik-Lauf. Neue offene Punkte: **O-A29** kein Regel-Held-out
+(D-035 Stufe 3) · **O-A30** Shortcut-Baseline der vier Typen nicht gemessen.

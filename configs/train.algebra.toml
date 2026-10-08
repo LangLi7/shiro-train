@@ -1,0 +1,59 @@
+# Trainingslauf auf dem ALGEBRA-Korpus (Stufe A1, D-030 / Eintritt D-055).
+#
+# WAS DIESER KORPUS IST. Familie "Algebra A1 - Terme mit Variablenbelegung",
+# erzeugt mit:
+#   shiro data generate-algebra --n 50000 --out data/algebra
+#
+# Vier Aufgabentypen ueber alle vier Bewegungen (ABLEITEN `alg-wert`, VERGLEICHEN
+# `alg-vergleich`, LOKALISIEREN `alg-stelle`, MINIMIEREN `alg-reparatur`).
+#
+# ZWEI BAENDER, KONSTRUKTIV GETRENNT (O-A27, D-055): das Trainingsband ist LINEAR
+# (a2 = 0), kleine Koeffizienten, x in 1..=12; das Held-out-Band ist QUADRATISCH
+# (a2 >= 1), groessere Koeffizienten, x in 13..=30. Kein Koeffizient und keine
+# Belegung ueberlappt. Das ist ein PARAMETER- und STRUKTUR-Held-out (Stufe 2 nach
+# D-035) - KEIN Regel-Held-out (Stufe 3).
+#
+# MATHEMATIK IST NOCH NICHT FREIGEGEBEN. Diese Datei existiert, damit
+# `shiro validate-data` und ein spaeterer Phasenlauf eine Config haben; trainiert
+# wird in Runde 33 NICHT. Der Eintritt in den eingefrorenen Kombi-Korpus geschieht
+# ueber `shiro data combine --antwortform delta` (D-055 Abschnitt 3).
+
+[run]
+name = "algebra"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/algebra/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

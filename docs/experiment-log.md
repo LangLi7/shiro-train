@@ -4125,3 +4125,169 @@ Kanaele (`docs/experiment-log.md` unveraendert seit HEAD, `docs/verifikation.md`
 Datei ueberhaupt getrackt?) und **(2)** `git status --short <pfad>` (traegt sie fremde
 Aenderungen?). Nur wenn (1) getrackt **und** (2) sauber, ist `git add` unbedenklich. Bei
 `??`-Dateien ist `git add` **immer** ein Vollimport fremder Arbeit.
+
+## Runde 33 - Die Algebra-Familie A1 ist GEBAUT und im Korpus (D-057)
+
+**Auftrag: Nutzerauflage Runde 29, Schritt (D)** - Mathematik als eine klar definierte
+weitere Familie, **zuerst Algebra**, erst nach abgeschlossenem (C). Der Arbeitsauftrag
+verlangte (A)-(C); die waren mit **D-053** (Runde 29) und **D-054** (Runde 30) erledigt.
+**Offen war (D)** - in Runde 31 nur **vorbereitet** (D-055), gebaut war **nichts**
+(`src/data/algebra.rs` existierte nicht, `generate-algebra` kam in der CLI 0-mal vor).
+Diese Runde hat (D) gebaut.
+
+### Gebaut
+
+| Teil | Was es ist |
+|---|---|
+| `src/data/algebra.rs` | Generator **und** Verifier, 4 Aufgabentypen, 2 Baender, 9 Modultests |
+| `tests/algebra.rs` | 3 Integrationstests (CLI, eigene Schluessel, Byte-Trennung der Baender) |
+| `configs/train.algebra.toml` | Config fuer `validate-data` und einen spaeteren Phasenlauf |
+| `src/cli.rs`, `src/main.rs` | `shiro data generate-algebra --n --seed --val-percent --out` |
+
+**Vier Aufgabentypen ueber alle vier Bewegungen** (`docs/denken-erweitern.md`):
+`typ.alg-wert` (ABLEITEN), `typ.alg-vergleich` (VERGLEICHEN), `typ.alg-stelle`
+(LOKALISIEREN), `typ.alg-reparatur` (MINIMIEREN).
+
+**Der Termraum ist `a2*x^2 + a1*x + a0`**, kanonisch geschrieben. Das ist die Bedingung
+dafuer, dass der Verifier **nur Bytes** liest: ein Zeilenparser ohne Klammerlogik, keine
+zwei Lesarten. Der Verifier **erzwingt** die kanonische Form, statt sie zu unterstellen
+(`term.text() != term_text` -> Fehler) - eine zweite Schreibweise desselben Terms waere
+nach D-018 Bedingung (2) ein Fehler. Schreibkonvention nach D-055 Abschnitt 2.1: `*` ist
+der Operator, `x` ausschliesslich die Variable.
+
+**Das `alg-`-Praefix der Manifest-Schluessel ist keine Kosmetik.** Die `tasks`-Zuordnung
+ist **flach**, und `data combine` **addiert** bei Namensgleichheit (D-051); ein zweites
+`typ.reparatur` wuerde die Zahlen der Zahlenfolgen-Familie verfaelschen und jede
+Auswertung nach Typ unbrauchbar machen. Der Integrationstest sperrt genau das.
+
+### Ein echter Generatorfehler, vom eigenen Test gefunden
+
+Zuerst stand der Schritt-Wert hinter dem **letzten ` = `** der Zeile. Die Beschreibung
+eines `x^2`-Schritts enthaelt aber **selbst** ein ` = ` (`x^2 = 4^2`), gelesen wurde
+`4^2` - **keine Zahl**. Der Verifier scheiterte, `baue` verwarf den Datensatz, und weil
+das Trainingsband **linear** ist (kein `x^2`-Schritt), trat der Fehler **nur im
+Held-out** auf:
+
+```text
+DIAGNOSE val: 60 Datensaetze, Bewegungen {"ABLEITEN": 33, "VERGLEICHEN": 27}
+```
+
+**0 Datensaetze** der Typen `stelle` und `reparatur` im Held-out. Aufgefallen ist das
+dem Test `vier_typen_und_vier_bewegungen`, nicht dem Hinsehen. **Behoben** durch einen
+eigenen Trenner ` -> ` am Zeilenende (`Schritt 2: 3*5 = 15 -> 15`);
+`ersetze_letzte_zahl` entfiel ersatzlos. Danach traegt das Held-out alle vier Bewegungen
+(ABLEITEN 14, VERGLEICHEN 14, LOKALISIEREN 18, MINIMIEREN 14).
+
+**Genau ein Schritt ist falsch:** die Beschreibungen der uebrigen Schritte werden aus den
+**richtigen** Zwischenwerten gebildet, es gibt also keine Folgefehler; der Verifier
+verlangt ausdruecklich **genau einen** falschen Schritt.
+
+### Zwei Baender, konstruktiv getrennt (O-A27)
+
+| | Trainingsband | Held-out-Band |
+|---|---|---|
+| `a2` | **0** (linear) | **>= 1** (quadratisch) |
+| `a1` | 1..9 (mit Vorzeichen) | 10..25 (mit Vorzeichen) |
+| `a0` | 0..20 | 21..40 |
+| `x` | 1..12 | 13..30 |
+
+Kein Koeffizient und **keine Belegung** ueberlappt; nachgeprueft **an den Bytes**
+(`baender_sind_an_den_bytes_getrennt`). **Ehrliche Einordnung (D-035):** das ist ein
+**Parameter- und Struktur-Held-out (Stufe 2)**, **kein Regel-Held-out (Stufe 3)** - es
+belegt Verallgemeinerung ueber den Zahlen- und Strukturbereich, **nicht** "Verstehen".
+Als **O-A29** offen festgehalten.
+
+### Der Korpus (gemessen)
+
+```text
+shiro data generate-algebra --n 50000 --out data/algebra
+```
+
+| Menge | Datensaetze | Nutzlast | Datei | Pruefsumme | laengster |
+|---|---|---|---|---|---|
+| `train` | **17.712** | 3.117.376 B | 3.152.832 B | `358521a6` | 200 B |
+| `val` | **5.000** | 1.406.297 B | 1.426.297 B | `81e185bb` | 327 B |
+
+**Beide Validatorstufen gruen** ("Alle Shards gueltig"), **zweiter Lauf byteidentisch**
+(Shard und Manifest, train und val, 4 von 4 Dateien `cmp`-gleich).
+
+### O-A9 GEMESSEN - und die Antwort ist unbequem
+
+| `--n` | Trainingsdatensaetze | Ausbeute |
+|---|---|---|
+| 20.000 | **17.712** | 88,6 % |
+| 50.000 | **17.712** | 35,4 % |
+| 100.000 | **17.712** | 17,7 % |
+
+Die Trainingsmenge **saettigt bei 17.712**, unabhaengig von `--n`. Nachgerechnet: `a1`
+hat 18 Werte (1..9 mit Vorzeichen, ohne 0), `a0` hat 21 (0..20), `x` hat 12 (1..12) ->
+**18 x 21 x 12 = 4.536** Terme je Aufgabentyp. Und `alg-wert` liefert **genau 4.536** -
+das Band ist **vollstaendig aufgezaehlt, nicht gezogen**. Das Held-out waechst dagegen
+mit (`--n` 100.000 -> 10.000), weil sein Band groesser ist.
+
+**Dieselbe Lehre wie `data/add/train-2d`** (8.100 = 90 x 90, als Pruefsatz gesperrt) und
+wie D-032/D-034: *"mehr Aufgaben" ist widerlegt, "eine andere Aufgabe" ist der Hebel*.
+**Folge:** wer mehr Algebra-Stoff will, muss das **Band verbreitern** - und dann muss das
+Held-out **mitwandern**, damit die Disjunktheit erhalten bleibt. `--n` zu erhoehen ist
+wirkungslos und wird es bleiben.
+
+### Der Eintritt in den eingefrorenen Korpus - Vorhersage bestaetigt
+
+```text
+shiro data combine --src data/seq/train --src data/quant/train \
+                   --src data/logic-large/train --src data/algebra/train \
+                   --out data/kombi-mathe/train --antwortform delta
+```
+
+| Familie | Datensaetze | Nutzlast | Pruefsumme |
+|---|---|---|---|
+| `seq` | 50.000 | 11.833.736 B | `cd0a49a3` |
+| `quant` | 30.000 | 14.279.272 B | `e113c0a1` |
+| `logic-large` | 50.000 | 17.750.168 B | `9c800a4a` |
+| **`algebra`** | **17.712** | **3.117.376 B** | `358521a6` |
+| **GESAMT** | **147.712** | **46.980.552 B** | 4 Shards, **91 Aufgaben-Keys** |
+
+**Beide Validatorstufen gruen.** Und die Vorhersage aus D-055 Abschnitt 2.3 ist
+**gemessen, nicht behauptet**: der Algebra-Shard ist **byteweise identisch** zu seiner
+Quelle, und die **Formbilanz bleibt bei 9.430 umgeschriebenen / 0 schon Delta** - die
+Algebra-Aufgaben tragen **keine** `Folge:`-Zeile, fallen in `NichtBetraegt`
+(`NichtBetroffen`), und der Eintritt kann die Formkonvention **nicht** verschieben.
+
+### Eigener Fehler beim Verdrahten, offengelegt
+
+Der erste Verdrahtungsversuch meldete **Erfolg**, schrieb `src/cli.rs` aber **nicht**: der
+Python-Helfer gab den geaenderten Text zurueck, statt den Puffer zu mutieren - bei
+`main.rs` tat er es (dort ein anderer Helfer), weshalb der Fehler nur **eine** der beiden
+Dateien traf. Aufgefallen am Compilerfehler `no variant named GenerateAlgebra found for
+enum Command`, nicht am Skript (das hatte "verdrahtet" gemeldet). Danach fehlten noch
+`PartialEq`/`Eq` an `AlgebraGenOptions` (die `Command`-Enum leitet sie ab) und der
+qualifizierte Modulpfad in `fill_algebra_tasks` - beides behoben. **Lehre:** ein Skript,
+das Erfolg meldet, ist kein Beleg - der Beleg ist der Compiler.
+
+### Tore
+
+`cargo fmt --check` **gruen**; `cargo test` **425 Tests / 0 failed** (vorher 413: **+9
+Modultests** in `algebra.rs`, **+3 Integrationstests** in `tests/algebra.rs`);
+`cargo clippy --all-targets -D warnings` - die **zwei eigenen** Befunde behoben
+(`map_identity`, `unnecessary_sort_by`), es bleiben die **7 fremden**
+(`src/data/quant.rs` 6, `src/probe.rs` 1); `cargo build --release` **gruen**;
+`shiro smoke` Digest **a6a53c95abd7f622** unveraendert; `deploy/` **0 Aenderungen**;
+`check-doc-links`, `lernstufen`, `programmiersprachen` **exit 0**.
+
+### FREMDBEFUND, gemeldet und NICHT angefasst
+
+`check-table-pipes` meldet **eine zerbrochene Tabellenzeile**:
+`docs/recursive-self-improvement/README.md` Z. 172 - ein unmaskiertes `|` in einem
+Code-Span (`` `lora|dpo|reward` ``) in der Zeile **O-R4**. Die Datei gehoert zum
+**rsi1-Paket einer Parallelsitzung** und ist durch den Arbeitsauftrag ausdruecklich
+gesperrt ("rsi1 nicht anfassen"). Der Befund bleibt deshalb **stehen** und wird gemeldet,
+nicht stillschweigend mitrepariert. Damit ist dieses eine Doku-Tor derzeit **rot**, und
+zwar **fremd verursacht**.
+
+### Was diese Runde NICHT getan hat
+
+**Kein Training, keine GPU-Zeit.** Die Nachmessung (E) je Familie und je Antwortform
+gehoert hinter den Mathematik-Lauf. **Kein Ausbau des Bands.** **Keine zweite
+Mathematik-Familie** - Formel-Verstaendnis/Funktion und Math Basic bleiben offen
+(Reihenfolge nach D-030). Neue offene Punkte: **O-A29** kein Regel-Held-out (D-035
+Stufe 3) · **O-A30** Shortcut-Baseline der vier Algebra-Typen nicht gemessen.

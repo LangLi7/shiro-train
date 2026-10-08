@@ -64,6 +64,7 @@ fn real_main() -> Result<()> {
             antwortform,
         } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
+        Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
         Command::Agent {
             capability,
             parent,
@@ -1401,6 +1402,131 @@ fn cmd_data_combine(
         out_dir.display()
     );
     Ok(())
+}
+
+/// Erzeugt den Korpus "Algebra A1 - Terme mit Variablenbelegung" (**D-030** Stufe A1,
+/// Eintritt **D-055**).
+///
+/// **Warum die Aufgaben-Schluessel ein `alg-`-Praefix tragen:** die `tasks`-Zuordnung
+/// des Manifests ist **flach**, und `shiro data combine` **addiert** bei
+/// Namensgleichheit (`D-051`). Ein zweites `typ.reparatur` aus dieser Familie wuerde
+/// also die Zahl der Zahlenfolgen-Familie verfaelschen und jede Auswertung nach Typ
+/// unbrauchbar machen.
+fn cmd_generate_algebra(opts: &cli::AlgebraGenOptions) -> Result<()> {
+    use shiro::data::algebra;
+    use shiro::data::manifest::Manifest;
+
+    let gen_opts = algebra::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent,
+        seed: opts.seed,
+    };
+    let data = algebra::generate(&gen_opts)?;
+
+    println!("Korpus       : Algebra A1 - Terme mit Variablenbelegung (D-030 Stufe A1, D-055)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!(
+        "Baender      : Training a2=0 (linear), Held-out a2>=1 (quadratisch); \
+Koeffizienten und Belegung ueberlappen nicht"
+    );
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let train_entry = write_shard_with_entry(
+        &train_dir.join("shard-0000.bin"),
+        &train_records,
+        "alg-trai",
+    )?;
+    let mut train_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Algebra A1 - Terme mit Variablenbelegung (D-030/D-055) - Training ({} Datensaetze)",
+            train_records.len()
+        ),
+    );
+    fill_algebra_tasks(&mut train_manifest, &data.train_stats);
+    train_manifest.shards.push(train_entry);
+    train_manifest.save(train_dir.join("manifest.json"))?;
+
+    let val_entry =
+        write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "alg-val")?;
+    let mut val_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Algebra A1 - Held-out-Band (D-030/D-055) - {} Datensaetze",
+            val_records.len()
+        ),
+    );
+    fill_algebra_tasks(&mut val_manifest, &data.val_stats);
+    val_manifest.shards.push(val_entry);
+    val_manifest.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    for (name, stats, n) in [
+        ("Training", &data.train_stats, train_records.len()),
+        ("Held-out", &data.val_stats, val_records.len()),
+    ] {
+        println!(
+            "{name:<10}   : {n} Datensaetze, laengster Datensatz {} B",
+            data.max_record_len()
+        );
+        for (cat, st) in stats {
+            println!(
+                "  {:<16} {:>6}  (leicht {}, mittel {}, schwer {})  Bewegung {}",
+                cat.short(),
+                st.total,
+                st.easy,
+                st.medium,
+                st.hard,
+                cat.movement()
+            );
+        }
+    }
+    println!();
+    println!("Ziel         : {}", opts.out_dir.display());
+    println!(
+        "Pruefen      : SHIRO_DATA={} shiro validate-data",
+        train_dir.display()
+    );
+    Ok(())
+}
+
+/// Schreibt die Aufgaben-Zuordnung des Algebra-Korpus ins Manifest.
+fn fill_algebra_tasks(
+    manifest: &mut Manifest,
+    stats: &std::collections::BTreeMap<
+        shiro::data::algebra::Category,
+        shiro::data::algebra::TaskStat,
+    >,
+) {
+    use shiro::data::algebra::Level;
+    for (cat, st) in stats {
+        manifest.tasks.insert(cat.key().into(), st.total);
+        manifest.tasks.insert(
+            format!("bewegung.{}.{}", cat.short(), cat.movement()),
+            st.total,
+        );
+        for (level, n) in [
+            (Level::Easy, st.easy),
+            (Level::Medium, st.medium),
+            (Level::Hard, st.hard),
+        ] {
+            if n > 0 {
+                manifest
+                    .tasks
+                    .insert(format!("level.{}.{}", cat.short(), level.key()), n);
+            }
+        }
+    }
 }
 
 fn cmd_generate_seq(opts: &cli::SeqGenOptions) -> Result<()> {
