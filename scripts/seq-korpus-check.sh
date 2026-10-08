@@ -65,13 +65,16 @@ t_recs = sum(int(s["records"]) for s in train["shards"])
 v_bytes = sum(int(s["payload_bytes"]) for s in val["shards"])
 v_recs = sum(int(s["records"]) for s in val["shards"])
 melde(t_recs == 50000, f"Training: {t_recs} Datensaetze (erwartet 50000)")
-melde(t_bytes == 10954751, f"Training: {t_bytes} B Nutzlast (erwartet 10954751)")
+melde(t_bytes == 11164275, f"Training: {t_bytes} B Nutzlast (erwartet 11164275)")
 melde(v_recs == 5000, f"Held-out: {v_recs} Datensaetze (erwartet 5000)")
-melde(v_bytes == 1198131, f"Held-out: {v_bytes} B Nutzlast (erwartet 1198131)")
+melde(v_bytes == 1220723, f"Held-out: {v_bytes} B Nutzlast (erwartet 1220723)")
 
 # 2. Aufgabenverteilung: ausgewogen und vollstaendig.
+# **Acht Typen seit exp-009:** `reparatur1` (einfeldriges MINIMIEREN) ist als
+# Variante dazugekommen. Die Sollwerte oben sind mit dem neuen Korpus gemessen
+# (Shard 11264307 B, Pruefsumme c9f21dfb503557d46025bf522fd9a70668a4254a2d1c3f451ea92f585e3d81f5).
 typen = sorted(k for k in train["tasks"] if k.startswith("typ."))
-melde(len(typen) == 7, f"sieben Aufgabentypen im Manifest ({len(typen)})")
+melde(len(typen) == 8, f"acht Aufgabentypen im Manifest ({len(typen)})")
 werte = [train["tasks"][k] for k in typen]
 melde(
     max(werte) - min(werte) <= 1,

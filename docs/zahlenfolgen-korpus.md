@@ -45,7 +45,7 @@ Drei Festlegungen, die den Katalog eindeutig machen:
   beide sichtbar. Ohne die zwei ersten Glieder ist eine Summenfolge nicht
   bestimmt; der Verifier verlangt sie ausdruecklich.
 
-## 3 Die sieben Aufgabentypen
+## 3 Die acht Aufgabentypen
 
 | Typ | Bewegung | Frage im Datensatz | Antwortraum |
 |---|---|---|---|
@@ -56,6 +56,7 @@ Drei Festlegungen, die den Katalog eindeutig machen:
 | `stelle` | LOKALISIEREN | Eine Zahl passt nicht. An welcher Stelle steht sie? | `Stelle p` |
 | `reparatur` | MINIMIEREN | Welche **eine** Zahl muss geaendert werden? | `Stelle p: wert` |
 | `vergleich` | VERGLEICHEN | Welche Folge passt zur Regel, A oder B? | `A`/`B` |
+| `reparatur1` | MINIMIEREN | Wie `reparatur`, aber **ein** Antwortfeld: nur die Stelle **oder** nur der Wert (**exp-009**) | `Stelle p` bzw. `wert` |
 
 Beispiel `luecke` (Nutzerbeispiel, Regel genannt):
 
@@ -173,7 +174,7 @@ Gemessen am 07.10.2026 mit `shiro data generate-seq --n 50000 --out data/seq`
 
 | Groesse | Wert |
 |---|---|
-| Training | 50.000 Datensaetze, **10.954.751 B** Nutzlast (10,95 MB) |
+| Training | 50.000 Datensaetze, **11.164.275 B** Nutzlast (11,16 MB), acht Typen zu je 6.250 (exp-009) |
 | Held-out | 5.000 Datensaetze, **1.198.131 B** |
 | Verteilung | **7.142-7.143 je Aufgabentyp** (ausgewogen, siehe §9) |
 | Laengster Datensatz | **367 B** von 4096 (`MAX_RECORD_LEN`) |

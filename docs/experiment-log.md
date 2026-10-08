@@ -1119,3 +1119,156 @@ jede neue Familie mit dem Rueckfall der vorigen. Das ist die Begruendung, den
 Punkt "Datenausbau" (n5) von "mehr MB" auf **"mehr Familien in EINEM
 Trainingslauf"** umzustellen - und die Mathematik-Phase (D-047-Marke erreicht
 vorausgesetzt) **im selben Korpus** zu fahren, nicht als Neustart.
+
+---
+
+## exp-009 - Einfeldrige MINIMIEREN-Variante: eine Antwortform gelernt, die andere verdraengt
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` · **Backend:** `cuda`
+(`Device<Cube(Cuda(Cuda(0)))>`) · **Elternstand:**
+`agent-sequence_reasoning-from2200-i2-step003400.state` · **Dosis:** 600 Schritte
+· **Neuer Stand:** `agent-sequence_reasoning-from3400-i1-step4000.safetensors`,
+SHA-256 `94975d73b1a9a8f9f54538c2a6ea04acad17e9000f8dcafdf3e12f6c62ec8939`.
+
+### Zielpunkte des Auftrags zuerst: alle vier waren schon da
+
+Geprueft statt neu gebaut: **Geraetewahl** (`src/backend.rs`, `--backend` /
+`SHIRO_BACKEND`, Rueckfall auf `Device::flex()`, acht Faelle live belegt, in
+dieser Runde erneut `Wunsch 'auto' -> cuda`), **Metrik-Trennung**
+(`kurzantwort_typen = ["vergleich"]` in der Capability-Datei, gelesen in
+`agent.rs`), **O-T9** (`strategiewechsel` + Leiter + Tests), **D-046/D-047** und
+`docs/trainingsloop-logik-plan.md` vorhanden. Es gab hier nichts zu schliessen.
+
+### Was gebaut wurde: `reparatur1`
+
+`reparatur` verlangt eine **zweiteilige** Antwort `Stelle p: wert` - und **alle
+714** Datensaetze des Typs hatten genau diese Form. Der Verdacht aus exp-007 war,
+dass nicht das Finden der Minimalaenderung fehlt (`stelle`, dieselbe Suche mit
+halber Antwort, lag bei 26 von 27), sondern die **Ausgabeform**.
+
+`Category::ReparaturEinzeln` (`reparatur1`) stellt **dieselbe** Aufgabe mit
+**einem** Antwortfeld. Die Fragezeile entscheidet, welches:
+
+* `An welcher Stelle muss die Zahl geaendert werden?` -> `Stelle p`
+* `Auf welchen Wert muss Stelle p geaendert werden?` -> `w`
+
+Der Verifier liest **nur Datensatz-Bytes**: Regel- und Folgezeile, dann die
+Fragezeile, und rechnet die eindeutige Minimalaenderung mit derselben
+`reparaturen`-Prozedur nach; bei der Wertform prueft er zusaetzlich, dass die in
+der Frage genannte Stelle die gefundene ist. Antwortlaengen 8-13 B, also weit
+unter allem, was `budget_fuer()` abschneiden koennte.
+
+**Drei eigene Fehler beim Einbau, alle gefunden und behoben:**
+
+1. **Der Verifier verwarf jeden eigenen Datensatz.** `category_aus` ordnete
+   beide Frageformen dem Typ `Reparatur` zu (beide enthalten "muss geaendert
+   werden"), dessen Arm die zweiteilige Antwort erwartet. Die Erzeugung brach mit
+   "Erzeugung kommt nicht voran: 2 von 80 Datensaetzen nach 21001 Versuchen" ab.
+   Behoben durch vorgezogene Pruefung der neuen Marker; dieselbe Reihenfolge
+   jetzt auch in `seqgen::kategorie_aus`.
+2. **Der achte Typ veraenderte still die O-Z-Korpora.** `generate_pool` bildet
+   den ausgewogenen Plan ueber die Kategorienliste; mit acht statt sieben Typen
+   aendert sich die Ziehungsreihenfolge der Zufallsquelle und damit **jeder**
+   abgeleitete Datensatz. Gemessen: Nutzlast 12267 -> 11990 B, Pruefsumme
+   `83e1b625ddc693df` -> `e5ad021acbcbdfb1`, 14 Befunde im Pruefer. Behoben
+   durch `Category::BESTAND` (die sieben Typen des Bestands) und
+   `seq::generate_bestand()`; die drei Korpora sind wieder **byteidentisch**
+   (Pruefer: 99 ok, 0 Fehler).
+3. **Eine Testschranke war statistisch nicht haltbar.** `kurzanfragen_sind_nicht_trivial`
+   forderte eine Regel-Baseline < 20 %. Die Mehrheitsregel ist 1 von 6 Regeln,
+   die wahre Quote also 16,7 %; bei 85 Regel-Faellen lag die alte Schranke nur
+   **0,82 sd** ueber dem Mittel und riss damit rein zufaellig in rund jedem
+   fuenften Lauf. Jetzt 30 % = 3 sd (16,7 + 3*4,30); der Fehler, den der Test
+   fangen soll (ein Orakel) liegt bei ~100 % und wird genauso sicher gefangen.
+   Die Zahl wurde also nicht „gelockert", sondern gerechnet.
+
+**Korpus neu erzeugt** (50000/5000, Seed 1337, acht Typen, 6250 je Typ):
+Shard 11.264.307 B, Pruefsumme `c9f21dfb503557d46025bf522fd9a70668a4254a2d1c3f451ea92f585e3d81f5`
+(val `c0efa5e042c72115f15398592caf6512eb9d7173bfaea701a840007df01e2132`),
+**Zweitlauf in allen sechs Dateien byteidentisch**, Validator "Alle Shards
+gueltig", 0 vom Verifier verworfen. Tests: 3 Modultests in `seq.rs`, 2
+Integrationstests in `tests/seq.rs` (beide Frageformen, Einfeldrigkeit,
+Faelschungs-Gegenprobe, Bestandsliste eingefroren).
+
+### Das Ergebnis: die Runde ist ein TAUSCH, kein Gewinn
+
+Gemessen mit der Sonde auf **demselben** 120er-Panel des neuen Korpus, vorher
+(Elternstand) und nachher (angenommener Stand):
+
+| # | Kennzahl | Elternstand | **angenommen** |
+|---|---|---|---|
+| 1 | Train EM | - | **100,0 %** (120/120) |
+| 2 | Held-out EM (frei) | **68,3 %** (82/120) | **70,0 %** (84/120) |
+| 3 | Teacher-forced | 71,7 % (86/120) | 72,5 % (87/120) |
+| 4 | EOS-fixed | 71,7 % | 72,5 % |
+| - | ENDE ueberhaupt gesetzt | 86,7 % | 94,2 % |
+
+**Je Aufgabentyp - und hier liegt der eigentliche Befund:**
+
+| Typ | Elternstand | angenommen | Delta |
+|---|---|---|---|
+| **`reparatur1`** (ein Feld) | **0/13** (0 %) | **10/13** (76,9 %) | **+10** |
+| **`reparatur`** (zwei Felder) | **9/16** (56,3 %) | **2/16** (12,5 %) | **-7** |
+| `luecke` | 14/15 | 12/15 | -2 |
+| `naechste` | 15/20 | 15/20 | 0 |
+| `offen` | 9/16 | 10/16 | +1 |
+| `regel` | 10/11 | 10/11 | 0 |
+| `stelle` | 9/13 | 9/13 | 0 |
+| `vergleich` | 16/16 | 16/16 | 0 |
+
+**Die Gesamtquote bewegt sich also um +1,7 Punkte (2 Datensaetze, Rauschen bei
+n = 120) - aber die Verteilung wird voellig umgebaut.** Die neue einfeldrige Form
+geht von "nie gesehen" auf 76,9 %, und **die zweiteilige Form derselben Aufgabe
+bricht von 56,3 % auf 12,5 % ein.**
+
+**Das ist negativer Transfer INNERHALB einer Familie** - dieselbe Erscheinung wie
+der Transfer-Test zwischen den Familien (exp-008 Nachtrag), nur zwischen zwei
+**Antwortformen derselben Aufgabe**. Beide betreffen exakt dieselbe Suche nach
+der Minimalaenderung; nur die Ausgabe unterscheidet sich. Das Modell hat also
+nicht „das Minimieren gelernt", sondern **eine Ausgabeform** - und die andere
+dabei verdraengt.
+
+**Damit ist die Hypothese aus exp-007 bestaetigt und praezisiert:** die
+zweiteilige Ausgabe ist tatsaechlich die Huerde (`reparatur` faellt auf 12,5 %,
+sobald eine leichtere Form verfuegbar ist, die das Modell bevorzugt), aber sie
+ist **nicht** durch blosses Hinzufuegen einer leichteren Form zu beheben. Der
+naechste Schritt muss beide Formen **gemeinsam** trainieren, nicht nacheinander.
+
+### Die Annahme-Entscheidung des Loops war auf seinem Satz richtig - und blind fuer die Regression
+
+Der Loop hat die Runde **angenommen**: auf seinem 48er-Referenzsatz stieg die
+inhaltliche Quote von 50,0 % auf 69,0 % (21 -> 29 von 42, Score +0,070). Dort
+steht `reparatur1` 0/11 -> 9/11 und `reparatur` nur 1/3 - der Einbruch war auf
+dieser Stichprobe **nicht sichtbar**, weil sie nur **drei** zweiteilige
+Reparatur-Datensaetze enthaelt (das 120er-Panel hat **16**).
+
+**Das ist eine Schwaeche des Referenzsatzes, nicht des Loops:** 48 Datensaetze
+verteilen sich auf acht Typen, also 3-6 je Typ; ein Typ mit drei Faellen kann
+nicht als regressiert erkannt werden. Die Kostenschaetzung, die den Satz klein
+hielt, ist ueberholt (die Sonde erzeugt mit `soll.len()+2` und misst 120
+Datensaetze in Minuten, nicht in Stunden). **Folge: der Referenzsatz gehoert auf
+mindestens 120 erhoeht**, sonst kann die Annahmeregel eine Typ-Regression
+systematisch uebersehen.
+
+### D-047-Status (ehrlich)
+
+**Nicht erreicht.** Held-out EM **70,0 %** (Ziel >= 90 %), und **drei** Typen
+liegen unter 75 %: `reparatur` 12,5 %, `offen` 62,5 %, `stelle` 69,2 %.
+Vorher waren es zwei. Die Runde hat die Marke also **nicht** naeher gebracht,
+sondern das Hindernis verschoben.
+
+**Vorbehalt zur Vergleichbarkeit:** die 84,2 % aus exp-008 wurden auf dem
+**7-Typen-Panel** gemessen, die 70,0 % auf dem neuen **8-Typen-Panel** (anderer
+Korpus, andere Stichprobe). Die beiden Zahlen sind **nicht** direkt
+vergleichbar; belastbar ist der Vorher/Nachher-Vergleich auf demselben Panel
+(68,3 -> 70,0 %) und der Verlauf innerhalb der Runde (50,0 -> 69,0 % auf dem
+Loop-Satz).
+
+### Naechster Schritt (n18)
+
+`breit` mit Dosis 1200 - **beide** Reparaturformen sind im Korpus, eine breite
+Runde muss die verdraengte zweiteilige Form zurueckholen, ohne die einfeldrige zu
+verlieren. Wenn das gelingt, ist die Antwortform nicht der Engpass, sondern nur
+die Dosisverteilung; wenn nicht, ist die zweiteilige Ausgabe ein eigener
+Lerngegenstand und gehoert als solcher behandelt. **Vorher** den Referenzsatz auf
+120 erhoehen, damit die Annahmeregel eine Typ-Regression ueberhaupt sehen kann.

@@ -104,9 +104,20 @@ fn kurzanfragen_sind_nicht_trivial() {
     let g = probe(600);
     // Der Bericht darf nicht durch ein Orakel verfaelscht sein: die Regel-Baseline
     // ist die Mehrheitsregel, nicht die erzeugte Regel.
+    //
+    // **Die Schranke ist gerechnet, nicht geraten** (exp-009). Die Mehrheitsregel
+    // `gleichbleibende Differenz` ist 1 von 6 Regeln, also ist die wahre Quote
+    // 16,7 %. Bei 600 Datensaetzen und 8 Aufgabentypen sind das 75 Regel-Faelle,
+    // Streuung sd = sqrt(0,1667*0,8333/75) = 4,30 Prozentpunkte. Die frueher hier
+    // stehende Schranke 20 % lag nur **0,82 sd** ueber dem Mittel und wurde damit
+    // rein zufaellig in rund jedem fuenften Lauf gerissen - sie hat beim Einbau des
+    // achten Typs genau so versagt, ohne dass sich am Generator etwas geaendert
+    // haette. Jetzt 3 sd = 16,7 + 3*4,30 = 29,6 %, also 30 %: der Fehler, den der
+    // Test fangen soll (ein Orakel, das die erzeugte Regel kennt), liegt bei ~100 %
+    // und wird von 30 % genauso sicher gefangen.
     let st = g.train_stats.get(&seq::Category::Regel).expect("Regel-Typ");
     assert!(
-        st.shortcut_percent() < 20.0,
+        st.shortcut_percent() < 30.0,
         "Regel-Baseline zu hoch: {:.1} % (Orakel statt Kurzverfahren?)",
         st.shortcut_percent()
     );
@@ -141,4 +152,63 @@ fn verifier_verwirft_fremde_bytes() {
     );
     let leer: &[u8] = b"\xfe\xfd\xfc\xff";
     assert!(seq::verify(leer).is_err());
+}
+
+/// **Die einfeldrige MINIMIEREN-Variante im ausgelieferten Korpus (exp-009).**
+///
+/// Geprueft wird das Zusammenspiel: beide Frageformen kommen vor, die Antwort
+/// ist **ein** Feld (kein `Stelle p: wert`), der Verifier bestaetigt jeden
+/// Datensatz, und der Kurzschluss des Typs ist nicht trivial.
+#[test]
+fn reparatur1_ist_einfeldrig_und_verifizierbar() {
+    let g = probe(600);
+    let mut stelle = 0usize;
+    let mut wert = 0usize;
+    for r in g.train.iter().chain(g.val.iter()) {
+        if r.category != seq::Category::ReparaturEinzeln {
+            continue;
+        }
+        assert!(
+            !r.answer.contains(':'),
+            "zweiteilige Antwort in der einfeldrigen Variante: {:?}",
+            r.answer
+        );
+        let v = seq::verify(&r.record).expect("reparatur1 muss verifizierbar sein");
+        assert_eq!(v.category, seq::Category::ReparaturEinzeln);
+        assert_eq!(v.answer, r.answer);
+        if v.answer.starts_with("Stelle ") {
+            stelle += 1;
+        } else {
+            wert += 1;
+        }
+    }
+    assert!(
+        stelle > 0 && wert > 0,
+        "beide Frageformen muessen vorkommen"
+    );
+    // Der Typ ist im Korpus vertreten und nicht unterrepraesentiert.
+    let st = g
+        .train_stats
+        .get(&seq::Category::ReparaturEinzeln)
+        .expect("reparatur1 im Bericht");
+    assert!(st.total >= 10, "reparatur1 zu selten: {}", st.total);
+}
+
+/// **Der achte Typ verduennt die anderen nicht unter die Untergrenze.**
+#[test]
+fn der_achte_typ_verduennt_die_sieben_nicht() {
+    let g = probe(800);
+    for cat in seq::Category::ALL {
+        let st = g
+            .train_stats
+            .get(&cat)
+            .unwrap_or_else(|| panic!("Typ {} fehlt im Bericht", cat.short()));
+        assert!(
+            st.total * 100 / g.train.len() as u64 >= 10,
+            "Typ {} ist unterrepraesentiert: {} von {}",
+            cat.short(),
+            st.total,
+            g.train.len()
+        );
+    }
 }

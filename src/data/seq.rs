@@ -47,6 +47,7 @@
 //! | `offen` | ableiten/**Grenze** | Welche Zahl fehlt? (**keine** Regel genannt) | Zahl **oder** `nicht entscheidbar` |
 //! | `stelle` | LOKALISIEREN | Eine Zahl passt nicht - an welcher Stelle? | Position |
 //! | `reparatur` | MINIMIEREN | Welche **eine** Zahl muss geaendert werden? | `Stelle p: wert` |
+//! | `reparatur1` | MINIMIEREN | Wie `reparatur`, aber **ein** Antwortfeld: nur die Stelle **oder** nur der Wert | `Stelle p` bzw. `wert` |
 //! | `vergleich` | VERGLEICHEN | Welche Folge passt zur Regel, A oder B? | `A`/`B` |
 //!
 //! `offen` ist der Kern der Nutzeranforderung: die Aufgabe nennt **keine** Regel.
@@ -615,10 +616,43 @@ pub enum Category {
     Reparatur,
     /// Zwei Folgen vergleichen.
     Vergleich,
+    /// **MINIMIEREN, einfeldrig** (Variante zu [`Category::Reparatur`]).
+    ///
+    /// Anlass (exp-007/exp-008): `reparatur` verlangt eine **zweiteilige**
+    /// Antwort `Stelle p: wert` und steht als einziger Typ in beiden Baendern
+    /// schwach (5 von 12). Der Verdacht ist, dass nicht das Finden der
+    /// Minimalaenderung fehlt - `stelle` (dieselbe Suche, halbe Antwort) liegt
+    /// bei 26 von 27 -, sondern die **zweiteilige Ausgabeform**. Diese Variante
+    /// zerlegt die Antwort in EIN Feld und fragt je Datensatz entweder nach der
+    /// **Stelle** oder nach dem **Wert**; beides ist byte-genau pruefbar.
+    ///
+    /// Bewusst als **eigener** Aufgabentyp und nicht als Variante im Inneren von
+    /// `reparatur`: nur so weist die Trefferquote je Typ den Unterschied aus.
+    /// Am **Ende** der Aufzaehlung angehaengt, damit sich die Diskriminanten
+    /// (und damit die Saat der bestehenden Korpora) nicht verschieben.
+    ReparaturEinzeln,
 }
 
 impl Category {
-    pub const ALL: [Category; 7] = [
+    pub const ALL: [Category; 8] = [
+        Category::Naechste,
+        Category::Luecke,
+        Category::Regel,
+        Category::Offen,
+        Category::Stelle,
+        Category::Reparatur,
+        Category::Vergleich,
+        Category::ReparaturEinzeln,
+    ];
+
+    /// **Die sieben Typen des Bestands** (Familie D-045, Stand exp-008).
+    ///
+    /// Eigene Liste, weil `reparatur1` eine **spaetere Variante** ist (exp-009):
+    /// die O-Z-Korpora (`seqgen`) bauen ihren Vorrat ueber diese Liste, und ihre
+    /// Pruefsummen (`83e1b625ddc693df`, `0e70f07c2709e62a`, `2d39c2d47c43fe2c`)
+    /// sind gegen **sieben** Typen eingefroren. Wer hier auf `ALL` zurueckstellt,
+    /// aendert diese Korpora still - genau das soll diese Liste verhindern.
+    pub const BESTAND: [Category; 7] = [
         Category::Naechste,
         Category::Luecke,
         Category::Regel,
@@ -637,6 +671,7 @@ impl Category {
             Category::Stelle => "typ.stelle",
             Category::Reparatur => "typ.reparatur",
             Category::Vergleich => "typ.vergleich",
+            Category::ReparaturEinzeln => "typ.reparatur1",
         }
     }
 
@@ -649,6 +684,7 @@ impl Category {
             Category::Stelle => "stelle",
             Category::Reparatur => "reparatur",
             Category::Vergleich => "vergleich",
+            Category::ReparaturEinzeln => "reparatur1",
         }
     }
 
@@ -658,7 +694,7 @@ impl Category {
             Category::Naechste | Category::Luecke | Category::Regel | Category::Offen => "ableiten",
             Category::Vergleich => "VERGLEICHEN",
             Category::Stelle => "LOKALISIEREN",
-            Category::Reparatur => "MINIMIEREN",
+            Category::Reparatur | Category::ReparaturEinzeln => "MINIMIEREN",
         }
     }
 }
@@ -945,6 +981,8 @@ fn shortcut(category: Category, s: &[Option<i64>], _regel: Option<Regel>) -> Str
         Category::Regel => Regel::Differenz.name().to_string(),
         Category::Stelle => "Stelle 1".to_string(),
         Category::Reparatur => "Stelle 1: 1".to_string(),
+        // Einfeldrig: die Mehrheitsantwort ist eine blosse Stelle.
+        Category::ReparaturEinzeln => "Stelle 1".to_string(),
         Category::Vergleich => "A".to_string(),
     }
 }
@@ -1016,8 +1054,19 @@ fn stelle_aus(text: &str) -> Option<(usize, Option<i64>)> {
 }
 
 /// Welcher Aufgabentyp steht im Text? **Nur** aus dem Text, nicht aus Metadaten.
+///
+/// **Reihenfolge ist bedeutsam** (exp-009): beide Reparatur-Formen enthalten
+/// "muss geaendert werden". Ohne die vorgezogene Pruefung der einfeldrigen
+/// Variante wuerde sie als `Reparatur` gelesen - und dann erwartet der Verifier
+/// die zweiteilige Antwort, die diese Variante bewusst nicht verlangt. Genau
+/// dieser Fehler ist beim Einbau passiert (Erzeugung brach mit "kommt nicht
+/// voran" ab, weil der Verifier jeden eigenen Datensatz verwarf).
 fn category_aus(task: &str) -> Option<Category> {
-    if task.contains("kommt als Naechstes") {
+    if task.contains("An welcher Stelle muss die Zahl geaendert werden")
+        || task.contains("Auf welchen Wert muss Stelle ")
+    {
+        Some(Category::ReparaturEinzeln)
+    } else if task.contains("kommt als Naechstes") {
         Some(Category::Naechste)
     } else if task.contains("Nach welcher Regel") {
         Some(Category::Regel)
@@ -1214,6 +1263,66 @@ pub fn verify(record: &[u8]) -> Result<Verified> {
             passende = 1;
             let (p, w) = treffer[0];
             erwartet(&antwort, &format!("Stelle {}: {w}", p + 1))?;
+        }
+        Category::ReparaturEinzeln => {
+            // Dieselbe Rechnung wie `reparatur`, aber die Fragezeile entscheidet,
+            // WELCHES Feld erwartet wird. Der Verifier liest ausschliesslich
+            // Datensatz-Bytes: Regelzeile, Folge, Fragezeile, Antwortfeld.
+            let regel = zeile(&task, "Regel:")
+                .and_then(Regel::aus_name)
+                .ok_or_else(|| crate::error::anyhow!("Regelzeile fehlt oder ist unbekannt"))?;
+            let s = folge_lesen(zeile(&task, "Folge:").unwrap_or(""))
+                .ok_or_else(|| crate::error::anyhow!("Folge unlesbar"))?;
+            if s.iter().any(|v| v.is_none()) {
+                bail!("Reparatur-Aufgabe darf keine Luecke haben");
+            }
+            steps = s.len();
+            let frage = zeile(&task, "Frage:").unwrap_or("");
+            if !frage.starts_with("An welcher Stelle") && !frage.starts_with("Auf welchen Wert") {
+                bail!("unbekannte Frageform fuer reparatur1: {frage:?}");
+            }
+            let mut treffer: Vec<(usize, i64)> = Vec::new();
+            for p in 0..s.len() {
+                let alt = s[p].unwrap_or(0);
+                let lo = (alt - FENSTER).max(1);
+                let hi = alt + FENSTER;
+                for w in lo..=hi {
+                    if w == alt {
+                        continue;
+                    }
+                    let mut neu = s.clone();
+                    neu[p] = Some(w);
+                    if !kandidaten(regel, &neu).is_empty() {
+                        treffer.push((p, w));
+                    }
+                }
+            }
+            if treffer.len() != 1 {
+                bail!("nicht genau eine Reparatur ({})", treffer.len());
+            }
+            passende = 1;
+            let (p, w) = treffer[0];
+            if frage.starts_with("An welcher Stelle") {
+                erwartet(&antwort, &format!("Stelle {}", p + 1))?;
+            } else {
+                // Die Stelle steht in der Frage - sie muss zur gefundenen passen,
+                // sonst zeigen Frage und Datensatz auf verschiedene Stellen.
+                let genannte: usize = frage
+                    .trim_start_matches("Auf welchen Wert muss Stelle ")
+                    .split_whitespace()
+                    .next()
+                    .and_then(|t| t.parse().ok())
+                    .ok_or_else(|| {
+                        crate::error::anyhow!("Stelle in der Frage unlesbar: {frage:?}")
+                    })?;
+                if genannte != p + 1 {
+                    bail!(
+                        "Frage nennt Stelle {genannte}, die Minimalaenderung liegt bei {}",
+                        p + 1
+                    );
+                }
+                erwartet(&antwort, &w.to_string())?;
+            }
         }
         Category::Vergleich => {
             let regel = zeile(&task, "Regel:")
@@ -1432,7 +1541,7 @@ fn level_fuer(cat: Category, laenge: usize) -> Level {
             }
         }
         Category::Luecke | Category::Regel | Category::Stelle => Level::Medium,
-        Category::Offen | Category::Reparatur => Level::Hard,
+        Category::Offen | Category::Reparatur | Category::ReparaturEinzeln => Level::Hard,
     }
 }
 
@@ -1822,6 +1931,86 @@ fn baue_reparatur(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
     )
 }
 
+/// **MINIMIEREN mit EINEM Antwortfeld** - die Variante zu [`baue_reparatur`].
+///
+/// Dieselbe Suche, dieselbe Eindeutigkeitsregel, aber die Antwort ist **ein**
+/// Feld statt zwei. Die Frage bestimmt, welches:
+///
+/// * `An welcher Stelle ...` -> Antwort `Stelle p` (das Modell muss nur die
+///   Stelle nennen; genau das kann `stelle` schon mit 26 von 27)
+/// * `Auf welchen Wert muss Stelle p ...` -> Antwort `w` (die Stelle steht in
+///   der Frage, das Modell muss den **Zielwert** rechnen)
+///
+/// Beide Formen sind byte-genau pruefbar. Der Verifier entscheidet anhand der
+/// Fragezeile, welche er erwartet, und rechnet die Minimalaenderung selbst neu.
+fn baue_reparatur_einzeln(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
+    let regel = *rng.pick(&Regel::ALL);
+    let laenge = rng
+        .range(raum.laenge.0, raum.laenge.1)
+        .max(regel.min_sichtbar() + 1);
+    let v = wuerfle(rng, raum, regel, laenge)?;
+    let q = rng.range(1, laenge - 1);
+    let mut s = als_optionen(&v);
+    let mut falsch = v[q];
+    for _ in 0..40 {
+        let k = rng.range(1, 9) as i64;
+        let cand = if rng.below(2) == 0 {
+            v[q] + k
+        } else {
+            (v[q] - k).max(1)
+        };
+        if cand != v[q] && cand <= WERT_MAX {
+            falsch = cand;
+            break;
+        }
+    }
+    if falsch == v[q] {
+        return None;
+    }
+    s[q] = Some(falsch);
+    // **Dieselbe Eindeutigkeitsregel wie `reparatur`** - sie steht hier
+    // absichtlich wortgleich: waere sie anders, massen Generator und Verifier
+    // zwei verschiedene Aufgaben.
+    let treffer = reparaturen(&s, regel);
+    if treffer.len() != 1 || treffer[0] != (q, v[q]) {
+        return None;
+    }
+    let stelle = q + 1;
+    let (frage, antwort) = if rng.below(2) == 0 {
+        (
+            "An welcher Stelle muss die Zahl geaendert werden?".to_string(),
+            format!("Stelle {stelle}"),
+        )
+    } else {
+        (
+            format!("Auf welchen Wert muss Stelle {stelle} geaendert werden?"),
+            v[q].to_string(),
+        )
+    };
+    let task = format!(
+        "{}\nRegel: {}\nFrage: {frage}",
+        folge_zeile(&s, ""),
+        regel.name()
+    );
+    let think = [
+        format!("Zahlen: {}", werte_text(&s)),
+        format!("Differenzen: {}", differenzen_text(&s)),
+        format!("Regel: {}", regel.name()),
+        format!("Stelle {stelle} auf {} setzen", v[q]),
+        format!("Antwort: {antwort}"),
+    ]
+    .join("\n");
+    let shortcut = shortcut(Category::ReparaturEinzeln, &s, Some(regel));
+    abschluss(
+        Category::ReparaturEinzeln,
+        &s,
+        task,
+        think,
+        antwort,
+        shortcut,
+    )
+}
+
 fn baue_vergleich(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
     let regel = *rng.pick(&Regel::ALL);
     let laenge = rng
@@ -1877,6 +2066,7 @@ fn baue(cat: Category, rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
         Category::Offen => baue_offen(rng, raum),
         Category::Stelle => baue_stelle(rng, raum),
         Category::Reparatur => baue_reparatur(rng, raum),
+        Category::ReparaturEinzeln => baue_reparatur_einzeln(rng, raum),
         Category::Vergleich => baue_vergleich(rng, raum),
     }
 }
@@ -1910,13 +2100,10 @@ fn generate_pool(
     opts: &Options,
     band: Band,
     count: usize,
+    kategorien: &[Category],
 ) -> Result<(Vec<GenRecord>, PoolReport)> {
     let raum = raum(band);
-    let kategorien: Vec<Category> = match opts.category {
-        Some(c) => vec![c],
-        None => Category::ALL.to_vec(),
-    };
-    let plan = plan_fuer(count, &kategorien, rng);
+    let plan = plan_fuer(count, kategorien, rng);
     let mut out: Vec<GenRecord> = Vec::with_capacity(count);
     let mut seen: BTreeSet<u64> = BTreeSet::new();
     let mut recent: Vec<u64> = Vec::new();
@@ -1970,12 +2157,36 @@ fn generate_pool(
 
 /// Erzeugt Trainings- und Held-out-Vorrat.
 pub fn generate(opts: &Options) -> Result<Generated> {
+    let kategorien: Vec<Category> = match opts.category {
+        Some(c) => vec![c],
+        None => Category::ALL.to_vec(),
+    };
+    generate_mit(opts, &kategorien)
+}
+
+/// Wie [`generate`], aber **nur ueber die sieben Bestandstypen** (ohne
+/// `reparatur1`).
+///
+/// Fuer Werkzeuge, deren Ergebnisse gegen die sieben Typen **eingefroren** sind
+/// (die O-Z-Korpora in `seqgen`, Pruefsummen `83e1b625ddc693df`,
+/// `0e70f07c2709e62a`, `2d39c2d47c43fe2c`). Der Grund ist gemessen: als
+/// `reparatur1` in `Category::ALL` kam, aenderte sich der ueber acht Typen
+/// gebildete Plan, damit die Ziehungsreihenfolge der Zufallsquelle und damit
+/// **jeder** abgeleitete Datensatz - die drei O-Z-Korpora waren stillschweigend
+/// andere (12267 -> 11990 B Nutzlast). Diese Funktion macht die Abhaengigkeit
+/// ausdruecklich, statt sie zu verstecken.
+pub fn generate_bestand(opts: &Options) -> Result<Generated> {
+    generate_mit(opts, &Category::BESTAND)
+}
+
+fn generate_mit(opts: &Options, kategorien: &[Category]) -> Result<Generated> {
     opts.validate()?;
     let mut rng = Rng::new(opts.seed);
-    let (train, train_report) = generate_pool(&mut rng, opts, Band::Train, opts.train_records)?;
+    let (train, train_report) =
+        generate_pool(&mut rng, opts, Band::Train, opts.train_records, kategorien)?;
     let val_count = opts.train_records * opts.val_percent / 100;
     let (val, val_report) = if val_count > 0 {
-        generate_pool(&mut rng, opts, Band::Val, val_count)?
+        generate_pool(&mut rng, opts, Band::Val, val_count, kategorien)?
     } else {
         (Vec::new(), PoolReport::default())
     };
@@ -2009,6 +2220,118 @@ mod tests {
             level: None,
         })
         .expect("Erzeugung")
+    }
+
+    /// **Die einfeldrige MINIMIEREN-Variante (exp-009).** Sie muss beide
+    /// Frageformen erzeugen, ihre Antwort muss **ein** Feld sein, und der
+    /// Verifier muss sie bestaetigen.
+    #[test]
+    fn reparatur1_hat_ein_einzelnes_antwortfeld() {
+        let g = probe(600);
+        let mut stelle_form = 0usize;
+        let mut wert_form = 0usize;
+        for r in g.train.iter().chain(g.val.iter()) {
+            if r.category != Category::ReparaturEinzeln {
+                continue;
+            }
+            // Kein Doppelpunkt = kein zweites Feld.
+            assert!(
+                !r.answer.contains(':'),
+                "reparatur1 darf nur EIN Feld haben: {:?}",
+                r.answer
+            );
+            let frage = task_in(&r.record);
+            if frage.contains("An welcher Stelle") {
+                stelle_form += 1;
+                assert!(
+                    r.answer.starts_with("Stelle "),
+                    "Stellen-Frage braucht eine Stellen-Antwort: {:?}",
+                    r.answer
+                );
+            } else if frage.contains("Auf welchen Wert") {
+                wert_form += 1;
+                assert!(
+                    r.answer.bytes().all(|b| b.is_ascii_digit()),
+                    "Wert-Frage braucht eine Zahl: {:?}",
+                    r.answer
+                );
+            } else {
+                panic!("unbekannte Frageform: {frage:?}");
+            }
+            // Der Verifier ist die Wahrheit - und er liest nur Bytes.
+            let v = verify(&r.record).expect("reparatur1 muss verifizierbar sein");
+            assert_eq!(v.category, Category::ReparaturEinzeln);
+            assert_eq!(v.answer, r.answer);
+        }
+        assert!(stelle_form > 0, "Stellen-Form fehlt im Korpus");
+        assert!(wert_form > 0, "Wert-Form fehlt im Korpus");
+    }
+
+    /// Der Verifier muss eine **gefaelschte** Antwort der neuen Variante
+    /// zurueckweisen - und zwar in beiden Frageformen.
+    #[test]
+    fn reparatur1_verwirft_gefaelschte_antwort() {
+        let g = probe(600);
+        let mut geprueft = 0usize;
+        for r in g.train.iter() {
+            if r.category != Category::ReparaturEinzeln {
+                continue;
+            }
+            let mut falsch = r.record.clone();
+            // Ein Byte im Antwortfeld veraendern (die letzte Ziffer davor).
+            let p = falsch
+                .iter()
+                .position(|b| *b == crate::data::bytes::B_ANSWER)
+                .expect("Antwortmarke");
+            let e = falsch[p + 1..]
+                .iter()
+                .position(|b| *b == crate::data::bytes::B_END)
+                .map(|o| p + 1 + o)
+                .expect("Endemarke");
+            let ziel = e - 1;
+            if falsch[ziel].is_ascii_digit() {
+                falsch[ziel] = if falsch[ziel] == b'9' {
+                    b'1'
+                } else {
+                    falsch[ziel] + 1
+                };
+                assert!(
+                    verify(&falsch).is_err(),
+                    "gefaelschte Antwort wurde nicht erkannt: {r:?}"
+                );
+                geprueft += 1;
+            }
+            if geprueft >= 8 {
+                break;
+            }
+        }
+        assert!(geprueft >= 4, "zu wenige Faelschungen geprueft: {geprueft}");
+    }
+
+    /// **Die sieben Bestandstypen bleiben eingefroren.** Wer `BESTAND` auf `ALL`
+    /// zurueckstellt, aendert die O-Z-Korpora still - dieser Test faengt das.
+    #[test]
+    fn bestandsliste_haelt_die_sieben_typen_fest() {
+        assert_eq!(Category::BESTAND.len(), 7);
+        assert_eq!(Category::ALL.len(), 8);
+        assert!(!Category::BESTAND.contains(&Category::ReparaturEinzeln));
+        assert!(Category::ALL.contains(&Category::ReparaturEinzeln));
+        // Der eingefrorene Pfad darf den achten Typ nicht liefern.
+        let g = generate_bestand(&Options {
+            train_records: 200,
+            val_percent: 10,
+            seed: 1337,
+            category: None,
+            level: None,
+        })
+        .expect("Erzeugung");
+        for r in g.train.iter().chain(g.val.iter()) {
+            assert_ne!(
+                r.category,
+                Category::ReparaturEinzeln,
+                "generate_bestand darf reparatur1 nicht erzeugen"
+            );
+        }
     }
 
     #[test]

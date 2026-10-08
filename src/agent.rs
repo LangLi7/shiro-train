@@ -584,6 +584,12 @@ pub enum Pack {
     /// Unterdurchschnittlich mit 19 von 27 (70,4 %) im Held-out, obwohl die
     /// Antwortform kurz ist (`x` allein, 8 Byte).
     Stelle,
+    /// **Aufgabentyp-getrieben:** nur `reparatur1` (MINIMIEREN, einfeldrig).
+    ///
+    /// Die Variante zu [`Pack::Reparatur`] aus exp-009: gleiche Suche, aber
+    /// **ein** Antwortfeld (nur Stelle oder nur Wert). Getrenntes Paket, damit
+    /// die Typachse die Variante und nicht die zweiteilige Form trainiert.
+    ReparaturEinzeln,
 }
 
 impl Pack {
@@ -643,6 +649,7 @@ impl Pack {
         }
         match bestes?.0 {
             "reparatur" => Some(Pack::Reparatur),
+            "reparatur1" => Some(Pack::ReparaturEinzeln),
             "stelle" => Some(Pack::Stelle),
             _ => None,
         }
@@ -654,6 +661,7 @@ impl Pack {
             Pack::Frageart => "frageart",
             Pack::Stellenwert => "stellenwert",
             Pack::Reparatur => "reparatur",
+            Pack::ReparaturEinzeln => "reparatur1",
             Pack::Stelle => "stelle",
             Pack::Breit => "breit",
         }
@@ -671,6 +679,9 @@ impl Pack {
             }
             Pack::Stelle => {
                 "nur Aufgabentyp stelle (LOKALISIEREN): unterdurchschnittlich trotz kurzer Antwort"
+            }
+            Pack::ReparaturEinzeln => {
+                "nur Aufgabentyp reparatur1 (MINIMIEREN, einfeldrig): gleiche Suche, aber die zweiteilige Antwortform entfaellt"
             }
             Pack::Breit => "kein klarer Schwerpunkt: dieselbe Verteilung wie der Basiskorpus",
         }
@@ -750,13 +761,13 @@ pub fn build_pack(pack: Pack, n: usize, seed: u64) -> Result<Vec<Vec<u8>>> {
                 }
             }
         }
-        Pack::Reparatur | Pack::Stelle => {
+        Pack::Reparatur | Pack::Stelle | Pack::ReparaturEinzeln => {
             // **Ein Aufgabentyp, sonst nichts.** Der Generator kann nach
             // Kategorie filtern; genau das braucht ein typ-getriebenes Paket.
-            let cat = if pack == Pack::Reparatur {
-                seq::Category::Reparatur
-            } else {
-                seq::Category::Stelle
+            let cat = match pack {
+                Pack::Reparatur => seq::Category::Reparatur,
+                Pack::ReparaturEinzeln => seq::Category::ReparaturEinzeln,
+                _ => seq::Category::Stelle,
             };
             let opts = seq::Options {
                 train_records: n.saturating_mul(6).max(240),
