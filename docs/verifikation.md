@@ -2265,3 +2265,62 @@ Runde 29 gilt unveraendert (`cargo test` 413/0, fmt gruen, `build --release` gru
 unveraendert 7 fremde Befunde, Smoke-Digest `a6a53c95abd7f622`, alle Doku-Tore exit 0). Neu im
 Baum: `configs/train.kombi-delta.toml`, `data/kombi-delta/` (untracked),
 `checkpoints/kombi-delta-step*.{safetensors,state}`, `logs/kombi-delta-*.jsonl`.
+## Runde 31 - Algebra-Eintritt vorbereitet (D-055): Konventionen entschieden, Messplan vorab festgelegt
+
+**Auftrag: Nutzerauflage Runde 29, Schritt (D) - "Mathematik als eine klar definierte
+weitere Familie", Vorbereitung OHNE Training und OHNE Bau.** Der Stoff war mit **D-030**
+schon entschieden (A1-A6); diese Runde schliesst die **Luecke zwischen D-030 und dem
+heute eingefrorenen Korpus** (D-053/D-054) und entscheidet die drei Punkte, die laut
+D-030 **vor dem ersten Datensatz** faellig waren.
+
+**Entschieden.** `O-A7` **geschlossen**: Multiplikation ausschliesslich `*`, `x`
+ausschliesslich Variable, `·` kommt nicht vor - die Kollision Operator/Variable trifft
+denselben Buchstaben (Mehrdeutigkeit verletzt D-018 Bedingung (2)), und `·` ist U+00B7
+und damit ausserhalb des ASCII-Bereichs, den alle Korpora einhalten. `O-A8`
+**geschlossen**: vier Klauseln (Bruch gekuerzt mit `ggT(a,b)=1` und ganzzahlig ohne
+Nenner; Wurzel ganzzahlig als Zahl, sonst Wurzelterm, nie Dezimalnaeherung; `x^2 = c`
+mit `+-` bei `c > 0`, `0` bei `c = 0`, Wort `keine Loesung` bei `c < 0`; Division durch
+null als **Bauverbot**). `O-A10` **geschlossen**: stufenabhaengiger Zweitsolver, der bei
+A6 **beide** Wurzeln einsetzt **und** das Vorzeichen der Diskriminante gegen die Zahl der
+Loesungen stellt - er prueft damit die **Vollstaendigkeit**, nicht nur die Richtigkeit.
+
+**Die Antwortform der Algebra-Familie braucht KEINEN neuen Schalter - und das ist
+nachpruefbar.** `forme_um_delta` erkennt die Familie ueber die Aufgabenzeile `Folge:`
+(gemessen exklusiv: `seq` 50.000 von 50.000, `logic-large`/`games`/`format`/`quant` je
+0). Algebra traegt `Term:`/`Gleichung:`/`Punkte:`, **kein** `Folge:`, und laeuft durch
+`data combine --antwortform delta` **byteweise unveraendert** durch. Der Eintritt kann
+die Formkonvention also **nicht** versehentlich aendern - und daraus folgt die Pflicht,
+dass die Algebra-Aufgabenzeile **keine** mit `Folge:` beginnende Zeile enthalten darf
+(sonst faellt sie in die Zahlenfolgen-Familie und der Korpusbau bricht ab; gemessenes
+Verhalten aus Runde 29). Das gehoert in einen Test.
+
+**Eintritt.** Vierter Shard **im bestehenden** Korpus, Elternstand
+`kombi-delta-step21200` (D-054), **genau eine** geaenderte Groesse = der Korpus enthaelt
+einen Algebra-Shard; Manifest-Schluessel nach bestehendem Muster (`typ.*`, `bewegung.*`,
+`answer.*`), damit die vorhandenen Auswertungen ohne Codeaenderung greifen.
+
+**Messplan (E) VORAB festgelegt - vier Klauseln.** Gemessen wird **Held-out je Familie**
+(`seq`, `quant`, `logic-large`, `algebra`, plus `add/eval-3d`/`-4d`) und die
+**Antwortform getrennt**; **`regel` (65,4 %) und `naechste` (71,9 %) werden
+mitgemessen**, weil sie seit Runde 30 unter der 75-%-Marke liegen. Abnahme: **(a)**
+Algebra unter der untrainierten Baseline **und** unter dem Elternstand; **(b)** kein Typ,
+der vorher **>= 75 %** hatte, faellt **unter 75 %**; **(c)** `regel`/`naechste` fallen
+**nicht weiter als ein Standardfehler** (bei n ~ 120 rund **4 Pp**); **(d)** `Form
+kaputt` bleibt **0/0** auf den Delta-Panels. Nur dann traegt die Aussage "Algebra
+verbessert Algebra, ohne `seq`, `quant` und `logic-large` zu beschaedigen" - ein
+Gesamtscore kann das nicht zeigen.
+
+**Offen gelassen.** `O-A9` Menge/Kontamination je Stufe ungemessen (Vorbild der Fehler:
+`data/add/train-2d` 8.100 = 90 x 90, gesperrt) · `O-A11` Reihenfolge A4 gegen den
+Matrix-Einstieg, **der Nutzer entscheidet** · **`O-A27` (NEU)** Held-out-Band fuer
+Algebra fehlt (Vorbilder `seq` mit Test `baender_sind_konstruktiv_getrennt`, `semantics`
+0-49 gegen 50-99, `add` ueber Stellen) · **`O-A28` (NEU)** kein Generator, kein
+Verifier, kein Manifest-Key - nachgezaehlt: **22 Manifeste, 210 Aufgaben-Keys, davon 0
+mit `algebra`**.
+
+**Gates und Umfang.** Nur Doku: **keine Codeaenderung, kein Training, keine GPU-Zeit,
+kein Rechenlauf.** `cargo`-Tore daher nicht neu gefahren; der Stand aus Runde 29 gilt
+(`cargo test` 413/0, fmt und `build --release` gruen, clippy unveraendert 7 fremde
+Befunde, Smoke-Digest `a6a53c95abd7f622`). Doku-Tore live: `check-table-pipes` und
+`check-doc-links` exit 0. **Mathematik bleibt gesperrt, bis dieser Plan ausgefuehrt
+wird.**
