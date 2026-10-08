@@ -2552,3 +2552,128 @@ Kopfzahl **89,06 %** (855/960) und `reparatur` **72,4 %** als einzigem Typ unter
 Zaehlung steht der Zeiger auf **Stufe 6**. Da die Einstellungsachse fuer
 `reparatur` als ausgeschoepft gilt, ist die naechste Arbeit ein Daten- oder
 Codehebel, nicht Stufe 6.
+
+## exp-019 - Die Antwortform-Messung: sie widerlegt die eigene Deutung und findet einen fünften Loop-Defekt
+
+**Frage.** Fuer `reparatur` sind alle vier Leiter-Hebel widerlegt (D-048), und der Typ ist mit
+**72,4 %** der einzige unter der 75-%-Marke - also der einzige Grund, warum D-047 nicht erreicht
+ist. Die Deutung des Engpasses lag aber nur auf **drei** Fehlerbeispielen, und sie widersprach
+einer zweiten Messung: `reparatur1` - derselbe Suchvorgang, aber **ein** Antwortfeld - liegt bei
+**88,5 %**. Zwei Messungen, zwei verschiedene Lehren, zwei verschiedene naechste Schritte.
+exp-019 **misst** statt zu deuten. Es ist eine reine **Messung**: keine Trainingsvariable, kein
+Checkpoint, 2:10 min Laufzeit.
+
+**Aufbau.** Neue reine Funktionen in `src/agent.rs`: `zerlege_reparatur` (zerlegt
+`Stelle 5: 4096` streng in `(5, 4096)`) und `form_befund` (zaehlt je Fall: beide richtig / Stelle
+richtig-Wert falsch / Stelle falsch / Form kaputt sowie Wert innerhalb `FENSTER = 20` /
+ausserhalb). Gedruckt wird der Befund je Panel direkt hinter der Typentafel. Gemessen auf dem
+angenommenen Stand `from7600-i1-step12400`, **2 x 480 Fragen** (Panel A Versatz 0, Panel B
+Versatz 5, disjunkt), `--dry-run`, GPU.
+
+### Ergebnis
+
+| Groesse | Panel A (63) | Panel B (60) | gepoolt (123) |
+|---|---|---|---|
+| beide richtig | 47 | 42 | **89 (72,4 %)** |
+| **Stelle richtig, Wert falsch** | 11 | 9 | **20** |
+| **Stelle falsch** | 5 | 6 | **11** |
+| Form kaputt | 0 | 3 | 3 |
+
+Dazu, ueber beide Formen (123 zweiteilige + 56 einfeldrige = 179 Werte): **Wert im Fenster 147
+(82,1 %) / ausserhalb 32 (17,9 %)**.
+
+### Befund 1 - die eigene Deutung war falsch, und zwar messbar
+
+D-048 sagte: *"in allen belegten Fehlern stimmt die Stelle und nur der Wert nicht"*. Das war als
+Deutung aus drei Beispielen gekennzeichnet - und es haelt nicht:
+
+* die Stelle stimmt in **109 von 123 = 88,6 %** der zweiteiligen Faelle, also **nicht** jedes Mal;
+* **11 der 31 Fehler (35 %)** sind **Stellen**fehler, nicht Wertfehler;
+* und **82,1 %** der erzeugten Werte liegen **innerhalb** des erlaubten Fensters, sind also
+  gueltige Kandidaten - die Aussage "das Modell erzeugt nicht einmal einen Kandidaten" gilt nur
+  fuer die drei Beispiele, nicht allgemein.
+
+**Die korrigierte Deutung ist eine andere als beide bisherigen.** Wenn Stelle und Wert einzeln
+mit `p_stelle = 0,886` und `p_wert = 0,82` gelingen, dann ist die Quote der **zweiteiligen**
+Antwort `0,886 x 0,82 = 0,727` - gemessen sind **0,724**. Die zweiteilige Form **multipliziert
+zwei Komponenten**, die einzeln bei 82-89 % liegen; der Typ `stelle` allein (LOKALISIEREN, ein
+Feld) liegt bei **96,8 %**. Der Engpass ist damit **weder** "Zifferngenauigkeit" **noch** "die
+Suche", sondern das **Zusammenspiel**: beide Felder muessen in **einer** Antwort sitzen, und die
+Einzelfehler multiplizieren sich.
+
+**Ehrliche Abgrenzung.** Die Multiplikation ist eine **Deutung** der drei Zahlen, kein eigener
+Messwert: geprueft ist, dass die Produktquote die gemessene Quote innerhalb von 0,3 Prozentpunkten
+trifft. Ein Test der Unabhaengigkeit (etwa die Wertfehlerquote getrennt fuer richtige und falsche
+Stellen) ist damit noch **nicht** erhoben und bleibt offen.
+
+### Befund 2 - der Replay-Hebel war ein No-op, und niemand hatte es gemessen
+
+Die Messung fuehrte auf die Frage, **wie viel** gezielte Dosis der Typ ueberhaupt bekommt. Die
+Antwort steht im Code und im Log:
+
+```text
+ziel_n = dosis * batch * (1 - replay_share)      // 4800 * 16 * 0.65 = 49920
+build_pack(pack, ziel_n)                          // anfrage_fuer kappt auf TYP_DECKEL
+gezielt   = train_records.len()                   // 6250
+replay_n  = gesamt - gezielt                      // 76800 - 6250 = 70550
+```
+
+`anfrage_fuer` kappt Ein-Typ-Pakete auf `TYP_DECKEL = 6250`, und die Wiederholung fuellt danach
+**alles** wieder auf:
+
+| `replay_share` | `ziel_n` | geliefert | Wiederholung | Trainingsdaten |
+|---|---|---|---|---|
+| 0,35 | 49920 | 6250 | 70550 | 6250 + 70550 |
+| 0,20 | 61440 | 6250 | 70550 | **identisch** |
+| 0,05 | 72960 | 6250 | 70550 | **identisch** |
+
+**Die Trainingsdaten waren bei jedem Replay-Wert identisch.** Belegt ist das nicht nur im Code,
+sondern an den Log-Zeilen: alle drei `reparatur`-Runden aus exp-016, exp-017 und exp-018 melden
+wortgleich `56250 Datensaetze (6250 gezielt + 70550 Wiederholung)`. Der Replay-Hebel wurde
+**dreimal gezogen und hat nie etwas geaendert** - er konnte nicht. Genau der Typ, fuer den die
+Leiter gezogen wurde, bekam nur **jeden zwoelften** Datensatz (8,1 %).
+
+Das ist derselbe Fehlertyp wie der behobene Dosis-No-op aus exp-015 ("train_steps 4800 -> 4800"):
+**ein Hebel, der eine Zahl aendert, ohne die Daten zu aendern.** Der Unterschied ist, dass dieser
+hier nicht in der Zahl, sondern in einer **Kappung** steckte - und dass er drei Runden lang
+unentdeckt blieb, weil die Zahl sich bewegte.
+
+### Die zwei Aenderungen, die daraus folgen
+
+**(1) `TYP_DECKEL` von 6250 auf 20000.** Der gezielte Anteil steigt damit von **8,1 %** auf
+**26,0 %** (bei der heutigen Dosis; im Lauf selbst 20000 von 70000 = 28,6 %, weil die
+Wiederholung nur 50000 verschiedene Datensaetze hat). Der Deckel bleibt als Schutz gegen den
+gemessenen Generatorabbruch bestehen.
+
+**(2) `--ohne-hebel`.** Eine Runde, die einen Hebel **ausserhalb** der Leiter testet (Datenmenge,
+Paket, Codehebel), zog bisher **zusaetzlich** die naechste Leiterstufe - und hatte damit zwei
+Variablen. Genau das war in exp-018 Runde 2 der Fall (lr und replay). Mit dem Schalter zieht die
+Runde keine Stufe, meldet das ausdruecklich und setzt die Leiterposition am Rundenende auf **0**
+zurueck: die alten Stufen wurden gegen eine **andere Basis** widerlegt, ihre Widerlegung gilt fuer
+die neue Basis nicht mehr.
+
+### Was damit noch offen ist, ehrlich benannt
+
+* **Der Replay-Wert ist auch nach der Anhebung wirkungslos** - bei Dosis 4800 liegt `ziel_n`
+  (49920 bzw. 61440) **ueber** dem Deckel 20000. Wirksam wird er erst, wenn
+  `dosis * batch * (1 - replay) <= TYP_DECKEL`. Bei dieser Dosis ist **der Deckel der Hebel**.
+* **Der Loop erkennt das nicht.** `hebel_an` beurteilt einen Hebel an seinem **Zahlenwert**, nicht
+  an der **gelieferten Datenmenge**. Ein Replay-Hebel 0,35 -> 0,20 wuerde bei dieser Dosis also
+  weiterhin als wirksam gemeldet, obwohl er nichts aendert. Eine Pruefung dafuer fehlt (offener
+  Punkt).
+* **Die Unabhaengigkeit der beiden Komponenten** ist nicht getestet (siehe oben).
+
+### Gates (Codeaenderung)
+
+`cargo test` **302** lib + 90 Integrationstests, **0 Fehler**, 13 Suiten (vorher 298); `cargo fmt
+--check` gruen; `cargo build --release` gruen; `cargo clippy --all-targets -- -D warnings`
+unveraendert **7** Fehler, alle in fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1),
+`agent.rs`/`cli.rs`/`main.rs` **0**; Smoke-Digest `a6a53c95abd7f622` unveraendert; alle sechs
+Doku-Gates 0 Befunde; `deploy/` unberuehrt.
+
+### D-047-Status nach exp-019
+
+**Unveraendert nicht erreicht** (Kopf 855/960 = 89,06 %, `reparatur` 89/123 = 72,4 %). Die
+Rechnung bleibt: `reparatur` von 72,4 % auf ~80 % (89 -> 98 von 123) hebt die inhaltliche Quote auf
+~88,7 % und die Kopfzahl auf ~90,0 % - **D-047 haengt allein an `reparatur`.** exp-020 testet
+darauf den einen neu gefundenen Hebel: **20000 statt 6250 gezielte Datensaetze**.

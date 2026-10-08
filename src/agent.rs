@@ -451,6 +451,151 @@ fn ist_zahl(s: &str) -> bool {
     !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// Zerlegt eine zweiteilige Reparaturantwort `Stelle 5: 4096` in `(5, 4096)`.
+///
+/// Gibt `None` zurueck, wenn die Antwort nicht diese Form hat - das ist
+/// ausdruecklich ein **Befund** und kein Fehler des Lesers: eine der
+/// Fehlerklassen ist genau das (das Modell antwortet mit `Stelle` allein).
+pub fn zerlege_reparatur(s: &str) -> Option<(i64, i64)> {
+    let rest = s.trim().strip_prefix("Stelle ")?;
+    let (stelle, wert) = rest.split_once(':')?;
+    Some((stelle.trim().parse().ok()?, wert.trim().parse().ok()?))
+}
+
+/// **Der Antwortform-Befund der MINIMIEREN-Familie.**
+///
+/// **Warum diese Messung gebaut wurde.** Fuer `reparatur` (MINIMIEREN,
+/// zweiteilige Antwort `Stelle p: wert`) sind alle vier Leiter-Hebel widerlegt
+/// (D-048), und der Typ ist mit **72,4 %** der einzige unter der 75-%-Marke -
+/// also der einzige Grund, warum D-047 nicht erreicht ist. Die Deutung der
+/// Fehlerbilder lag aber nur auf **drei** Beispielen, und sie widersprach einer
+/// zweiten Messung:
+///
+/// * die Beispiele sahen so aus, als sei die **Stelle richtig und nur der Wert
+///   falsch** (`Stelle 5: 4096` -> `Stelle 5: 1972`),
+/// * gleichzeitig liegt der **einfeldrige** Verwandte `reparatur1` (derselbe
+///   Suchvorgang, aber **ein** Antwortfeld - nur Stelle oder nur Wert) bei
+///   **88,5 %**, also weit ueber der Marke.
+///
+/// Wenn der Wert allein gut gelingt und in der zweiteiligen Form schlecht, dann
+/// ist nicht die Zifferngenauigkeit der Engpass, sondern die **zweiteilige
+/// Form** - und das sind zwei verschiedene Lehren mit zwei verschiedenen
+/// naechsten Schritten. Diese Funktion entscheidet zwischen ihnen, **ohne** die
+/// Antworten von Hand anzusehen.
+///
+/// Gezaehlt wird je gestelltem Fall:
+/// * `beide_richtig` - Stelle und Wert stimmen,
+/// * `stelle_richtig_wert_falsch` - die Stelle stimmt, der Wert nicht,
+/// * `stelle_falsch` - die Stelle stimmt nicht,
+/// * `form_kaputt` - die erzeugte Antwort ist gar nicht zweiteilig,
+/// * `wert_im_fenster` / `wert_ausserhalb` - liegt der erzeugte Wert innerhalb
+///   des erlaubten Fensters `FENSTER` um den gesuchten Wert? Ein Wert
+///   **ausserhalb** ist kein Kandidat, den die Aufgabe zulaesst; einer
+///   **innerhalb** ist ein Kandidat, der nur die falsche Stelle nennt.
+///
+/// Die einfeldrigen Zahlenantworten (`reparatur1` mit reinem Wert) werden
+/// getrennt gezaehlt (`wert_einzeln`), damit die beiden Formen vergleichbar
+/// bleiben. Die einfeldrige **Stellen**-Antwort (`Stelle p`) wird hier nicht
+/// gezaehlt - sie ist der Gegenstand des Typs `stelle` (96,8 %).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct FormBefund {
+    pub zweiteilig: usize,
+    pub beide_richtig: usize,
+    pub stelle_richtig_wert_falsch: usize,
+    pub stelle_falsch: usize,
+    pub form_kaputt: usize,
+    pub wert_einzeln: usize,
+    pub wert_im_fenster: usize,
+    pub wert_ausserhalb: usize,
+}
+
+impl FormBefund {
+    /// Liest sich als Zeile: die Zahlen, die die Entscheidung tragen.
+    pub fn zeile(&self) -> String {
+        format!(
+            "zweiteilig {} (beide richtig {}, Stelle richtig/Wert falsch {}, Stelle falsch {}, Form kaputt {}) | Wert im Fenster {} / ausserhalb {} | einfeldriger Wert {}",
+            self.zweiteilig,
+            self.beide_richtig,
+            self.stelle_richtig_wert_falsch,
+            self.stelle_falsch,
+            self.form_kaputt,
+            self.wert_im_fenster,
+            self.wert_ausserhalb,
+            self.wert_einzeln
+        )
+    }
+
+    /// **Die Entscheidung, die aus den Zahlen folgt.** `true` heisst: der Wert
+    /// gelingt, die zweiteilige Form ist der Engpass.
+    ///
+    /// Bewusst eine reine Regel mit Schwelle und Mindestzahl: bei wenigen
+    /// Faellen sagt die Quote nichts, und eine Deutung aus zwei Beispielen ist
+    /// genau der Fehler, den diese Messung behebt.
+    pub fn wert_traegt_form_nicht(&self) -> Option<bool> {
+        if self.zweiteilig < 10 {
+            return None;
+        }
+        let stelle_ok = self.beide_richtig + self.stelle_richtig_wert_falsch;
+        let stelle_quote = stelle_ok as f64 / self.zweiteilig as f64;
+        // Die Stelle sitzt deutlich, der Wert nicht.
+        Some(stelle_quote >= 0.90 && self.beide_richtig as f64 / self.zweiteilig as f64 <= 0.80)
+    }
+}
+
+/// Zaehlt den Antwortform-Befund ueber die Faelle der MINIMIEREN-Familie.
+pub fn form_befund(faelle: &[Case]) -> FormBefund {
+    use crate::data::seq::FENSTER;
+    let mut b = FormBefund::default();
+    for c in faelle {
+        if c.category != "reparatur" && c.category != "reparatur1" {
+            continue;
+        }
+        match zerlege_reparatur(&c.expected) {
+            Some((stelle_soll, wert_soll)) => {
+                b.zweiteilig += 1;
+                match zerlege_reparatur(&c.got) {
+                    Some((stelle_ist, wert_ist)) => {
+                        if stelle_ist == stelle_soll {
+                            if wert_ist == wert_soll {
+                                b.beide_richtig += 1;
+                            } else {
+                                b.stelle_richtig_wert_falsch += 1;
+                            }
+                        } else {
+                            b.stelle_falsch += 1;
+                        }
+                        if (wert_ist - wert_soll).abs() <= FENSTER {
+                            b.wert_im_fenster += 1;
+                        } else {
+                            b.wert_ausserhalb += 1;
+                        }
+                    }
+                    // Keine zweiteilige Antwort: das ist selbst ein Befund.
+                    None => {
+                        b.form_kaputt += 1;
+                        b.wert_ausserhalb += 1;
+                    }
+                }
+            }
+            None => {
+                // Einfeldrige Zahlenantwort (`reparatur1`, nur Wert). Alles
+                // andere (etwa `Stelle p`) gehoert zum Typ `stelle`.
+                let Ok(wert_soll) = c.expected.trim().parse::<i64>() else {
+                    continue;
+                };
+                b.wert_einzeln += 1;
+                match c.got.trim().parse::<i64>() {
+                    Ok(wert_ist) if (wert_ist - wert_soll).abs() <= FENSTER => {
+                        b.wert_im_fenster += 1;
+                    }
+                    _ => b.wert_ausserhalb += 1,
+                }
+            }
+        }
+    }
+    b
+}
+
 fn regelname(s: &str) -> bool {
     seq::Regel::aus_name(s).is_some()
 }
@@ -811,7 +956,37 @@ pub const SCHWACH: f64 = 0.75;
 /// rechnerisch nicht mehr erfuellbar. Der Deckel allein genuegt deshalb nicht -
 /// er muss zusammen mit der echten Lieferung gerechnet werden (siehe
 /// `run()`: die Wiederholung fuellt die Luecke).
-pub const TYP_DECKEL: usize = 6250;
+///
+/// **Warum der Deckel von 6250 auf 20000 angehoben wurde (exp-019).** Der alte
+/// Wert war ein Notbehelf gegen den Abbruch - und er hatte eine Folge, die
+/// niemand gemessen hatte: er machte den **Replay-Hebel wirkungslos**. Denn
+/// `ziel_n = dosis * batch * (1 - replay_share)` wird von
+/// [`anfrage_fuer`] auf diesen Deckel gekappt, und die Wiederholung fuellt
+/// danach **alles** wieder auf:
+///
+/// ```text
+/// dosis 4800, Batch 16 -> gesamt 76800 Proben
+/// replay_share 0.35 -> ziel_n 49920 -> gekappt auf 6250 -> Wiederholung 70550
+/// replay_share 0.20 -> ziel_n 61440 -> gekappt auf 6250 -> Wiederholung 70550
+/// replay_share 0.05 -> ziel_n 72960 -> gekappt auf 6250 -> Wiederholung 70550
+/// ```
+///
+/// **Die Trainingsdaten waren bei jedem Replay-Wert identisch** - deshalb hat
+/// der Replay-Hebel in exp-016/017/018 nie etwas bewegt, obwohl er dreimal
+/// gezogen wurde. Belegt ist das an den Log-Zeilen: alle drei `reparatur`-Runden
+/// melden `56250 Datensaetze (6250 gezielt + 70550 Wiederholung)`, also
+/// **8,1 %** gezielte Daten. Genau der Typ, fuer den die Leiter gezogen wurde,
+/// bekam damit nur jeden zwoelften Datensatz - und mehr Dosis konnte daran
+/// nichts aendern, weil die Dosis den Deckel nicht bewegt.
+///
+/// **Was der neue Wert leistet und was nicht.** Er hebt den gezielten Anteil bei
+/// der heutigen Dosis von 8,1 % auf 26,0 %. Er macht den **Replay-Wert** dabei
+/// **nicht** wirksam: `ziel_n` ist 49920 (replay 0.35) bzw. 61440 (0.20), beide
+/// oberhalb des Deckels. Wirksam wird der Replay-Wert erst, wenn
+/// `dosis * batch * (1 - replay) <= TYP_DECKEL` gilt. Bei dieser Dosis ist
+/// deshalb **der Deckel der Hebel** - und das ist die eine Variable, die die
+/// naechste Runde aendert.
+pub const TYP_DECKEL: usize = 20000;
 
 /// **Wie viele Datensaetze ein Paket beim Generator anfordert.**
 ///
@@ -1459,6 +1634,16 @@ pub struct AgentOptions {
     /// **Ausdrueckliche Uebersteuerung der Lernrate** (`--lr`). Siehe
     /// [`Self::replay_override`].
     pub lr_override: Option<f32>,
+    /// **Diese Runde zieht keine Leiterstufe** (`--ohne-hebel`).
+    ///
+    /// Fuer Aenderungen, die **nicht** auf der Leiter stehen: die Datenmenge je
+    /// Aufgabentyp (`TYP_DECKEL`), ein neues Paket, ein Codehebel. Ohne den
+    /// Schalter zoege der Loop zusaetzlich die naechste Stufe und die Runde
+    /// haette zwei Variablen (so geschehen in exp-018 Runde 2: lr UND replay).
+    ///
+    /// Eine so gefahrene Runde setzt die Leiterposition auf 0 zurueck - die
+    /// alten Stufen wurden gegen eine andere Basis widerlegt.
+    pub ohne_hebel: bool,
     pub dry_run: bool,
 }
 
@@ -1480,6 +1665,7 @@ impl Default for AgentOptions {
             pack_override: None,
             replay_override: None,
             lr_override: None,
+            ohne_hebel: false,
             dry_run: false,
         }
     }
@@ -2401,6 +2587,24 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         for (cat, (n, ok)) in per_category(&before_cases) {
             println!("   Typ {cat:<11} {ok}/{n} richtig");
         }
+        // **Der Antwortform-Befund der MINIMIEREN-Familie** (siehe
+        // [`FormBefund`]): er entscheidet, ob der Engpass die Zifferngenauigkeit
+        // des Werts oder die zweiteilige Form ist. Ohne ihn bliebe die Deutung
+        // an drei Beispielen haengen.
+        let form_a = form_befund(&before_cases);
+        println!("   Antwortform A: {}", form_a.zeile());
+        match form_a.wert_traegt_form_nicht() {
+            Some(true) => println!(
+                "   -> Befund A: die STELLE sitzt, der WERT nicht - die zweiteilige Form ist der Engpass"
+            ),
+            Some(false) => println!(
+                "   -> Befund A: die Stelle traegt nicht allein - der Engpass liegt schon im Finden"
+            ),
+            None => println!(
+                "   -> Befund A: zu wenige zweiteilige Faelle ({}) fuer eine Deutung",
+                form_a.zweiteilig
+            ),
+        }
         // Panel B ist die unabhaengige Gegenprobe - derselbe Stand, andere
         // Stichprobe. Weicht schon die BASELINE ab, ist die Paneldifferenz
         // selbst ein Befund und gehoert ins Protokoll.
@@ -2415,6 +2619,8 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         for (cat, (n, ok)) in per_category(&before_cases_b) {
             println!("   Typ B {cat:<9} {ok}/{n} richtig");
         }
+        let form_b = form_befund(&before_cases_b);
+        println!("   Antwortform B: {}", form_b.zeile());
         let samples: Vec<(usize, String, String, String)> = before_cases
             .iter()
             .filter(|c| !c.correct)
@@ -2620,9 +2826,23 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             lr: basis_lr,
             paket: pack,
         };
-        let stufe = strategiewechsel(verworfen, &leiterbasis);
-        let leiter_ende = stufe.is_none();
-        if let Some(w) = &stufe {
+        let stufe = if opts.ohne_hebel {
+            None
+        } else {
+            strategiewechsel(verworfen, &leiterbasis)
+        };
+        // **`leiter_ende` ist die Erschoepfung, nicht der Verzicht.** Mit
+        // `--ohne-hebel` wurde bewusst kein Hebel gezogen; das ist keine
+        // erschoepfte Leiter und darf nicht als solche gemeldet werden.
+        let leiter_ende = !opts.ohne_hebel && stufe.is_none();
+        if opts.ohne_hebel {
+            println!(
+                "Leiterstufe   : KEINE (--ohne-hebel) - diese Runde testet einen Hebel AUSSERHALB der Leiter"
+            );
+            println!(
+                "   -> Damit traegt sie genau EINE Variable; die Leiterposition wird am Rundenende auf 0 zurueckgesetzt."
+            );
+        } else if let Some(w) = &stufe {
             match w.hebel {
                 Hebel::Dosis(neu) => dosis = neu,
                 Hebel::Replay(neu) => replay_share = neu,
@@ -3031,7 +3251,16 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // **dieselbe** Stufe wiederholen - sonst laesst sich der Widerspruch nie
         // aufloesen, weil niemand mehr weiss, welche Aenderung welche Wirkung
         // hatte.
-        if unentschieden {
+        if opts.ohne_hebel {
+            // **Hebel ausserhalb der Leiter -> Leiter zurueck auf 0.** Die
+            // widerlegten Stufen wurden gegen eine **andere Basis** geprueft
+            // (andere Datenmenge je Typ, anderes Paket). Ihre Widerlegung gilt
+            // fuer die neue Basis nicht mehr, also faengt die Leiter neu an.
+            verworfen = 0;
+            println!(
+                "   -> Leiterposition zurueckgesetzt auf 0 (diese Runde zog einen Hebel ausserhalb der Leiter)"
+            );
+        } else if unentschieden {
             println!(
                 "   -> KEIN Leiterfortschritt: die Runde wird mit UNVERAENDERTER Stufe wiederholt"
             );
@@ -3648,13 +3877,69 @@ mod tests {
         );
         // **Gegenprobe zum gemessenen Abbruch:** die Dosis 1200 verlangt
         // ziel_n = 12480 Ein-Typ-Datensaetze; die Anforderung darf den
-        // gemessenen Abbruchwert 74880 nicht mehr erreichen.
+        // gemessenen Abbruchwert 74880 nicht mehr erreichen. Seit exp-019 liegt
+        // dieser Wert **unter** dem Deckel und wird deshalb nicht mehr gekappt -
+        // der Deckel greift nur noch bei groesseren Dosen.
         let anfrage = anfrage_fuer(Pack::Offen, 12480);
-        assert_eq!(anfrage, TYP_DECKEL);
+        assert_eq!(anfrage, 12480, "unter dem Deckel wird nicht gekappt");
         assert!(
             anfrage < 74880,
             "die Anforderung {anfrage} liegt wieder im Abbruchbereich"
         );
+    }
+
+    /// **Der Deckel bestimmt die gezielte Menge - und der Replay-Wert erst,
+    /// wenn er unter dem Deckel liegt** (exp-019).
+    ///
+    /// **Der gemessene Anlass.** Mit dem alten Deckel 6250 lieferte ein
+    /// Ein-Typ-Paket bei Dosis 4800 und Batch 16 **immer** 6250 gezielte
+    /// Datensaetze, unabhaengig vom Replay-Wert - die Wiederholung fuellte die
+    /// restlichen 70550 Proben auf. Die Trainingsdaten waren damit bei
+    /// replay 0.35, 0.20 und 0.05 **identisch** (belegt: drei
+    /// `reparatur`-Runden melden alle `6250 gezielt + 70550 Wiederholung`),
+    /// und der Replay-Hebel konnte nichts bewegen. Genau der Typ, fuer den die
+    /// Leiter gezogen wurde, bekam **8,1 %** der Proben.
+    ///
+    /// **Und die ehrliche Fortsetzung:** der Deckel 20000 hebt diesen Anteil auf
+    /// 26,0 %, macht den Replay-Wert bei dieser Dosis aber **nicht** wirksam.
+    /// Denn `ziel_n` ist 49920 (replay 0.35) bzw. 61440 (0.20) - **beide
+    /// oberhalb** des Deckels. Wirksam wird der Replay-Wert erst, wenn
+    /// `dosis * batch * (1 - replay) <= TYP_DECKEL` gilt. Bei der heutigen Dosis
+    /// ist deshalb **der Deckel der Hebel**, nicht der Replay-Anteil; das ist
+    /// als offener Punkt festgehalten und nicht als Wirkung behauptet.
+    #[test]
+    fn typ_deckel_bestimmt_die_gezielte_menge() {
+        // Dosis und Batch der Capability (configs/capabilities/...).
+        let (dosis, batch) = (4800usize, 16usize);
+        let gesamt = dosis * batch;
+        let angefragt = |replay: f64| ((gesamt as f64) * (1.0 - replay)).round() as usize;
+        let geliefert = |replay: f64| anfrage_fuer(Pack::Reparatur, angefragt(replay));
+
+        // **Tragfaehiger Anteil beim Basiswert replay = 0.35.** Vorher waren es
+        // 6250 von 76800 = 8,1 %; jetzt 20000 = 26,0 %.
+        let anteil = geliefert(0.35) as f64 / gesamt as f64;
+        assert!(
+            anteil >= 0.25,
+            "gezielter Anteil nur {:.1} % - der Deckel frisst die Dosis",
+            anteil * 100.0
+        );
+
+        // **Hier bindet der Deckel** - beide Anforderungen liegen darueber.
+        assert!(angefragt(0.35) > TYP_DECKEL);
+        assert!(angefragt(0.20) > TYP_DECKEL);
+        assert_eq!(
+            geliefert(0.35),
+            geliefert(0.20),
+            "bei dieser Dosis ist der Replay-Wert wirkungslos - das ist gemessen, nicht gewuenscht"
+        );
+
+        // **Unterhalb des Deckels wirkt er wieder.** Bei kleiner Dosis liegt
+        // `ziel_n` darunter, und dann bewegt der Replay-Wert die gezielte Menge.
+        let klein = anfrage_fuer(Pack::Reparatur, 6240);
+        let klein2 = anfrage_fuer(Pack::Reparatur, 7680);
+        assert_eq!(klein, 6240, "unter dem Deckel wird nicht gekappt");
+        assert_eq!(klein2, 7680);
+        assert_ne!(klein, klein2, "unter dem Deckel wirkt der Replay-Wert");
     }
 
     /// **Das Paket `offen` liefert genau den Aufgabentyp `offen`** - und jeder
@@ -4106,6 +4391,114 @@ mod tests {
         }
         // Und die Laenge des Abdrucks ist fest, damit Namen vergleichbar bleiben.
         assert_eq!(original.len(), 16, "16 Hexzeichen: {original}");
+    }
+
+    /// **Die Antwortform-Messung, die die Deutung entscheidet.**
+    ///
+    /// Der Anlass ist ein Widerspruch zwischen zwei eigenen Messungen: die
+    /// Fehlerbeispiele bei `reparatur` sahen nach *zifferngenauem Wert* aus
+    /// (Stelle richtig, Wert falsch), waehrend der einfeldrige `reparatur1`
+    /// (nur Wert) bei 88,5 % liegt. Beide Lehren fuehren zu verschiedenen
+    /// naechsten Schritten - deshalb wird gezaehlt statt gedeutet.
+    #[test]
+    fn formbefund_trennt_stelle_und_wert() {
+        let fall = |soll: &str, ist: &str, typ: &str| Case {
+            index: 0,
+            category: typ.to_string(),
+            expected: soll.to_string(),
+            got: ist.to_string(),
+            correct: soll == ist,
+            class: None,
+        };
+
+        // Die drei **gemessenen** Fehlerbilder aus der 480er-Tafel: die Stelle
+        // stimmt, der Wert nicht - und er liegt ausserhalb des Fensters.
+        let faelle = vec![
+            fall("Stelle 5: 4096", "Stelle 5: 1972", "reparatur"),
+            fall("Stelle 6: 1274", "Stelle 6: 127", "reparatur"),
+            fall("Stelle 5: 663", "Stelle 5: 639", "reparatur"),
+            // Ein richtiger zweiteiliger Fall.
+            fall("Stelle 7: 812", "Stelle 7: 812", "reparatur"),
+            // Stelle falsch, Wert im Fenster (Kandidat an falscher Stelle).
+            fall("Stelle 3: 500", "Stelle 4: 510", "reparatur"),
+            // Antwort ohne Zweiteilung - eigener Befund.
+            fall("Stelle 2: 300", "Stelle", "reparatur"),
+            // Einfeldriger Wert, richtig.
+            fall("4711", "4711", "reparatur1"),
+            // Einfeldriger Wert, daneben und ausserhalb.
+            fall("900", "4000", "reparatur1"),
+            // Einfeldrige **Stelle** - gehoert zum Typ `stelle`, zaehlt hier nicht.
+            fall("Stelle 4", "Stelle 4", "reparatur1"),
+            // Ein anderer Typ zaehlt ueberhaupt nicht mit.
+            fall("Stelle 9: 1", "Stelle 1: 1", "stelle"),
+        ];
+        let b = form_befund(&faelle);
+        assert_eq!(b.zweiteilig, 6, "sechs zweiteilige Antworten");
+        assert_eq!(b.beide_richtig, 1);
+        assert_eq!(
+            b.stelle_richtig_wert_falsch, 3,
+            "die drei gemessenen Fehlerbilder"
+        );
+        assert_eq!(b.stelle_falsch, 1, "Stelle 4 statt 3");
+        assert_eq!(b.form_kaputt, 1, "'Stelle' allein ist nicht zweiteilig");
+        // Werte im Fenster: `812` (Abweichung 0), `510` (10 daneben) und der
+        // einfeldrige `4711`. Die drei gemessenen Abweichungen (2124, 1147, 24)
+        // und die kaputte Form liegen ausserhalb.
+        assert_eq!(b.wert_im_fenster, 3);
+        assert_eq!(b.wert_ausserhalb, 5);
+        // Einfeldrig gezaehlt werden nur **reine Zahlen**: `4711` und `4000`.
+        assert_eq!(b.wert_einzeln, 2, "die Stellen-Antwort zaehlt hier nicht");
+        // Gegenprobe zur Zaehlregel: die einfeldrige Stellen-Antwort wird NICHT
+        // als Wert gezaehlt - `wert_einzeln` enthaelt nur reine Zahlen.
+        let nur_stelle = form_befund(&[fall("Stelle 4", "Stelle 4", "reparatur1")]);
+        assert_eq!(nur_stelle.wert_einzeln, 0);
+        assert_eq!(nur_stelle.zweiteilig, 0);
+    }
+
+    /// **Die Zerlegung muss streng sein** - sonst zaehlt sie Formfehler als
+    /// gueltige Antworten und die Quote wird zu freundlich.
+    #[test]
+    fn reparatur_zerlegung_ist_streng() {
+        assert_eq!(zerlege_reparatur("Stelle 5: 4096"), Some((5, 4096)));
+        assert_eq!(zerlege_reparatur("  Stelle 12: 7  "), Some((12, 7)));
+        // Keine zweiteilige Antwort.
+        assert_eq!(zerlege_reparatur("Stelle 7"), None);
+        assert_eq!(zerlege_reparatur("2625"), None);
+        assert_eq!(zerlege_reparatur("Stelle"), None);
+        assert_eq!(zerlege_reparatur(""), None);
+        // Wert fehlt oder ist keine Zahl.
+        assert_eq!(zerlege_reparatur("Stelle 5:"), None);
+        assert_eq!(zerlege_reparatur("Stelle 5: abc"), None);
+        assert_eq!(zerlege_reparatur("Stelle x: 5"), None);
+    }
+
+    /// **Ohne genug Faelle gibt es keine Deutung.** Eine Quote aus zwei
+    /// Beispielen ist genau der Fehler, den diese Messung behebt.
+    #[test]
+    fn formbefund_deutet_nicht_aus_zu_wenigen_faellen() {
+        let b = FormBefund {
+            zweiteilig: 9,
+            beide_richtig: 0,
+            stelle_richtig_wert_falsch: 9,
+            ..FormBefund::default()
+        };
+        assert_eq!(b.wert_traegt_form_nicht(), None);
+        // Ab zehn Faellen mit deutlich sitzender Stelle: die Form ist der Engpass.
+        let b2 = FormBefund {
+            zweiteilig: 10,
+            beide_richtig: 5,
+            stelle_richtig_wert_falsch: 5,
+            ..FormBefund::default()
+        };
+        assert_eq!(b2.wert_traegt_form_nicht(), Some(true));
+        // Sitzt die Stelle NICHT, ist die Deutung die andere.
+        let b3 = FormBefund {
+            zweiteilig: 10,
+            beide_richtig: 5,
+            stelle_falsch: 5,
+            ..FormBefund::default()
+        };
+        assert_eq!(b3.wert_traegt_form_nicht(), Some(false));
     }
 
     /// **Die Registry muss den Lauf beschreiben, den sie protokolliert.**

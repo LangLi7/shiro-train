@@ -79,6 +79,18 @@ pub enum Command {
         replay_share: Option<f64>,
         /// Ausdrueckliche Lernrate (`--lr`); ohne Angabe gilt die Basisconfig.
         lr: Option<f32>,
+        /// **`--ohne-hebel`: diese Runde zieht KEINE Leiterstufe** (exp-020).
+        ///
+        /// Die Leiter testet Einstellungen. Es gibt aber Aenderungen, die
+        /// **nicht** auf ihr stehen: eine andere Datenmenge je Aufgabentyp
+        /// (`TYP_DECKEL`), ein neues Paket, ein Codehebel. Ohne diesen Schalter
+        /// zoege der Loop **zusaetzlich** die naechste Stufe - und die Runde
+        /// haette zwei Variablen, waere also nicht mehr zurechenbar. Genau das
+        /// war in exp-018 Runde 2 der Fall (lr UND replay).
+        ///
+        /// Eine so gefahrene Runde setzt die **Leiterposition auf 0 zurueck**:
+        /// die alten Stufen wurden gegen eine andere Basis widerlegt.
+        ohne_hebel: bool,
         dry_run: bool,
     },
     ValidateData,
@@ -430,6 +442,10 @@ OPTIONEN FUER agent capability run:
     --eval-records <N>    Datensaetze im festen Referenzsatz (Standard: 24)
     --train-steps <N>     Schritte je Runde (Standard: aus der Capability)
     --replay-share <F>    Replay-Anteil der Trainingsdaten (0.0-1.0) als
+                          Startwert der Runde (setzt die BASIS der Hebeleiter)
+    --ohne-hebel          diese Runde zieht KEINE Leiterstufe; fuer Aenderungen
+                          ausserhalb der Leiter (Datenmenge je Typ, Paket,
+                          Codehebel). Setzt die Leiterposition auf 0 zurueck.
                           STARTWERT der Runde setzen, nicht nur als Reaktion
                           auf einen Verwurf
     --lr <F>              Lernrate als Startwert der Runde setzen
@@ -491,6 +507,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_pack: Option<String> = None;
     let mut agent_replay: Option<f64> = None;
     let mut agent_lr: Option<f32> = None;
+    let mut agent_ohne_hebel = false;
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -575,6 +592,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 );
             }
             "--pack" => agent_pack = Some(take_value(&mut iter, "--pack")?),
+            "--ohne-hebel" => agent_ohne_hebel = true,
             "--replay-share" => {
                 let v = take_value(&mut iter, "--replay-share")?;
                 agent_replay =
@@ -876,6 +894,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             pack: agent_pack,
             replay_share: agent_replay,
             lr: agent_lr,
+            ohne_hebel: agent_ohne_hebel,
             dry_run: agent_dry,
         };
     }
@@ -1142,13 +1161,32 @@ mod tests {
                 pack,
                 replay_share,
                 lr,
+                ohne_hebel,
                 ..
             } => {
                 assert_eq!(train_steps, Some(4800));
                 assert_eq!(pack.as_deref(), Some("breit"));
                 assert_eq!(replay_share, Some(0.2));
                 assert_eq!(lr, Some(0.00045));
+                // Ohne `--ohne-hebel` zieht die Runde eine Leiterstufe.
+                assert!(!ohne_hebel, "ohne Flag muss der Loop die Leiter ziehen");
             }
+            other => panic!("erwartet Agent, war {other:?}"),
+        }
+
+        // **`--ohne-hebel` ist ein eigener Schalter** (exp-020): die Runde zieht
+        // dann KEINE Leiterstufe, damit sie genau eine Variable traegt
+        // (Hebel ausserhalb der Leiter).
+        let o = p(&[
+            "agent",
+            "capability",
+            "run",
+            "sequence_reasoning",
+            "--ohne-hebel",
+        ])
+        .unwrap();
+        match o.command {
+            Command::Agent { ohne_hebel, .. } => assert!(ohne_hebel),
             other => panic!("erwartet Agent, war {other:?}"),
         }
 

@@ -69,6 +69,7 @@ fn real_main() -> Result<()> {
             pack,
             replay_share,
             lr,
+            ohne_hebel,
             dry_run,
         } => cmd_agent(
             &capability,
@@ -80,6 +81,7 @@ fn real_main() -> Result<()> {
             pack,
             replay_share,
             lr,
+            ohne_hebel,
             dry_run,
         ),
         Command::ValidateData => cmd_validate_data(&args),
@@ -2092,6 +2094,7 @@ fn cmd_agent(
     pack: Option<String>,
     replay_share: Option<f64>,
     lr: Option<f32>,
+    ohne_hebel: bool,
     dry_run: bool,
 ) -> Result<()> {
     let pfad = PathBuf::from(format!("configs/capabilities/{capability}.toml"));
@@ -2111,6 +2114,7 @@ fn cmd_agent(
         pack_override: pack,
         replay_override: replay_share,
         lr_override: lr,
+        ohne_hebel,
         dry_run,
         ..shiro::agent::AgentOptions::default()
     };
