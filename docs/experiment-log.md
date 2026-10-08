@@ -2811,7 +2811,7 @@ die **Aenderung** statt des absoluten Werts:
 | `Frage: Welche eine Zahl muss geaendert werden?` | `Frage: ... Nenne die Aenderung (+/-).` |
 | `Stelle 5: 4096` | `Stelle 5: +7` |
 
-Der Antwortraum schrumpft von rund **20.000** Werten auf **19** (`+1`..`+9`, `-1`..`-9`) -
+Der Antwortraum schrumpft von rund **20.000** Werten auf **18** (`±1` bis `±9`, ohne 0) -
 dasselbe Wissen, dasselbe Rechnen, aber ohne die Zifferngenauigkeit eines vierstelligen
 Werts. Die Form steht als Zeile `Form: Aenderung` **im Datensatz**, damit der Verifier sie
 aus Bytes lesen kann und nicht raten muss.
@@ -3069,7 +3069,7 @@ D-049 gilt unveraendert: ein D-047-Status wird **immer mit der Antwortform** gen
 
 **Naechster Schritt:** die Formkonvention auf die anderen Typen pruefen - allen voran
 `reparatur1` (86,9 %) und `offen` (86,8 %), die in der Delta-Form die schwaechsten sind. Und:
-die **Zufallsbaseline der 19 Delta-Antworten** explizit messen, damit der Vorbehalt
+die **Zufallsbaseline der 18 Delta-Antworten** explizit messen, damit der Vorbehalt
 "kleinerer Antwortraum" eine Zahl bekommt statt einer Schaetzung.
 
 ### Gates (keine Codeaenderung in dieser Runde)
@@ -3081,7 +3081,7 @@ alle sechs Doku-Gates 0 Befunde; `deploy/` unberuehrt.
 ### Nachtrag zu exp-021: der Vorbehalt "kleinerer Antwortraum" hat jetzt eine Zahl
 
 **Die offene Frage.** D-049 sagt ausdruecklich, dass der Einwand *"die Aufgabe wurde leichter,
-nicht das Modell besser"* berechtigt und **nicht** widerlegt ist: die Delta-Form hat 19 moegliche
+nicht das Modell besser"* berechtigt und **nicht** widerlegt ist: die Delta-Form hat 18 moegliche
 Antworten statt rund 20.000. Damit stand die Annahme auf einer Schaetzung statt auf einer Messung.
 Dieser Nachtrag liefert die Zahl - **ohne Codeaenderung, ohne Training, ohne GPU** - aus dem
 vorhandenen val-Korpus (`data/seq/jsonl/val.jsonl`, 5.000 Datensaetze).
@@ -3099,7 +3099,7 @@ gerechnet (`d = Zielwert - vorgefundener Wert`), also nach derselben Regel wie `
 | haeufigste Antwort (alle val-`reparatur`, n = 625) | `Stelle 2: 57` = **1,0 %** | `Stelle 4: +2` = **2,2 %** |
 | Panel A (n = 63) | 3,2 % | 3,2 % |
 | Panel B (n = 60) | 3,3 % | 5,0 % |
-| Zufall (5 Stellen x 19 Delta-Werte) | - | 1,05 % |
+| Zufall (5 Stellen x 18 Delta-Werte) | - | 1,11 % |
 | haeufigste **Stelle** allein | - | 23,2 % (Stelle 5) |
 
 **Was daraus folgt - und was nicht.** Die erreichte Genauigkeit und die Baseline im Vergleich:
@@ -3123,3 +3123,38 @@ Kurzverfahren* traegt der kleinere Antwortraum hoechstens 1,2 der 19,5 Punkte.
 **Damit ist D-049 gestuetzt, nicht ersetzt.** Die Entscheidung bleibt wie sie ist: die Delta-Form
 ist die Konvention fuer `reparatur`, die absolute Form die Regressionsreferenz, und ein
 D-047-Status wird immer mit der Antwortform genannt.
+
+### Korrektur einer eigenen Zahl: der Antwortraum ist 18, nicht 19
+
+**Was falsch war.** Sowohl im Code als auch in diesem Log und in D-049 stand, der Antwortraum der
+Delta-Form schrumpfe auf **19** Werte (`+1`..`+9`, `-1`..`-9`). Diese Aufzaehlung enthaelt aber
+**18** Werte - sie widersprach sich selbst. Am Korpus nachgezaehlt (`data/seq/jsonl/val.jsonl` und
+`train.jsonl`, dieselbe Delta-Rechnung wie `als_delta`):
+
+```text
+val   : 625 reparatur-Deltas, 18 verschiedene, min/max -9 / 9
+train : 6250 reparatur-Deltas, 18 verschiedene, min/max -9 / 9
+Werte : -9 -8 -7 -6 -5 -4 -3 -2 -1  1 2 3 4 5 6 7 8 9
+```
+
+Der Grund steht im Generator: die Verfaelschung ist `k` aus **1..=9** mit **Vorzeichen**, die 0
+kommt nicht vor. **18 ist richtig.** Berichtigt sind der Code (`src/data/seq.rs`, `src/agent.rs`
+zweimal) und die betroffenen Stellen in diesem Log und in D-049.
+
+**Und daraus folgt die staerkere Schranke.** Ein Kurzverfahren, das die **Stelle perfekt kennt**
+und das Delta **raet**, trifft genau `1/18 = 5,56 %`. Mit der gemessenen Lokalisierungsquote
+(`stelle` 96,8 %) sind es `0,968 x 5,56 % = 5,38 %`. Das ist die **staerkste billige Schranke**
+fuer diese Aufgabenform - und sie liegt **17-fach** unter der gemessenen Genauigkeit von 91,9 %.
+
+| Kurzverfahren der Delta-Form | Wert |
+|---|---|
+| Mehrheitsantwort (`Stelle 4: +2`) | 2,2 % |
+| **Stelle perfekt + Delta geraten** (`1/18`) | **5,56 %** |
+| dito mit der gemessenen Lokalisierungsquote 96,8 % | 5,38 % |
+| Zufall (5 Stellen x 18 Werte) | 1,11 % |
+| **gemessen (exp-021, gepoolt)** | **91,9 %** |
+
+**Die Aussage wird dadurch praeziser, nicht schwaecher:** selbst ein Verfahren, das die Stelle
+**immer** richtig hat - also genau die Komponente, die der Loop als geloest gemessen hat
+(`stelle` 96,8 %) - bleibt bei 5,4 %. Die 91,9 % sind damit nicht durch ein Kurzverfahren auf dem
+kleineren Antwortraum zu erreichen.

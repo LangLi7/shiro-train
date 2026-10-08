@@ -1921,7 +1921,9 @@ fn baue_stelle(rng: &mut Rng, raum: &Raum) -> Option<GenRecord> {
 /// verfaelscht sogar nur um **1 bis 9**. Die Aenderung zu nennen ist damit die
 /// **woertliche** Antwort auf die Frage; der absolute Wert ist die
 /// umstaendlichere Variante derselben Antwort. Der Antwortraum schrumpft von
-/// rund 20.000 Werten auf **19** (`+1`..`+9`, `-1`..`-9`) - dasselbe Wissen,
+/// rund 20.000 Werten auf **18** (die Verfaelschung ist `k` aus 1..=9 mit
+/// Vorzeichen, also `±1` bis `±9` **ohne** die 0 - am Korpus nachgezaehlt:
+/// val 625 und train 6250 Faelle, genau die Werte -9..-1 und 1..9) - dasselbe Wissen,
 /// dasselbe Rechnen, aber ohne die Zifferngenauigkeit eines vierstelligen Werts.
 ///
 /// **Der Verifier prueft beide Richtungen**, weil er die Stelle und den

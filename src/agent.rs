@@ -829,7 +829,9 @@ pub enum Pack {
     /// die hoechstens `FENSTER` vom vorgefundenen Wert abweicht; die Verfaelschung
     /// im Generator ist sogar nur **1 bis 9** daneben. Gefragt wird deshalb die
     /// Aenderung: `Stelle 5: +7` statt `Stelle 5: 4096`. Der Antwortraum
-    /// schrumpft von rund 20.000 Werten auf **19** (`+1` bis `+9`, `-1` bis `-9`),
+    /// schrumpft von rund 20.000 Werten auf **18** (die Verfaelschung ist `k` aus
+    /// 1..=9 mit Vorzeichen, also `±1` bis `±9` ohne die 0 - am Korpus
+    /// nachgezaehlt),
     /// und zwar bei demselben Wissen und demselben Rechnen; es entfaellt nur die
     /// Zifferngenauigkeit des vierstelligen Werts.
     ///
@@ -953,7 +955,7 @@ impl Pack {
                 "nur Aufgabentyp reparatur1 (MINIMIEREN, einfeldrig): gleiche Suche, aber die zweiteilige Antwortform entfaellt"
             }
             Pack::ReparaturDelta => {
-                "nur Aufgabentyp reparatur in der DELTA-Form: die Antwort nennt die Aenderung ('Stelle p: +d') statt des absoluten Werts - der Antwortraum schrumpft von rund 20000 auf 19 (exp-021)"
+                "nur Aufgabentyp reparatur in der DELTA-Form: die Antwort nennt die Aenderung ('Stelle p: +d') statt des absoluten Werts - der Antwortraum schrumpft von rund 20000 auf 18 (exp-021)"
             }
             Pack::Offen => {
                 "nur Aufgabentyp offen (ableiten, Grenzfall): Worttreue von 'nicht entscheidbar' und die Entscheidung entscheidbar/nicht entscheidbar"
