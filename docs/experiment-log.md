@@ -1846,7 +1846,39 @@ Die Replikationspflicht greift an zwei Stellen noch nicht weit genug:
   (pessimistisch, aber aus dem falschen Grund). Sauber ist: die Typquote ueber
   **beide** Panels zusammengelegt zu beurteilen.
 
-Beides ist noch **nicht** umgesetzt und wird hier ausdruecklich als offen gefuehrt.
+Beides ist **umgesetzt** (Nachtrag unten), nachdem dieser Lauf es erzwungen hat.
+
+### Nachtrag: das Typurteil laeuft jetzt ueber beide Panels zusammengelegt
+
+Die beiden offenen Punkte aus dem Abschnitt oben sind behoben, und der Anlass ist
+dieser Lauf selbst:
+
+* **Die Typachse sieht beide Panels.** `Pack::for_schwaechsten_typ` bekommt die
+  **vereinigten** Faelle beider Panels. Sie hatte `offen` mit 68,75 % auf Panel A
+  gewaehlt, waehrend `offen` auf Panel B mit 100 % der **staerkste** Typ war - die
+  Achse richtete das Training also auf ein Artefakt.
+* **Das Veto prueft die zusammengelegten Typentafeln** (`tafel_zusammen`,
+  `typeneinbruch_gepoolt`). Je Panel einzeln verwarf es Lauf 2 auf **zwei**
+  Datensaetzen; zusammengelegt steht `reparatur` bei 26/32 (81,3 %) -> 24/32
+  (75,0 %) und damit **nicht** unter der Marke. **Lauf 2 waere mit dieser Fassung
+  `UNENTSCHIEDEN` statt `VERWORFEN` gewesen** - ein ehrlicheres Urteil, weil der
+  Score-Widerspruch der Panels das eigentliche Ergebnis war.
+
+Die Wirkung ist im Test festgehalten: `veto_prueft_ueber_beide_panels_zusammengelegt`
+baut genau den exp-014-Fall nach (A zeigt den Einbruch, B nicht, zusammengelegt
+keiner) und `gepoolter_einbruch_verwirft_weiter` belegt die Gegenprobe, dass ein
+Einbruch, den **beide** Panels zeigen, weiterhin verwirft. Zusammengelegt hat
+`reparatur` n = 29 statt 16 und `offen` n = 34 statt 16.
+
+**Was das nicht behebt, und das gehoert dazu:** die Marke "Held-out EM >= 90 %" ist
+nach wie vor eine **Punktquote auf 120 Fragen**. Zwei Panels und die
+Determinismus-Probe schuetzen gegen einen einmaligen Erfolg, aber sie liefern
+**kein Konfidenzintervall**. Bei 103 von 120 Fragen liegt der Standardfehler bei
+rund 3,4 Punkten; der Abstand zur Marke (5 Datensaetze) ist damit **kleiner als
+eine Standardabweichung**. Ein Stand, der die 90 % auf beiden Panels reisst, waere
+also noch kein Nachweis. Fuer den Abschluss der Familie braucht es daher
+**mehr Fragen je Panel** (Ziel: mindestens 500), nicht nur mehr Panels.
+
 
 ### Lauf 2: das harte Veto greift - aber es greift auf zwei Datensaetzen
 
@@ -1872,7 +1904,8 @@ einen Typeneinbruch nicht durch einen Scoregewinn verdecken -, aber es kann eine
 Runde auf zwei Datensaetzen verwerfen, die innerhalb des Rauschens liegen, das
 dieselbe Runde gemessen hat. Die Abhilfe ist dieselbe wie bei der Typachse: die
 Typquote **ueber beide Panels zusammengelegt** beurteilen (`reparatur` hat dann
-n ≈ 29 statt 16), statt je Panel einzeln.
+n ≈ 29 statt 16), statt je Panel einzeln. **Umgesetzt** - siehe Nachtrag unten;
+**Lauf 2 waere damit `UNENTSCHIEDEN` statt `VERWORFEN` gewesen.**
 
 ### Zwei Codekorrekturen, die dieser Lauf erzwungen hat
 

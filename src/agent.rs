@@ -1690,27 +1690,13 @@ impl PanelBefund {
     /// **exakt** 75,0 % genau auf der Marke. Ein einziger Datensatz kippt ihn
     /// darunter - und genau solche Kantenfaelle soll die Regel in **jedem**
     /// Panel sehen, nicht nur im Mittel.
+    ///
+    /// **Nicht mehr fuer das Veto verwendet** (exp-014): bei n = 16 verwarf das
+    /// ein Panel auf **zwei** Datensaetze. Das Veto laeuft jetzt ueber die
+    /// **zusammengelegten** Panels ([`typeneinbruch_gepoolt`]); diese Methode
+    /// bleibt fuer die Berichterstattung je Panel.
     pub fn typeneinbruch(&self, typ_min: f64) -> Vec<String> {
-        let mut einbrueche = Vec::new();
-        for (typ, (n_v, ok_v)) in &self.vorher.pro_typ {
-            let Some((n_n, ok_n)) = self.nachher.pro_typ.get(typ) else {
-                continue;
-            };
-            // Nur Faelle mit genug Grundlage (wie MIN_FAELLE bei der Auswahl).
-            if *n_v < MIN_FAELLE || *n_n < MIN_FAELLE {
-                continue;
-            }
-            let q_v = *ok_v as f64 / *n_v as f64;
-            let q_n = *ok_n as f64 / *n_n as f64;
-            if q_v >= typ_min && q_n < typ_min {
-                einbrueche.push(format!(
-                    "{typ}: {:.1} % -> {:.1} % ({ok_v}/{n_v} -> {ok_n}/{n_n})",
-                    q_v * 100.0,
-                    q_n * 100.0
-                ));
-            }
-        }
-        einbrueche
+        typeneinbruch_tafel(&self.vorher.pro_typ, &self.nachher.pro_typ, typ_min)
     }
 
     /// Traegt **dieses** Panel die Runde?
@@ -1718,6 +1704,69 @@ impl PanelBefund {
         self.score_delta() >= pass.score_gain_min
             || (self.em_delta() >= 2.0 && self.regression_delta() <= 0.0)
     }
+}
+
+/// **Zaehlt die Typentafeln zweier Panels zusammen.**
+///
+/// Der Grund ist gemessen (exp-014): dieselbe Modellstufe schwankt je Typ um bis
+/// zu **31 Prozentpunkte** zwischen zwei disjunkten 120er-Panels. Bei 13 bis 20
+/// Datensaetzen je Typ und Panel ist eine Typquote damit zu grob fuer ein Urteil,
+/// das sich auf einen einzelnen Datensatz stuetzt. Zusammengelegt hat
+/// `reparatur` n = 29 statt 16, `offen` n = 34 statt 16.
+pub fn tafel_zusammen(
+    a: &BTreeMap<String, (usize, usize)>,
+    b: &BTreeMap<String, (usize, usize)>,
+) -> BTreeMap<String, (usize, usize)> {
+    let mut out = a.clone();
+    for (typ, (n, ok)) in b {
+        let e = out.entry(typ.clone()).or_insert((0, 0));
+        e.0 += n;
+        e.1 += ok;
+    }
+    out
+}
+
+/// Ein Typeneinbruch in **einer** Typentafel.
+fn typeneinbruch_tafel(
+    vorher: &BTreeMap<String, (usize, usize)>,
+    nachher: &BTreeMap<String, (usize, usize)>,
+    typ_min: f64,
+) -> Vec<String> {
+    let mut einbrueche = Vec::new();
+    for (typ, (n_v, ok_v)) in vorher {
+        let Some((n_n, ok_n)) = nachher.get(typ) else {
+            continue;
+        };
+        // Nur Faelle mit genug Grundlage (wie MIN_FAELLE bei der Auswahl).
+        if *n_v < MIN_FAELLE || *n_n < MIN_FAELLE {
+            continue;
+        }
+        let q_v = *ok_v as f64 / *n_v as f64;
+        let q_n = *ok_n as f64 / *n_n as f64;
+        if q_v >= typ_min && q_n < typ_min {
+            einbrueche.push(format!(
+                "{typ}: {:.1} % -> {:.1} % ({ok_v}/{n_v} -> {ok_n}/{n_n})",
+                q_v * 100.0,
+                q_n * 100.0
+            ));
+        }
+    }
+    einbrueche
+}
+
+/// **Der Typeneinbruch ueber die zusammengelegten Panels** - das ist das Veto.
+///
+/// `befunde` sind die Einzelpanels; geprueft wird auf der Summe ihrer
+/// Typentafeln. Damit kann eine Runde nicht mehr auf zwei Datensaetzen eines
+/// einzelnen 120er-Panels verworfen werden (genau das passierte in exp-014).
+pub fn typeneinbruch_gepoolt(befunde: &[PanelBefund], typ_min: f64) -> Vec<String> {
+    let mut vorher: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    let mut nachher: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    for b in befunde {
+        vorher = tafel_zusammen(&vorher, &b.vorher.pro_typ);
+        nachher = tafel_zusammen(&nachher, &b.nachher.pro_typ);
+    }
+    typeneinbruch_tafel(&vorher, &nachher, typ_min)
 }
 
 /// Das Urteil einer Runde unter Replikationspflicht.
@@ -1755,15 +1804,17 @@ pub fn entscheide_runde(befunde: &[PanelBefund], pass: &PassCriteria) -> Rundenu
         return Rundenurteil::Unentschieden;
     }
     let typ_min = pass.typ_min.unwrap_or(0.0);
-    // Harte Vetos zuerst: eine kritische Regression oder ein Typeneinbruch in
-    // IRGENDEINEM Panel verwirft die Runde, auch wenn andere Panels sie tragen.
+    // Harte Vetos zuerst: eine **kritische Regression** in irgendeinem Panel
+    // verwirft die Runde, auch wenn andere Panels sie tragen.
     for b in befunde {
         if b.regression_delta() > pass.regression_drop_max {
             return Rundenurteil::Verworfen;
         }
-        if !b.typeneinbruch(typ_min).is_empty() {
-            return Rundenurteil::Verworfen;
-        }
+    }
+    // Der **Typeneinbruch** wird auf den ZUSAMMENGELEGTEN Panels geprueft
+    // (exp-014): je Panel einzeln verwarf er eine Runde auf zwei Datensaetzen.
+    if !typeneinbruch_gepoolt(befunde, typ_min).is_empty() {
+        return Rundenurteil::Verworfen;
     }
     let tragend = befunde.iter().filter(|b| b.traegt(pass)).count();
     if tragend == befunde.len() {
@@ -2072,7 +2123,14 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // obwohl er auf dem Trainingsband 1 von 13 traf (also kein
         // Generalisierungsproblem, sondern fehlende gezielte Dosis). Deshalb hat
         // ein eindeutig schwacher **Aufgabentyp** Vorrang vor der Fehlerklasse.
-        let typ_pack = Pack::for_schwaechsten_typ(&before_cases, &cap.metric);
+        // **Die Typachse sieht BEIDE Panels** (exp-014). Sie waehlte `offen` mit
+        // 68,75 % auf Panel A - waehrend `offen` auf Panel B mit 100 % der
+        // **staerkste** Typ desselben Modells war. Auf einem Panel allein ist
+        // "schwaechster Typ" keine reproduzierbare Aussage; zusammengelegt
+        // entscheidet die groessere Stichprobe.
+        let mut faelle_gepoolt = before_cases.clone();
+        faelle_gepoolt.extend(before_cases_b.iter().cloned());
+        let typ_pack = Pack::for_schwaechsten_typ(&faelle_gepoolt, &cap.metric);
         let klasse_pack = dom.map(Pack::for_class).unwrap_or(Pack::Breit);
         let mut pack = match opts.pack_override.as_deref() {
             Some(k) => {
@@ -3588,6 +3646,80 @@ mod tests {
     #[test]
     fn panels_mindestens_ist_zwei() {
         assert_eq!(PANELS_MINDESTENS, 2);
+    }
+
+    /// **Der Fall aus exp-014, Lauf 2: das Veto darf ihn NICHT mehr ausloesen.**
+    ///
+    /// Auf Panel A faellt `reparatur` von 13/16 (81,3 %) auf 11/16 (68,8 %) -
+    /// je Panel allein ein Einbruch, und genau daran wurde die Runde verworfen.
+    /// **Das waren zwei Datensaetze.** Zusammengelegt steht `reparatur` bei
+    /// 26/32 (81,3 %) -> 24/32 (75,0 %) und damit **nicht** unter der Marke.
+    #[test]
+    fn veto_prueft_ueber_beide_panels_zusammengelegt() {
+        let a = panel(
+            "A",
+            0.518,
+            0.511,
+            (104, 87),
+            (104, 85),
+            &[("reparatur", (16, 13), (16, 11))],
+            0.10,
+            0.085,
+        );
+        let b = panel(
+            "B",
+            0.515,
+            0.533,
+            (100, 83),
+            (100, 88),
+            &[("reparatur", (16, 13), (16, 13))],
+            0.10,
+            0.085,
+        );
+        // Je Panel allein: A zeigt den Einbruch, B nicht.
+        assert!(!a.typeneinbruch(0.75).is_empty(), "A muss ihn zeigen");
+        assert!(b.typeneinbruch(0.75).is_empty(), "B zeigt ihn nicht");
+        // Zusammengelegt: kein Einbruch (81,3 -> 75,0 %).
+        assert!(
+            typeneinbruch_gepoolt(&[a.clone(), b.clone()], 0.75).is_empty(),
+            "zusammengelegt liegt reparatur mit 24 von 32 genau auf der Marke, nicht darunter"
+        );
+        // Das Urteil ist damit UNENTSCHIEDEN (Panels widersprechen sich beim
+        // Score) und nicht mehr VERWORFEN.
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Unentschieden
+        );
+    }
+
+    /// Gegenprobe: ein Einbruch, den **beide** Panels zeigen, verwirft weiter.
+    #[test]
+    fn gepoolter_einbruch_verwirft_weiter() {
+        let a = panel(
+            "A",
+            0.50,
+            0.60,
+            (104, 80),
+            (104, 90),
+            &[("reparatur", (16, 14), (16, 4))],
+            0.10,
+            0.10,
+        );
+        let b = panel(
+            "B",
+            0.50,
+            0.60,
+            (104, 80),
+            (104, 90),
+            &[("reparatur", (16, 14), (16, 5))],
+            0.10,
+            0.10,
+        );
+        assert!(!typeneinbruch_gepoolt(&[a.clone(), b.clone()], 0.75).is_empty());
+        assert_eq!(
+            entscheide_runde(&[a, b], &pruefregel()),
+            Rundenurteil::Verworfen
+        );
     }
 
     /// **Ein unentschiedenes Urteil darf nicht als Verwerfung gelesen werden.**
