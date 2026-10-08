@@ -2506,3 +2506,91 @@ und `programmiersprachen` exit 0.
 Algebra-Typen - die naechste billige Messung vor jeder Bewertung), **O-A29** (kein
 Regel-Held-out), die Stufen **A2/A3** und die Nachmessung **(E)** nach dem Mathematik-Lauf.
 B4 bleibt offen: 90.720 Algebra-Datensaetze sind gegen 0,7-2,0 GB weiterhin klein.
+## Runde 35 - Die Kurzstrategie-Baseline gemessen: drei Fehler in der Algebra-Familie gefunden (D-059, O-A30 geschlossen)
+
+**Anlass: `O-A30` - die Pflicht stand seit Runde 31 VORAB fest.**
+[`algebra-eintritt-in-den-korpus.md`](algebra-eintritt-in-den-korpus.md) Abschnitt 4.2
+verlangte, die billigste Kurzstrategie **vor** jeder Bewertung zu messen
+(Mehrheitsantwort, "immer `0`", "immer die erste Zahl"), mit `exp-023` als Warnung (dort
+hatte dieselbe Messung den Antwortraum von 18 auf 19 korrigiert). Runde 34 hat den Punkt
+ausdruecklich als "naechste billige Messung" offen gelassen.
+
+**Gemessen an den ausgelieferten Bytes UND im Binary - beide Wege stimmen ueberein.** Die
+Python-Gegenprobe (`/home/changchi/r35/messung.py`) liest den Shard (32-Byte-Kopf `BSHD`,
+u16-Laengen) und zaehlt je Aufgabentyp Antwortraum, Mehrheitsantwort und vier feste
+Kurzstrategien; `report_algebra` in `shiro data generate-algebra` rechnet dasselbe aus
+`task_in`/`answer_in`. Die Uebereinstimmung ist die Replikation.
+
+**VORHER (Runde-34-Fassung, an den Bytes gemessen):** `alg-wert` 22.960 / Antwortraum 601 /
+Mehrheit 0,5 %; **`alg-vergleich` 22.960 / Antwortraum `1` / Mehrheit `B` = `100,0 %`**;
+`alg-stelle` 22.400 / 2 / 50,8 %; `alg-reparatur` 22.400 / 587 / 0,8 %.
+
+**Drei Fehler, alle in der eigenen, in Runde 33 gebauten Familie:**
+
+1. **`alg-vergleich` hatte einen Antwortraum von 1.** `Term B` war `Term A` mit `a1 + 1`;
+   bei `x >= 1` ist B **immer** groesser - `A` und `gleich` kamen in 22.960 Datensaetzen
+   **0-mal** vor. Der Typ haette *"antworte B"* trainiert und in jeder Auswertung wie eine
+   geloeste Aufgabe ausgesehen.
+2. **`Term B` verliess das Band:** **1.640 von 22.960 = 7,1 %** (Training) und **177 von
+   2.579 = 6,9 %** (Held-out). Bei `Term A = -x` wurde `Term B = 0` (ein Term **ohne**
+   `x`-Glied); im Held-out kam `a1 = 31` vor, waehrend das Band bei **30** endet. Die
+   Zusage "beide Baender sind konstruktiv getrennt" galt nur fuer **Term A**.
+3. **`im_band` war falsch - und hatte null Aufrufer.** Sie prueft `a2` **ohne Betrag**
+   (`1..=4`), waehrend `wuerfle_term` `a2` mit Wahrscheinlichkeit 1/4 **negiert**; sie
+   haette **jeden** Held-out-Term mit negativem `a2` abgelehnt. Kein Test sah sie an.
+
+**Die Korrektur ist EINE Aenderung: der zweite Term wird gezogen, signiert und bandtreu.**
+`wuerfle_zweiten` zieht den Unterschied aus drei Bauarten (nur `a0`, nur `a1`, beide); das
+**Vorzeichen wird zuletzt und nur unter den bandtreuen Seiten** gezogen, damit `A` und `B`
+gleich haeufig sind. *Dass das noetig ist, ist selbst gemessen:* mit zuerst gezogenem
+Vorzeichen verwarf die Bandpruefung die eine Seite haeufiger - **Held-out 64,4 % `B`**
+gegen 53,6 % im Training. `im_band` prueft jetzt bei **allen drei** Koeffizienten den
+Betrag; `baue` bekommt den zweiten Term als Parameter; vier neue Modultests sperren die
+Fehler (kein Typ mit einer Antwort, keine einseitige Vergleichsaufgabe, **beide** Terme im
+Band fuer alle vier Typen und beide Baender, Kurzstrategien nur aus Bytes).
+
+**NACHHER (beide Messwege):** `alg-vergleich` Antwortraum **2**, Mehrheit **52,4 %**
+(Training, `A` 12.031 / `B` 10.929) und **51,5 %** (Held-out, `B` 1.298 / `A` 1.220);
+`alg-wert` 0,5 %, `alg-stelle` 50,5 %, `alg-reparatur` 0,8 %. **Bandleck 0 von 22.960 und
+0 von 2.518.** Kurzstrategien: "immer 0" 0,5 %, "erste Zahl" 1,4 %, "Belegung x" 2,0 %,
+"Schritt 1" 49,5 % (nur `alg-stelle`). **Nicht beschoenigt:** `alg-vergleich` ist binaer
+(Mehrheit ~52 % ist die Untergrenze jeder Zwei-Antwort-Frage), und `alg-stelle` ist im
+**linearen** Trainingsband ebenfalls binaer (50,5 %) - das ist als **`O-A31`** offen
+benannt, samt Confound (der Held-out misst dort quadratische Struktur **und** laengere
+Kette zugleich).
+
+**Korpus neu gebaut:** `data/algebra/train` = **90.720 / 16.475.732 B** /
+`94ae26f901c765b0` / 16.657.204 B Datei, `val` = **10.000 / 2.844.503 B** /
+`d3ec7a7770012d89`; beide Validatorstufen gruen, zweiter Lauf byteidentisch (4 von 4
+Dateien). Die **Zahl der Datensaetze je Typ ist unveraendert** (22.960 / 22.960 / 22.400 /
+22.400); die Runde-34-Fassung (16.465.222 B / `9b6b4d0c`) ist an den Bytes **nicht mehr
+reproduzierbar**, weil der Zufallsstrom sich verschoben hat (Sicherung ausserhalb des
+Repos). `data/kombi-mathe/train` nachgezogen: **220.720 / 60.338.908 B**, 91 Aufgaben-Keys,
+Algebra-Shard **byteweise identisch** zur Quelle, **Formbilanz unveraendert 9.430
+umgeschrieben / 0 schon Delta**.
+
+**Ein vierter Fehler, beim Wiederaufbau gefunden:** `shiro data combine --out
+<vorhandenes Ziel>` brach ab mit *"Zielname schon belegt ... zwei Quellen tragen denselben
+Familiennamen"* - ein **falscher Grund** (die Datei stammte aus dem vorigen Lauf). Die
+Pruefung `ziel.exists()` sperrte damit den **Wiederaufbau** eines Korpus. Jetzt gilt die
+Sperre **innerhalb** eines Aufrufs, der Wiederaufbau ist erlaubt und **wird berichtet**;
+Integrationstest `combine_ist_wiederholbar`.
+
+**Tore.** `cargo fmt --check` gruen; `cargo test` **430 / 0 failed** (Runde 34: 425);
+clippy: **nur die 7 bekannten fremden Befunde** (`src/data/quant.rs` 6, `src/probe.rs` 1),
+**keine eigenen**; `build --release` gruen; Smoke-Digest **a6a53c95abd7f622** unveraendert;
+`deploy/` **0 Aenderungen**.
+
+**Kein Training, keine GPU-Zeit.** Der Mathematik-Lauf (**E**) ist **nicht** gefahren -
+gemessen wurde der **Korpus**, die vier Abnahmeklauseln stehen unveraendert vorab fest.
+Offen bleiben: **`O-A31`** (binarer Antwortraum und Kettenlaengen-Confound bei
+`alg-stelle`), **`O-A29`** (kein Regel-Held-out), **`O-A11`** (Reihenfolge A4 gegen den
+Matrix-Einstieg - der Nutzer entscheidet), die Stufen **A2/A3** und die Nachmessung **(E)**.
+
+**Staging-Regel, hier in der Gegenrichtung bewahrt.** Der Arbeitsbaum des Registers
+enthielt die Zeile **D-056** der Parallelsitzung und **nicht mehr** meine Zeile **D-058**:
+die fremde Zeile war auf einer Fassung **vor** D-058 eingefuegt worden. In **HEAD** war
+D-058 nie weg (Runde 34 hat sie committet). Die Zeile ist im Arbeitsbaum
+**wiederhergestellt**, und der Commit enthaelt **nur den eigenen Block** (HEAD + D-059) -
+die fremde D-056-Zeile wird **nicht** mitgenommen. Damit schuetzt dieselbe Regel, die in
+Runde 32/34 fremde **Aenderungen** fernhielt, hier auch vor einer fremden **Loeschung**.

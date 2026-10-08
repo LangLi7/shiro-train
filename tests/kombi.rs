@@ -439,3 +439,61 @@ fn combine_setzt_die_antwortform_des_korpus() {
         text(&e)
     );
 }
+
+/// **Ein zweiter Lauf in dasselbe Ziel ist erlaubt und idempotent** - `combine` BAUT
+/// den Korpus, ein Wiederaufbau muss also moeglich sein.
+///
+/// Vorher sperrte die Pruefung `ziel.exists()` genau das und meldete dabei *"zwei
+/// Quellen tragen denselben Familiennamen"* - einen **falschen Grund**. Runde 35
+/// brauchte den Wiederaufbau, nachdem der Algebra-Shard neu erzeugt worden war
+/// (`O-A30`), und lief in die Meldung. Geblieben ist die Sperre gegen zwei Quellen mit
+/// demselben Namen **innerhalb** eines Aufrufs; die prueft
+/// `combine_verweigert_eindeutige_und_vollstaendige_quellen`.
+#[test]
+fn combine_ist_wiederholbar() {
+    let basis = tmp("wied");
+    let a = basis.join("familie-a");
+    let b = basis.join("familie-b");
+    let ziel = tmp("wied-ziel");
+    for (ordner, n) in [(&a, "40"), (&b, "32")] {
+        let g = lauf(&[
+            "data",
+            "generate-seq",
+            "--n",
+            n,
+            "--out",
+            ordner.to_str().unwrap(),
+        ]);
+        assert!(g.status.success(), "generate-seq: {}", text(&g));
+    }
+    let a_train = a.join("train");
+    let b_train = b.join("train");
+    let args = [
+        "data",
+        "combine",
+        "--src",
+        a_train.to_str().unwrap(),
+        "--src",
+        b_train.to_str().unwrap(),
+        "--out",
+        ziel.to_str().unwrap(),
+    ];
+    let c1 = lauf(&args);
+    assert!(c1.status.success(), "erster Lauf: {}", text(&c1));
+    let m1 = std::fs::read(ziel.join("manifest.json")).unwrap();
+
+    // Zweiter Lauf in DASSELBE Ziel: erlaubt, berichtet das Ueberschreiben und
+    // liefert dasselbe Manifest.
+    let c2 = lauf(&args);
+    assert!(c2.status.success(), "zweiter Lauf: {}", text(&c2));
+    assert!(
+        text(&c2).contains("waren schon vorhanden"),
+        "das Ueberschreiben wird nicht berichtet: {}",
+        text(&c2)
+    );
+    assert_eq!(
+        m1,
+        std::fs::read(ziel.join("manifest.json")).unwrap(),
+        "der Wiederaufbau ist nicht idempotent"
+    );
+}

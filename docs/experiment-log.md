@@ -4384,3 +4384,151 @@ gehoert hinter den Mathematik-Lauf. **Keine neue Aufgabenstufe** (A2/A3 bleiben 
 **Keine Shortcut-Baseline** - **O-A30** bleibt offen und ist die naechste billige Messung
 vor jeder Bewertung. **Keine Behauptung, dass 90.720 Datensaetze genuegen**: gegen die
 0,7-2,0 GB aus B4 ist der Korpus weiterhin klein.
+## Runde 35 - Die Kurzstrategie-Baseline gemessen: sie hat drei Fehler in der Algebra-Familie gefunden (D-059, O-A30 geschlossen)
+
+**Anlass war eine Messung, die seit Runde 31 als Pflicht feststand.** `O-A30` war am
+Ende von Runde 34 der billigste offene Punkt: *"die Shortcut-Baseline der vier
+Algebra-Typen ist nicht gemessen - vor einer Bewertung ist sie Pflicht"*. Die Pflicht
+stand **vorab** in [`algebra-eintritt-in-den-korpus.md`](algebra-eintritt-in-den-korpus.md)
+Abschnitt 4.2, mit dem Projektstandard als Begruendung (Mehrheitsantwort, "immer `0`",
+"immer die erste Zahl") und mit `exp-023` als Warnung (dort hatte genau diese Messung den
+Antwortraum von 18 auf 19 korrigiert).
+
+**Gemessen wurde an den ausgelieferten Bytes UND im Binary.** Zwei Wege, dieselben Zahlen:
+eine Python-Gegenprobe liest den Shard (32-Byte-Kopf `BSHD`, u16-Laengen) und zaehlt je
+Aufgabentyp Antwortraum, Mehrheitsantwort und vier feste Kurzstrategien; im Binary
+rechnet `report_algebra` dasselbe aus `task_in`/`answer_in`. Die Uebereinstimmung ist die
+Replikation, nicht die Behauptung.
+
+### Der Befund VORHER (Runde-34-Fassung: 90.720 Training + 10.000 Held-out)
+
+| Typ | n | Antwortraum | Mehrheitsantwort | Mehrheit |
+|---|---|---|---|---|
+| `alg-wert` | 22.960 | 601 | `20` | 0,5 % |
+| **`alg-vergleich`** | **22.960** | **1** | **`B`** | **100,0 %** |
+| `alg-stelle` | 22.400 | 2 | `Schritt 2` | 50,8 % |
+| `alg-reparatur` | 22.400 | 587 | `24` | 0,8 % |
+
+**Ein Aufgabentyp mit einem Antwortraum von 1 ist keine Aufgabe, sondern eine
+Konstante.** `Term B` war `Term A` mit `a1 + 1`, und bei `x >= 1` ist B damit **immer**
+groesser - `A` und `gleich` kamen in 22.960 Datensaetzen **0-mal** vor. Der Typ haette im
+Training *"antworte B"* beigebracht und in jeder Auswertung wie eine geloeste Aufgabe
+ausgesehen. Gebaut in Runde 33, verbreitert in Runde 34 - **gefunden erst durch diese
+Messung**, und zwar nur, weil sie **vor** der Bewertung lag.
+
+### Zwei weitere Fehler, die dieselbe Messung aufgedeckt hat
+
+**(2) `Term B` verliess das Band.** Gemessen an den Bytes: **1.640 von 22.960 = 7,1 %**
+(Training) und **177 von 2.579 = 6,9 %** (Held-out). Die Beispiele sind sprechend: bei
+`Term A = -x` wurde `Term B = 0` - ein Term **ohne** `x`-Glied, also ausserhalb des
+Termraums; im Held-out kam `a1 = 31` vor, waehrend das Band bei **30** endet. Die Zusage
+"beide Baender sind konstruktiv getrennt" galt damit nur fuer **Term A** - der
+abgeleitete zweite Term war nie geprueft.
+
+**(3) `im_band` war falsch - und hatte null Aufrufer.** Die Funktion prueft `a2` **ohne
+Betrag** (`1..=4`), waehrend `wuerfle_term` `a2` mit Wahrscheinlichkeit 1/4 **negiert**.
+Sie haette also **jeden** Held-out-Term mit negativem `a2` abgelehnt. Kein Test sah sie
+an, weil sie bis zu dieser Runde **von nichts benutzt** wurde: eine oeffentliche Regel,
+die den Termraum falsch beschrieb und niemandem auffiel.
+
+### Die Korrektur - eine Aenderung: der zweite Term wird gezogen, signiert und bandtreu
+
+* `wuerfle_zweiten` zieht den Unterschied aus **drei Bauarten** (nur `a0` verschoben,
+  nur `a1` verschoben, beide). Das **Vorzeichen wird zuletzt** gezogen **und nur unter den
+  Seiten, die im Band liegen** - so sind `A` und `B` gleich haeufig, unabhaengig von der
+  Lage des Terms im Band. **Beide** Terme muessen `im_band` erfuellen; `delta != 0` gilt
+  per Konstruktion, also kommt `gleich` nicht mehr vor.
+* **Warum das Vorzeichen zuletzt kommt, ist selbst gemessen:** in der Zwischenfassung mit
+  zuerst gezogenem Vorzeichen verwarf die Bandpruefung die eine Seite haeufiger -
+  **Held-out 64,4 % `B`** gegen 53,6 % im Training. Die Reihenfolge ist damit kein Stil,
+  sondern der Unterschied zwischen 52 % und 64 % Mehrheitsantwort.
+* `im_band` prueft jetzt bei **allen drei** Koeffizienten den Betrag; `baue` bekommt den
+  zweiten Term als **Parameter** und leitet ihn nicht mehr ab.
+* **Vier neue Modultests** sperren die Fehler: kein Typ mit einer Antwort, keine
+  einseitige Vergleichsaufgabe, **beide** Terme im Band (fuer alle vier Typen und beide
+  Baender), und die Kurzstrategien rechnen nur aus Bytes.
+
+### Der Befund NACHHER (beide Messwege stimmen ueberein)
+
+| Band | Typ | n | Antwortraum | Mehrheit | Mehrheit |
+|---|---|---|---|---|---|
+| Training | `alg-wert` | 22.960 | 601 | `20` | 0,5 % |
+| Training | **`alg-vergleich`** | 22.960 | **2** | `A` | **52,4 %** |
+| Training | `alg-stelle` | 22.400 | 2 | `Schritt 2` | 50,5 % |
+| Training | `alg-reparatur` | 22.400 | 585 | `12` | 0,8 % |
+| Held-out | `alg-wert` | 2.459 | 2.109 | `1693` | 0,2 % |
+| Held-out | **`alg-vergleich`** | 2.518 | **2** | `B` | **51,5 %** |
+| Held-out | `alg-stelle` | 2.476 | **5** | `Schritt 5` | 20,9 % |
+| Held-out | `alg-reparatur` | 2.547 | 1.166 | `961` | 2,1 % |
+
+**Bandleck: 0 von 22.960 und 0 von 2.518** (vorher 7,1 % und 6,9 %) - dieselbe
+Python-Gegenprobe. **Kurzstrategien nachher:** "immer 0" hoechstens 0,5 %, "erste Zahl"
+1,4 %, "Belegung x" 2,0 %, "Schritt 1" **49,5 %** (nur `alg-stelle`) - drei der vier Typen
+sind mit einer Kurzstrategie praktisch nicht loesbar.
+
+**Zwei Einschraenkungen, nicht beschoenigt:** `alg-vergleich` ist eine **binaere** Frage,
+seine Mehrheit liegt deshalb bei ~52 % - das ist die Untergrenze jeder Zwei-Antwort-Frage
+und nur relativ zu ~50 % interpretierbar (wie `vergleich` der Zahlenfolgen- und der
+Quantoren-Familie mit 49,3 % und 45,4 %). Und `alg-stelle` ist im **linearen**
+Trainingsband ebenfalls binaer (50,5 %), weil das Band genau **zwei** Rechenschritte hat;
+im Held-out sind es 3-5 Schritte (Mehrheit 20,9 %). Das ist **nicht** umgebaut, sondern als
+**`O-A31`** dokumentiert - inklusive eines Confounds, den es sichtbar macht: der Held-out
+misst dort **quadratische Struktur UND laengere Kette** gleichzeitig.
+
+### Korpus und kombinierter Korpus neu gebaut
+
+| Menge | Datensaetze | Nutzlast | Datei | Pruefsumme | laengster |
+|---|---|---|---|---|---|
+| `data/algebra/train` | **90.720** | **16.475.732 B** | 16.657.204 B | `94ae26f901c765b0` | 206 B |
+| `data/algebra/val` | **10.000** | **2.844.503 B** | 2.864.535 B | `d3ec7a7770012d89` | 332 B |
+
+Beide Validatorstufen **"Alle Shards gueltig"**, **zweiter Lauf byteidentisch** (4 von 4
+Dateien `cmp`-gleich). Die **Zahl der Datensaetze je Typ ist unveraendert** (22.960 /
+22.960 / 22.400 / 22.400); die Runde-34-Fassung (16.465.222 B / `9b6b4d0c`) ist an den
+Bytes **nicht mehr reproduzierbar**, weil der Zufallsstrom sich mit der Korrektur
+verschoben hat - eine Sicherung liegt ausserhalb des Repos
+(`/home/changchi/r35/vorher/`).
+
+`data/kombi-mathe/train` ist nachgezogen: **220.720 Datensaetze / 60.338.908 B**, 4 Shards,
+91 Aufgaben-Keys, beide Validatorstufen gruen, Algebra-Shard **byteweise identisch** zur
+Quelle, **Formbilanz unveraendert 9.430 umgeschrieben / 0 schon Delta / 211.290 nicht
+betroffen**. Der Algebra-Eintritt kann die Formachse weiterhin nicht verschieben.
+
+### Ein vierter Fehler, beim Wiederaufbau gefunden
+
+`shiro data combine --out <vorhandenes Ziel>` brach ab mit *"Zielname schon belegt ...
+zwei Quellen tragen denselben Familiennamen"*. Das war ein **falscher Grund**: die Datei
+stammte aus dem **vorigen Lauf**, nicht aus einer zweiten Quelle. Die Pruefung
+`ziel.exists()` sperrte damit den **Wiederaufbau** eines Korpus - genau das, was diese
+Runde brauchte, nachdem der Algebra-Shard neu erzeugt worden war. Behoben: die Sperre gilt
+jetzt **innerhalb** eines Aufrufs (Menge der Zielnamen), der Wiederaufbau ist erlaubt und
+wird **berichtet** ("4 Shard(s) im Ziel waren schon vorhanden und wurden neu gebaut").
+Integrationstest `combine_ist_wiederholbar` (zweiter Lauf: Erfolg, Bericht, identisches
+Manifest). Der Test `combine_verweigert_eindeutige_und_vollstaendige_quellen` bleibt
+unveraendert gruen - er prueft den echten Zusammenstoss (dieselbe Quelle zweimal).
+
+### Tore
+
+`cargo fmt --check` **gruen** · `cargo clippy --all-targets -- -D warnings` - **7 fremde
+Befunde** (`src/data/quant.rs` 6, `src/probe.rs` 1), **keine eigenen** · `cargo test`
+**430 Tests / 0 failed** (Runde 34: 425) · `cargo build --release` **gruen** ·
+`shiro smoke` Digest **a6a53c95abd7f622** unveraendert · `deploy/` **0 Aenderungen**.
+
+### Was diese Runde NICHT getan hat
+
+**Kein Training, keine GPU-Zeit.** Der Mathematik-Lauf (Schritt **E**) ist **nicht**
+gefahren - die vier Abnahmeklauseln stehen seit Runde 31 vorab fest, gemessen wurde
+bisher nur der **Korpus**. **Keine neue Aufgabenstufe** (A2/A3 bleiben offen). **`alg-stelle`
+nicht umgebaut** (`O-A31`). **Keine Behauptung, dass 90.720 Datensaetze genuegen**: gegen
+die 0,7-2,0 GB aus B4 ist der Korpus weiterhin klein.
+
+### Nebenbefund: die Registerzeile D-058 war im Arbeitsbaum verschwunden
+
+Beim Nachsehen des Registers stand im **Arbeitsbaum** D-055, D-056, D-057 - **ohne
+D-058**, waehrend **HEAD** D-058 enthielt und D-056 nicht. Ursache: die Parallelsitzung
+hat ihre Zeile D-056 auf einer Fassung **vor** meiner D-058 eingefuegt, wodurch meine
+Zeile im Arbeitsbaum verloren ging. **In HEAD war sie nie weg** (Runde 34 hat sie
+committet). Reparatur: die Zeile ist im Arbeitsbaum wiederhergestellt, und mein Commit
+enthaelt **nur meinen eigenen Block** (HEAD + D-059) - die fremde D-056-Zeile wird
+**nicht** mitgenommen. Dieselbe Staging-Regel wie in Runde 32/34, hier in der
+Gegenrichtung: sie schuetzt auch davor, fremde **Loeschungen** zu erben.

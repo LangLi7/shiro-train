@@ -159,6 +159,16 @@ vergleich 100 %, `quant` minimal 7,5 % - ohne diese Zahl ist eine spaetere
 Trefferquote nicht interpretierbar, und **exp-023** hat genau dafuer den
 **Antwortraum 18 statt 19** korrigiert. Die Baseline wird **vor** dem Bau festgelegt.
 
+> **Erfuellt in Runde 35 (`O-A30` -> GESCHLOSSEN, `D-059`).** Die Messung ist gelaufen -
+> an den ausgelieferten Bytes **und** im Binary, mit identischen Zahlen. Sie hat **drei
+> Fehler** gefunden: den **Antwortraum 1** bei `alg-vergleich` (Mehrheit **100 %**), ein
+> **Bandleck** bei `Term B` in 7,1 % der Trainings- und 6,9 % der Held-out-Faelle und eine
+> **falsche, vorher ungenutzte** `im_band`-Funktion. Alle drei sind behoben. Die
+> vollstaendigen Tabellen stehen in [algebra-korpus.md](algebra-korpus.md) Abschnitt 5a -
+> **hier absichtlich nicht wiederholt**, damit die Zahl nur an einer Stelle gepflegt wird.
+> Der vorab notierte Satz *"die Baseline wird vor dem Bau festgelegt"* war damit keine
+> Formalie, sondern das Werkzeug, das den Fehler gefunden hat.
+
 ## 5 Der Messplan (E) - vorab festgelegt, damit er nicht nachtraeglich passt
 
 Nach dem Mathematik-Lauf wird gemessen, was der Nutzer verlangt hat:

@@ -328,7 +328,7 @@ Drei Stufen, in dieser Reihenfolge, jede mit eigenem Verifier (D-018):
 
 | # | Fokus | Inhalt | Stand |
 |---|---|---|---|
-| M1 | **Algebra** | Terme mit Variablen, Umformen, Gleichungen loesen | **nicht gebaut**; `--min-chain`/Variablen sind als **O-Z4** offen |
+| M1 | **Algebra** | Terme mit Variablen, Umformen, Gleichungen loesen | **gebaut** (Runde 33 **`D-057`**, Band verbreitert Runde 34 **`D-058`**, Korpus vermessen Runde 35 **`D-059`**): Stufe **A1** mit vier Aufgabentypen ueber alle vier Bewegungen, **90.720** Trainings- und **10.000** Held-out-Datensaetze, eigener Verifier aus Bytes. **A2/A3 und hoeher sind offen**; `--min-chain`/Variablen bleiben als **O-Z4** offen |
 | M2 | **Formel-Verstaendnis und Funktion** | Formel lesen, Groessen einsetzen, Zuordnung Eingabe -> Ausgabe | **nicht gebaut**; Funktion als eigene Familie fehlt vollstaendig |
 | M3 | **Math Basic** | die vier Rechenarten, Massumwandlung, Brueche, Prozent | teils vorhanden: `data/add` (Stufe 11), `data/seq` (Stufe 4) |
 
@@ -362,8 +362,8 @@ Daraus folgt ein **Protokoll in sechs Schritten**. Mathematik ist **gesperrt**, 
 | **A** | Die **Output-Konvention** des Korpus ist festgenagelt, **bevor** Mathematik hineinkommt | **erfuellt** (D-053: `--antwortform absolut\|delta`, Delta gerendert) |
 | **B** | Der kombinierte Korpus ist als **Baseline/Elternstand eingefroren** | **erfuellt** (Runde 30, D-054: `data/kombi-delta/train` + `checkpoints/kombi-delta-step21200.safetensors`, SHA-256 `7a18da50...`) |
 | **C** | Seine Faehigkeiten sind **vollstaendig** gemessen: **Held-out je Familie** UND die **Antwortform getrennt** | **erfuellt** (Runde 30, D-054: fuenf Held-out-Sets je Familie; Delta 87,95 % inhaltlich / 89,48 % Kopfzahl gegen absolut 83,05 % / 85,21 %) |
-| **D** | **Erst dann** kommt Mathematik als eine **klar definierte weitere Familie** hinzu | **vorbereitet** (Runde 31, D-055: `O-A7`/`O-A8` entschieden, Eintrittsvertrag, Zweitsolver `O-A10`, Messplan) - **der BAU ist noch nicht freigegeben** (offen: `O-A9` Menge, `O-A11` Reihenfolge, `O-A27` Held-out-Band) |
-| **E** | Erneut **Held-out je Familie** UND **Antwortform getrennt** messen | offen |
+| **D** | **Erst dann** kommt Mathematik als eine **klar definierte weitere Familie** hinzu | **erfuellt** (Runde 31 vorbereitet **D-055**; **gebaut Runde 33 `D-057`**, Band verbreitert Runde 34 **`D-058`**, Kurzstrategie-Baseline gemessen und drei Fehler behoben Runde 35 **`D-059`**). **Geschlossen:** `O-A7`/`O-A8` (Konventionen), `O-A9` (Menge: 90.720, Band vollstaendig aufgezaehlt), `O-A27` (Held-out-Band), `O-A30` (Kurzstrategie-Baseline). **Offen:** `O-A11` (Reihenfolge A4 gegen den Matrix-Einstieg - der Nutzer entscheidet) und **`O-A31`** (das lineare Band macht `alg-stelle` zur Zwei-Antwort-Frage) |
+| **E** | Erneut **Held-out je Familie** UND **Antwortform getrennt** messen | **vorbereitet, nicht gefahren** - der Messplan steht seit Runde 31 **vorab** fest (vier Abnahmeklauseln in `docs/algebra-eintritt-in-den-korpus.md` Abschnitt 5), der **Mathematik-Lauf selbst ist noch nicht gelaufen** (kein Training in den Runden 33-35) |
 | **F** | Damit ist die Aussage **"Mathematik verbessert Algebra, ohne `seq`, `quant` und `logic-large` zu beschaedigen"** belegbar - statt nur ein Gesamtscore | offen |
 
 **Warum das keine Verzoegerung ist, sondern der Grund fuer D-052.** Gemessen ist,

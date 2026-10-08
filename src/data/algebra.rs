@@ -33,6 +33,20 @@
 //! ABLEITEN (`wert`), VERGLEICHEN (`vergleich`), LOKALISIEREN (`stelle`),
 //! MINIMIEREN (`reparatur`).
 //!
+//! **`O-A30` (Runde 35): die Kurzstrategie-Baseline hat einen echten Fehler gefunden.**
+//! Gemessen an den **ausgelieferten Bytes** hatte `alg-vergleich` **genau eine**
+//! verschiedene Antwort (`B`, 22.960 von 22.960 = **100 %**): `Term B` war `Term A` mit
+//! `a1 + 1`, und bei `x >= 1` ist B damit **immer** groesser. Ein Aufgabentyp mit einem
+//! Antwortraum von 1 trainiert nichts - er trainiert eine Konstante. Behoben: der zweite
+//! Term wird **vorzeichenbehaftet** gezogen (drei Bauarten, siehe `wuerfle_zweiten`) und
+//! muss **im selben Band** liegen.
+//!
+//! **Zweiter Befund derselben Messung, ausdruecklich NICHT in dieser Runde geaendert:**
+//! `alg-stelle` hat im **linearen** Trainingsband nur **zwei** Rechenschritte, also nur
+//! zwei moegliche Antworten (`Schritt 1`/`Schritt 2`, Mehrheit 50,8 %). Das ist die
+//! Untergrenze jeder binaeren Frage und keine Degeneration wie oben - die Ursache
+//! (Bandstruktur gegen Kettenlaenge) ist als **`O-A31`** offen benannt.
+//!
 //! **Zwei Antwortformen, die bewusst NICHT die der Zahlenfolgen-Familie sind.** Die
 //! Aufgabenzeilen heissen `Term:`, `Belegung:`, `Schritt n:` und `Frage:` - es gibt
 //! **keine** Zeile `Folge:`, und keine Frage lautet "Welche eine Zahl muss geaendert
@@ -370,6 +384,35 @@ pub struct TaskStat {
     pub easy: u64,
     pub medium: u64,
     pub hard: u64,
+    /// Haeufigkeit je Antworttext - Grundlage der Shortcut-Baseline (`O-A30`).
+    pub answers: BTreeMap<String, u64>,
+}
+
+impl TaskStat {
+    /// Die triviale Bestmarke: **haeufigste Antwort** und ihre Trefferquote in Prozent.
+    ///
+    /// Ohne diese Zahl ist ein Aufgabentyp nicht bewertbar - ein Typ, der **immer**
+    /// dasselbe antwortet, sieht sonst wie eine geloeste Aufgabe aus. Genau das war der
+    /// `O-A30`-Befund: `alg-vergleich` stand bei **100 %**.
+    pub fn shortcut_baseline(&self) -> (String, f64) {
+        let (a, n) = self
+            .answers
+            .iter()
+            .max_by_key(|(_, n)| **n)
+            .map(|(a, n)| (a.clone(), *n))
+            .unwrap_or_default();
+        let pct = if self.total == 0 {
+            0.0
+        } else {
+            n as f64 * 100.0 / self.total as f64
+        };
+        (a, pct)
+    }
+
+    /// **Groesse des Antwortraums**: Zahl der verschiedenen Antworten.
+    pub fn distinct_answers(&self) -> usize {
+        self.answers.len()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -389,6 +432,92 @@ impl Generated {
             .max()
             .unwrap_or(0)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Die Kurzstrategie-Baseline (O-A30) - vorab festgelegt, dann gemessen
+// ---------------------------------------------------------------------------
+
+/// Eine feste **Kurzstrategie**: die Antwort, die ein Modell **ohne Denken** geben
+/// koennte.
+///
+/// Die Auswahl steht **vor** der Messung fest (`docs/algebra-eintritt-in-den-korpus.md`
+/// Abschnitt 4.2 nennt woertlich "Mehrheitsantwort, immer `0`, immer die erste Zahl"),
+/// damit das Ergebnis nicht hinterher gedeutet wird. Die Antwort wird **nur aus den
+/// Datensatz-Bytes** gerechnet - dieselbe Regel wie fuer den Verifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kurzstrategie {
+    /// Immer `0`.
+    ImmerNull,
+    /// Die **erste Zahl** der Aufgabe (bei `Term: 3*x + 5` also `3`).
+    ErsteZahl,
+    /// Die Zahl der Belegungszeile - also die **Belegung selbst** (`x = 7` -> `7`).
+    Belegung,
+    /// Bei `stelle`: immer `Schritt 1`.
+    SchrittEins,
+}
+
+impl Kurzstrategie {
+    pub const ALL: [Kurzstrategie; 4] = [
+        Kurzstrategie::ImmerNull,
+        Kurzstrategie::ErsteZahl,
+        Kurzstrategie::Belegung,
+        Kurzstrategie::SchrittEins,
+    ];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Kurzstrategie::ImmerNull => "immer 0",
+            Kurzstrategie::ErsteZahl => "erste Zahl",
+            Kurzstrategie::Belegung => "Belegung x",
+            Kurzstrategie::SchrittEins => "Schritt 1",
+        }
+    }
+
+    /// Die Antwort der Strategie - **nur aus den Bytes** des Datensatzes.
+    pub fn antwort(self, record: &[u8]) -> String {
+        let task = task_in(record);
+        match self {
+            Kurzstrategie::ImmerNull => "0".to_string(),
+            Kurzstrategie::ErsteZahl => erste_zahl(&task).unwrap_or_default(),
+            Kurzstrategie::Belegung => zeile(&task, "Belegung:")
+                .and_then(|b| b.strip_prefix("x = "))
+                .map(|v| v.trim().to_string())
+                .unwrap_or_default(),
+            Kurzstrategie::SchrittEins => "Schritt 1".to_string(),
+        }
+    }
+}
+
+/// Die **erste Zahl** eines Textes. Das Vorzeichen wird **nicht** mitgelesen: die
+/// Strategie soll die **billigste** sein, nicht die kluegste (ein Byte-Modell sieht
+/// nach `Term: -3*x` zuerst die `3`).
+fn erste_zahl(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let start = bytes.iter().position(u8::is_ascii_digit)?;
+    let ende = bytes[start..]
+        .iter()
+        .position(|b| !b.is_ascii_digit())
+        .map(|i| start + i)
+        .unwrap_or(bytes.len());
+    Some(text[start..ende].to_string())
+}
+
+/// Treffer je Kurzstrategie und Aufgabentyp - in der Reihenfolge von
+/// [`Kurzstrategie::ALL`].
+pub fn kurzstrategie_treffer(liste: &[GenRecord]) -> Vec<(&'static str, BTreeMap<Category, u64>)> {
+    Kurzstrategie::ALL
+        .iter()
+        .map(|s| {
+            let mut m: BTreeMap<Category, u64> = BTreeMap::new();
+            for r in liste {
+                if s.antwort(&r.record) == r.answer {
+                    *m.entry(r.category).or_insert(0) += 1;
+                }
+            }
+            (s.key(), m)
+        })
+        .collect()
 }
 
 /// Der Datensatz: `<AUFGABE> ... <DENKWEG> ... <ANTWORT> ... <ENDE>`.
@@ -613,9 +742,16 @@ pub fn band_von(term: &Term, x: i64) -> Band {
 }
 
 /// Gehoert `(term, x)` in das Band `band`?
+///
+/// **Gemessenes Band, nicht behauptetes:** geprueft wird der **Betrag** der
+/// Koeffizienten - bei `a1` und `a0` war das von Anfang an so, bei `a2` **nicht**.
+/// Das war ein echter Fehler: `wuerfle_term` negiert `a2` mit Wahrscheinlichkeit 1/4,
+/// also kommen im Held-out `a2 = -4..-1` vor, und `im_band` haette **jeden** dieser
+/// Terme abgelehnt. Gefunden hat das die `O-A30`-Messung, weil sie diese Funktion
+/// erstmals **benutzt** - vorher stand sie ungenutzt im Modul und kein Test sah sie an.
 pub fn im_band(term: &Term, x: i64, band: Band) -> bool {
     let r = raum(band);
-    (r.a2.0..=r.a2.1).contains(&term.a2)
+    (r.a2.0..=r.a2.1).contains(&term.a2.abs())
         && (r.a1.0..=r.a1.1).contains(&term.a1.abs())
         && (r.a0.0..=r.a0.1).contains(&term.a0.abs())
         && (r.x.0..=r.x.1).contains(&x)
@@ -726,6 +862,7 @@ fn baue(
     x: i64,
     band: Band,
     fehler_in: Option<usize>,
+    zweiter: Option<&Term>,
 ) -> Option<GenRecord> {
     let schritte = schritt_text(term, x, fehler_in);
     let term_text = term.text();
@@ -742,12 +879,9 @@ fn baue(
             )
         }
         Category::Vergleich => {
-            // Ein zweiter Term **aus demselben Band**, der sich im Wert unterscheidet.
-            let b = Term {
-                a2: term.a2,
-                a1: term.a1 + 1,
-                a0: term.a0,
-            };
+            // Der zweite Term kommt **fertig gezogen** herein (`wuerfle_zweiten`): er
+            // liegt im selben Band und unterscheidet sich **vorzeichenbehaftet**.
+            let b = zweiter?;
             let va = term.wert(x);
             let vb = b.wert(x);
             let answer = if va > vb {
@@ -755,6 +889,9 @@ fn baue(
             } else if vb > va {
                 "B"
             } else {
+                // Nicht erreichbar: `wuerfle_zweiten` verlangt einen Unterschied. Der
+                // Zweig bleibt, weil der **Verifier** ihn braucht - er rechnet aus
+                // Bytes nach und muss auch einen Gleichstand richtig beurteilen.
                 "gleich"
             };
             (
@@ -811,6 +948,63 @@ fn baue(
     })
 }
 
+/// Der **zweite Term** einer Vergleichsaufgabe.
+///
+/// **`O-A30` hat hier einen echten Fehler gefunden.** Zuerst war `Term B` schlicht
+/// `Term A` mit `a1 + 1`. Bei `x >= 1` ist B damit **immer** groesser: die ausgelieferte
+/// Fassung hatte **genau eine** verschiedene Antwort (`B`, 22.960 von 22.960 = **100 %**).
+/// Ein Aufgabentyp mit einem Antwortraum von 1 trainiert nichts.
+///
+/// Die neue Fassung zieht den Unterschied **vorzeichenbehaftet** aus drei Bauarten:
+///
+/// * nur `a0` verschoben (`delta = d0`) - der Unterschied steckt in der Konstanten,
+/// * nur `a1` verschoben (`delta = d1 * x`) - der Unterschied waechst mit der Belegung,
+/// * beide verschoben (`delta = d1 * x + d0`).
+///
+/// **Das Vorzeichen wird ZULETZT gezogen - und nur unter den Seiten, die im Band
+/// liegen.** Zuerst wurde es zuerst gezogen; dann haengt die Trefferquote von der Lage
+/// des Terms im Band ab, weil die Bandpruefung die eine Seite haeufiger verwirft
+/// (gemessen: **Held-out 64,4 % `B`** gegen 53,6 % im Training). Mit dieser Reihenfolge
+/// sind `A` und `B` **gleich haeufig**, sobald beide Seiten zulaessig sind; nur an den
+/// Bandraendern, wo eine Seite nicht baubar ist, bleibt eine Verschiebung - sie wird
+/// **gemessen und berichtet**, nicht behauptet.
+///
+/// Zwei Bedingungen, sonst wird neu gezogen:
+///
+/// 1. **beide** Terme liegen im Band. Das war vorher **nicht** geprueft: `a1 + 1` konnte
+///    bei `a1 = 14` den Wert **15** erzeugen - und 15 ist der Anfang des **Held-out**-Bands;
+/// 2. mindestens **eine** Seite ist baubar.
+///
+/// Ein Gleichstand (`gleich`) kann dabei **nicht** entstehen: der Betrag ist in jeder
+/// Bauart mindestens `1`, das Vorzeichen ist `+-1`, also ist `delta != 0`.
+fn wuerfle_zweiten(rng: &mut Rng, term: &Term, x: i64, band: Band) -> Option<Term> {
+    // Nur rechnen, **kein** Zufall - der Zufallsstrom darf von der Probe nicht
+    // abhaengen, sonst waere die Balance eine Folge der Reihenfolge.
+    let baubar = |d1: i64, d0: i64, v: i64| -> Option<Term> {
+        let k = Term {
+            a2: term.a2,
+            a1: term.a1 + v * d1,
+            a0: term.a0 + v * d0,
+        };
+        im_band(&k, x, band).then_some(k)
+    };
+    for _ in 0..32 {
+        let (d1, d0) = match rng.below(3) {
+            0 => (0, rng.range(1, 6)),
+            1 => (rng.range(1, 3), 0),
+            _ => (rng.range(1, 3), rng.range(1, 6)),
+        };
+        match (baubar(d1, d0, 1), baubar(d1, d0, -1)) {
+            (None, None) => continue,
+            (Some(k), None) | (None, Some(k)) => return Some(k),
+            (Some(plus), Some(minus)) => {
+                return Some(if rng.below(2) == 0 { plus } else { minus });
+            }
+        }
+    }
+    None
+}
+
 /// Erzeugt den Korpus. `train_records` Datensaetze je Band, mit **Dublettensperre**
 /// ueber den Aufgabenschluessel.
 pub fn generate(opts: &Options) -> Result<Generated> {
@@ -848,7 +1042,7 @@ pub fn generate(opts: &Options) -> Result<Generated> {
                         continue;
                     }
                     let n_schritt = 1 + rng.below(soll.len());
-                    match baue(cat, &term, x, band, Some(n_schritt)) {
+                    match baue(cat, &term, x, band, Some(n_schritt), None) {
                         Some(r) => r,
                         None => {
                             gesehen.remove(&key);
@@ -856,7 +1050,22 @@ pub fn generate(opts: &Options) -> Result<Generated> {
                         }
                     }
                 }
-                _ => match baue(cat, &term, x, band, None) {
+                Category::Vergleich => {
+                    // **O-A30:** der zweite Term wird **gezogen**, nicht abgeleitet -
+                    // eine Ableitung (`a1 + 1`) machte die Antwort konstant.
+                    let Some(b) = wuerfle_zweiten(&mut rng, &term, x, band) else {
+                        gesehen.remove(&key);
+                        continue;
+                    };
+                    match baue(cat, &term, x, band, None, Some(&b)) {
+                        Some(r) => r,
+                        None => {
+                            gesehen.remove(&key);
+                            continue;
+                        }
+                    }
+                }
+                _ => match baue(cat, &term, x, band, None, None) {
                     Some(r) => r,
                     None => {
                         gesehen.remove(&key);
@@ -891,6 +1100,11 @@ fn zaehle(liste: &[GenRecord]) -> BTreeMap<Category, TaskStat> {
             Level::Easy => e.easy += 1,
             Level::Medium => e.medium += 1,
             Level::Hard => e.hard += 1,
+        }
+        // Die Antwort wird **aus den Bytes** gelesen, nicht aus dem Generatorfeld -
+        // sonst koennte der Bericht eine Verteilung zeigen, die im Datensatz nicht steht.
+        if let Some(a) = answer_in(&r.record) {
+            *e.answers.entry(a).or_insert(0) += 1;
         }
     }
     m
@@ -1132,6 +1346,163 @@ mod tests {
             assert_eq!(*r.record.last().unwrap(), bytes::B_END);
             bytes::check_structure(&r.record).expect("Struktur");
         }
+    }
+
+    /// **`O-A30`: kein Aufgabentyp ist mit EINER Antwort loesbar.**
+    ///
+    /// Der Befund, der diesen Test ausgeloest hat: `alg-vergleich` stand an den
+    /// ausgelieferten Bytes bei **100 %** - `Term B` war `Term A` mit `a1 + 1`, und bei
+    /// `x >= 1` ist B damit immer groesser. Ein Typ mit einem Antwortraum von 1
+    /// trainiert eine Konstante, keine Faehigkeit.
+    ///
+    /// **Was dieser Test prueft und was nicht.** Er sichert die **Invariante** - jeder
+    /// Typ hat mehr als eine Antwort, und keine Antwort erreicht 70 %. Die **genaue**
+    /// Mehrheitsquote steht nicht hier, sondern im Bericht von `generate-algebra` ueber
+    /// den **ganzen** Korpus (90.720 Datensaetze): auf der kleinen Probe des Tests
+    /// (Held-out rund 50 Vergleichsaufgaben) schwankt sie um mehr als 10 Punkte, ein
+    /// enger Wert waere dort eine Aussage ueber den Zufall, nicht ueber den Korpus.
+    #[test]
+    fn kein_typ_ist_mit_einer_antwort_loesbar() {
+        let g = probe(2000);
+        for (name, stats) in [("train", &g.train_stats), ("val", &g.val_stats)] {
+            for (cat, st) in stats {
+                let (haeufig, pct) = st.shortcut_baseline();
+                eprintln!(
+                    "DIAGNOSE {name} {:<14} n={:<6} Antwortraum {:<4} Mehrheit {pct:5.1} % (`{haeufig}`)",
+                    cat.short(),
+                    st.total,
+                    st.distinct_answers()
+                );
+                assert!(
+                    st.distinct_answers() >= 2,
+                    "{} hat nur EINE Antwort (`{haeufig}`) - der Typ trainiert nichts",
+                    cat.short()
+                );
+                assert!(
+                    pct <= 70.0,
+                    "{} ist mit der Mehrheitsantwort zu leicht: {pct:.1} % (`{haeufig}`)",
+                    cat.short()
+                );
+            }
+        }
+    }
+
+    /// **Die Vergleichsaufgabe ist nicht einseitig.** Regressionstest zum
+    /// `O-A30`-Befund (vorher: **eine** Antwort, 100 %).
+    #[test]
+    fn vergleich_ist_nicht_einseitig() {
+        let g = probe(2000);
+        for (name, stats) in [("train", &g.train_stats), ("val", &g.val_stats)] {
+            let st = &stats[&Category::Vergleich];
+            let a = st.answers.get("A").copied().unwrap_or(0);
+            let b = st.answers.get("B").copied().unwrap_or(0);
+            let gleich = st.answers.get("gleich").copied().unwrap_or(0);
+            let pct = |n: u64| n as f64 * 100.0 / st.total as f64;
+            eprintln!(
+                "DIAGNOSE {name} vergleich: A {a} ({:.1} %), B {b} ({:.1} %), gleich {gleich}",
+                pct(a),
+                pct(b)
+            );
+            assert!(a > 0 && b > 0, "beide Antworten muessen vorkommen");
+            assert_eq!(
+                gleich, 0,
+                "`gleich` ist mit diesen Baendern nicht erreichbar (siehe Abschnitt 3.3 der Doku)"
+            );
+            // Die Schwelle ist bewusst weit: sie soll die **Einseitigkeit** fangen
+            // (vorher 100 %), nicht die Balance auf 50 % festnageln.
+            assert!(
+                pct(a).max(pct(b)) <= 70.0,
+                "eine Antwort dominiert: A {a} / B {b}"
+            );
+        }
+    }
+
+    /// **Beide Terme liegen im Band** - und `im_band` beschreibt wirklich, was der
+    /// Generator erzeugt.
+    ///
+    /// Das war vorher **nicht** geprueft, und zwar an drei Stellen: `im_band` stand
+    /// **ungenutzt** im Modul (kein Aufrufer, kein Test), der zweite Term wurde gar
+    /// nicht geprueft (`a1 + 1` konnte **`a1 = 0`** erzeugen - den Term `0`), und
+    /// `im_band` selbst verlangte bei `a2` **ohne** Betrag `1..4`, waehrend der Generator
+    /// `a2` mit Wahrscheinlichkeit 1/4 **negiert**. Der Test haelt alle drei zu: er
+    /// prueft **jeden** Term **jedes** Typs **beider** Baender gegen dieselbe Funktion,
+    /// die der Generator benutzt.
+    #[test]
+    fn beide_terme_liegen_im_band() {
+        let g = probe(1000);
+        let mut geprueft = 0;
+        let mut vergleich = 0;
+        for (liste, band) in [(&g.train, Band::Train), (&g.val, Band::Val)] {
+            for r in liste {
+                assert_eq!(r.band, band, "Band des Datensatzes");
+                let task = task_in(&r.record);
+                let x: i64 = zeile(&task, "Belegung:")
+                    .unwrap()
+                    .strip_prefix("x = ")
+                    .unwrap()
+                    .trim()
+                    .parse()
+                    .unwrap();
+                let a = Term::parse(
+                    zeile(&task, "Term:")
+                        .or_else(|| zeile(&task, "Term A:"))
+                        .unwrap(),
+                )
+                .unwrap();
+                assert!(
+                    im_band(&a, x, band),
+                    "Term A verlaesst das Band: {} (x = {x}, {band:?})",
+                    a.text()
+                );
+                if r.category == Category::Vergleich {
+                    let b = Term::parse(zeile(&task, "Term B:").unwrap()).unwrap();
+                    assert_ne!(a.wert(x), b.wert(x), "Gleichstand im Korpus: {}", b.text());
+                    assert!(
+                        im_band(&b, x, band),
+                        "Term B verlaesst das Band: {} (x = {x}, {band:?})",
+                        b.text()
+                    );
+                    assert_ne!(b.text(), "0", "Term B darf nicht der Nullterm sein");
+                    vergleich += 1;
+                }
+                geprueft += 1;
+            }
+        }
+        assert!(
+            geprueft > 0 && vergleich > 0,
+            "Probe deckt die Faelle nicht ab"
+        );
+    }
+
+    /// **Die Kurzstrategien rechnen nur aus Bytes** - und die Mehrheitsantwort ist
+    /// wirklich die haeufigste.
+    #[test]
+    fn kurzstrategien_und_mehrheit_rechnen_aus_bytes() {
+        let g = probe(400);
+        for r in &g.train {
+            let task = task_in(&r.record);
+            let x = zeile(&task, "Belegung:")
+                .unwrap()
+                .strip_prefix("x = ")
+                .unwrap()
+                .trim();
+            assert_eq!(Kurzstrategie::Belegung.antwort(&r.record), x);
+            assert_eq!(Kurzstrategie::ImmerNull.antwort(&r.record), "0");
+            // Die erste Zahl steht **wortwoertlich** in der Aufgabe.
+            let erste = erste_zahl(&task).expect("jede Aufgabe traegt eine Zahl");
+            assert_eq!(Kurzstrategie::ErsteZahl.antwort(&r.record), erste);
+            assert!(
+                task.contains(&erste),
+                "die Strategie erfindet eine Zahl: {erste}"
+            );
+        }
+        let st = &g.train_stats[&Category::Wert];
+        let (a, pct) = st.shortcut_baseline();
+        let max = st.answers.values().copied().max().unwrap();
+        assert_eq!(st.answers[&a], max, "die Mehrheit ist das Maximum");
+        assert!((pct - max as f64 * 100.0 / st.total as f64).abs() < 1e-9);
+        let t = kurzstrategie_treffer(&g.train);
+        assert_eq!(t.len(), Kurzstrategie::ALL.len(), "Katalog vollstaendig");
     }
 
     /// **Zweiter Lauf byteidentisch** - derselbe Seed ergibt dieselben Bytes.

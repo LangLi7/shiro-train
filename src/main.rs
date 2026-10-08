@@ -9,6 +9,7 @@ use std::process::ExitCode;
 
 use shiro::cli::{self, Command};
 use shiro::config::{ModelConfig, TrainConfig};
+use shiro::data::algebra;
 use shiro::data::format;
 use shiro::data::formatgen;
 use shiro::data::games;
@@ -1213,6 +1214,12 @@ fn cmd_data_combine(
     let mut bilanz_gerendert = 0u64;
     let mut bilanz_schon_delta = 0u64;
     let mut bilanz_unberuehrt = 0u64;
+    // **Zielnamen INNERHALB dieses Aufrufs** - nur so wird der echte
+    // Namenszusammenstoss erkannt. Der frueher gepruefte Fall "Datei ist schon da"
+    // war etwas anderes (ein zweiter Lauf in dasselbe Ziel) und sperrte den
+    // Wiederaufbau des Korpus mit einer Meldung, die vom falschen Grund sprach.
+    let mut zielnamen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut ueberschrieben = 0u64;
 
     println!("Kombinierter Korpus (n5, D-051)");
     println!("Quellen      : {}", sources.len());
@@ -1259,14 +1266,22 @@ fn cmd_data_combine(
             let von = basis.join(&e.path);
             let ziel_name = format!("{familie}-{}", e.path);
             let nach = out_dir.join(&ziel_name);
-            // **Kein stilles Ueberschreiben.** Zwei Quellen mit demselben
-            // Familiennamen wuerden sonst denselben Shard doppelt belegen und das
-            // Manifest zeigte auf einen Datensatz, der nicht mehr dort liegt.
-            if nach.exists() {
+            // **Kein stilles Ueberschreiben INNERHALB eines Aufrufs.** Zwei Quellen
+            // mit demselben Familiennamen wuerden sonst denselben Shard doppelt
+            // belegen und das Manifest zeigte auf einen Datensatz, der nicht mehr
+            // dort liegt.
+            if !zielnamen.insert(ziel_name.clone()) {
                 shiro::error::bail!(
                     "Zielname schon belegt: {} - zwei Quellen tragen denselben Familiennamen; `--src` mit eindeutigen Ordnernamen angeben",
                     nach.display()
                 );
+            }
+            // Ein **zweiter Lauf** in dasselbe Ziel ist dagegen erlaubt: `combine`
+            // BAUT den Korpus, und ein Wiederaufbau muss moeglich sein (Runde 35 hat
+            // genau das gebraucht, nachdem der Algebra-Shard neu erzeugt wurde). Die
+            // Zahl wird berichtet, damit das Ueberschreiben nicht unsichtbar ist.
+            if nach.exists() {
+                ueberschrieben += 1;
             }
             // **Die Antwortform wird beim BAUEN gesetzt** (D-052/D-053), nicht in
             // der Runde. `absolut` kopiert byteweise - nur so bleibt der
@@ -1396,6 +1411,12 @@ fn cmd_data_combine(
              {bilanz_unberuehrt} nicht betroffen"
         );
     }
+    if ueberschrieben > 0 {
+        println!(
+            "Hinweis      : {ueberschrieben} Shard(s) im Ziel waren schon vorhanden und wurden \
+             neu gebaut (Wiederaufbau in dasselbe Ziel)"
+        );
+    }
     println!("Manifest     : {}", out_dir.join("manifest.json").display());
     println!(
         "Pruefen      : SHIRO_DATA={} shiro validate-data",
@@ -1413,7 +1434,6 @@ fn cmd_data_combine(
 /// also die Zahl der Zahlenfolgen-Familie verfaelschen und jede Auswertung nach Typ
 /// unbrauchbar machen.
 fn cmd_generate_algebra(opts: &cli::AlgebraGenOptions) -> Result<()> {
-    use shiro::data::algebra;
     use shiro::data::manifest::Manifest;
 
     let gen_opts = algebra::Options {
@@ -1491,6 +1511,7 @@ Koeffizienten und Belegung ueberlappen nicht"
             );
         }
     }
+    report_algebra(&data);
     println!();
     println!("Ziel         : {}", opts.out_dir.display());
     println!(
@@ -1498,6 +1519,52 @@ Koeffizienten und Belegung ueberlappen nicht"
         train_dir.display()
     );
     Ok(())
+}
+
+/// Bericht der Algebra-Familie: **Antwortraum** und **Kurzstrategie-Baseline** je
+/// Aufgabentyp (`O-A30`).
+///
+/// Die Messung ist der Grund, warum dieser Bericht existiert: die erste Fassung hatte
+/// bei `alg-vergleich` **eine** Antwort (100 %). Ohne diese Zahl sieht ein Aufgabentyp,
+/// der immer dasselbe antwortet, wie eine geloeste Aufgabe aus.
+fn report_algebra(data: &algebra::Generated) {
+    for (name, liste, stats) in [
+        ("Training", &data.train, &data.train_stats),
+        ("Held-out", &data.val, &data.val_stats),
+    ] {
+        if liste.is_empty() {
+            continue;
+        }
+        let treffer = algebra::kurzstrategie_treffer(liste);
+        println!("\n--- Kurzstrategie-Baseline ({name}, O-A30) ---");
+        print!(
+            "{:<15} {:>7} {:>7} {:>10} {:>8}",
+            "Typ", "n", "Antw.", "Mehrheit", "%"
+        );
+        for (key, _) in &treffer {
+            print!(" {:>11}", key);
+        }
+        println!();
+        for cat in algebra::Category::ALL {
+            let Some(st) = stats.get(&cat) else {
+                continue;
+            };
+            let (haeufig, pct) = st.shortcut_baseline();
+            print!(
+                "{:<15} {:>7} {:>7} {:>10} {:>8.1}",
+                cat.short(),
+                st.total,
+                st.distinct_answers(),
+                haeufig,
+                pct
+            );
+            for (_, je_typ) in &treffer {
+                let n = je_typ.get(&cat).copied().unwrap_or(0);
+                print!(" {:>10.1}%", n as f64 * 100.0 / st.total as f64);
+            }
+            println!();
+        }
+    }
 }
 
 /// Schreibt die Aufgaben-Zuordnung des Algebra-Korpus ins Manifest.
