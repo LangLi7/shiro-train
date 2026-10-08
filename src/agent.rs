@@ -1590,6 +1590,38 @@ pub fn hebel_an(
     }
 }
 
+/// **Darf der Plateau-Zweig das Lernpaket auf `breit` zwingen?**
+///
+/// Reine Regel, damit sie ohne Modell pruefbar ist. Sie verhindert, dass sich
+/// **zwei Variablen gleichzeitig** aendern - O-T9 sagt selbst: *"Zwei Hebel
+/// gleichzeitig waeren nicht unterscheidbar."*
+///
+/// Zwei Faelle sind gesperrt, beide gemessen:
+/// * **Ungeklaerte Runde** (exp-014): das Urteil war `UNENTSCHIEDEN`, ueber den
+///   Wert der Runde ist also nichts entschieden - dann darf nicht umgestellt
+///   werden, sondern es wird wiederholt.
+/// * **O-T9 hat schon einen Hebel gezogen** (exp-016): dort zog O-T9 den
+///   Replay-Hebel (`0.35 -> 0.20`), und der Plateau-Zweig wechselte zusaetzlich
+///   das Paket auf `breit`. Danach war nicht mehr unterscheidbar, welcher der
+///   beiden Hebel gewirkt hat.
+pub fn plateau_paketwechsel(
+    letzter_pack: Option<Pack>,
+    pack: Pack,
+    ohne_fortschritt: usize,
+    letzte_runde_unentschieden: bool,
+    letzte_runde_hatte_hebel: bool,
+) -> bool {
+    match letzter_pack {
+        Some(letzte) => {
+            letzte == pack
+                && ohne_fortschritt >= 1
+                && !letzte_runde_unentschieden
+                && !letzte_runde_hatte_hebel
+        }
+        None => false,
+    }
+}
+
 /// **O-T9 als reine Regel.** Eine angenommene Runde braucht keinen Wechsel -
 /// eine **verworfene muss einen erzeugen**, sonst wiederholt die naechste Runde
 /// denselben Aufbau und liefert dasselbe Ergebnis.
@@ -1971,6 +2003,10 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     // War die **vorige** Runde unentschieden? Dann darf der Plateau-Zweig in
     // dieser Runde das Lernpaket nicht aendern (exp-014).
     let mut letzte_runde_unentschieden = false;
+    // Hat die **vorige** Runde einen O-T9-Hebel gezogen? Dann darf der
+    // Plateau-Zweig nicht zusaetzlich das Paket wechseln, sonst aendern sich
+    // zwei Variablen gleichzeitig (exp-016).
+    let mut letzte_runde_hatte_hebel = false;
     let mut letzter_pack: Option<Pack> = None;
     // Wie viele Runden bisher verworfen wurden - der Zeiger auf der
     // Hebel-Leiter (O-T9). Getrennt von `ohne_fortschritt`, weil dieser bei
@@ -2210,11 +2246,26 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // obwohl ueber den Wert der vorigen Runde **nichts** entschieden war.
         // Das ist derselbe Fehler, den die Replikationspflicht beim O-T9-Hebel
         // vermeidet: eine zweite Variable auf einer offenen Frage verstellen.
-        if let Some(letzte) = letzter_pack {
-            if letzte == pack && ohne_fortschritt >= 1 && !letzte_runde_unentschieden {
-                pack = Pack::Breit;
-                println!("Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit");
-            }
+        //
+        // **Zweiter Befund aus exp-016:** derselbe Fehler trifft auch eine
+        // **verworfene** Runde, sobald O-T9 dort einen Hebel gezogen hat, der
+        // NICHT das Paket ist. Gemessen im Log von exp-016:
+        //     Strategiewechsel (O-T9): replay_share 0.35 -> 0.20
+        //     Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit
+        // Runde 2 aenderte damit **zwei** Variablen gleichzeitig, und danach ist
+        // nicht mehr unterscheidbar, welche der beiden gewirkt hat. O-T9 sagt
+        // selbst: "Zwei Hebel gleichzeitig waeren nicht unterscheidbar." Deshalb
+        // ist der Plateau-Zweig gesperrt, sobald die vorige Runde **irgendeinen**
+        // O-T9-Hebel gezogen hat.
+        if plateau_paketwechsel(
+            letzter_pack,
+            pack,
+            ohne_fortschritt,
+            letzte_runde_unentschieden,
+            letzte_runde_hatte_hebel,
+        ) {
+            pack = Pack::Breit;
+            println!("Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit");
         }
         letzter_pack = Some(pack);
         println!("Lernpaket     : {} ({})", pack.key(), pack.reason());
@@ -2539,7 +2590,8 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         }
         let plateau = ohne_fortschritt >= cap.budget.plateau_patience;
         // Fuer die NAECHSTE Runde merken: war diese Runde ungeklaert, darf der
-        // Plateau-Zweig das Paket nicht auf `breit` zwingen.
+        // Plateau-Zweig das Paket nicht auf `breit` zwingen - und hat O-T9
+        // bereits einen Hebel gezogen, ebenso wenig (sonst zwei Variablen).
         letzte_runde_unentschieden = unentschieden;
         let (aktion, grund) = naechste_aktion(&cap, accepted, verbessert, plateau, unentschieden);
 
@@ -2571,6 +2623,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         } else {
             wechsel_der_runde(accepted, verworfen, dosis, replay_share, lr, pack.key())
         };
+        // Merken, ob O-T9 in DIESER Runde einen Hebel gezogen hat: dann darf der
+        // Plateau-Zweig der naechsten Runde nicht zusaetzlich das Paket wechseln.
+        letzte_runde_hatte_hebel = wechsel.is_some();
         if unentschieden {
             println!(
                 "   -> KEIN Strategiewechsel: die Runde wird mit UNVERAENDERTER Einstellung wiederholt"
@@ -3690,8 +3745,59 @@ mod tests {
         assert_eq!(PANELS_MINDESTENS, 2);
     }
 
-    /// **Die Paketbegruendungen duerfen keine widerlegte Aussage tragen.**
-    ///
+    /// **Nie zwei Hebel gleichzeitig.** Der Plateau-Zweig darf das Paket nur
+    /// wechseln, wenn die vorige Runde weder ungeklaert war noch bereits einen
+    /// O-T9-Hebel gezogen hat.
+    #[test]
+    fn plateau_wechsel_und_ot9_hebel_schliessen_sich_aus() {
+        // Normalfall: gleiches Paket, ein Schritt ohne Fortschritt -> Wechsel.
+        assert!(plateau_paketwechsel(
+            Some(Pack::Reparatur),
+            Pack::Reparatur,
+            1,
+            false,
+            false
+        ));
+        // **Fall exp-016:** O-T9 hat den Replay-Hebel gezogen -> kein Wechsel.
+        assert!(
+            !plateau_paketwechsel(Some(Pack::Reparatur), Pack::Reparatur, 1, false, true),
+            "zwei Hebel gleichzeitig waeren nicht unterscheidbar"
+        );
+        // **Fall exp-014:** ungeklaerte Runde -> kein Wechsel, sondern Wiederholung.
+        assert!(!plateau_paketwechsel(
+            Some(Pack::Reparatur),
+            Pack::Reparatur,
+            1,
+            true,
+            false
+        ));
+        // Erstes Runde ueberhaupt: kein voriges Paket -> kein Wechsel.
+        assert!(!plateau_paketwechsel(
+            None,
+            Pack::Reparatur,
+            1,
+            false,
+            false
+        ));
+        // Anderes Paket als vorher: der Wechsel waere ohnehin keiner.
+        assert!(!plateau_paketwechsel(
+            Some(Pack::Reparatur),
+            Pack::Offen,
+            1,
+            false,
+            false
+        ));
+        // Ohne Fehlschritt gibt es nichts zu wechseln.
+        assert!(!plateau_paketwechsel(
+            Some(Pack::Reparatur),
+            Pack::Reparatur,
+            0,
+            false,
+            false
+        ));
+    }
+
+    /// **Die Paketbegruendungen duerfen keine widerlegte Aussage tragen.**    ///
     /// Sie wandern ins Log UND in die Registry-Zeile (`reason_for_action`) - eine
     /// falsche Begruendung ist damit ein falscher Nachweis, kein Schoenheitsfehler.
     /// Konkreter Anlass: `Pack::Reparatur` trug bis exp-016 den Satz *"er steht in
