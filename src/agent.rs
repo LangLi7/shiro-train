@@ -1724,6 +1724,19 @@ pub struct AgentOptions {
     /// **Ausdrueckliche Uebersteuerung der Lernrate** (`--lr`). Siehe
     /// [`Self::replay_override`].
     pub lr_override: Option<f32>,
+    /// **Ausdrueckliche Seed-Vorgabe** (`--seed`). Sie aendert **nur** die
+    /// Ziehung der Trainingsdaten, nicht die Messung.
+    ///
+    /// Gemessener Anlass (exp-017): bei gleicher Seed ist das Training
+    /// **bit-reproducibel**, eine wiederholte Konfiguration liefert also nur
+    /// dieselben Zahlen. Eine **Replikation** - die Auflage des Nutzers, nicht
+    /// nur eine Stichprobe zu haben - braucht darum eine **andere** Ziehung
+    /// derselben Aufgabenverteilung. Der Messpfad bleibt unberuehrt: die
+    /// Auswertung ist greedy (`temperature = 0.0`) und die Verlustmessung laeuft
+    /// gebatcht **ohne** Mischung ([`measure_loss`] setzt `start = b *
+    /// batch_size`), ist also seed-unabhaengig. Damit unterscheidet sich eine
+    /// Replikationsrunde in **genau einer** Groesse von ihrer Vorlage.
+    pub seed_override: Option<u64>,
     /// **Diese Runde zieht keine Leiterstufe** (`--ohne-hebel`).
     ///
     /// Fuer Aenderungen, die **nicht** auf der Leiter stehen: die Datenmenge je
@@ -1755,6 +1768,7 @@ impl Default for AgentOptions {
             pack_override: None,
             replay_override: None,
             lr_override: None,
+            seed_override: None,
             ohne_hebel: false,
             dry_run: false,
         }
@@ -2463,7 +2477,19 @@ pub fn entscheide_runde(befunde: &[PanelBefund], pass: &PassCriteria) -> Rundenu
 pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     let cap = Capability::load(&opts.capability_path)?;
     let basis = lade_basis(&opts.base_config)?;
-    let seed = basis.run.seed;
+    let basis_seed = basis.run.seed;
+    // **Replikationsschalter** (`--seed`). Er aendert **ausschliesslich** die
+    // Ziehung der Trainingsdaten: das gezielte Paket haengt an `iter_seed`, die
+    // Wiederholung wird aus dem festen Trainingsband genommen (ohne Seed) und der
+    // Messpfad ist greedy bzw. ungemischt, also seed-unabhaengig. Eine
+    // Replikationsrunde unterscheidet sich damit in genau EINER Groesse von ihrer
+    // Vorlage - und nur so ist sie als Replikation lesbar.
+    if let Some(s) = opts.seed_override {
+        println!(
+            "Startwert     : seed aus --seed: {basis_seed} -> {s} (Datenziehung der Runde, nicht der Messpfad)"
+        );
+    }
+    let seed = opts.seed_override.unwrap_or(basis_seed);
 
     let weights = match &opts.weights {
         Some(w) => w.clone(),
@@ -2805,6 +2831,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 basis_replay,
                 "-",
                 None,
+                seed,
             )?;
             out.push(Iteration {
                 nr,
@@ -3445,6 +3472,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             replay_share,
             pack.key(),
             angewendete_stufe,
+            seed,
         )?;
         let dversion_ref = dversion;
         let _ = dversion_ref;
@@ -3498,9 +3526,9 @@ fn checkpoints_pfad(dir: &Path, name: &str, step: usize) -> Option<PathBuf> {
 /// nennt wie die Zahlenfelder daneben. Vorher stand hier nur die Schrittzahl,
 /// und `learning_rate` war fest `0.0003` - die Zeile beschrieb den Lauf damit
 /// nicht.
-pub fn trainingsconfig_text(steps: usize, pack: &str, replay: f64, lr: f32) -> String {
+pub fn trainingsconfig_text(steps: usize, pack: &str, replay: f64, lr: f32, seed: u64) -> String {
     format!(
-        "{steps} Schritte, Micro, Batch wie Basisconfig, Paket {pack}, replay_share {replay:.2}, lr {lr:.3e}"
+        "{steps} Schritte, Micro, Batch wie Basisconfig, Paket {pack}, replay_share {replay:.2}, lr {lr:.3e}, Datenziehung seed {seed}"
     )
 }
 
@@ -3535,6 +3563,15 @@ fn eintrag(
     replay_share: f64,
     pack: &str,
     leiterstufe: Option<usize>,
+    // **Die Datenziehung der Runde** (`--seed`, sonst der Seed der Basisconfig).
+    //
+    // Sechster Defekt derselben Klasse wie in D-048 (exp-024): hier stand fest
+    // `1337`. Solange der Loop seinen Seed immer aus der Basisconfig nahm, fiel
+    // das nicht auf - mit `--seed` schrieb die Registry aber einen Seed, mit dem
+    // **nicht** gezogen wurde, und eine Replikationszeile war damit aus der
+    // Registry heraus **nicht** nachpruefbar. Der Stand selbst trug die Wahrheit
+    // die ganze Zeit im Namen ([`runden_fingerabdruck`] enthaelt den Seed).
+    seed: u64,
 ) -> Result<()> {
     let a = after.unwrap_or(before);
     let entry = RegistryEntry {
@@ -3544,11 +3581,11 @@ fn eintrag(
         dataset_version: format!("seq-corpus+{}", seq::Regel::ALL.len()),
         generator_version: GENERATOR_VERSION.to_string(),
         verifier_version: VERIFIER_VERSION.to_string(),
-        seed: 1337,
+        seed,
         // **Die Zeile muss den Lauf beschreiben.** Sie nennt jetzt die Hebel
         // mit, mit denen wirklich trainiert wurde - vorher stand hier nur die
         // Schrittzahl, und `learning_rate` war fest 0.0003.
-        training_config: trainingsconfig_text(steps, pack, replay_share, lr),
+        training_config: trainingsconfig_text(steps, pack, replay_share, lr, seed),
         evaluation_config: format!("greedy, {} Datensaetze, fester Referenzsatz", a.asked),
         steps,
         learning_rate: lr as f64,
@@ -4515,6 +4552,64 @@ mod tests {
         assert_eq!(original.len(), 16, "16 Hexzeichen: {original}");
     }
 
+    /// **Der Beweis aus dem Artefakt: welche Datenziehung in welchem Stand steckt.**
+    ///
+    /// Anlass ist exp-024. Die Registry-Zeile trug dort den **falschen** Seed
+    /// (fest `1337`, sechster Defekt derselben Klasse wie in D-048), obwohl die
+    /// Runde nachweislich mit 2024 bzw. 4242 gezogen hat. Der Stand selbst war
+    /// die ganze Zeit ehrlich: der Laufname traegt den Fingerabdruck ueber
+    /// Startschritt, Iteration, Dosis, Replay, Lernrate, Paket **und Seed**.
+    ///
+    /// Dieser Test haelt die drei Namen der drei Datenziehungen fest. Er ist
+    /// damit gleichzeitig der Nachweis, dass die Replikation wirklich drei
+    /// **verschiedene** Ziehungen war, und eine Sperre gegen eine stille
+    /// Aenderung der Abdrucksformel: aendert sich die Formel, fallen die drei
+    /// Namen auf und der Test wird rot.
+    #[test]
+    fn replikationen_sind_an_ihrem_stand_nachweisbar() {
+        // Die drei Staende der Formachse (Start 12400, Runde 1, Dosis 4800,
+        // Replay 0,35, lr 3e-4, Paket reparatur-delta).
+        let faelle = [
+            // exp-021, Basisseed der Basisconfig
+            (1337_u64, "d5217b90dfe8cbac"),
+            // exp-024, erste eigene Datenziehung
+            (2024_u64, "c1c691769e0bffa2"),
+            // exp-024, zweite eigene Datenziehung
+            (4242_u64, "9ac8dd6721bf4a4e"),
+        ];
+        for (seed, erwartet) in faelle {
+            let got = runden_fingerabdruck(12400, 1, 4800, 0.35, 3e-4, "reparatur-delta", seed);
+            assert_eq!(
+                got, erwartet,
+                "Stand der Datenziehung seed {seed} traegt einen anderen Namen"
+            );
+        }
+    }
+
+    /// **Die Registry-Zeile nennt die Datenziehung, mit der gezogen wurde.**
+    ///
+    /// Sechster Defekt der Klasse aus D-048 (exp-024): `seed` stand fest auf
+    /// `1337`. Der Test prueft die Prosa-Zeile; dass das **Feld** denselben Wert
+    /// traegt, stellt `eintrag` her, indem es beide aus **einem** Parameter
+    /// bildet.
+    #[test]
+    fn registry_zeile_nennt_die_datenziehung() {
+        let text = trainingsconfig_text(4800, "reparatur-delta", 0.35, 3e-4, 2024);
+        assert!(
+            text.contains("Datenziehung seed 2024"),
+            "die Zeile muss die eigene Ziehung nennen: {text}"
+        );
+        assert!(
+            !text.contains("1337"),
+            "der Basisseed darf nicht als Ziehung erscheinen, wenn er es nicht war: {text}"
+        );
+        // Gegenprobe: zwei verschiedene Ziehungen ergeben zwei verschiedene Zeilen.
+        assert_ne!(
+            trainingsconfig_text(4800, "reparatur-delta", 0.35, 3e-4, 2024),
+            trainingsconfig_text(4800, "reparatur-delta", 0.35, 3e-4, 4242)
+        );
+    }
+
     /// **Die Antwortform-Messung, die die Deutung entscheidet.**
     ///
     /// Der Anlass ist ein Widerspruch zwischen zwei eigenen Messungen: die
@@ -4887,14 +4982,19 @@ mod tests {
     /// Hebel nennt.
     #[test]
     fn config_text_nennt_dieselben_hebel_wie_die_felder() {
-        let t = trainingsconfig_text(4800, "reparatur", 0.20, 4.5e-4);
+        let t = trainingsconfig_text(4800, "reparatur", 0.20, 4.5e-4, 1337);
         assert!(t.contains("4800 Schritte"), "{t}");
         assert!(t.contains("reparatur"), "{t}");
         assert!(t.contains("0.20"), "die Datenmischung fehlt: {t}");
         assert!(t.contains("4.500e-4"), "die Lernrate fehlt: {t}");
+        assert!(t.contains("1337"), "die Datenziehung fehlt: {t}");
         // Gegenprobe: ein anderer Wert ergibt einen anderen Text.
-        assert_ne!(t, trainingsconfig_text(4800, "reparatur", 0.20, 3e-4));
-        assert_ne!(t, trainingsconfig_text(4800, "breit", 0.20, 4.5e-4));
+        assert_ne!(t, trainingsconfig_text(4800, "reparatur", 0.20, 3e-4, 1337));
+        assert_ne!(t, trainingsconfig_text(4800, "breit", 0.20, 4.5e-4, 1337));
+        assert_ne!(
+            t,
+            trainingsconfig_text(4800, "reparatur", 0.20, 4.5e-4, 4242)
+        );
     }
 
     /// Ein Eintrag mit allen Pflichtfeldern - fuer Tests, die nur einzelne

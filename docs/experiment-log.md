@@ -3158,3 +3158,197 @@ fuer diese Aufgabenform - und sie liegt **17-fach** unter der gemessenen Genauig
 **immer** richtig hat - also genau die Komponente, die der Loop als geloest gemessen hat
 (`stelle` 96,8 %) - bleibt bei 5,4 %. Die 91,9 % sind damit nicht durch ein Kurzverfahren auf dem
 kleineren Antwortraum zu erreichen.
+
+## exp-024 - Die Replikation: D-047 haelt in drei unabhaengigen Datenziehungen, und der sechste Loop-Defekt faellt auf
+
+**Warum diese Runde.** D-047 war in **einem einzigen** Lauf erreicht worden - Kopfzahl
+**874/960 = 91,04 %** gegen die Marke 90 %. Der Abstand betraegt **1,04 Prozentpunkte**, der
+Standardfehler der Kopfzahl auf 960 Fragen **0,92 Prozentpunkte**: die Marke lag also **innerhalb
+eines Standardfehlers**. Der Nutzer hat fuer genau diesen Fall eine Auflage gemacht:
+
+> "du solltest fakten basierend arbeiten pessimistisch sein. das es nicht nur nach 1 stichprobe
+> sondern mehrere das es replizierbare test ist. ansonsten koennte es fatal sein wenn es nicht
+> replizierbar ist und einmaliges erfolg"
+
+**Eine Wiederholung derselben Konfiguration liefert dabei keine Information.** exp-017 hat
+gemessen, dass das Training bei gleicher Seed **bit-reproducibel** ist: gleicher Elternteil,
+gleiches Paket, gleiche Dosis, gleicher Seed ergeben denselben Verlust auf **17 Stellen**
+(`0.08192774131978153`), dasselbe `exact_match` (`0.893750`) und denselben Score
+(`0.5289220136999823`). Eine Replikation braucht deshalb eine **andere Ziehung derselben
+Aufgabenverteilung**, nicht einen zweiten Aufruf derselben Einstellung.
+
+### Der eine geaenderte Wert: `--seed`
+
+Der Loop hat einen neuen Schalter **`--seed <N>`** bekommen (vorher war der Seed nur ueber die
+Basisconfig zu setzen und damit fuer eine Replikation unbrauchbar):
+
+| Ebene | Aenderung |
+|---|---|
+| `src/cli.rs` | Feld `seed` an `Command::Agent`, Hilfe-Zeile, Startwert-Meldung |
+| `src/main.rs` | Durchreichen an `AgentOptions` |
+| `src/agent.rs` | `AgentOptions.seed_override`; `let seed = opts.seed_override.unwrap_or(basis_seed)` |
+
+**Der Schalter trifft ausschliesslich die Datenziehung, nicht die Messung.** Das ist keine
+Behauptung, sondern vor der Runde gemessen worden (`--dry-run`, `loop-gpu-17-dry.log`):
+
+| Groesse | exp-021 (Seed 1337) | Vorpruefung (Seed 2024) |
+|---|---|---|
+| Startwert-Zeile | (kein Schalter) | `seed aus --seed: 1337 -> 2024` |
+| Delta-Panel A / B | 63 / 60 umgeschrieben | **63 / 60** umgeschrieben |
+| Baseline Panel A | 76,4 % (314/411), Score 0.492 | **76,4 % (314/411), Score 0.492** |
+| Baseline Panel B | 77,5 % (331/427), Score 0.495 | **77,5 % (331/427), Score 0.495** |
+| Antwortform-Befund A | zweiteilig 63 (1 / 24 / 8 / 30) | **zweiteilig 63 (1 / 24 / 8 / 30)** |
+| Trainingsnutzlast | 17.768.827 B | **17.768.651 B** |
+
+Die Messung ist **zeichengleich**, die Trainingsdaten sind **andere** (176 Byte Unterschied). Der
+Grund steht im Code und ist damit pruefbar: die Auswertung ist **greedy** (`temperature = 0.0`,
+`pick_next` nimmt das Argmax und benutzt den Zufallsgenerator nicht) und die Verlustmessung laeuft
+**gebatcht ohne Mischung** (`measure_loss` setzt `start = b * batch_size`) - beide sind
+seed-unabhaengig. Der Trainer-Seed bleibt der der Basisconfig (im `run_start` beider Laeufe steht
+`"seed":1337`); geaendert wird nur `iter_seed` der Datenzeugung.
+
+### Die drei Ziehungen
+
+Zwei weitere unabhaengige Runden auf der GPU, **genau eine** geaenderte Groesse gegenueber exp-021
+(Seed 1337 -> 2024 bzw. 4242); Elternteil, Paket, Dosis, Replay und Lernrate unveraendert,
+`--ohne-hebel`. Beide Staende wurden auf **beiden Antwortformen** gemessen.
+
+| Groesse | exp-021 (1337) | Replikation 1 (2024) | Replikation 2 (4242) |
+|---|---|---|---|
+| Panel A Score | 0,4915 -> **0,5354** (+0,044) | 0,4915 -> **0,5364** (+0,045) | 0,4915 -> **0,5380** (+0,046) |
+| Panel B Score | 0,4955 -> **0,5384** (+0,043) | 0,4955 -> **0,5386** (+0,043) | 0,4955 -> **0,5376** (+0,042) |
+| inhaltlich A | 76,4 -> **89,3 %** | 76,4 -> **89,5 %** | 76,4 -> **90,0 %** |
+| inhaltlich B | 77,5 -> **90,2 %** | 77,5 -> **90,2 %** | 77,5 -> **89,9 %** |
+| Urteil | ANGENOMMEN (einstimmig) | **ANGENOMMEN (einstimmig)** | **ANGENOMMEN (einstimmig)** |
+| Determinismus-Probe | byte-identisch | **byte-identisch** | **byte-identisch** |
+| Kopfzahl gepoolt | 874/960 = **91,04 %** | 875/960 = **91,15 %** | 876/960 = **91,25 %** |
+| inhaltlich gepoolt | 752/838 = **89,74 %** | 753/838 = **89,86 %** | 754/838 = **89,98 %** |
+| **D-047** | **ERREICHT** | **ERREICHT** | **ERREICHT** |
+
+Die drei Kopfzahlen liegen **einen einzigen Fall** auseinander (874, 875, 876 von 960) - die
+Streuung ueber unabhaengige Datenziehungen betraegt **0,21 Prozentpunkte**. Der Elternteil ist in
+beiden Laeufen unversehrt geblieben (SHA-256 vorher = nachher =
+`aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3`).
+
+### Jeder Typ in jeder Ziehung
+
+Alle sieben inhaltlichen Typen, gepoolt ueber die beiden disjunkten 480er-Panels:
+
+| Typ | exp-021 (1337) | Replikation (2024) | Replikation (4242) | Marke 75 % |
+|---|---|---|---|---|
+| `naechste` | 104/121 = 86,0 % | 102/121 = **84,3 %** | 106/121 = 87,6 % | gehalten |
+| `reparatur1` | 106/122 = 86,9 % | 106/122 = 86,9 % | 105/122 = **86,1 %** | gehalten |
+| `offen` | 99/114 = 86,8 % | 102/114 = 89,5 % | 101/114 = 88,6 % | gehalten |
+| `regel` | 120/133 = 90,2 % | 121/133 = 91,0 % | 119/133 = 89,5 % | gehalten |
+| `reparatur` | 113/123 = 91,9 % | 111/123 = 90,2 % | 112/123 = 91,1 % | gehalten |
+| `stelle` | 108/116 = 93,1 % | 108/116 = 93,1 % | 109/116 = 94,0 % | gehalten |
+| `luecke` | 102/109 = 93,6 % | 103/109 = 94,5 % | 102/109 = 93,6 % | gehalten |
+
+Der **schwaechste Typ jeder Ziehung** liegt bei **84,3 %**, **86,0 %** und **86,1 %** - der
+Abstand zur 75-%-Marke betraegt in der schlechtesten Ziehung **9,3 Prozentpunkte**. Der Typ, der
+D-047 blockiert hatte (`reparatur` 72,4 % in der absoluten Form), liegt in der Delta-Form in allen
+drei Ziehungen zwischen **90,2 %** und **91,9 %**.
+
+### Die Quermessung: die absolute Form faellt in allen drei Ziehungen durch
+
+Dieselben drei Staende wurden zusaetzlich auf den **absoluten** Panels gemessen (ohne `--pack`,
+`--dry-run`) - die sieben uebrigen Typen sind in beiden Formen byte-identisch und damit
+unveraendert vergleichbar:
+
+| Groesse auf der absoluten Form | exp-021 (1337) | Replikation (2024) | Replikation (4242) |
+|---|---|---|---|
+| Kopfzahl | 854/960 = **88,96 %** | 856/960 = **89,17 %** | 857/960 = **89,27 %** |
+| inhaltlich | 732/838 = **87,35 %** | 734/838 = **87,59 %** | 735/838 = **87,71 %** |
+| `reparatur` | 93/123 = **75,6 %** | 92/123 = **74,8 %** | 93/123 = **75,6 %** |
+| D-047 | **NICHT erreicht** | **NICHT erreicht** | **NICHT erreicht** |
+
+Der Abstand der beiden Formen auf **denselben** Staenden betraegt **2,08 / 1,98 / 1,98
+Prozentpunkte** Kopfzahl - die Formachse ist damit nicht nur einmal, sondern **dreimal** in
+derselben Richtung und nahezu derselben Groesse gemessen. Die absolute Form verfehlt die Marke in
+allen drei Ziehungen um 0,73 bis 1,04 Punkte, und ihr `reparatur` liegt mit 74,8 bis 75,6 % genau
+**auf** der Typmarke 75 % - in einer Ziehung darunter. Das ist der Transferbefund aus exp-021,
+jetzt repliziert: auf Delta trainiert, auf absolut gemessen, steigt `reparatur` von 72,4 % auf
+75,6 % - mehr nicht.
+
+### Was das beweist - und was es nicht beweist
+
+**Bewiesen:** Der Formwechsel ist **kein Zufallstreffer einer Datenziehung**. Drei unabhaengige
+Ziehungen derselben Verteilung (17.768.827 / 17.768.651 / 17.672.285 B Nutzlast, drei verschiedene
+Mischungen der 20.000 gezielten Saetze) erreichen die Marke **dreimal**, mit einer Streuung von
+0,21 Punkten, und die Gegenrichtung (absolute Form) verfehlt sie **dreimal**. Waehrend der
+Trainingsteil der drei Runden nachweislich verschieden war - der Verlust am Ende liegt bei
+`0.08262907` bzw. `0.08194228` -, sind die Messungen an denselben 960 Fragen entstanden und damit
+direkt vergleichbar.
+
+**Nicht bewiesen - und das gehoert daneben:** Die drei Ziehungen teilen **dieselben 960 Fragen**.
+Ihre Uebereinstimmung zeigt, dass das Ergebnis nicht an der Datenziehung haengt; sie sagt
+**nichts** darueber, wie sicher der wahre Wert ueber der Marke liegt. Bei n = 960 und einer Quote
+um 91 % betraegt der Standardfehler **0,92 Prozentpunkte**, der Abstand zur Marke **1,04 bis 1,25**
+Punkte - die Marke 90 % liegt damit **im 95-%-Intervall** jeder einzelnen Ziehung. Die Marke ist
+als **Marke auf dem fixierten Panel** formuliert (D-047), und auf diesem Panel ist sie erreicht;
+als Aussage ueber die **Faehigkeit** ist sie ein Ergebnis von **etwa einem Standardfehler** Abstand.
+Wer mehr will, braucht **mehr Fragen**, nicht mehr Laeufe.
+
+**Ebenfalls unveraendert offen:** der Kurzverfahren-Vorbehalt aus exp-021/exp-023. Die Delta-Form
+hat einen rund 1.000-fach kleineren Antwortraum; die staerkste billige Schranke (Stelle perfekt +
+Delta geraten) liegt bei 5,56 %, der Mehrheitsantwort-Wert bei 2,2 %. Ein **fairer
+Ueberlegenheitstest** - beide Formen mit derselben Dosis trainiert und auf beiden gemessen - steht
+weiterhin aus; die Replikation ersetzt ihn nicht.
+
+### Der sechste Loop-Defekt: die Registry schrieb einen Seed, mit dem nicht gezogen wurde
+
+Beim Auswerten der zwei neuen Zeilen fiel auf, dass beide `"seed":1337` trugen, obwohl die
+Trainingsnutzlast nachweislich eine andere war. Ursache: in `eintrag` stand **fest** `seed: 1337` -
+derselbe Fehlertyp wie der fest verdrahtete `learning_rate`-Wert, der in exp-018 (D-048) gefunden
+wurde, und der **dritte** Fall dieser Klasse nach dem Dosis-No-op und dem Replay-No-op. Solange
+der Loop seinen Seed immer aus der Basisconfig nahm, konnte der Fehler nicht auffallen; **erst der
+neue Schalter macht ihn sichtbar.** Eine Replikationszeile, die ihren eigenen Seed falsch nennt,
+ist aus der Registry heraus **nicht nachpruefbar** - genau der Zustand, den die Nutzerauflage
+verhindern soll.
+
+**Behoben und mit einem Beweis versehen.** Die Zeile nennt jetzt die Datenziehung; `eintrag`
+bekommt den Seed als Parameter, und die Prosa-Zeile entsteht aus derselben Quelle
+(`trainingsconfig_text(.., seed)`). Der **Stand selbst war die ganze Zeit ehrlich**: der Laufname
+traegt `runden_fingerabdruck(..)`, und der geht ueber Startschritt, Iteration, Dosis, Replay,
+Lernrate, Paket **und Seed**. Der neue Test
+`replikationen_sind_an_ihrem_stand_nachweisbar` haelt die drei Namen fest:
+
+```text
+seed 1337 -> d5217b90dfe8cbac   (exp-021)
+seed 2024 -> c1c691769e0bffa2   (Replikation 1)
+seed 4242 -> 9ac8dd6721bf4a4e   (Replikation 2)
+```
+
+Damit ist aus dem Artefakt belegt, welche Datenziehung in welchem Stand steckt - nicht aus einer
+Behauptung. Die **zwei falschen Registry-Zeilen wurden berichtigt** (Feld `seed` 1337 -> 2024 bzw.
+4242); der Vorgang ist hier festgehalten, weil eine stillschweigende Aenderung an der Registry
+selbst ein Nachweisproblem waere. Die Berichtigung ist zulaessig, weil die Zeilen Minuten zuvor im
+selben Lauf entstanden und der wahre Wert aus dem Laufnamen nachrechenbar ist.
+
+### Nebenbefund: der zweite Lauf war dreimal langsamer
+
+Beide Runden liefen auf demselben CUDA-Backend (`Device<Cube(Cuda(Cuda(0)))>`), mit demselben
+Batch (16 x 512) und demselben Backend-Binary. Trotzdem brauchte Replikation 1 **1.244 s** fuer
+4.800 Schritte (259 ms/Schritt), Replikation 2 **3.692 s** (769 ms/Schritt). Kein Heruntertakten
+(`HW Slowdown: Not Active`, `SW Power Cap: Not Active`, 57-60 Grad C, 1.965 von 2.160 MHz), kein
+Rueckfall auf die CPU, gleiche Nutzlastgroesse. **Die Ursache ist nicht geklaert und wird als
+offener Punkt gefuehrt.** Fuer das Ergebnis ist sie ohne Belang - gemessen wurde mit denselben
+960 Fragen - aber fuer die Zeitplanung der Leiter ist sie wichtig: eine Runde kann statt 25 auch
+70 Minuten brauchen.
+
+### Ergebnis und naechster Schritt
+
+**exp-024 ist ANGENOMMEN, zweimal, einstimmig auf beiden Panels.** D-047 ist damit **nicht mehr
+das Ergebnis einer einzelnen Stichprobe**: drei unabhaengige Datenziehungen erreichen die Marke,
+die absolute Form verfehlt sie in denselben drei Ziehungen. Der Engpass `reparatur` ist in der
+Delta-Form **geloest** (91,9 / 90,2 / 91,1 %), und der schwaechste Typ liegt bei 84,3 %.
+
+**Offen und der naechste Schritt:** Die Formkonvention gilt bisher **nur fuer `reparatur`**. Der
+naechste Typ mit derselben Bauart ist **`reparatur1`** - ein Antwortfeld, aber mit dem
+**absoluten** Wert (`Auf welchen Wert`), in allen drei Ziehungen bei **86,1-86,9 %** und damit der
+schwaechste Typ zweier Ziehungen. Wenn die Ursache wirklich die **Ausgabelast** des vierstelligen
+Werts ist und nicht die Aufgabe, muss dieselbe Umstellung dort dieselbe Wirkung haben; wenn nicht,
+ist der Befund formabhaengig und nicht mechanisch. Das ist eine pruefbare Vorhersage und damit
+die naheliegende naechste Runde. Unabhaengig davon bleibt der **faire Ueberlegenheitstest** offen,
+und fuer die Aussagekraft der Marke braucht es **mehr Fragen** (0,92 Punkte Standardfehler bei
+960).

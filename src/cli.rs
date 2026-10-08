@@ -79,6 +79,21 @@ pub enum Command {
         replay_share: Option<f64>,
         /// Ausdrueckliche Lernrate (`--lr`); ohne Angabe gilt die Basisconfig.
         lr: Option<f32>,
+        /// **Ausdrueckliche Seed-Vorgabe** (`--seed`) fuer die **Datenziehung**
+        /// der Runde.
+        ///
+        /// Gemessener Anlass (exp-017): das Training ist bei gleicher Seed
+        /// **bit-reproducibel** - eine wiederholte Konfiguration liefert deshalb
+        /// **keine** neue Information, sondern nur dieselben Zahlen. Eine
+        /// **Replikation** braucht darum eine **andere** Ziehung derselben
+        /// Aufgabenverteilung; genau das setzt dieser Schalter.
+        ///
+        /// Er aendert **nur** die Trainingsdaten (gezieltes Paket und
+        /// Wiederholung), **nicht** den Messpfad: die Auswertung ist greedy
+        /// (`temperature = 0.0`) und die Verlustmessung laeuft gebatcht ohne
+        /// Mischung, ist also seed-unabhaengig. Damit bleibt eine
+        /// Replikationsrunde eine Runde mit **genau einer** geaenderten Groesse.
+        seed: Option<u64>,
         /// **`--ohne-hebel`: diese Runde zieht KEINE Leiterstufe** (exp-020).
         ///
         /// Die Leiter testet Einstellungen. Es gibt aber Aenderungen, die
@@ -449,10 +464,16 @@ OPTIONEN FUER agent capability run:
                           STARTWERT der Runde setzen, nicht nur als Reaktion
                           auf einen Verwurf
     --lr <F>              Lernrate als Startwert der Runde setzen
+    --seed <N>            Seed der Runde setzen (Standard: aus der Basisconfig).
+                          Aendert NUR die Ziehung der Trainingsdaten, nicht die
+                          Messung - damit laesst sich eine Runde mit anderer
+                          Datenziehung WIEDERHOLEN (Replikationspflicht).
     --pack <PAKET>        Lernpaket erzwingen statt den Loop waehlen zu lassen.
                           Erlaubt: terminierung, frageart, stellenwert,
-                          reparatur, reparatur1, stelle, breit. `breit` trainiert
-                          die volle Verteilung (beide Reparaturformen).
+                          reparatur, reparatur1, reparatur-delta, stelle, breit.
+                          `breit` trainiert die volle Verteilung (beide
+                          Reparaturformen); `reparatur-delta` trainiert die
+                          MINIMIEREN-Aufgabe in der DELTA-Antwortform (D-049).
     --dry-run             planen und Daten erzeugen, aber nicht trainieren
 
 GERAET:
@@ -894,6 +915,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             pack: agent_pack,
             replay_share: agent_replay,
             lr: agent_lr,
+            // **Der Replikationsschalter.** `--seed` wird vom gemeinsamen
+            // Argumentpfad schon gelesen (`out.seed`); hier bekommt der Loop ihn
+            // als **Startwert der Runde** durchgereicht. `None` heisst: es gilt
+            // der Seed der Basisconfig - der Regelfall, unveraendert.
+            seed: out.seed,
             ohne_hebel: agent_ohne_hebel,
             dry_run: agent_dry,
         };
@@ -1195,16 +1221,39 @@ mod tests {
         let b = p(&["agent", "capability", "run", "sequence_reasoning"]).unwrap();
         match b.command {
             Command::Agent {
-                replay_share, lr, ..
+                replay_share,
+                lr,
+                seed,
+                ..
             } => {
                 assert_eq!(replay_share, None);
                 assert_eq!(lr, None);
+                assert_eq!(seed, None, "ohne --seed gilt der Seed der Basisconfig");
             }
+            other => panic!("erwartet Agent, war {other:?}"),
+        }
+
+        // **`--seed` ist der Replikationsschalter**: eine Runde mit anderer
+        // Datenziehung, gleiche Messung. Er muss die Zahl unveraendert tragen
+        // (nicht runden) und ueber den vollen u64-Bereich gehen.
+        let s = p(&[
+            "agent",
+            "capability",
+            "run",
+            "sequence_reasoning",
+            "--seed",
+            "18446744073709551615",
+        ])
+        .unwrap();
+        match s.command {
+            Command::Agent { seed, .. } => assert_eq!(seed, Some(u64::MAX)),
             other => panic!("erwartet Agent, war {other:?}"),
         }
 
         // Unsinnige Werte werden abgelehnt, nicht stillschweigend ignoriert.
         assert!(p(&["agent", "capability", "run", "x", "--replay-share", "abc"]).is_err());
         assert!(p(&["agent", "capability", "run", "x", "--lr", "abc"]).is_err());
+        assert!(p(&["agent", "capability", "run", "x", "--seed", "abc"]).is_err());
+        assert!(p(&["agent", "capability", "run", "x", "--seed", "-1"]).is_err());
     }
 }

@@ -69,6 +69,7 @@ fn real_main() -> Result<()> {
             pack,
             replay_share,
             lr,
+            seed,
             ohne_hebel,
             dry_run,
         } => cmd_agent(
@@ -81,6 +82,7 @@ fn real_main() -> Result<()> {
             pack,
             replay_share,
             lr,
+            seed,
             ohne_hebel,
             dry_run,
         ),
@@ -2094,6 +2096,7 @@ fn cmd_agent(
     pack: Option<String>,
     replay_share: Option<f64>,
     lr: Option<f32>,
+    seed: Option<u64>,
     ohne_hebel: bool,
     dry_run: bool,
 ) -> Result<()> {
@@ -2114,6 +2117,7 @@ fn cmd_agent(
         pack_override: pack,
         replay_override: replay_share,
         lr_override: lr,
+        seed_override: seed,
         ohne_hebel,
         dry_run,
         ..shiro::agent::AgentOptions::default()

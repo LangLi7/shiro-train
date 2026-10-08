@@ -1828,3 +1828,63 @@ Abschlussanteile von 0-8 Faellen tragen grob +/- 4,5 Prozentpunkte. Nur Familie
 Zahlenfolgen (D-045). Teacher forcing prueft **nicht** die Frageart. Der Typ-Mix
 weicht von exp-005 ab (dort 3 `vergleich`-Faelle, hier 15). Kein KV-Cache, keine
 GPU - alle vier Laeufe auf der CPU.
+## exp-024 - Replikation der Formachse (Logik-Familie)
+
+**Auftrag und Anlass.** Der Nutzer hat eine Replikationsauflage gemacht: *"das es nicht nur nach 1
+stichprobe sondern mehrere das es replizierbare test ist. ansonsten koennte es fatal sein wenn es
+nicht replizierbar ist und einmaliges erfolg"*. D-047 war in **einem** Lauf erreicht worden
+(Kopfzahl 874/960 = 91,04 %), der Abstand zur Marke betrug 1,04 Prozentpunkte bei einem
+Standardfehler von 0,92 Punkten auf 960 Fragen - die Marke lag damit **innerhalb eines
+Standardfehlers**. Weil das Training bei gleicher Seed **bit-reproducibel** ist (exp-017), war eine
+Wiederholung derselben Konfiguration wertlos; die Replikation brauchte eine **andere Datenziehung**.
+
+**Gebaut.** Neuer Schalter **`--seed <N>`** (`src/cli.rs` Feld an `Command::Agent` + Hilfe,
+`src/main.rs` Durchreichen, `src/agent.rs` `AgentOptions.seed_override`). Er trifft **nur** die
+Datenzeugung, nicht den Messpfad (Auswertung greedy bei `temperature = 0,0`; `measure_loss` laeuft
+gebatcht **ohne** Mischung). Vor der Runde mit `--dry-run` belegt: die Panels (Delta A 63 / B 60)
+und die Baseline (**A 76,4 % / Score 0,492; B 77,5 % / Score 0,495**; Antwortform-Befund A
+`1/24/8/30`) sind **zeichengleich** zur Vorlage exp-021, die Trainingsnutzlast ist eine andere
+(17.768.827 -> **17.768.651 B**).
+
+**Ergebnis (zwei unabhaengige Ziehungen, GPU, `Device<Cube(Cuda(Cuda(0)))>`).** Beide Runden
+**einstimmig angenommen**, Determinismus-Probe byte-identisch, Elternteil unversehrt (SHA-256
+`aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3` vorher = nachher):
+
+| Groesse (Delta-Form, gepoolt 2 x 480) | exp-021 (1337) | Replikation (2024) | Replikation (4242) |
+|---|---|---|---|
+| Kopfzahl | 874/960 = 91,04 % | 875/960 = **91,15 %** | 876/960 = **91,25 %** |
+| inhaltlich | 752/838 = 89,74 % | 753/838 = 89,86 % | 754/838 = 89,98 % |
+| schwaechster Typ | `naechste` 86,0 % | `naechste` 84,3 % | `reparatur1` 86,1 % |
+| D-047 | erreicht | **erreicht** | **erreicht** |
+
+**Quermessung (absolute Form, dieselben drei Staende):** Kopfzahl 854/960 = **88,96 %**,
+856/960 = **89,17 %**, 857/960 = **89,27 %**; `reparatur` 93/123 = 75,6 %, 92/123 = 74,8 %,
+93/123 = 75,6 % - die Marke wird **dreimal verfehlt**, der Abstand der Formen auf denselben
+Staenden betraegt **2,08 / 1,98 / 1,98 Punkte**.
+
+**Sechster Loop-Defekt, gefunden und behoben.** In `eintrag` stand **fest** `seed: 1337` - dieselbe
+Klasse wie der fest verdrahtete `learning_rate` aus D-048, und sichtbar geworden **erst** durch den
+neuen Schalter: die zwei Replikationszeilen behaupteten einen Seed, mit dem nicht gezogen wurde.
+Behoben (Parameter + Prosa aus **einer** Quelle). Der Beweis kommt aus dem Artefakt: der Laufname
+traegt `runden_fingerabdruck(..)` ueber Startschritt, Iteration, Dosis, Replay, Lernrate, Paket
+**und Seed**; der neue Test `replikationen_sind_an_ihrem_stand_nachweisbar` haelt die drei Namen
+fest (1337 -> `d5217b90dfe8cbac`, 2024 -> `c1c691769e0bffa2`, 4242 -> `9ac8dd6721bf4a4e`). Die
+zwei falschen Registry-Zeilen wurden **berichtigt** und der Vorgang im Experiment-Log festgehalten.
+
+**Ehrlich offen.** Die drei Ziehungen teilen **dieselben 960 Fragen**: die Uebereinstimmung zeigt,
+dass das Ergebnis nicht an der Datenziehung haengt, sagt aber nichts darueber, wie weit der wahre
+Wert ueber der Marke liegt - bei n = 960 liegt die Marke im 95-%-Intervall jeder einzelnen Ziehung.
+Fuer mehr braucht es **mehr Fragen**, nicht mehr Laeufe. Ebenfalls offen: der faire
+Ueberlegenheitstest beider Formen und die Uebertragung der Formkonvention auf `reparatur1`.
+**Nebenbefund ohne Erklaerung:** die zweite Runde brauchte 3.692 s fuer 4.800 Schritte gegen
+1.244 s in der ersten (769 gegen 259 ms je Schritt) bei gleichem Backend, gleichem Batch und ohne
+Heruntertakten - als offener Punkt gefuehrt, fuer das Ergebnis ohne Belang.
+
+**Gates.** `cargo fmt --check` gruen; `cargo test` **402 Tests / 0 failed** (308 lib + 94
+Integrationstests, +2 neue); `cargo clippy --all-targets -D warnings` unveraendert **7 Befunde, alle
+in fremden Dateien** (`src/data/quant.rs` 6, `src/probe.rs` 1, keine in `agent.rs`/`cli.rs`/
+`main.rs`); `cargo build --release` und der CUDA-Build gruen; `shiro smoke` Digest
+**a6a53c95abd7f622** unveraendert; Doku-Gates: check-table-pipes 119 Dateien / 0 zerbrochene
+Zeilen, check-doc-links 0 tote Links, lernstufen und programmiersprachen je 0 Warnungen,
+seq-korpus und seqgen bestanden. Register: **41 eindeutige IDs D-010..D-050**, keine Doppelung.
+
