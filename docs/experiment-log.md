@@ -2120,6 +2120,98 @@ knapp 92 % liefern und die Kopfzahl nur durch den schwaechsten Typ gedrueckt wir
 (2) danach die Familie abschliessen und nach D-047 zur naechsten Familie bzw. zur
 Mathematik im selben Korpus (n5).
 
+---
+
+## exp-016 - Gezielt auf `reparatur`: beide Runden einstimmig verworfen
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` · **Elternstand:**
+`checkpoints/agent-sequence_reasoning-from7600-i1-step012400.state`,
+SHA-256 `aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--train-steps 4800 --iterations 2 --backend auto` - Dosis 4800 (in exp-015
+angenommen), **ohne `--pack`**, Panel 2 x 480.
+
+**Diese Runde zielt zum ersten Mal auf den RICHTIGEN Typ.** Die gepoolte Typachse
+waehlt `reparatur` - nicht mehr `offen`, das nur auf dem 120er-Panel schwach
+aussah:
+
+```
+Auswahlachse  : Aufgabentyp -> reparatur (MINIMIEREN) statt Fehlerklasse stellenwert
+```
+
+### Der Ausgang: kein Fortschritt, und zwar in beiden Panels
+
+| Runde | Panel A | Panel B | Urteil |
+|---|---|---|---|
+| 1 | 87,8 % -> **87,6 %**, Score -0,003 | 87,4 % -> **86,9 %**, Score -0,003 | **VERWORFEN** |
+| 2 | 87,8 % -> **85,6 %**, Score -0,009 | 87,4 % -> **85,7 %**, Score -0,007 | **VERWORFEN** |
+
+Beide Runden wurden **einstimmig** verworfen: die Panels widersprechen sich nicht,
+sie sagen beide dasselbe. Die Determinismus-Probe bestand in beiden Runden
+(byte-identisch). Gepoolt inhaltlich: 87,59 % -> 87,2 % (Runde 1) -> 85,7 %
+(Runde 2).
+
+**Kein Stand angenommen.** Gueltig bleibt
+`checkpoints/agent-sequence_reasoning-from7600-i1-step12400.safetensors` mit der
+gepoolten Kopfzahl **89,06 %**. Laufzeit 52:13, CPU im Mittel 141 %, Elternstand
+per SHA unversehrt.
+
+### Was O-T9 gezogen hat - und ein Fehler, den dieser Lauf aufdeckte
+
+```
+Runde 1: Strategiewechsel (O-T9): replay_share 0.35 -> 0.20
+Runde 2: Strategiewechsel (O-T9): replay_share 0.20 -> 0.05
+```
+
+**Positiv belegt:** der in exp-015 gebaute **Hebel-Sprung wirkt**. Statt des
+nutzlosen `train_steps 4800 -> 4800` (Dosis am Leiterende, exp-015) zieht O-T9
+jetzt den naechsten **wirksamen** Hebel - den Replay-Anteil.
+
+**Negativ aufgefallen - und behoben:** direkt unter dem O-T9-Hebel stand
+
+```
+Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit
+```
+
+Runde 2 aenderte damit **zwei Variablen gleichzeitig** (Replay-Anteil *und*
+Lernpaket). Danach ist nicht mehr unterscheidbar, welcher der beiden gewirkt hat -
+und O-T9 sagt selbst: *"Zwei Hebel gleichzeitig waeren nicht unterscheidbar."*
+Dieselbe Fehlerklasse wie der in exp-014 behobene Plateau-Wechsel nach einer
+unentschiedenen Runde, nur diesmal nach einer **verworfenen** Runde mit Hebel. Der
+Plateau-Zweig ist jetzt gesperrt, sobald die vorige Runde irgendeinen O-T9-Hebel
+gezogen hat; die Bedingung liegt als reine Funktion `plateau_paketwechsel()` mit
+sechs Testfaellen vor.
+
+**Zweiter, kleinerer Befund:** exp-016 lief noch mit dem Binary **vor** der
+Berichtigung der Paketbegruendungen, deshalb steht im Log weiterhin *"er steht in
+beiden Baendern bei null"* fuer `reparatur` - tatsaechlich 72,4 %. Die
+Berichtigung ist committet (`eba6d35`), die naechste Runde traegt den korrigierten
+Text.
+
+### Was das ueber `reparatur` sagt
+
+Der Typ wurde **gezielt** trainiert (6250 passende Datensaetze je Runde, also der
+ganze Vorrat des Typs) und bewegte sich **nicht** nach oben - er wurde in beiden
+Runden schlechter. Damit ist fuer `reparatur` gemessen:
+
+* **Dosis ist als Hebel ausgeschoepft** (4800 = Leiterende; exp-015 hob die
+  Familie, half dem Typ aber nur von 68,3 auf 72,4 %).
+* **Die Datenmischung ist als Hebel ausgeschoepft** (Replay 0,35 -> 0,20 -> 0,05,
+  also von 65 % auf 95 % gezielte Daten).
+* **Das Typ-Paket allein genuegt nicht.**
+
+**Naechster Hebel auf der Leiter ist die Lernrate** (`lr * 1.5`, dritter von vier).
+Danach bleibt nur noch das Paket. **Offener Konstruktionsmangel, der hier sichtbar
+wird:** die Leiterposition wird **nicht ueber Aufrufe hinweg gespeichert** -
+`verworfen` startet bei jedem `agent capability run` wieder bei 0, und
+`replay_share`/`lr` sind nicht als CLI-Flag setzbar (nur `--train-steps` und
+`--pack`). Ein wiederholter Aufruf beginnt die Leiter deshalb von vorn und wuerde
+den Replay-Hebel erneut ziehen, obwohl er bereits widerlegt ist. Fuer die naechste
+Runde ist deshalb der ueber die CLI setzbare Hebel zu nehmen (`--pack`) oder die
+Leiterposition dauerhaft zu machen.
+
+
 
 
 
