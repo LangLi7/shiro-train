@@ -1382,6 +1382,20 @@ pub struct AgentOptions {
     /// setzt (z.B. `breit`, damit **beide** Reparaturformen gemeinsam trainiert
     /// werden). Ohne Vorgabe entscheidet der Loop selbst.
     pub pack_override: Option<String>,
+    /// **Ausdrueckliche Uebersteuerung des Replay-Anteils** (`--replay-share`).
+    ///
+    /// Gemessener Anlass (exp-017): die Hebel-Leiter aendert nur die **Reaktion**
+    /// auf einen Verwurf; die **Startkonfiguration** jeder frischen Runde springt
+    /// auf die Werte der Capability-Datei zurueck. Runde 1 eines neuen Aufrufs ist
+    /// damit bitgleich zur Runde 1 des vorigen Aufrufs (das Training ist
+    /// deterministisch, in exp-017 gemessen) und liefert **keine neue
+    /// Information**. Zusaetzlich waren Replay und Lernrate die einzigen
+    /// Leitereinstellungen, die sich nicht ueber die Kommandozeile setzen liessen -
+    /// die Leiter konnte sie also nur innerhalb eines Aufrufs ziehen.
+    pub replay_override: Option<f64>,
+    /// **Ausdrueckliche Uebersteuerung der Lernrate** (`--lr`). Siehe
+    /// [`Self::replay_override`].
+    pub lr_override: Option<f32>,
     pub dry_run: bool,
 }
 
@@ -1401,6 +1415,8 @@ impl Default for AgentOptions {
             eval_records: None,
             train_steps: None,
             pack_override: None,
+            replay_override: None,
+            lr_override: None,
             dry_run: false,
         }
     }
@@ -1954,6 +1970,17 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     // Rundenschleife, damit ein Wechsel in der naechsten Runde auch wirkt.
     let mut replay_share = cap.budget.replay_share;
     let mut lr = basis.optim.lr;
+    // **Startkonfiguration ausdruecklich setzbar** (exp-017): sonst wiederholt
+    // Runde 1 eines neuen Aufrufs bitgleich die von vorher. Die Uebersteuerung
+    // gilt fuer die GANZE Runde und aendert genau EINE Variable.
+    if let Some(r) = opts.replay_override {
+        println!("Startwert     : replay_share aus --replay-share: {replay_share:.2} -> {r:.2}");
+        replay_share = r;
+    }
+    if let Some(l) = opts.lr_override {
+        println!("Startwert     : lr aus --lr: {lr:.3e} -> {l:.3e}");
+        lr = l;
+    }
 
     // **Zwei disjunkte Panels statt einem (Replikationspflicht, exp-013).**
     // Panel A ist das historische Panel (Versatz 0, jeder `stride`. Datensatz) -

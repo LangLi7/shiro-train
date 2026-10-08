@@ -73,6 +73,12 @@ pub enum Command {
         train_steps: Option<usize>,
         /// Ausdrueckliche Paketvorgabe (`--pack`); ohne Angabe waehlt der Loop.
         pack: Option<String>,
+        /// Ausdruecklicher Replay-Anteil (`--replay-share`); ohne Angabe gilt die
+        /// Capability-Datei. Setzt die **Startkonfiguration** der Runde, nicht nur
+        /// die Reaktion auf einen Verwurf (exp-017).
+        replay_share: Option<f64>,
+        /// Ausdrueckliche Lernrate (`--lr`); ohne Angabe gilt die Basisconfig.
+        lr: Option<f32>,
         dry_run: bool,
     },
     ValidateData,
@@ -423,6 +429,10 @@ OPTIONEN FUER agent capability run:
     --iterations <N>      Obergrenze der Runden (Standard: aus der Capability)
     --eval-records <N>    Datensaetze im festen Referenzsatz (Standard: 24)
     --train-steps <N>     Schritte je Runde (Standard: aus der Capability)
+    --replay-share <F>    Replay-Anteil der Trainingsdaten (0.0-1.0) als
+                          STARTWERT der Runde setzen, nicht nur als Reaktion
+                          auf einen Verwurf
+    --lr <F>              Lernrate als Startwert der Runde setzen
     --pack <PAKET>        Lernpaket erzwingen statt den Loop waehlen zu lassen.
                           Erlaubt: terminierung, frageart, stellenwert,
                           reparatur, reparatur1, stelle, breit. `breit` trainiert
@@ -479,6 +489,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut agent_eval: Option<usize> = None;
     let mut agent_steps: Option<usize> = None;
     let mut agent_pack: Option<String> = None;
+    let mut agent_replay: Option<f64> = None;
+    let mut agent_lr: Option<f32> = None;
     let mut agent_dry = false;
     let mut saw_data = false;
     // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
@@ -563,6 +575,20 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 );
             }
             "--pack" => agent_pack = Some(take_value(&mut iter, "--pack")?),
+            "--replay-share" => {
+                let v = take_value(&mut iter, "--replay-share")?;
+                agent_replay =
+                    Some(v.parse().map_err(|_| {
+                        crate::error::anyhow!("--replay-share: {v} ist keine Zahl")
+                    })?);
+            }
+            "--lr" => {
+                let v = take_value(&mut iter, "--lr")?;
+                agent_lr = Some(
+                    v.parse()
+                        .map_err(|_| crate::error::anyhow!("--lr: {v} ist keine Zahl"))?,
+                );
+            }
             "--dry-run" => agent_dry = true,
             "validate-data" => {
                 out.command = Command::ValidateData;
@@ -848,6 +874,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             eval_records: agent_eval,
             train_steps: agent_steps,
             pack: agent_pack,
+            replay_share: agent_replay,
+            lr: agent_lr,
             dry_run: agent_dry,
         };
     }
@@ -1081,5 +1109,64 @@ mod tests {
         // Ohne Env: Wert aus der TOML-Datei.
         let base = resolve_config(&args).unwrap();
         assert_eq!(base.data.dir, PathBuf::from("data/sample"));
+    }
+
+    /// **Die Startkonfiguration der Runde ist ausdruecklich setzbar** (exp-017).
+    ///
+    /// Anlass: die Hebel-Leiter aendert nur die Reaktion auf einen Verwurf, die
+    /// Startkonfiguration sprang auf die Werte der Capability-Datei zurueck -
+    /// Runde 1 eines neuen Aufrufs war damit bitgleich zur vorigen (das Training
+    /// ist deterministisch, in exp-017 gemessen) und lieferte keine neue
+    /// Information. Replay und Lernrate waren zudem die einzigen
+    /// Leitereinstellungen ohne Kommandozeilen-Schalter.
+    #[test]
+    fn agent_startwerte_sind_setzbar() {
+        let a = p(&[
+            "agent",
+            "capability",
+            "run",
+            "sequence_reasoning",
+            "--train-steps",
+            "4800",
+            "--pack",
+            "breit",
+            "--replay-share",
+            "0.2",
+            "--lr",
+            "0.00045",
+        ])
+        .unwrap();
+        match a.command {
+            Command::Agent {
+                train_steps,
+                pack,
+                replay_share,
+                lr,
+                ..
+            } => {
+                assert_eq!(train_steps, Some(4800));
+                assert_eq!(pack.as_deref(), Some("breit"));
+                assert_eq!(replay_share, Some(0.2));
+                assert_eq!(lr, Some(0.00045));
+            }
+            other => panic!("erwartet Agent, war {other:?}"),
+        }
+
+        // Ohne Angabe bleiben die Startwerte offen (None) - dann gilt die
+        // Capability-Datei bzw. die Basisconfig.
+        let b = p(&["agent", "capability", "run", "sequence_reasoning"]).unwrap();
+        match b.command {
+            Command::Agent {
+                replay_share, lr, ..
+            } => {
+                assert_eq!(replay_share, None);
+                assert_eq!(lr, None);
+            }
+            other => panic!("erwartet Agent, war {other:?}"),
+        }
+
+        // Unsinnige Werte werden abgelehnt, nicht stillschweigend ignoriert.
+        assert!(p(&["agent", "capability", "run", "x", "--replay-share", "abc"]).is_err());
+        assert!(p(&["agent", "capability", "run", "x", "--lr", "abc"]).is_err());
     }
 }

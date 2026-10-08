@@ -67,6 +67,8 @@ fn real_main() -> Result<()> {
             eval_records,
             train_steps,
             pack,
+            replay_share,
+            lr,
             dry_run,
         } => cmd_agent(
             &capability,
@@ -76,6 +78,8 @@ fn real_main() -> Result<()> {
             eval_records,
             train_steps,
             pack,
+            replay_share,
+            lr,
             dry_run,
         ),
         Command::ValidateData => cmd_validate_data(&args),
@@ -2086,6 +2090,8 @@ fn cmd_agent(
     eval_records: Option<usize>,
     train_steps: Option<usize>,
     pack: Option<String>,
+    replay_share: Option<f64>,
+    lr: Option<f32>,
     dry_run: bool,
 ) -> Result<()> {
     let pfad = PathBuf::from(format!("configs/capabilities/{capability}.toml"));
@@ -2103,6 +2109,8 @@ fn cmd_agent(
         eval_records,
         train_steps,
         pack_override: pack,
+        replay_override: replay_share,
+        lr_override: lr,
         dry_run,
         ..shiro::agent::AgentOptions::default()
     };
