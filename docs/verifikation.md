@@ -2324,3 +2324,55 @@ kein Rechenlauf.** `cargo`-Tore daher nicht neu gefahren; der Stand aus Runde 29
 Befunde, Smoke-Digest `a6a53c95abd7f622`). Doku-Tore live: `check-table-pipes` und
 `check-doc-links` exit 0. **Mathematik bleibt gesperrt, bis dieser Plan ausgefuehrt
 wird.**
+## Runde 32 - Konsistenzzug der lebenden Dokumente: ausgefuehrt, aber NICHT committet
+
+**Auftrag (Schritt 6): die lebenden Dokumente konsistent ziehen.** Der Arbeitsauftrag war im
+Uebrigen ueberholt (er verlangte (A)/(B)/(C), die Runden 29/30 erledigt haben); offen war
+tatsaechlich nur der Konsistenzzug.
+
+**Befund.** `docs/naechste-schritte-und-begriffe.md`, `docs/training-loop.md` und
+`docs/denken-erweitern.md` endeten alle bei **D-051/D-052** und kannten weder **D-053**
+(Antwortform als Korpus-Eigenschaft) noch **D-054** (eingefrorener Phase-Elternstand,
+vollstaendige Messung) noch **D-055** (Algebra-Eintritt). Wer nur eines dieser Dokumente liest,
+bekam einen Stand von **vor Runde 29**.
+
+**Ausgefuehrt (im Arbeitsbaum).** (a) `naechste-schritte-und-begriffe.md` Punkt 2 traegt den
+Nachtrag Runde 29-31 mit den gemessenen Zahlen (Delta-Korpus 130.000 DS / **43.863.176 B** /
+**9.430** umgeschriebene Antworten = 6.250 zweiteilige `reparatur` + 3.180
+`reparatur1`-Wertfragen; Phase-Stand `kombi-delta-step21200.safetensors`, SHA-256 `7a18da50...`;
+Preis `regel` 65,4 % und `naechste` 71,9 %). (b) `training-loop.md`: Fortschreibung (a)-(d) am
+Korrekturhinweis plus **O-T18** in Abschnitt 7. (c) `denken-erweitern.md`: **O-D33** auf der
+Phasenebene verschaerft und **nicht geklaert**; **O-D34** mit dem Nachtrag, dass D-053 die Form
+umschaltbar macht, **D-047 aber offen bleibt** (Delta-Kopfzahl 89,48 %, SE 0,99).
+
+**NEUER OFFENER PUNKT O-T18 - gemessen, nicht vermutet.** `registry/experiments.jsonl` hat
+**38 Zeilen** und **12 verschiedene** `parent_checkpoint`-Werte; `kombi-step19200.safetensors`
+kommt **1x** vor, `kombi-delta-step21200.safetensors` **0x**. Ursache: die Registry fuehrt
+**Loop-Runden**, nicht **Phasenlaeufe** (`shiro train`). Die Frage "welcher Stand ist der
+aktuelle Elternstand" wird damit an **zwei** Orten beantwortet, und **beide sind fuer sich
+richtig** - juengster **Loop**-Elternstand `kombi-step19200` (Runde 28), eingefrorener
+**Phase**-Elternstand `kombi-delta-step21200` (D-054). Offen: entweder ein Feld `phase_run` in
+der Registry oder eine Regel, welche Quelle fuer welchen Zweck gilt.
+
+**EIGENER FEHLER, offengelegt - und zurueckgenommen.** Der erste Commit dieser Runde
+(`73dec62`) staggte die drei Dokumente mit `git add` und enthielt **148 / 143 / 49** Zeilen, von
+denen nach Markerzaehlung nur **3 / 8 / 10** von mir stammten; der Rest ist **nicht committete
+Arbeit einer Parallelsitzung**. Der gefaehrlichste Teil: `docs/naechste-schritte-und-begriffe.md`
+ist **UNTRACKED** (`??`, nie committet) - mein `git add` haette die **ganze fremde Datei** ins
+Repository importiert. Bei den beiden anderen Dateien sind meine Ergaenzungen **in fremden Text
+eingebettet** (der O-D33-Absatz, an dem mein Nachtrag haengt, existiert in `HEAD` **nicht**), eine
+Trennung "HEAD + eigener Block" ist dort also nicht moeglich. **Behoben:** `git reset --mixed
+HEAD~1`, Arbeitsbaum unveraendert; **Beleg, dass nichts Fremdes committet wurde:**
+`git log --all --oneline | grep -c 73dec62` = **0**, `git log --oneline -1` = `519bff0`.
+
+**Warum diese Runde keinen Commit der drei Dateien hat.** Bewusst keiner: jede der drei wuerde
+fremde Arbeit mitnehmen. Die Nachzuege bleiben im **Arbeitsbaum** (nicht verloren, aber auch
+nicht gesichert); der Befund selbst ist ueber die zwei **sauberen** Kanaele committet
+(`docs/experiment-log.md` unveraendert seit HEAD, `docs/verifikation.md` als "HEAD + eigener
+Block"). **Neue Regel:** vor `git add` einer lebenden Datei **zwei** Pruefungen statt einer -
+`git ls-files --error-unmatch <pfad>` (getrackt?) **und** `git status --short <pfad>` (fremd
+geaendert?). Bei `??`-Dateien ist `git add` **immer** ein Vollimport fremder Arbeit.
+
+**Gates.** Nur Doku, keine Codeaenderung: Doku-Tore exit 0 (`check-table-pipes` 124 Dateien /
+0 zerbrochene Tabellenzeilen, `check-doc-links` 0 tote Links, `lernstufen`,
+`programmiersprachen`); `deploy/` 0 Aenderungen; alle drei lebenden Dateien LF-only ohne BOM.

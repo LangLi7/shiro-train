@@ -4043,3 +4043,85 @@ Tore noetig - der Stand nach Runde 29 gilt unveraendert (`cargo test` 413/0, fmt
 alle Doku-Tore exit 0). Neu in den Baum gekommen: `configs/train.kombi-delta.toml`,
 `data/kombi-delta/` (untracked, per Befehl reproduzierbar), `checkpoints/kombi-delta-step*.{safetensors,state}`
 und `logs/kombi-delta-*.jsonl`. Der Elternstand `kombi-step019200.state` ist **unversehrt**.
+
+## Runde 32 - Konsistenzzug der lebenden Dokumente: ausgefuehrt, aber NICHT committet
+
+**Auftrag: Schritt 6 des Arbeitsauftrags** - "die lebenden Dokumente konsistent ziehen".
+Der Arbeitsauftrag selbst war an dieser Stelle ueberholt (er verlangte (A)/(B)/(C), die
+Runden 29/30 erledigt haben); der Konsistenzzug war dagegen **wirklich offen**.
+
+### Befund: die drei lebenden Dokumente endeten bei D-051/D-052
+
+`docs/naechste-schritte-und-begriffe.md`, `docs/training-loop.md` und
+`docs/denken-erweitern.md` kannten **weder D-053** (Antwortform als Korpus-Eigenschaft)
+**noch D-054** (eingefrorener Phase-Elternstand und die vollstaendige Messung) **noch D-055**
+(Algebra-Eintritt). Wer nur eines dieser Dokumente liest, bekam einen Stand von **vor Runde 29** -
+obwohl der Korpus, der Elternstand und die Zahlen sich seither zweimal geaendert haben.
+
+### Ausgefuehrt (im Arbeitsbaum, siehe "Warum kein Commit")
+
+1. **`naechste-schritte-und-begriffe.md`** - Punkt 2 traegt einen Nachtrag Runde 29-31 mit den
+   gemessenen Zahlen: Delta-Korpus `data/kombi-delta/train` = 130.000 Datensaetze /
+   **43.863.176 B** / **9.430** umgeschriebene `reparatur`-Antworten (6.250 zweiteilige +
+   3.180 `reparatur1`-Wertfragen); Phase-Stand `kombi-delta-step21200.safetensors`
+   (SHA-256 `7a18da50...`); Breite gehalten, Delta-Konvention zurueck, **Preis** `regel`
+   65,4 % und `naechste` 71,9 %.
+2. **`training-loop.md`** - der `Korrekturhinweis` nennt nur D-051/D-052 und ist damit nicht mehr
+   aktuell; er bleibt als Zeitdokument stehen und bekommt eine **Fortschreibung (a)-(d)**.
+   Neuer offener Punkt **O-T18** (siehe unten).
+3. **`denken-erweitern.md`** - **O-D33** ist auf der **Phasenebene** verschaerft und ausdruecklich
+   **nicht geklaert** (`regel` 95,5 -> 65,4 %, `naechste` 89,3 -> 71,9 %, beide unter der
+   75-%-Marke, auf beiden Formen mit identischen Zaehlern; Trainingsband `Band-Typ regel 1/5`
+   statt `5/5` = **Vergessen, nicht Generalisierung**). **O-D34** traegt den Nachtrag, dass D-053
+   die Form **umschaltbar** macht, dass **D-047 aber offen bleibt** (Delta-Kopfzahl 89,48 %,
+   SE 0,99) und dass der angenommene Delta-Stand aus exp-021/024 der **D-047-Stand** bleibt.
+
+### Neuer offener Punkt O-T18: Phasenlaeufe stehen NICHT in der Loop-Registry
+
+**Gemessen, nicht vermutet:** `registry/experiments.jsonl` hat **38 Zeilen** und **12
+verschiedene** `parent_checkpoint`-Werte. `checkpoints/kombi-step19200.safetensors` kommt
+**1x** vor, `checkpoints/kombi-delta-step21200.safetensors` **0x**. Ursache: die Registry fuehrt
+**Loop-Runden** (`shiro agent capability run`), nicht **Phasenlaeufe** (`shiro train` auf einem
+neuen Korpus). **Folge:** die Frage "welcher Stand ist der aktuelle Elternstand" wird an **zwei**
+Orten beantwortet, und **beide sind fuer sich richtig** - der juengste **Loop**-Elternstand ist
+`kombi-step19200` (Runde 28), der eingefrorene **Phase**-Elternstand ist `kombi-delta-step21200`
+(D-054, Runde 30). Wer nur eine Quelle liest, bekommt eine veraltete Antwort. Offen ist damit
+entweder ein Feld `phase_run` in der Registry oder eine ausdrueckliche Regel, welche Quelle fuer
+welchen Zweck gilt.
+
+### EIGENER FEHLER, offengelegt: der erste Commit nahm FREMDE Arbeit mit
+
+Der erste Commit dieser Runde (`73dec62`) staggte die drei Dokumente mit `git add`. **Er enthielt
+148 Zeilen in `denken-erweitern.md`, 143 in `naechste-schritte-und-begriffe.md` und 49 in
+`training-loop.md`** - mein eigener Anteil waren nach Markerzaehlung nur **3**, **8** und **10**
+Zeilen. Der Rest ist **nicht committete Arbeit einer Parallelsitzung**.
+
+**Warum es passiert ist - und der Teil, der es gefaehrlich macht:** die Hausregel sagt, lebende
+Dokumente mit fremder uncommitteter Arbeit **nicht** zu stagen. Ich habe sie geprueft, aber
+**nicht weit genug**: `docs/naechste-schritte-und-begriffe.md` ist **UNTRACKED** (existiert nur
+auf der Platte, war **nie committet**). `git status` zeigt dafuer `??`, und mein `git add` haette
+die **ganze fremde Datei** in das Repository gebracht - nicht nur einen fremden Hunk, sondern ein
+nie veroeffentlichtes Dokument. Bei den beiden anderen Dateien waren meine Ergaenzungen
+**in fremden Text eingebettet** (mein O-D33-Nachtrag haengt an einem O-D33-Absatz, den es in
+`HEAD` **nicht gibt**), eine saubere Trennung "HEAD + eigener Block" ist dort also **nicht
+moeglich**.
+
+**Behoben und geprueft:** `git reset --mixed HEAD~1` hat den Commit zurueckgenommen; der
+Arbeitsbaum ist unveraendert. **Beleg, dass `73dec62` nicht mehr existiert:**
+`git log --all --oneline | grep -c 73dec62` = **0**, `git log --oneline -1` = `519bff0`.
+Es wurde **kein** fremder Inhalt committet.
+
+### Warum diese Runde keinen Commit der drei Dateien hat (und was das kostet)
+
+Bewusst **kein** Commit: jede der drei Dateien wuerde fremde, nicht committete Arbeit
+mitnehmen. Die drei Nachzuege bleiben deshalb im **Arbeitsbaum** stehen; sie gehen nicht
+verloren, aber sie sind auch **nicht** gesichert. Der Befund selbst (dieser Eintrag und der
+Protokollblock in `docs/verifikation.md`) ist dagegen committet - ueber die zwei **sauberen**
+Kanaele (`docs/experiment-log.md` unveraendert seit HEAD, `docs/verifikation.md` ueber
+"HEAD + eigener Block").
+
+**Lehre fuer jede weitere Runde, als Regel notiert:** vor `git add` einer lebenden Datei sind
+**zwei** Pruefungen noetig, nicht eine - **(1)** `git ls-files --error-unmatch <pfad>` (ist die
+Datei ueberhaupt getrackt?) und **(2)** `git status --short <pfad>` (traegt sie fremde
+Aenderungen?). Nur wenn (1) getrackt **und** (2) sauber, ist `git add` unbedenklich. Bei
+`??`-Dateien ist `git add` **immer** ein Vollimport fremder Arbeit.
