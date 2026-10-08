@@ -72,9 +72,13 @@ verlangt ausdruecklich **genau einen** falschen Schritt und weist alles andere a
 | | Trainingsband | Held-out-Band |
 |---|---|---|
 | `a2` | **0** (linear) | **>= 1** (quadratisch) |
-| `a1` | 1..9 (mit Vorzeichen) | 10..25 (mit Vorzeichen) |
-| `a0` | 0..20 | 21..40 |
-| `x` | 1..12 | 13..30 |
+| `a1` | 1..14 (mit Vorzeichen) | 15..30 (mit Vorzeichen) |
+| `a0` | 0..40 | 41..60 |
+| `x` | 1..20 | 21..35 |
+
+**Nachtrag Runde 34 (D-058): das Band ist VERBREITERT.** Runde 33 hatte gemessen, dass
+das alte Band (1..9 / 0..20 / 1..12) mit 4.536 Termen je Typ **vollstaendig aufgezaehlt**
+war. Die Grenzen oben sind die neuen.
 
 Kein Koeffizient und **keine Belegung** ueberlappt; das Trainingsband enthaelt **keinen**
 quadratischen Term, das Held-out-Band **nur** solche. Vorbild ist `seq`
@@ -93,16 +97,20 @@ shiro data generate-algebra --n 50000 --out data/algebra
 
 | Menge | Datensaetze | Nutzlast | Datei | Pruefsumme | laengster |
 |---|---|---|---|---|---|
-| `train` | **17.712** | 3.117.376 B | 3.152.832 B | `358521a6` | 200 B |
-| `val` | **5.000** | 1.406.297 B | 1.426.297 B | `81e185bb` | 327 B |
+| `train` | **90.720** | 16.465.222 B | 16.646.694 B | `9b6b4d0c` | 206 B |
+| `val` | **10.000** | 2.839.312 B | 2.859.312 B | `a942d0ae` | 332 B |
 
 **Beide Validatorstufen gruen** ("Alle Shards gueltig"), **zweiter Lauf byteidentisch**
-(Shard und Manifest, je train und val). Verteilung im Trainingsband: `alg-wert` 4.536,
-`alg-vergleich` 4.536, `alg-stelle` 4.320, `alg-reparatur` 4.320.
+(Shard und Manifest, je train und val). Verteilung im Trainingsband: `alg-wert` **22.960**,
+`alg-vergleich` **22.960**, `alg-stelle` **22.400**, `alg-reparatur` **22.400**.
+
+Der Korpus ist damit **5,1x groesser** als in Runde 33 (16,5 MB gegen 3,1 MB). Erzeugt
+wird er mit `--n 100000`, und das ist genau der **vollstaendig aufgezaehlte** Vorrat des
+neuen Bands (Abschnitt 6).
 
 ## 6 O-A9 ist GEMESSEN - und die Antwort ist unbequem
 
-**`--n` hilft hier nicht.** Drei Laeufe, gemessen:
+**`--n` half nicht - das war der Anlass.** Drei Laeufe mit dem ALTEN Band, gemessen:
 
 | `--n` | Trainingsdatensaetze | Ausbeute |
 |---|---|---|
@@ -110,18 +118,38 @@ shiro data generate-algebra --n 50000 --out data/algebra
 | 50.000 | **17.712** | **35,4 %** |
 | 100.000 | **17.712** | **17,7 %** |
 
-Die Trainingsmenge **saettigt bei 17.712** - unabhaengig von `--n`. Der Grund ist
-nachrechenbar: `a1` hat 18 Werte (1..9 mit Vorzeichen, ohne 0), `a0` hat 21 Werte (0..20)
-und `x` hat 12 Werte (1..12), also **18 x 21 x 12 = 4.536** verschiedene Terme je
-Aufgabentyp - und `alg-wert` liefert **genau 4.536**. Das Trainingsband ist damit
+Die Trainingsmenge **saettigte bei 17.712** - unabhaengig von `--n`. Der Grund ist
+nachrechenbar: `a1` hatte 18 Werte (1..9 mit Vorzeichen, ohne 0), `a0` 21 Werte (0..20)
+und `x` 12 Werte (1..12), also **18 x 21 x 12 = 4.536** verschiedene Terme je
+Aufgabentyp - und `alg-wert` lieferte **genau 4.536**. Das Band war damit
 **vollstaendig aufgezaehlt, nicht gezogen**.
+
+**Runde 34 (D-058): Band verbreitert und erneut gemessen.**
+
+| `--n` | Trainingsdatensaetze | Ausbeute |
+|---|---|---|
+| 50.000 | **50.000** | 100,0 % (Band noch nicht ausgeschoepft) |
+| 100.000 | **90.720** | 90,7 % |
+| 200.000 | **90.720** | 45,4 % (unveraendert -> ausgeschoepft) |
+
+Nachgerechnet und **bestaetigt**: `a1` hat 28 Werte (1..14 mit Vorzeichen, ohne 0), `a0`
+41 (0..40), `x` 20 (1..20) -> **28 x 41 x 20 = 22.960** Terme je Typ, und `alg-wert`
+liefert **genau 22.960**. `alg-stelle` und `alg-reparatur` liegen mit **22.400** knapp
+darunter, weil dort mindestens **zwei** Rechenschritte noetig sind und die Verfaelschung
+eindeutig bleiben muss.
+
+**Die Verbreiterung hat den Vorrat verfuenffacht (17.712 -> 90.720, Faktor 5,1), aber das
+Muster bleibt: auch das neue Band ist endlich und wieder vollstaendig aufgezaehlt.** Der
+naechste Ausbau ist deshalb eine **andere Aufgabe** (A2/A3 nach D-030), nicht `--n`.
 
 **Das ist dieselbe Lehre wie bei `data/add/train-2d`** (8.100 = 90 x 90, als Pruefsatz
 **gesperrt**) und wie in `D-032`/`D-034`: *"mehr Aufgaben" ist widerlegt, "eine andere
 Aufgabe" ist der Hebel*. **Folge fuer den Ausbau:** wer mehr Algebra-Stoff will, muss das
 **Band verbreitern** - und dann muss auch das Held-out-Band mitwandern, damit die
-Disjunktheit erhalten bleibt. `--n` zu erhoehen ist wirkungslos und wird es bleiben.
-(Eine groessere Ausbaustufe ist ausdruecklich **nicht** Teil dieser Runde.)
+Disjunktheit erhalten bleibt. Runde 34 hat genau das getan (`a1` 1..14, `a0` 0..40,
+`x` 1..20; Held-out 15..30 / 41..60 / 21..35) und dabei **dieselbe Lehre ein zweites Mal
+bestaetigt**: das neue Band ist wieder vollstaendig aufgezaehlt. `--n` zu erhoehen bleibt
+wirkungslos.
 
 ## 7 Der Eintritt in den eingefrorenen Korpus (D-055 Abschnitt 3)
 
@@ -136,8 +164,8 @@ shiro data combine --src data/seq/train --src data/quant/train \
 | `seq` | 50.000 | 11.833.736 B | `cd0a49a3` |
 | `quant` | 30.000 | 14.279.272 B | `e113c0a1` |
 | `logic-large` | 50.000 | 17.750.168 B | `9c800a4a` |
-| **`algebra`** | **17.712** | **3.117.376 B** | `358521a6` |
-| **GESAMT** | **147.712** | **46.980.552 B** | 4 Shards, 91 Aufgaben-Keys |
+| **`algebra`** | **90.720** | **16.465.222 B** | `9b6b4d0c` |
+| **GESAMT** | **220.720** | **60.328.398 B** | 4 Shards, 91 Aufgaben-Keys |
 
 **Beide Validatorstufen gruen.** Und die **Vorhersage aus D-055 Abschnitt 2.3 ist
 bestaetigt, nicht behauptet**: der Algebra-Shard ist **byteweise identisch** zu seiner

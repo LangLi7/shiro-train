@@ -2457,3 +2457,52 @@ wird gemeldet, nicht stillschweigend mitrepariert.
 **Kein Training, keine GPU-Zeit.** Die Nachmessung (E) je Familie und je Antwortform
 gehoert hinter den Mathematik-Lauf. Neue offene Punkte: **O-A29** kein Regel-Held-out
 (D-035 Stufe 3) · **O-A30** Shortcut-Baseline der vier Typen nicht gemessen.
+## Runde 34 - Das Algebra-Band ist verbreitert (D-058): Vorrat verfuenffacht, Muster bestaetigt
+
+**Auftrag: der naechste Schritt aus dem eigenen Befund.** Runde 33 hat gemessen, dass das
+Algebra-Trainingsband mit **17.712** Datensaetzen vollstaendig aufgezaehlt war (`--n`
+20.000/50.000/100.000 lieferten alle 17.712; 18 x 21 x 12 = 4.536 je Typ, `alg-wert`
+genau 4.536) und dass deshalb **das Band** breiter werden muss, nicht `--n`. Der
+Arbeitsauftrag war im Uebrigen ueberholt: er verlangte (A)-(C), die D-053/D-054 erledigt
+haben, und (D) nur als Entwurf - **(D) ist seit Runde 33 gebaut (D-057)**.
+
+**Geaendert wurden NUR die Bandgrenzen** (`src/data/algebra.rs`): Training `a2 = 0`
+(unveraendert), `a1` **1..14**, `a0` **0..40**, `x` **1..20**; Held-out `a2 >= 1`,
+`a1` **15..30**, `a0` **41..60**, `x` **21..35**. Die Trennung ist in **beiden**
+Richtungen disjunkt (kein quadratischer Term im Training, kein Ueberlapp in `a1`/`a0`/`x`);
+zwei Tests sichern das und sind unveraendert gruen, einer davon **an den Bytes**
+(`baender_sind_an_den_bytes_getrennt`).
+
+**Vorhergesagt und bestaetigt: 22.960 Terme je Typ.** `a1` 28 Werte x `a0` 41 x `x` 20 =
+**22.960**; `alg-wert` und `alg-vergleich` liefern **genau 22.960**, `alg-stelle` und
+`alg-reparatur` **22.400** (dort sind mindestens zwei Rechenschritte noetig und die
+Verfaelschung muss eindeutig bleiben).
+
+**Gemessen - und das Muster bleibt:** `--n` 50.000 -> **50.000** (Band noch nicht
+ausgeschoepft), 100.000 -> **90.720** (90,7 %), **200.000 -> 90.720 unveraendert**. Der
+Vorrat ist damit **verfuenffacht** (17.712 -> 90.720, Faktor 5,1) und **wieder
+vollstaendig aufgezaehlt**. Auch das neue Band ist endlich: der naechste Ausbau ist eine
+**andere Aufgabe** (A2/A3 nach D-030), nicht `--n`.
+
+**Korpus (gemessen, `--n 100000`):** `data/algebra/train` = **90.720** Datensaetze /
+**16.465.222 B** / Pruefsumme `9b6b4d0c` (laengster 206 B); `val` = **10.000** /
+**2.839.312 B** / `a942d0ae` (laengster 332 B). **Beide Validatorstufen gruen**,
+**zweiter Lauf byteidentisch** (4 von 4 Dateien). 5,1x groesser als Runde 33.
+
+**Eintritt neu gebaut:** `data/kombi-mathe/train` = **220.720 Datensaetze /
+60.328.398 B**, 4 Shards, 91 Aufgaben-Keys (vorher 147.712 / 46.980.552 B); beide
+Validatorstufen gruen; der Algebra-Shard ist **byteweise identisch** zur Quelle; die
+**Formbilanz bleibt 9.430 umgeschrieben / 0 schon Delta**. Die Vorhersage aus D-055
+Abschnitt 2.3 haelt damit **auch mit dem fuenffach groesseren Shard** - eine zweite
+Bestaetigung an geaenderten Daten, keine Wiederholung.
+
+**Tore.** fmt gruen; `cargo test` **425 / 0 failed**; clippy: **nur die 7 bekannten fremden
+Befunde**, **keine eigenen**; `build --release` gruen; Smoke-Digest
+**a6a53c95abd7f622** unveraendert; `deploy/` **0 Aenderungen**; `check-table-pipes`
+131 Dateien / 0 zerbrochene Tabellenzeilen; `check-doc-links` 0 tote Links; `lernstufen`
+und `programmiersprachen` exit 0.
+
+**Kein Training, keine GPU-Zeit.** Offen bleiben: **O-A30** (Shortcut-Baseline der vier
+Algebra-Typen - die naechste billige Messung vor jeder Bewertung), **O-A29** (kein
+Regel-Held-out), die Stufen **A2/A3** und die Nachmessung **(E)** nach dem Mathematik-Lauf.
+B4 bleibt offen: 90.720 Algebra-Datensaetze sind gegen 0,7-2,0 GB weiterhin klein.

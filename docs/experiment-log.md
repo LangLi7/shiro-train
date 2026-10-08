@@ -4291,3 +4291,96 @@ gehoert hinter den Mathematik-Lauf. **Kein Ausbau des Bands.** **Keine zweite
 Mathematik-Familie** - Formel-Verstaendnis/Funktion und Math Basic bleiben offen
 (Reihenfolge nach D-030). Neue offene Punkte: **O-A29** kein Regel-Held-out (D-035
 Stufe 3) · **O-A30** Shortcut-Baseline der vier Algebra-Typen nicht gemessen.
+
+## Runde 34 - Das Algebra-Band ist verbreitert: Vorrat verfuenffacht, Muster bestaetigt (D-058)
+
+**Auftrag: der naechste Schritt aus dem eigenen Befund.** Runde 33 hat gemessen, dass das
+Algebra-Trainingsband mit **17.712** Datensaetzen **vollstaendig aufgezaehlt** war (`--n`
+20.000/50.000/100.000 lieferten **alle** 17.712) - nachgerechnet 18 x 21 x 12 = **4.536**
+Terme je Typ, und `alg-wert` lieferte genau 4.536. Die Folgerung war ausdruecklich:
+**mehr `--n` ist wirkungslos, das Band muss breiter werden - und dann muss das Held-out
+mitwandern.** Diese Runde hat genau das getan. Der Arbeitsauftrag war im Uebrigen
+ueberholt (er verlangte (A)-(C), die D-053/D-054 erledigt haben, und (D) nur als Entwurf -
+(D) ist seit Runde 33 **gebaut**, D-057).
+
+### Was geaendert wurde: nur die Bandgrenzen
+
+| | alt (Runde 33) | **neu (Runde 34)** |
+|---|---|---|
+| Training `a2` | 0 (linear) | **0** (linear, unveraendert) |
+| Training `a1` | 1..9 | **1..14** |
+| Training `a0` | 0..20 | **0..40** |
+| Training `x` | 1..12 | **1..20** |
+| Held-out `a1` | 10..25 | **15..30** |
+| Held-out `a0` | 21..40 | **41..60** |
+| Held-out `x` | 13..30 | **21..35** |
+
+**Die Trennung bleibt konstruktiv und in beiden Richtungen disjunkt:** das Trainingsband
+traegt **keinen** quadratischen Term (`a2 = 0`), das Held-out-Band **nur** solche, und
+weder `a1` noch `a0` noch `x` ueberlappen. Zwei Tests sichern das, **beide unveraendert
+gruen**: `baender_sind_konstruktiv_getrennt` (Grenzen) und
+`baender_sind_an_den_bytes_getrennt` (an den **Bytes** nachgerechnet, `tests/algebra.rs`).
+
+### Gemessen: der Vorrat ist verfuenffacht - und wieder vollstaendig aufgezaehlt
+
+| `--n` | Trainingsdatensaetze | Ausbeute |
+|---|---|---|
+| 50.000 | **50.000** | 100,0 % (Band noch nicht ausgeschoepft) |
+| 100.000 | **90.720** | 90,7 % |
+| 200.000 | **90.720** | 45,4 % (**unveraendert -> ausgeschoepft**) |
+
+**Vorhergesagt und bestaetigt:** `a1` hat 28 Werte (1..14 mit Vorzeichen, ohne 0), `a0`
+41 (0..40), `x` 20 (1..20) -> **28 x 41 x 20 = 22.960** Terme je Typ. `alg-wert` und
+`alg-vergleich` liefern **genau 22.960**; `alg-stelle` und `alg-reparatur` **22.400**,
+knapp darunter, weil dort mindestens **zwei** Rechenschritte noetig sind und die
+Verfaelschung eindeutig bleiben muss.
+
+**Das Muster aus Runde 33 gilt unveraendert weiter:** auch das neue Band ist **endlich**
+und **wieder vollstaendig aufgezaehlt**. Der Vorrat ist um **Faktor 5,1** gewachsen
+(17.712 -> 90.720) - aber wer noch mehr Algebra-Stoff will, muss erneut verbreitern oder
+**eine andere Aufgabe** bauen (Stufe A2/A3 nach D-030), nicht `--n` erhoehen.
+
+### Der Korpus (gemessen, `--n 100000`)
+
+| Menge | Datensaetze | Nutzlast | Datei | Pruefsumme | laengster |
+|---|---|---|---|---|---|
+| `train` | **90.720** | 16.465.222 B | 16.646.694 B | `9b6b4d0c` | 206 B |
+| `val` | **10.000** | 2.839.312 B | 2.859.312 B | `a942d0ae` | 332 B |
+
+**Beide Validatorstufen gruen** ("Alle Shards gueltig"), **zweiter Lauf byteidentisch**
+(4 von 4 Dateien `cmp`-gleich: Shard und Manifest, train und val). Der Korpus ist
+**5,1x groesser** als in Runde 33 (3,1 MB -> 16,5 MB).
+
+### Eintritt in den eingefrorenen Korpus, neu gebaut
+
+| Familie | Datensaetze | Nutzlast | Pruefsumme |
+|---|---|---|---|
+| `seq` | 50.000 | 11.833.736 B | `cd0a49a3` |
+| `quant` | 30.000 | 14.279.272 B | `e113c0a1` |
+| `logic-large` | 50.000 | 17.750.168 B | `9c800a4a` |
+| **`algebra`** | **90.720** | **16.465.222 B** | `9b6b4d0c` |
+| **GESAMT** | **220.720** | **60.328.398 B** | 4 Shards, 91 Aufgaben-Keys |
+
+**Beide Validatorstufen gruen.** Der Algebra-Shard ist **byteweise identisch** zu seiner
+Quelle, und die **Formbilanz bleibt bei 9.430 umgeschrieben / 0 schon Delta** - die
+Vorhersage aus D-055 Abschnitt 2.3 haelt **auch mit dem fuenffach groesseren Shard**. Das
+ist keine Wiederholung, sondern eine zweite Bestaetigung an geaenderten Daten.
+
+### Tore
+
+`cargo fmt --check` **gruen**; `cargo test` **425 Tests / 0 failed** (unveraendert - die
+Bandgrenzen aendern die Testzahl nicht, aber alle 9 Modul- und 3 Integrationstests des
+Algebra-Korpus laufen mit den neuen Grenzen durch); `cargo clippy --all-targets
+-D warnings`: **nur die 7 bekannten fremden Befunde** (`src/data/quant.rs` 6,
+`src/probe.rs` 1), **keine eigenen**; `cargo build --release` **gruen**; `shiro smoke`
+Digest **a6a53c95abd7f622** unveraendert; `deploy/` **0 Aenderungen**; `check-table-pipes`
+131 Dateien / **0 zerbrochene Tabellenzeilen**, `check-doc-links` **0 tote Links**,
+`lernstufen` und `programmiersprachen` **exit 0**.
+
+### Was diese Runde NICHT getan hat
+
+**Kein Training, keine GPU-Zeit** - die Nachmessung (E) je Familie und je Antwortform
+gehoert hinter den Mathematik-Lauf. **Keine neue Aufgabenstufe** (A2/A3 bleiben offen).
+**Keine Shortcut-Baseline** - **O-A30** bleibt offen und ist die naechste billige Messung
+vor jeder Bewertung. **Keine Behauptung, dass 90.720 Datensaetze genuegen**: gegen die
+0,7-2,0 GB aus B4 ist der Korpus weiterhin klein.

@@ -19,6 +19,12 @@
 //! * verschachtelte Produkte wie `(x+3)*(x+2)` gehoeren zu **A5**
 //!   (ausmultiplizieren), nicht zu A1 - hier waere die Textform nicht kanonisch.
 //!
+//! **Bandbreite (Runde 34, O-A9-Nachtrag).** Das Band wurde **verbreitert**, weil
+//! Runde 33 gemessen hat, dass es mit 4.536 Termen je Typ **vollstaendig aufgezaehlt**
+//! war. Neu: Training `a1` 1..14, `a0` 0..40, `x` 1..20 (28 x 41 x 20 = **22.960** je
+//! Typ); Held-out `a1` 15..30, `a0` 41..60, `x` 21..35 - weiterhin in beiden
+//! Richtungen disjunkt.
+//!
 //! **Die Schreibkonvention ist `D-055` Abschnitt 2.1:** Multiplikation ist `*`,
 //! `x` ist **ausschliesslich** die Variable. `x` als Operator kommt nicht vor, `·`
 //! (U+00B7) ebenfalls nicht - die Korpora sind ASCII-transliteriert.
@@ -140,9 +146,9 @@ pub struct Raum {
 /// Trainingsband: **linear** (`a2 = 0`), kleine Koeffizienten, kleines `x`.
 pub const TRAIN_RAUM: Raum = Raum {
     a2: (0, 0),
-    a1: (1, 9),
-    a0: (0, 20),
-    x: (1, 12),
+    a1: (1, 14),
+    a0: (0, 40),
+    x: (1, 20),
 };
 
 /// Held-out-Band: **quadratisch** (`a2 >= 1`), groessere Koeffizienten, groesseres `x`.
@@ -158,9 +164,9 @@ pub const TRAIN_RAUM: Raum = Raum {
 /// im Sinne von `D-035`.
 pub const VAL_RAUM: Raum = Raum {
     a2: (1, 4),
-    a1: (10, 25),
-    a0: (21, 40),
-    x: (13, 30),
+    a1: (15, 30),
+    a0: (41, 60),
+    x: (21, 35),
 };
 
 /// Das Band einer Aufgabe.
