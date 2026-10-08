@@ -228,18 +228,22 @@ Verifier · irrationale Ergebnisse als **Dezimalzahl** ohne Darstellungsregel.
 
 ## 7 Belege
 
-* `docs/algebra-als-trainingsstoff.md` (Abschnitte 1-8) - Stoff, Prueftabelle,
-  offene Punkte `O-A6`-`O-A11`
-* `docs/abschluss-vorbereitungsphase.md` - **D-030** (innere Reihenfolge A1-A6),
-  **D-032** (Massumwandlung), **D-034** (Rechenarten), **D-053** (Antwortform des
-  Korpus), **D-054** (eingefrorener Elternstand, `regel`/`naechste` unter der Marke)
-* `docs/trainingsloop-logik-plan.md` Abschnitt 5 und 5a - Reihenfolge und
-  Nutzerprotokoll (A)-(F)
-* `src/data/seq.rs` (`forme_um_delta`, `ist_delta_form`) - die Formachse und die
-  Familienkennung ueber `Folge:`
-* `src/data/seq.rs` (`TRAIN_RAUM`/`VAL_RAUM`, `baender_sind_konstruktiv_getrennt`),
-  `src/data/semantics.rs` (`CONST_TRAIN`/`CONST_VAL`) - Parameterbaender als Vorbild
-  fuer `O-A27`
-* `docs/denken-erweitern.md` - die vier analytischen Bewegungen
-* `docs/lernstufen/SOURCES.md` Z. 24/26/57/58 - Lehrplan-Anker `MA.1.A.4.h/.j/.l`,
-  `MA.3.A.1`, `MA.3.A.2`
+* [algebra-als-trainingsstoff.md](algebra-als-trainingsstoff.md) (Abschnitte 1-8) -
+  Stoff, Prueftabelle, offene Punkte `O-A6`-`O-A11`
+* [abschluss-vorbereitungsphase.md](abschluss-vorbereitungsphase.md) - **D-030**
+  (innere Reihenfolge A1-A6), **D-032** (Massumwandlung), **D-034** (Rechenarten),
+  **D-035** (Regel-Held-out), **D-053** (Antwortform des Korpus), **D-054**
+  (eingefrorener Elternstand, `regel`/`naechste` unter der Marke)
+* [trainingsloop-logik-plan.md](trainingsloop-logik-plan.md) Abschnitt 5 und 5a -
+  Reihenfolge und Nutzerprotokoll (A)-(F)
+* [kombi-korpus.md](kombi-korpus.md) - der Korpus, in den Algebra eintritt
+* [experiment-log.md](experiment-log.md) (Runde 28, 30) - die Messungen, auf die sich
+  der Messplan bezieht
+* [denken-erweitern.md](denken-erweitern.md) - die vier analytischen Bewegungen
+  (ABLEITEN, VERGLEICHEN, LOKALISIEREN, MINIMIEREN)
+* [lernstufen/SOURCES.md](lernstufen/SOURCES.md) Z. 24/26/57/58 - Lehrplan-Anker
+  `MA.1.A.4.h/.j/.l`, `MA.3.A.1`, `MA.3.A.2`
+* Code (im Baum, keine Doku): `src/data/seq.rs` (`forme_um_delta`, `ist_delta_form`,
+  `TRAIN_RAUM`/`VAL_RAUM`, Test `baender_sind_konstruktiv_getrennt`),
+  `src/data/semantics.rs` (`CONST_TRAIN`/`CONST_VAL`), `src/main.rs`
+  (`cmd_data_combine`)
