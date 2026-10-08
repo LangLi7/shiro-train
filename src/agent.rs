@@ -1584,12 +1584,25 @@ pub fn wechsel_der_runde(
 }
 
 /// Die naechste Aktion **aus den Messdaten** ableiten (Spec §7).
+///
+/// **`unentschieden` zuerst.** Widersprechen sich die Panels, ist die Runde
+/// **nicht** verworfen - sie ist **ungeklaert**. Dann darf hier nicht
+/// "Stand verworfen, anderes Lernpaket waehlen" stehen: das waere ein
+/// Widerspruch zum Urteil und wuerde spaeter als Beleg fuer eine Verwerfung
+/// gelesen, die es nie gab. Die richtige Aktion ist **wiederholen**.
 fn naechste_aktion(
     cap: &Capability,
     accepted: bool,
     verbessert: bool,
     plateau: bool,
+    unentschieden: bool,
 ) -> (String, String) {
+    if unentschieden {
+        return (
+            "repeat_unchanged".to_string(),
+            "Die Panels widersprechen sich: dieselbe Einstellung wird wiederholt, kein Hebel und keine Verwerfung".to_string(),
+        );
+    }
     if accepted {
         return (
             "iterate_same_pack".to_string(),
@@ -1875,6 +1888,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     let mut out = Vec::new();
     let mut aktuell = weights.clone();
     let mut ohne_fortschritt = 0usize;
+    // War die **vorige** Runde unentschieden? Dann darf der Plateau-Zweig in
+    // dieser Runde das Lernpaket nicht aendern (exp-014).
+    let mut letzte_runde_unentschieden = false;
     let mut letzter_pack: Option<Pack> = None;
     // Wie viele Runden bisher verworfen wurden - der Zeiger auf der
     // Hebel-Leiter (O-T9). Getrennt von `ohne_fortschritt`, weil dieser bei
@@ -2099,8 +2115,16 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             }
             pack = p;
         }
+        // **Der Plateau-Wechsel darf eine ungeklaerte Messung nicht uebergehen.**
+        //
+        // Befund aus exp-014, im Log sichtbar: Runde 1 endete UNENTSCHIEDEN,
+        // `verbessert` ist dann (zu Recht) falsch, damit zaehlt der
+        // Plateau-Zaehler hoch - und Runde 2 wechselte das Paket auf `breit`,
+        // obwohl ueber den Wert der vorigen Runde **nichts** entschieden war.
+        // Das ist derselbe Fehler, den die Replikationspflicht beim O-T9-Hebel
+        // vermeidet: eine zweite Variable auf einer offenen Frage verstellen.
         if let Some(letzte) = letzter_pack {
-            if letzte == pack && ohne_fortschritt >= 1 {
+            if letzte == pack && ohne_fortschritt >= 1 && !letzte_runde_unentschieden {
                 pack = Pack::Breit;
                 println!("Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit");
             }
@@ -2354,6 +2378,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             },
         ];
         let urteil = entscheide_runde(&befunde, &cap.pass);
+        // Ein unentschiedenes Urteil begleitet die ganze Runde: es bestimmt die
+        // naechste Aktion **und** ob ein Hebel gezogen werden darf.
+        let unentschieden = urteil == Rundenurteil::Unentschieden;
         let typ_min = cap.pass.typ_min.unwrap_or(0.0);
         for b in &befunde {
             let einbrueche = b.typeneinbruch(typ_min);
@@ -2411,13 +2438,23 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 resume_state = Some(s.clone());
             }
         }
-        if verbessert || accepted {
+        // **Ein unentschiedenes Urteil zaehlt nicht als Rueckschritt.** Es ist
+        // weder Fortschritt noch Beleg fuer einen Misserfolg; der Plateau-Zaehler
+        // bleibt deshalb stehen (weder zurueckgesetzt noch erhoeht). Sonst
+        // erzeugt eine offene Frage nach `plateau_patience` Runden einen
+        // Paketwechsel, der auf nichts gegruendet ist.
+        if unentschieden {
+            // unveraendert
+        } else if verbessert || accepted {
             ohne_fortschritt = 0;
         } else {
             ohne_fortschritt += 1;
         }
         let plateau = ohne_fortschritt >= cap.budget.plateau_patience;
-        let (aktion, grund) = naechste_aktion(&cap, accepted, verbessert, plateau);
+        // Fuer die NAECHSTE Runde merken: war diese Runde ungeklaert, darf der
+        // Plateau-Zweig das Paket nicht auf `breit` zwingen.
+        letzte_runde_unentschieden = unentschieden;
+        let (aktion, grund) = naechste_aktion(&cap, accepted, verbessert, plateau, unentschieden);
 
         // **Die TATSAECHLICH trainierte Dosis festhalten, bevor der
         // Strategiewechsel sie aendert.** Sonst schreibt die Registry einen Wert
@@ -2442,7 +2479,6 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // liesse sich nie mehr aufloesen, weil niemand mehr weiss, welche
         // Aenderung welche Wirkung hatte. Die richtige Antwort auf eine
         // ungeklaerte Messung ist **wiederholen**, nicht umstellen.
-        let unentschieden = urteil == Rundenurteil::Unentschieden;
         let wechsel = if unentschieden {
             None
         } else {
@@ -3552,6 +3588,27 @@ mod tests {
     #[test]
     fn panels_mindestens_ist_zwei() {
         assert_eq!(PANELS_MINDESTENS, 2);
+    }
+
+    /// **Ein unentschiedenes Urteil darf nicht als Verwerfung gelesen werden.**
+    /// Der Befund aus exp-014: das Urteil war `UNENTSCHIEDEN`, die Folgezeile
+    /// sagte aber "Stand verworfen, anderes Lernpaket waehlen" - ein
+    /// Widerspruch, der spaeter als Beleg fuer eine Verwerfung gelesen worden
+    /// waere, die es nie gab.
+    #[test]
+    fn unentschieden_wiederholt_statt_zu_verwerfen() {
+        let text = std::fs::read_to_string("configs/capabilities/sequence_reasoning.toml")
+            .expect("Capability-Datei");
+        let cap: Capability = toml::from_str(&text).expect("Capability lesen");
+        let (aktion, grund) = naechste_aktion(&cap, false, false, false, true);
+        assert_eq!(aktion, "repeat_unchanged");
+        assert!(
+            grund.contains("widersprechen"),
+            "der Grund muss den Widerspruch nennen, nicht einen Fortschrittsmangel: {grund}"
+        );
+        // Gegenprobe: ohne Unentschieden bleibt die alte Ableitung erhalten.
+        let (aktion2, _) = naechste_aktion(&cap, false, false, false, false);
+        assert_eq!(aktion2, "reject_and_change_pack");
     }
 
     /// **Die beiden Panels sind disjunkt** - belegt ueber die Auswahlregel:

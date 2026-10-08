@@ -1495,8 +1495,7 @@ Gesamtquote).
 
 ### Naechster Schritt (n18c)
 
-`offen` (68,8 %) ist der **schwaechste** Typ unter der Marke **und** der einzige,
-der auf die breite Runde nicht reagiert hat; `stelle` (69,2 %) liegt ebenfalls
+`offen` (68,8 %) ist der **schwaechste** Typ unter der Marke **und** der einzige,der auf die breite Runde nicht reagiert hat; `stelle` (69,2 %) liegt ebenfalls
 darunter. Das Fehlerbild von `offen` ist ein anderes als das der Rechen-Typen: die
 zweiteilige Reparatur war eine Ausgabeform, `offen` ist eine
 **Byte-Treue-Frage an ein Wort** (`nicht entscheidbar`) plus die Entscheidung
@@ -1710,5 +1709,208 @@ je Kernel ohnehin wenig parallele Arbeit vorhanden. **Der naechste
 Geschwindigkeitshebel ist deshalb die Genauigkeit (bf16/tf32-Autocast), nicht die
 Batchgroesse** - und davor steht die Frage, ob bf16 die Lernkurve unveraendert
 laesst, was zu messen ist und nicht angenommen werden darf.
+
+---
+
+## exp-014 - Die Replikationspflicht greift: zwei Panels widersprechen sich, und der Zieltyp war ein Artefakt
+
+**Datum:** 08.10.2026 · **Faehigkeit:** `sequence_reasoning` (D-045) ·
+**Backend:** `cuda` (`Device<Cube(Cuda(Cuda(0)))>`, RTX 3060) ·
+**Elternstand:** `checkpoints/agent-sequence_reasoning-from6400-i1-step007600.state` ·
+**Aufruf:** `shiro agent capability run sequence_reasoning --parent <state>
+--train-steps 2400 --iterations 2 --backend auto` - **Dosis 2400** ist der von
+O-T9 in exp-011 gesetzte und begruendete Hebel; **ohne `--pack`**, damit die
+Typachse selbst waehlt.
+
+**Diese Runde ist die erste unter der Replikationspflicht (exp-013).** Sie liefert
+zwei Befunde, und der zweite ist der wichtigere.
+
+### Befund 1: die Messkette ist reproduzierbar
+
+```
+Determinismus : Panel A zweimal gemessen -> byte-identisch (Gegenprobe bestanden)
+```
+
+Panel A wurde zweimal gemessen; beide Laeufe stimmen **pro Datensatz** in Urteil
+und erzeugtem Text ueberein, wie es bei greedy Erzeugung sein muss. Damit ist die
+Voraussetzung erfuellt, die vorher nur behauptet war: **die Zahlen dieser Runde
+sind ueberhaupt vergleichbar.** Waere das anders, waere jede weitere Aussage
+wertlos.
+
+### Befund 2: die beiden Panels widersprechen sich
+
+| Groesse | Panel A | Panel B |
+|---|---|---|
+| Baseline gesamt | 85,8 % (103/120) | 85,8 % (103/120) |
+| Baseline inhaltlich | 83,7 % (87/104) | 83,0 % (83/100) |
+| Baseline Score | 0,518 | 0,515 |
+| **nachher inhaltlich** | **81,7 %** (85/104) | **88,0 %** (88/100) |
+| **Score-Delta** | **-0,007** | **+0,017** |
+| Regression | -0,0149 | -0,0149 |
+
+```
+Urteil        : UNENTSCHIEDEN (Panel A Score -0.007, Panel B +0.017)
+   -> KEIN Strategiewechsel: die Runde wird mit UNVERAENDERTER Einstellung wiederholt
+```
+
+**Panel A sagt, die Runde habe verschlechtert. Panel B sagt, sie habe verbessert.
+Beide Panels haben denselben Startpunkt, dieselben 120 Fragen, dasselbe Modell und
+dieselbe Messvorschrift - sie unterscheiden sich nur in der Auswahl der Fragen.**
+
+**Nach der alten Regel waere das ein `VERWORFEN` gewesen** (Score -0,007 auf
+Panel A). Nach einem naiven Blick auf Panel B waere es ein `ANGENOMMEN` gewesen.
+**Beide Schlussfolgerungen waeren aus einer Stichprobe gezogen worden, und sie
+waeren einander entgegengesetzt.** Genau dieser Fall ist die Begruendung der
+Nutzerauflage, und er ist hier eingetreten - nicht konstruiert, sondern im ersten
+Lauf unter der neuen Regel.
+
+**Der Regler hat korrekt reagiert:** `UNENTSCHIEDEN` zieht **keinen** Hebel. Die
+zweite Runde laeuft mit **unveraenderter** Einstellung. Wuerde jetzt ein Hebel
+gezogen, waere danach nicht mehr unterscheidbar, welche Aenderung welche Wirkung
+hatte.
+
+**Nachbesserung, die dieser Lauf erzwungen hat.** Die Folgezeile lautete
+`reject_and_change_pack - kein Fortschritt: Stand verworfen, anderes Lernpaket
+waehlen`. Das **widerspricht dem Urteil**: die Runde war nicht verworfen, sie war
+**ungeklaert**. Ein solcher Satz waere spaeter als Beleg fuer eine Verwerfung
+gelesen worden, die es nie gab. `naechste_aktion` hat jetzt als **ersten** Zweig
+`repeat_unchanged` mit dem Grund "Die Panels widersprechen sich" und einen
+Gegentest (`unentschieden_wiederholt_statt_zu_verwerfen`).
+
+### Der eigentliche Befund: die Typquoten eines 120er-Panels sind nicht reproduzierbar
+
+Derselbe Modellstand, im selben Augenblick, auf zwei disjunkten Panels:
+
+| Typ | Panel A | Panel B | Spanne |
+|---|---|---|---|
+| `offen` | 11/16 = **68,8 %** | 18/18 = **100,0 %** | **31,2 Pp** |
+| `stelle` | 9/13 = **69,2 %** | 16/16 = **100,0 %** | **30,8 Pp** |
+| `reparatur` | 13/16 = 81,3 % | 7/13 = **53,8 %** | 27,5 Pp |
+| `luecke` | 15/15 = 100,0 % | 13/17 = 76,5 % | 23,5 Pp |
+| `reparatur1` | 12/13 = 92,3 % | 10/13 = 76,9 % | 15,4 Pp |
+| `naechste` | 18/20 = 90,0 % | 9/11 = 81,8 % | 8,2 Pp |
+| `regel` | 9/11 = 81,8 % | 10/12 = 83,3 % | 1,5 Pp |
+| `vergleich` (Kurzantwort) | 16/16 = 100,0 % | 20/20 = 100,0 % | 0,0 Pp |
+
+**Bis zu 31 Prozentpunkte Unterschied fuer denselben Typ bei demselben Modell.**
+Bei 13 bis 20 Faellen je Typ und Panel ist das kein Wunder - ein Datensatz
+entspricht 5 bis 8 Punkten -, aber die Folge ist hart:
+
+1. **Die D-047-Bedingung "kein inhaltlicher Typ unter 75 %" ist auf EINEM Panel
+   nicht entscheidbar.** `offen` ist auf Panel A mit 68,8 % **unter** der Marke
+   und auf Panel B mit 100 % **die beste Quote des Modells**. `stelle` genauso.
+   Ein Urteil "Familie abgeschlossen" oder "nicht abgeschlossen" haengt damit von
+   der Auswahl der 120 Fragen ab, nicht nur vom Modell.
+2. **Die Typachse des Loops wurde von einer nicht reproduzierbaren Zahl
+   gesteuert.** Der Loop waehlt den schwaechsten Typ - und waehlte `offen` mit
+   68,75 % (Panel A), waehrend `offen` auf Panel B mit 100 % der **staerkste**
+   Typ ist:
+   ```
+   Auswahlachse  : Aufgabentyp -> offen ... statt Fehlerklasse stellenwert
+   ```
+   Das Trainingspaket dieser Runde wurde also auf einen Typ gerichtet, dessen
+   Schwaeche nur in einer der beiden Stichproben existiert.
+
+### Berichtigung: exp-011 hat aus einem Panel verallgemeinert
+
+exp-011 hat geschlossen, `offen` sei ein **Strukturproblem** und brauche eine
+Aufteilung des Typs. Diese Schlussfolgerung ruht auf zwei Saeulen, und **eine
+davon traegt nicht**:
+
+* **Traegt weiter:** auf **Panel A** bewegte die gezielte Dosis `offen` in **drei**
+  Messungen um **null** Datensaetze (11/16 -> 11/16 -> 11/16). Das ist eine
+  gueltige **innerhalb des Panels** gemachte Aussage: *diese 16 Datensaetze*
+  reagieren nicht auf mehr Dosis.
+* **Traegt nicht:** die Verallgemeinerung auf **den Typ** `offen`. Panel B zeigt
+  mit 18 von 18, dass dasselbe Modell `offen` vollstaendig beherrscht. Der Typ ist
+  also **nicht** strukturell ungeloest; die Fehler sind auf eine **Teilmenge** der
+  Datensaetze konzentriert, die Panel A enthaelt und Panel B offenbar kaum.
+
+**Die Aufteilung des Typs bleibt damit eine Hypothese, keine belegte Folgerung.**
+Der naechste Schritt ist deshalb **nicht** der Umbau des Generators, sondern eine
+Messung, die die Teilmenge sichtbar macht: welche `offen`-Datensaetze scheitern -
+die mit dem Wort `nicht entscheidbar` oder die mit einer Zahl? Diese Frage ist auf
+einem groesseren Satz zu klaeren, nicht auf 16 Datensaetzen.
+
+### Konsequenz fuer die naechste Regelstufe
+
+Die Replikationspflicht greift an zwei Stellen noch nicht weit genug:
+
+* **Die Typachse muss beide Panels sehen.** Ein Typ darf erst als "schwach"
+  gelten, wenn er es **in beiden** Panels ist (oder die Panels sind gemeinsam
+  auszuwerten, 240 Datensaetze statt 120). Sonst richtet der Loop das Training
+  weiter auf Artefakte.
+* **Die Markenpruefung braucht dieselbe Verschaerfung.** `passes()` prueft seit
+  exp-013 schon auf beiden Panels; die **Typ**-Bedingung darin aber noch je Panel
+  einzeln, und ein Typ unter der Marke in nur einem Panel verwirft dann
+  (pessimistisch, aber aus dem falschen Grund). Sauber ist: die Typquote ueber
+  **beide** Panels zusammengelegt zu beurteilen.
+
+Beides ist noch **nicht** umgesetzt und wird hier ausdruecklich als offen gefuehrt.
+
+### Lauf 2: das harte Veto greift - aber es greift auf zwei Datensaetzen
+
+| Groesse | Panel A | Panel B |
+|---|---|---|
+| Score-Delta | -0,007 | +0,003 |
+| inhaltlich | 83,7 % -> 81,7 % | 83,0 % -> 84,0 % |
+| Typeneinbruch | **`reparatur` 81,2 % -> 68,8 % (13/16 -> 11/16)** | keiner |
+
+```
+Urteil        : VERWORFEN (Panel A Score -0.007, Panel B +0.003)
+Naechste Aktion: change_strategy - 2 Iterationen ohne Verbesserung: Paket wechseln
+```
+
+Der Lauf wurde also **verworfen** - aber nicht wegen des Scores (Panel B war leicht
+positiv, Panel A leicht negativ, also wieder nahe an der Widerspruchsgrenze),
+sondern wegen des **harten Vetos**: `reparatur` faellt auf Panel A von 13/16 auf
+11/16. **Das sind zwei Datensaetze.** Bei n = 16 entspricht ein Datensatz 6,25
+Prozentpunkten; die eben gemessene Panel-Spanne lag bei bis zu 31 Punkten.
+
+**Damit ist das Veto in seiner jetzigen Form zu scharf.** Es tut, was es soll -
+einen Typeneinbruch nicht durch einen Scoregewinn verdecken -, aber es kann eine
+Runde auf zwei Datensaetzen verwerfen, die innerhalb des Rauschens liegen, das
+dieselbe Runde gemessen hat. Die Abhilfe ist dieselbe wie bei der Typachse: die
+Typquote **ueber beide Panels zusammengelegt** beurteilen (`reparatur` hat dann
+n ≈ 29 statt 16), statt je Panel einzeln.
+
+### Zwei Codekorrekturen, die dieser Lauf erzwungen hat
+
+1. **`naechste_aktion` widersprach dem Urteil.** Bei `UNENTSCHIEDEN` stand in der
+   Registry "Stand verworfen, anderes Lernpaket waehlen". Die Runde war aber
+   nicht verworfen, sie war **ungeklaert**. `unentschieden` ist jetzt der erste
+   Zweig und liefert `repeat_unchanged`; Gegentest
+   `unentschieden_wiederholt_statt_zu_verwerfen`.
+2. **Der Plateau-Zweig wechselte das Paket auf einer offenen Frage.** Im Log von
+   Lauf 2 steht:
+   ```
+   Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit
+   Lernpaket     : breit
+   ```
+   Ursache: `verbessert` ist bei `UNENTSCHIEDEN` zu Recht falsch, damit zaehlt
+   `ohne_fortschritt` hoch, und der Plateau-Zweig zwingt das Paket auf `breit` -
+   also **eine zweite Variable auf einer ungeklaerten Messung**, genau das, was
+   die Replikationspflicht beim O-T9-Hebel vermeidet. Behoben: ein
+   unentschiedenes Urteil laesst den Plateau-Zaehler **stehen** (weder zurueck
+   noch hoch) und der Plateau-Zweig ist in der Folgerunde gesperrt.
+
+**Beide Korrekturen sind nach dem Lauf gebaut worden; die Zahlen oben stammen
+also aus dem Binary VOR diesen Korrekturen.** Das Urteil selbst ist davon nicht
+betroffen (es kommt aus `entscheide_runde`), wohl aber die Folgezeile und der
+Paketwechsel in Lauf 2.
+
+### Ergebnis der Runde
+
+**Keine Runde angenommen.** Der gueltige Stand bleibt
+`checkpoints/agent-sequence_reasoning-from6400-i1-step7600.safetensors`
+(Held-out 85,8 % auf Panel A). Das ist unter der neuen Regel der **erwartete**
+Ausgang: zwei Runden, von denen eine ungeklaert war und eine verworfen wurde.
+**D-047 bleibt nicht erreicht** - und die Marke ist auf einem einzelnen Panel
+nach diesem Befund ohnehin nicht mehr belastbar zu pruefen.
+
+Laufzeit 21:44, CPU-Auslastung im Mittel **131 %**, Spitzenspeicher 471 MiB - die
+Runde ist auch mit nun **fuenf** Auswertungen je Runde GPU-gebunden geblieben.
+
+
 
 
