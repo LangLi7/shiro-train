@@ -2594,3 +2594,68 @@ D-058 nie weg (Runde 34 hat sie committet). Die Zeile ist im Arbeitsbaum
 **wiederhergestellt**, und der Commit enthaelt **nur den eigenen Block** (HEAD + D-059) -
 die fremde D-056-Zeile wird **nicht** mitgenommen. Damit schuetzt dieselbe Regel, die in
 Runde 32/34 fremde **Aenderungen** fernhielt, hier auch vor einer fremden **Loeschung**.
+## Runde 36 - Der Mathematik-Lauf: Algebra 0 % -> 25 %, die drei genannten Familien halten, der Additions-Transfer nicht (D-060, Schritt E erfuellt)
+
+**Anlass: Nutzerauflage Runde 29, Schritt (E).** Nach dem Bau der Algebra-Familie
+(D-057/D-058/D-059) verlangt (E) die Nachmessung *"Held-out je Familie UND die Antwortform
+getrennt"*, damit *"Mathematik verbessert Algebra, ohne seq, quant und logic-large zu
+beschaedigen"* **belegbar** wird statt nur ein Gesamtscore.
+
+**Der Lauf, EINE geaenderte Groesse gegenueber Runde 30:**
+`scripts/run-with-gpu-preference.sh train --config configs/train.kombi-mathe.toml --resume
+checkpoints/kombi-delta-step021200.state` mit `data.dir = data/kombi-mathe/train` (vierter
+Shard `algebra`). GPU `Device<Cube(Cuda(Cuda(0)))>`, **442,653 s**, **535,07 GFLOPS**,
+Verlust **4,3107 -> 0,0910**, Stand **`kombi-mathe-step23200.safetensors`**, SHA-256
+`e6428567b06c0b443c93f7a4a0c562cc431b330b98db0309b84eca11137f8eaf`; Elternstand
+`7a18da50525c64fc54dd22f318be159f561a631dfd7c65b45252777d12e081eb` **unversehrt**.
+
+**(a) Algebra liefert - auf beiden Achsen:** `data/algebra/val` Verlust Baseline **5,8643** /
+Elternstand **4,8844** / Kind **1,6734**; Trefferquote (greedy, 120 Fragen) Elternstand
+**0 von 120 = 0,0 %** -> Kind **30 von 120 = 25,0 %**. **Klausel (a) erfuellt.**
+
+**(b) Die drei genannten Familien halten:** `seq/val` 0,5409 -> **0,5071**, `quant/val`
+0,3836 -> **0,3862** (+0,0026, Reproduktionsschwankung), `logic-large/val` 0,9478 ->
+**0,9196**. **Klausel (b) erfuellt** (kein Typ faellt ueber die 75-%-Marke, der nicht schon
+darunter lag).
+
+**(c) Der Preis - vorhergesagt und gemessen:** `add/eval-3d` 5,1127 -> **5,9089**,
+`add/eval-4d` 5,1479 -> **5,8216**, also zurueck auf **Baseline-Niveau** (5,8605 / 5,8143).
+`data/add` ist **nicht** Teil des Korpus; der Mechanismus ist **nicht getrennt** (Korpus-
+Zusammensetzung 41 % Algebra / verschobene Batch-Fenster / zweite Phase - gegen die zweite
+Phase spricht, dass Runde 30 als zweite Phase den Wert **verbesserte**). **`regel` verliert
+10,5 Pp** (87/133 = 65,4 % -> 73/133 = **54,9 %**), `naechste` **gewinnt** 13,2 Pp
+(87/121 = 71,9 % -> 103/121 = **85,1 %**). **Klausel (c) ist damit VERLETZT** (mehr als ein
+Standardfehler von rund 4 Pp) - als **Schaden** berichtet, nicht als Rauschen.
+**Klausel (d) erfuellt:** `Form kaputt` **0/0** auf den Delta-Panels.
+
+**Die Antwortform getrennt, mit Determinismus-Beleg.** Dieselben 2 x 480 disjunkten Fragen,
+Elternstand in dieser Runde **erneut** gemessen: Delta **730/838 = 87,11 %** inhaltlich,
+**852/960 = 88,75 %** Kopfzahl, `reparatur` **121/123**, Form kaputt **0/0**; Kind Delta
+**734/838 = 87,59 %**, **855/960 = 89,06 %**, `reparatur` 119/123, Form kaputt **0/0**;
+Absolut Eltern **696/838 = 83,05 %** / **818/960 = 85,21 %** / `reparatur` 87/123, Form
+kaputt 5/4; Absolut Kind **621/838 = 74,11 %** / **742/960 = 77,29 %** / `reparatur`
+**6/123 = 4,9 %**, Form kaputt 59/58. **Die Elternstand-Messung reproduziert Runde 30
+EXAKT** (absolute Panels Zahl fuer Zahl; Delta-Panels sieben von acht Typen - die einzige
+Abweichung `reparatur1` 113/122 statt 120/122 ist durch das Paket `reparatur1-delta`
+erklaert, das zusaetzlich die Wertfragen umschreibt).
+
+**D-047 je Form (D-049): nicht erreicht.** Delta **855/960 = 89,06 %** (SE 1,01) mit `regel`
+54,9 % unter der Marke; Absolut **742/960 = 77,29 %** mit `reparatur` 4,9 % und `regel`
+54,9 %. Der angenommene Delta-Stand aus exp-021/024 bleibt der D-047-Stand der Delta-Form
+(874-876/960 = 91,04-91,25 %).
+
+**Keine Codeaenderung VON MIR** - `src/`, `tests/` und `deploy/` sind von dieser Runde
+nicht angefasst; **der Arbeitsbaum ist deshalb NICHT leer**, er traegt unveraendert die
+Aenderungen der Parallelsitzung (`src/config.rs`, `src/data/mod.rs`, `src/logging.rs`,
+`src/model/mod.rs`, `src/probe.rs`, `src/train/mod.rs` und untracked
+`src/data/{games,quant,formatgen,formats,semantics}.rs`, `src/model/lm.rs`,
+`configs/*.toml`), die **nicht** Teil dieses Commits sind. Es gilt der
+Torstand aus Runde 35 (fmt gruen, `cargo test` **430 / 0 failed**, clippy nur die 7
+bekannten fremden Befunde, `build --release` gruen, Smoke-Digest `a6a53c95abd7f622`, vier
+Doku-Tore 0 Befunde). **Keine Loop-Runde**: der `agent capability run` lief ausschliesslich
+als `--dry-run`. **Keine Trefferquote fuer seq/quant/logic-large** - die
+`eval --answers`-Messung kostet gemessen **~1,1 s je Frage** statt der geschaetzten 0,1 s
+(**O-D35**). **Neue offene Punkte:** **O-A32** (kein Typ-Bild der Algebra-Familie),
+**O-D35** (Kostenschaetzung widerlegt), **O-D36** (Additions-Transfer weg, Mechanismus
+nicht getrennt, `data/add` nicht im Korpus). **O-D33 erweitert** (`regel` verliert auf der
+Phasenebene erneut).

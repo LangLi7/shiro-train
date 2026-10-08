@@ -203,6 +203,20 @@ hinterher gedeutet wird:
 **und** (d) zusammen halten. Ein Gesamtscore kann das nicht zeigen; genau deshalb
 verlangt die Nutzerauflage die Familien- **und** die Formtrennung.
 
+> **Abgerechnet in Runde 36 (D-060): (a) erfuellt, (b) erfuellt, (c) VERLETZT, (d) erfuellt.**
+> Der Lauf auf `data/kombi-mathe/train` (viertes Shard `algebra`, sonst genau eine
+> geaenderte Groesse) ergab: **(a)** `algebra/val` **4,8844 -> 1,6734** (Baseline 5,8643)
+> und Trefferquote **0 von 120 -> 30 von 120 = 25,0 %**; **(b)** kein Typ faellt ueber die
+> 75-%-Marke, der nicht schon darunter lag (`seq` 0,5409 -> 0,5071, `logic-large`
+> 0,9478 -> 0,9196, `quant` 0,3836 -> 0,3862); **(c) verletzt** - `regel` **65,4 % ->
+> 54,9 % = -10,5 Pp** (mehr als ein Standardfehler von rund 4 Pp), waehrend `naechste` sich
+> um **+13,2 Pp** verbessert; **(d)** `Form kaputt` **0/0**. **Ein Kostenpunkt, den die
+> Klauseln nicht nannten und der trotzdem gemessen wurde:** der **Additions-Transfer ist
+> weg** (`add/eval-3d` 5,1127 -> **5,9089**, `-4d` 5,1479 -> **5,8216**, Baseline
+> 5,8605 / 5,8143) - `data/add` ist **nicht** Teil des Korpus (`O-D36`). Die vollstaendigen
+> Tabellen stehen in [experiment-log.md](experiment-log.md) Runde 36 und
+> [kombi-korpus.md](kombi-korpus.md) Abschnitt 10.
+
 ## 6 Was diese Datei entscheidet - und was offen bleibt
 
 **Entschieden (die drei Punkte, die laut D-030 vor dem ersten Datensatz faellig waren):**

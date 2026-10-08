@@ -1,0 +1,82 @@
+# Trainingslauf auf dem KOMBINIERTEN Korpus MIT der Algebra-Familie (Runde 36, Schritt (E)).
+#
+# WAS DIESER LAUF BEANTWORTET. Nutzerauflage Runde 29, Schritt (D) und (E):
+# Mathematik als **eine klar definierte weitere Familie** in den eingefrorenen
+# Korpus aufnehmen - und danach **erneut** Held-out je Familie UND die
+# Antwortform getrennt messen, damit die Aussage
+#   "Algebra verbessert Algebra, ohne seq, quant und logic-large zu beschaedigen"
+# **belegbar** ist statt nur ein Gesamtscore.
+#
+# GENAU EINE GEAENDERTE GROESSE gegenueber Runde 30 (D-054): `data.dir` zeigt auf
+# `data/kombi-mathe/train` - derselbe Korpus wie `data/kombi-delta/train`, aber mit
+# dem **vierten Shard** `algebra`. Modell, Dosis (2000 Schritte), Rate (1e-4
+# konstant), Seed (1337), Batch (16 x 512) und Elternstand sind unveraendert.
+#
+# Der Korpus wurde in Runde 35 neu gebaut (D-059); seine Zahlen:
+#   220.720 Datensaetze / 60.338.908 B / 4 Shards / 91 Aufgaben-Keys
+#   seq 50.000/11.833.736 B (Delta-Form), quant 30.000/14.279.272 B,
+#   logic-large 50.000/17.750.168 B, algebra 90.720/16.475.732 B
+#   Formbilanz 9.430 umgeschrieben / 0 schon Delta / 211.290 nicht betroffen
+#
+# Erzeugt wird er mit:
+#   shiro data combine --src data/seq/train --src data/quant/train \
+#                      --src data/logic-large/train --src data/algebra/train \
+#                      --out data/kombi-mathe/train --antwortform delta
+#
+# WARUM KONSTANTE LERNRATE. Wie in Runde 28/30: der Schrittzaehler ist seit B6
+# global, und learning_rate_over() rechnet den Kosinus ueber
+# `start_step + run.steps`. Ein fortgesetzter Lauf von Schritt 21200 mit 2000
+# geplanten Schritten haette einen Horizont von 23200 und startete bei t = 0,914 -
+# die Rate waere praktisch null. Fuer eine PHASE ist die Kosinusformel die falsche
+# Form.
+#
+# WARUM DER ELTERNSTAND DER EINGEFRORENE PHASE-STAND IST (D-054). Gemessen werden
+# soll die Wirkung der **Algebra-Familie**, nicht die einer weiteren Runde auf
+# derselben Verteilung. Der eingefrorene Elternstand
+# `checkpoints/kombi-delta-step021200.state` traegt die Breite (fuenf von fuenf
+# Held-out-Sets unter der untrainierten Baseline) und die Delta-Konvention
+# (Form kaputt 0/0) - er ist damit die richtige Vergleichsbasis fuer (E).
+#
+# Vorbehalt, der dazugehoert (D-023/O-T3): bitgenaues Fortsetzen ist nur
+# INNERHALB eines Backends belegt. Dieser Lauf laeuft auf der GPU wie Runde 28
+# und 30.
+
+[run]
+name = "kombi-mathe"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi-mathe/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

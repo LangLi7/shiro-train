@@ -4532,3 +4532,212 @@ committet). Reparatur: die Zeile ist im Arbeitsbaum wiederhergestellt, und mein 
 enthaelt **nur meinen eigenen Block** (HEAD + D-059) - die fremde D-056-Zeile wird
 **nicht** mitgenommen. Dieselbe Staging-Regel wie in Runde 32/34, hier in der
 Gegenrichtung: sie schuetzt auch davor, fremde **Loeschungen** zu erben.
+## Runde 36 - Der Mathematik-Lauf: Algebra 0 % -> 25 %, die drei genannten Familien halten, der Additions-Transfer nicht (D-060, Schritt E erfuellt)
+
+**Anlass ist die Nutzerauflage aus Runde 29, Schritte (D) und (E).** (D) - *"erst dann
+Mathematik als eine klar definierte weitere Familie"* - ist in den Runden 33-35 gebaut
+worden (`D-057` Familie, `D-058` Band, `D-059` Kurzstrategie-Baseline). **(E)** verlangt
+danach: *"erneut Held-out je Familie UND die Antwortform getrennt messen, damit die
+Aussage 'Mathematik verbessert Algebra, ohne seq, quant und logic-large zu beschaedigen'
+belegbar ist statt nur ein Gesamtscore."* Diese Runde fahrt den Lauf und legt die
+Messung vor.
+
+### Der Lauf: derselbe Plan, EINE geaenderte Groesse
+
+```text
+scripts/run-with-gpu-preference.sh train --config configs/train.kombi-mathe.toml \
+        --resume checkpoints/kombi-delta-step021200.state
+```
+
+Gegenueber Runde 30 (D-054) ist **genau eine** Groesse geaendert: `data.dir` zeigt auf
+`data/kombi-mathe/train` - **derselbe** Korpus, aber mit dem **vierten Shard** `algebra`
+(90.720 Datensaetze / 16.475.732 B, Runde 35). Modell, Dosis (2000 Schritte), Rate
+(1e-4 konstant), Seed (1337), Batch (16 x 512) und Elternstand sind unveraendert.
+
+| Kennzahl | Wert |
+|---|---|
+| Backend | `Device<Cube(Cuda(Cuda(0)))>` - **GPU** |
+| Dauer | **442,653 s** (7:23 min) fuer 2000 Schritte |
+| Durchsatz | **535,07 GFLOPS** effektiv, 19.151 Bytes/s |
+| Verlust | **4,3107 -> 0,0910** (beste 0,0442), Perplexitaet 74,5 -> 1,1 |
+| Nutzbytes | 60.338.908 (**der Korpus mit Algebra**) |
+| Stand | `checkpoints/kombi-mathe-step23200.safetensors`, SHA-256 `e6428567b06c0b44...` |
+| Elternstand | `checkpoints/kombi-delta-step21200.safetensors`, SHA-256 `7a18da50525c64fc...` **unversehrt** |
+| Log | `logs/kombi-mathe-1791498998.jsonl` |
+
+### (1) Algebra liefert - Klausel (a) ist erfuellt, und zwar auf beiden Achsen
+
+| Messung auf `data/algebra/val` | untrainierte Baseline | Elternstand (Runde 30) | **Kind (Runde 36)** |
+|---|---|---|---|
+| Verlust / Perplexitaet | 5,8643 / 352,2 | 4,8844 / 132,2 | **1,6734 / 5,3** |
+| Trefferquote (greedy, 120 Fragen) | - | **0 von 120 = 0,0 %** | **30 von 120 = 25,0 %** |
+
+**Das ist der Kern der Runde.** Der Elternstand hat die Algebra-Familie **nie gesehen** und
+trifft **keine einzige** von 120 Fragen; das Kind trifft **25 %** byte-genau. Der Verlust
+faellt um **-3,2110** gegenueber dem Elternstand. Die Klausel (a) verlangt *"Algebra unter
+der untrainierten Baseline UND unter dem Elternstand auf demselben Satz"* - **erfuellt**,
+und zwar nicht knapp.
+
+**Ehrliche Einordnung, damit die 25 % nicht groesser wirken als sie sind:** der Korpus
+mischt vier Familien, und die Algebra-Fragen verlangen teils exakte Zahlen
+(`alg-wert`, `alg-reparatur`), teils `Schritt n` (`alg-stelle`), teils `A`/`B`
+(`alg-vergleich`, Antwortraum 2). 25 % byte-genau ist damit **kein** Endstand, sondern der
+**erste belegte Lernschritt** auf dieser Familie - vergleichbar mit dem Zahlenfolgen-Anfang
+(18,3 % nach 200 Schritten, exp-002). Ein Typ-Bild der Algebra-Familie gibt es **noch
+nicht** (die Panels des Loops messen die Zahlenfolgen-Familie); das ist als **O-A32**
+benannt.
+
+### (2) Die Breite je Familie - die drei genannten Familien halten
+
+| Datensatz | untrainierte Baseline | Elternstand (Runde 30) | **Kind (Runde 36)** | Delta |
+|---|---|---|---|---|
+| `seq/val` | 5,7449 | 0,5409 | **0,5071** | **-0,0338** |
+| `quant/val` | 5,6612 | 0,3836 | **0,3862** | +0,0026 |
+| `logic-large/val` | 5,7055 | 0,9478 | **0,9196** | **-0,0282** |
+| **`algebra/val`** | 5,8643 | 4,8844 | **1,6734** | **-3,2110** |
+| `add/eval-3d` | 5,8605 | 5,1127 | **5,9089** | **+0,7962** |
+| `add/eval-4d` | 5,8143 | 5,1479 | **5,8216** | **+0,6737** |
+
+**Keine** der drei im Nutzersatz genannten Familien ist beschaedigt: `seq` und
+`logic-large` werden **besser**, `quant` liegt mit +0,0026 **innerhalb** der
+Reproduktionsschwankung des Verlusts. Das negative Transfer aus `O-D21` bleibt fuer
+diese drei weg.
+
+### (3) Der Preis: der Additions-Transfer ist weg - und das war vorhergesagt
+
+**`data/add` ist NICHT Teil des Korpus.** Der Elternstand erreichte dort 5,1127 / 5,1479
+- **deutlich unter** der untrainierten Baseline (5,8605 / 5,8143), also einen **positiven
+Transfer** aus den Logik-/Sequenzfamilien. Das Kind liegt mit **5,9089 / 5,8216** wieder
+**auf Baseline-Niveau** (eval-3d sogar **0,0484 schlechter** als die untrainierte
+Baseline). Genau dafuer standen `add/eval-3d` und `-4d` als **Transfer-Anzeiger** im
+vorab festgelegten Messplan.
+
+**Der Mechanismus ist NICHT getrennt - das wird offen benannt, nicht gedeutet.** Drei
+Kandidaten: (a) die **Zusammensetzung** des Korpus (Algebra stellt 90.720 von 220.720
+Datensaetzen = **41 %** und 16,5 von 60,3 MB = **27 %**, waehrend der Sequenzanteil von
+50.000/130.000 = 38 % auf 50.000/220.720 = **23 %** faellt); (b) die **verschobenen
+Batch-Fenster** (`shuffle = false`, der Korpus ist groesser, dieselben Datensaetze liegen
+in anderen Fenstern); (c) die **zweite Phase** auf derselben Verteilung. Gegen (c)
+spricht eine Messung derselben Reihe: Runde 30 war ebenfalls eine zweite Phase und hat den
+Additionswert **verbessert** (5,3401 -> 5,1127). Das ist eine **Indizienlage, kein
+Beweis**; die trennende Messung waere ein Lauf mit **unveraendertem** Korpus
+(Kontrolllauf) oder ein Korpus, der `data/add` **enthaelt**.
+
+### (4) Die Antwortform getrennt - und eine Reproduktion, die fuer sich spricht
+
+Beide Panels sind **dieselben** 2 x 480 disjunkten Fragen (jeder 10. aus `data/seq/val`,
+Versatz 0 bzw. 5); nur die Form der `reparatur`-Antworten unterscheidet sich. Der
+**Elternstand wurde in dieser Runde erneut gemessen**, damit der Vergleich auf identischen
+Panels steht:
+
+| Form | Stand | inhaltlich | Kopfzahl | `reparatur` | Form kaputt |
+|---|---|---|---|---|---|
+| **Delta** | Elternstand | 730/838 = **87,11 %** | 852/960 = **88,75 %** | **121/123 = 98,4 %** | **0 / 0** |
+| **Delta** | **Kind** | 734/838 = **87,59 %** | 855/960 = **89,06 %** | 119/123 = 96,7 % | **0 / 0** |
+| **Absolut** | Elternstand | 696/838 = **83,05 %** | 818/960 = **85,21 %** | 87/123 = 70,7 % | 5 / 4 |
+| **Absolut** | **Kind** | 621/838 = **74,11 %** | 742/960 = **77,29 %** | **6/123 = 4,9 %** | 59 / 58 |
+
+**Die Elternstand-Messung reproduziert Runde 30 EXAKT** - auf den **absoluten** Panels
+Zahl fuer Zahl (696/838, 818/960, `reparatur` 87/123, Form kaputt 5/4), auf den
+**Delta**-Panels fuer **sieben von acht** Typen (`luecke` 106/109, `naechste` 87/121,
+`offen` 104/114, `regel` 87/133, `reparatur` 121/123, `stelle` 112/116, `vergleich`
+122/122). Die **einzige** Abweichung ist `reparatur1` (113/122 statt 120/122) und sie ist
+**erklaert**: Runde 30 nannte die Zahl aus dem Paket `reparatur1-delta`, das zusaetzlich
+die **Wertfragen** umschreibt; hier lief `reparatur-delta` (nur `reparatur`, wie es der
+Vergleichbarkeit der Formachse entspricht). Eine Messung aus einer **frueheren
+Sitzung** mit einer heute wiederholten deckungsgleich zu erhalten, ist der staerkste
+Beleg dafuer, dass die Messkette deterministisch und die Panels unveraendert sind.
+
+**Je Typ auf den Delta-Panels (gepoolt, Elternstand -> Kind):**
+
+| Typ | Elternstand | Kind | Delta |
+|---|---|---|---|
+| `luecke` | 106/109 = 97,2 % | 107/109 = 98,2 % | +1 |
+| `naechste` | 87/121 = 71,9 % | **103/121 = 85,1 %** | **+16** |
+| `offen` | 104/114 = 91,2 % | 110/114 = 96,5 % | +6 |
+| **`regel`** | 87/133 = **65,4 %** | **73/133 = 54,9 %** | **-14** |
+| `reparatur` | 121/123 = 98,4 % | 119/123 = 96,7 % | -2 |
+| `reparatur1` | 113/122 = 92,6 % | 110/122 = 90,2 % | -3 |
+| `stelle` | 112/116 = 96,6 % | 112/116 = 96,6 % | 0 |
+| `vergleich` | 122/122 = 100 % | 121/122 = 99,2 % | -1 |
+
+### (5) Die vier VORAB festgelegten Abnahmeklauseln
+
+| Klausel | Wortlaut (Runde 31, `docs/algebra-eintritt-in-den-korpus.md` Abschnitt 5) | Ergebnis |
+|---|---|---|
+| **(a)** | Algebra unter der untrainierten Baseline **und** unter dem Elternstand | **ERFUELLT** (1,6734 gegen 4,8844 und 5,8643; Trefferquote 0 % -> 25 %) |
+| **(b)** | kein Typ, der vorher **>= 75 %** hatte, faellt **unter 75 %** | **ERFUELLT** (`regel` lag mit 65,4 % schon vorher unter der Marke; alle anderen halten sie) |
+| **(c)** | `regel` und `naechste` fallen **nicht weiter als ein Standardfehler** (~4 Pp) | **VERLETZT** fuer `regel`: **65,4 % -> 54,9 % = -10,5 Pp**; `naechste` **verbessert** sich (+13,2 Pp) |
+| **(d)** | `Form kaputt` bleibt **0/0** auf den Delta-Panels | **ERFUELLT** (0/0, wie der Elternstand) |
+
+**Damit ist die Aussage belegbar - mit einer Einschraenkung, die nicht verschwiegen wird:**
+*"Algebra verbessert Algebra, ohne `seq`, `quant` und `logic-large` zu beschaedigen"*
+**haelt** (Algebra +3,2 Verlust, die drei genannten Familien unveraendert bis besser).
+**Nicht** gehalten hat die Klausel (c): **`regel` verliert 10,5 Prozentpunkte**. Das ist
+derselbe Typ, den schon Runde 30 als Preis der zweiten Phase gemessen hat (95,5 -> 65,4 %,
+`O-D33`); der Mathematik-Lauf verstaerkt ihn, statt ihn zu heilen.
+
+### (6) D-047 je Antwortform (D-049: ein Status nennt IMMER die Form)
+
+| Form | Kopfzahl | Typen unter 75 % | D-047 |
+|---|---|---|---|
+| **Delta** | 855/960 = **89,06 %** (SE 1,01; 0,94 Pp unter der Marke) | `regel` 54,9 % | **nicht erreicht** |
+| **Absolut** | 742/960 = **77,29 %** | `reparatur` 4,9 %, `regel` 54,9 % | **nicht erreicht** |
+
+**Der angenommene Delta-Stand aus exp-021/024 bleibt der D-047-Stand in der Delta-Form**
+(874-876/960 = 91,04-91,25 %). `kombi-mathe-step23200` ist der **breite Mathematik-Phase-Stand**,
+kein Ersatz: er liegt 1,98 Pp unter jenem Stand und hat mit `regel` einen Typ weit unter der
+Marke.
+
+### (7) Was diese Runde NICHT getan hat
+
+* **Keine Codeaenderung VON MIR** - der Lauf nutzt den Stand aus Runde 35 unveraendert;
+  `src/`, `tests/` und `deploy/` sind von dieser Runde **nicht angefasst**. **Der
+  Arbeitsbaum ist deshalb NICHT leer:** er traegt weiterhin die **unveraenderten**
+  Aenderungen der Parallelsitzung (`src/config.rs`, `src/data/mod.rs`, `src/logging.rs`,
+  `src/model/mod.rs`, `src/probe.rs`, `src/train/mod.rs` sowie untracked
+  `src/data/{games,quant,formatgen,formats,semantics}.rs`, `src/model/lm.rs` und acht
+  `configs/*.toml`). Diese sind **nicht** Teil dieses Commits; die richtige Aussage ist
+  eine **Zuordnung**, keine Behauptung ueber einen sauberen Baum (Muster x8).
+* **Keine Loop-Runde.** Der `agent capability run` lief ausschliesslich als `--dry-run`
+  (Messung); es wurde **nicht** nachtrainiert, keine Runde angenommen oder verworfen.
+* **Keine zweite Mathematik-Familie** - Formel-Verstaendnis/Funktion und Math Basic bleiben
+  offen (Reihenfolge nach D-030/`F`).
+* **Keine Trefferquote fuer `seq`/`quant`/`logic-large`.** Die `eval --answers`-Messung
+  kostet gemessen **rund 1,1 s je Frage** (480 Fragen = ~9 min je Lauf, acht Laeufe = ueber
+  eine Stunde) - **nicht** die im Capability-Kommentar geschaetzten 0,1 s. Gemessen wurde
+  deshalb die **Algebra**-Trefferquote (die Kernfrage dieser Runde) und die **Panels**; die
+  drei anderen Familien stehen ueber den **Verlust** da. Der Kostenschaetzung im
+  Capability-Kommentar ist damit widerlegt und die Zahl gehoert korrigiert (**O-D35**).
+
+### Tore
+
+Reine Mess- und Doku-Runde **ohne Codeaenderung**: es gilt der Stand aus Runde 35
+unveraendert (`cargo fmt --check` gruen, `cargo test` **430 / 0 failed**, clippy nur die
+7 bekannten fremden Befunde, `build --release` gruen, Smoke-Digest `a6a53c95abd7f622`,
+alle vier Doku-Tore 0 Befunde). Neu in den Baum gekommen: `configs/train.kombi-mathe.toml`,
+`data/kombi-mathe/` (untracked, per Befehl reproduzierbar),
+`checkpoints/kombi-mathe-step{22000,23000,23200}.{safetensors,state}`,
+`logs/kombi-mathe-1791498998.jsonl`. **`checkpoints/` und `logs/` werden nicht
+committet** (Projektmuster, D-020); der Stand ist ueber die Konfiguration und den
+Elternstand reproduzierbar.
+
+### Neue offene Punkte
+
+* **`O-A32` (NEU)** Kein **Typ-Bild der Algebra-Familie**. Die Panels des Loops messen die
+  Zahlenfolgen-Familie (`data/seq/val`); fuer Algebra gibt es **nur** Verlust und die
+  Gesamt-Trefferquote (25 %). Welche der vier Algebra-Typen tragen und welche nicht, ist
+  **nicht gemessen** - dieselbe Luecke, die in der Zahlenfolgen-Familie die Panels
+  geschlossen haben.
+* **`O-D35` (NEU)** Die **Kostenschaetzung** im Capability-Kommentar ("eine Frage rund
+  0,1 s auf der GPU") ist **widerlegt**: gemessen sind **~1,1 s je Frage** (480 Fragen
+  ~9 min). Das aendert die Planung jeder Auswertung, die eine Trefferquote je Familie
+  verlangt.
+* **`O-D36` (NEU)** Der **Additions-Transfer** ist nach dem Mathematik-Eintritt **weg**
+  (5,11 -> 5,91 und 5,15 -> 5,82, Baseline 5,86 / 5,81), und der Mechanismus ist **nicht
+  getrennt** (Zusammensetzung / Batch-Fenster / zweite Phase). `data/add` ist **nicht**
+  Teil des Korpus; ob es hineingehoert, ist eine **Datenentscheidung** und offen.
+* **`O-D33` erweitert** - `regel` verliert auf der Phasenebene erneut (Runde 30: -30,1 Pp;
+  diese Runde: -10,5 Pp gegenueber dem eingefrorenen Elternstand). Damit ist die Klausel
+  (c) des vorab festgelegten Messplans **verletzt** und der Typ bleibt der einzige
+  Engpass, der die Mathematik-Phase ueberlebt.

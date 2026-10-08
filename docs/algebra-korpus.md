@@ -344,7 +344,34 @@ der Eintritt kann die Formkonvention **nicht** verschieben.
   Zahlenfolgen-Familie (`seq`, Parameter-Held-out) und wuerde den Confound (b) aufloesen.
   Vor jeder Entscheidung ist zu messen, was (2) mit der Zahl `22.960` je Typ macht.
 
-## 10 Belege
+## 10 Die Wirkung der Familie im Korpus (Runde 36, Schritt E, D-060)
+
+**Die Familie ist nicht nur gebaut, sie ist gelernt.** Der Mathematik-Lauf auf
+`data/kombi-mathe/train` (Elternstand `kombi-delta-step21200`, **genau eine** geaenderte
+Groesse, GPU, 442,653 s) ergibt auf `data/algebra/val`:
+
+| Messung | untrainierte Baseline | Elternstand (Runde 30) | **Kind (Runde 36)** |
+|---|---|---|---|
+| Verlust / Perplexitaet | 5,8643 / 352,2 | 4,8844 / 132,2 | **1,6734 / 5,3** |
+| Trefferquote (greedy, 120 Fragen) | - | **0 von 120 = 0,0 %** | **30 von 120 = 25,0 %** |
+
+Der Elternstand hat die Familie **nie gesehen** und trifft **keine einzige** Frage; das
+Kind trifft **25 %** byte-genau. **Die drei anderen Familien des Korpus sind nicht
+beschaedigt** (`seq` 0,5409 -> 0,5071, `logic-large` 0,9478 -> 0,9196, `quant`
+0,3836 -> 0,3862), und die **Antwortform** bleibt mit **Form kaputt 0/0** auf den
+Delta-Panels intakt.
+
+**Was die Zahl NICHT sagt - und das ist der wichtigere Teil:** 25 % byte-genau ist der
+**erste** Lernschritt, kein Endstand (Vergleich: die Zahlenfolgen-Familie stand nach 200
+Schritten bei 18,3 %, exp-002). **Welche der vier Typen tragen, ist nicht gemessen** -
+die Panels des Loops messen die Zahlenfolgen-Familie; ein Typ-Bild der Algebra-Familie
+fehlt (**`O-A32`**). Und der Lauf hat **zwei Kosten** gemessen: den **Additions-Transfer**
+(`add/eval-3d` 5,1127 -> 5,9089 gegen Baseline 5,8605, `O-D36`) und **`regel`**
+(65,4 % -> 54,9 %, `O-D33`). Die vollstaendige Abrechnung der vier vorab festgelegten
+Klauseln steht in [algebra-eintritt-in-den-korpus.md](algebra-eintritt-in-den-korpus.md)
+Abschnitt 5.
+
+## 11 Belege
 
 * [algebra-eintritt-in-den-korpus.md](algebra-eintritt-in-den-korpus.md) - Eintrittsvertrag,
   Konventionen `O-A7`/`O-A8`/`O-A10` und die **vorab festgelegte** Messpflicht (Abschnitt 4.2)

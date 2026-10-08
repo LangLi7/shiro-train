@@ -244,3 +244,39 @@ D-047-Stand in der Delta-Form.
 (D): Mathematik als weitere Familie - **mit** `regel` und `naechste` in der
 Messung, sonst wird ein Mathematik-Gewinn auf Kosten zweier schon beschaedigter
 Typen gutgeschrieben.
+
+## 10 Der Mathematik-Lauf auf diesem Korpus (Runde 36, Schritt E, D-060)
+
+**Der Korpus hat ein viertes Shard bekommen.** `data/kombi-mathe/train` =
+**220.720 Datensaetze / 60.338.908 B** (Runde 35, D-059): `seq` 50.000,
+`quant` 30.000, `logic-large` 50.000 und **`algebra` 90.720**
+(16.475.732 B). Der Algebra-Eintritt laeuft durch `--antwortform delta`
+**byteweise unveraendert** durch - die Formbilanz bleibt 9.430 umgeschrieben /
+0 schon Delta - und kann die Formachse damit nicht verschieben.
+
+**Der Lauf** (`shiro train --config configs/train.kombi-mathe.toml --resume
+checkpoints/kombi-delta-step021200.state`) aendert gegenueber Abschnitt 9
+**genau eine** Groesse: `data.dir`. GPU, **442,653 s**, 535,07 GFLOPS,
+Verlust 4,3107 -> 0,0910; Stand
+`checkpoints/kombi-mathe-step23200.safetensors` (SHA-256 `e6428567...`).
+
+**Die Algebra-Familie ist gelernt - auf beiden Achsen:**
+
+| Messung auf `data/algebra/val` | Baseline | Elternstand (Runde 30) | **Kind (Runde 36)** |
+|---|---|---|---|
+| Verlust / Perplexitaet | 5,8643 / 352,2 | 4,8844 / 132,2 | **1,6734 / 5,3** |
+| Trefferquote (greedy, 120 Fragen) | - | **0 von 120 = 0,0 %** | **30 von 120 = 25,0 %** |
+
+**Die drei genannten Familien halten** (`seq` 0,5409 -> **0,5071**, `quant`
+0,3836 -> **0,3862**, `logic-large` 0,9478 -> **0,9196**) - **und die
+Antwortform bleibt getrennt messbar:** Delta 730/838 -> **734/838** inhaltlich
+und 852/960 -> **855/960** Kopfzahl bei **Form kaputt 0/0**; absolut
+696/838 -> **621/838** und 818/960 -> **742/960**.
+
+**Zwei Kosten, beide gemessen und beide offen benannt.** (1) **Der
+Additions-Transfer ist weg:** `add/eval-3d` 5,1127 -> **5,9089** und `-4d`
+5,1479 -> **5,8216**, also zurueck auf Baseline-Niveau (5,8605 / 5,8143) -
+`data/add` ist **nicht** Teil dieses Korpus (`O-D36`). (2) **`regel` verliert
+weiter:** 87/133 = 65,4 % -> **73/133 = 54,9 %**, waehrend `naechste` sich auf
+**85,1 %** erholt; die vorab festgelegte Klausel (c) ist damit **verletzt**
+(`O-D33`). **D-047 bleibt in beiden Formen nicht erreicht.**
