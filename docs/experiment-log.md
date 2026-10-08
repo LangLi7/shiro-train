@@ -2677,3 +2677,115 @@ Doku-Gates 0 Befunde; `deploy/` unberuehrt.
 Rechnung bleibt: `reparatur` von 72,4 % auf ~80 % (89 -> 98 von 123) hebt die inhaltliche Quote auf
 ~88,7 % und die Kopfzahl auf ~90,0 % - **D-047 haengt allein an `reparatur`.** exp-020 testet
 darauf den einen neu gefundenen Hebel: **20000 statt 6250 gezielte Datensaetze**.
+
+## exp-020 - Der Datenmengen-Hebel ist widerlegt: die Einstellungsachse fuer `reparatur` ist gemessen ausgeschoepft
+
+**Frage.** exp-019 hat den Engpass von `reparatur` gemessen und dabei einen fuenften Loop-Defekt
+gefunden: der Replay-Hebel war ein No-op, weil `TYP_DECKEL = 6250` jede Anforderung kappte und die
+Wiederholung danach alles auffuellte. Der Zieltyp bekam nur **8,1 %** der Trainingsproben. exp-020
+zieht daraus den einen Hebel, den diese Messung freilegt: **mehr einzigartige gezielte Daten** -
+`TYP_DECKEL` 6250 -> 20000.
+
+**Aufbau.** Elternteil `checkpoints/agent-sequence_reasoning-from7600-i1-step012400.state`
+(SHA `aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3`), Dosis 4800,
+Replay 0,35, lr 3e-4, Paket `reparatur` - alles wie im angenommenen Stand. **Genau eine
+Variable: die gelieferte gezielte Datenmenge.**
+
+Belegt an der Log-Zeile, dass wirklich nur diese eine Variable anders ist:
+
+```text
+vorher (exp-016/017/018): 56250 Datensaetze ( 6250 gezielt + 70550 Wiederholung), 12780669 B
+exp-020                 : 70000 Datensaetze (20000 gezielt + 56800 Wiederholung), 16348928 B
+```
+
+Der Anteil gezielter Daten steigt damit von **8,1 %** auf **28,6 %**; die Wiederholung schrumpft
+auf 50000 Saetze (der ganze Trainingsband-Vorrat, daher nicht 56800 verschiedene). Die Runde zog
+**keine** Leiterstufe (`--ohne-hebel`, exp-019), trug also nicht zwei Variablen. Laufzeit 25:15 min.
+
+### Ergebnis
+
+| Groesse | Panel A (480) | Panel B (480, disjunkt) |
+|---|---|---|
+| Score | 0,5316 -> **0,5250** (**-0,007**) | 0,5299 -> **0,5219** (**-0,008**) |
+| inhaltlich | 87,8 % -> **86,4 %** | 87,4 % -> **85,5 %** |
+| Regressionsdelta | -0,0007 | -0,0007 |
+
+**Urteil: VERWORFEN, einstimmig.** Determinismus-Probe byte-identisch, Elternstand unveraendert
+(SHA vor und nach dem Lauf gleich), Checkpoint
+`checkpoints/agent-sequence_reasoning-from12400-i1-9eaf637b090fd925-step17200.safetensors`.
+
+**Befund: mehr einzigartige Daten fuer den Zieltyp machen das Modell auf BEIDEN unabhaengigen
+Baendern schlechter.** Der Inhalt faellt um 1,4 bzw. 1,9 Prozentpunkte, wenn der Zieltyp von 8,1 %
+auf 28,6 % der Proben steigt. Der Zieltyp selbst bleibt dabei der schwaechste - verschoben wurde
+also nicht `reparatur` nach oben, sondern die Breite nach unten. Anschaulich: die 70550
+Wiederholungen trugen die anderen sieben Typen mit; nimmt man sie weg, kostet das mehr, als der
+Zieltyp gewinnt.
+
+**Nebenbefund, der die Reparaturen aus exp-018/019 im echten Lauf belegt** - die Registry-Zeile
+dieser Runde traegt erstmals die **echten** Werte statt eines fest verdrahteten:
+
+```text
+learning_rate 0.0003000000142492354   replay_share 0.35   pack reparatur   leiterstufe null
+parent_checkpoint ...from7600-i1-step12400.safetensors   (der ELTERNSTAND, nicht das Kind)
+checkpoint        ...from12400-i1-9eaf637b090fd925-step17200.safetensors   (mit Fingerabdruck)
+```
+
+Damit sind alle vier Behauptungen aus exp-018 pruefbar erfuellt: der Laufname traegt den
+Fingerabdruck (keine Kollision mehr), die Lernrate ist die gelaufene, `replay_share` und `pack`
+stehen als Felder, die Stufe ist als `null` festgehalten (Hebel ausserhalb der Leiter), und
+`parent_checkpoint` nennt den Elternstand.
+
+### Die Einstellungsachse ist damit GEMESSEN ausgeschoepft
+
+Fuenf Einzelvariablen wurden gegen den angenommenen Stand geprueft. **Jede einzelne macht ihn
+schlechter oder ist wirkungslos:**
+
+| Hebel | Runde | Panel A | Panel B | Urteil |
+|---|---|---|---|---|
+| Dosis (auf 4800) | exp-015/016/017 | - | - | am Deckel, Hebel wirkungslos |
+| Replay 0,20 / 0,05 | exp-016/017/018 | - | - | **wirkungslos** (Kappung, exp-019) |
+| Lernrate 4,5e-4 | exp-018 i1 | **-0,008** | **-0,007** | einstimmig verworfen |
+| Paket `breit` | exp-017 r2 | **-0,009** | **-0,007** | einstimmig verworfen |
+| gezielte Daten 20000 | **exp-020** | **-0,007** | **-0,008** | einstimmig verworfen |
+
+Der angenommene Stand `from7600-i1-step12400` ist auf dieser Achse ein **lokales Optimum**: jeder
+Versuch, ihn zu verbessern, entfernt sich von ihm. Das ist ein **negatives Ergebnis mit fuenf
+unabhaengigen Belegen** - und damit die belastbare Aussage, dass die Schwaeche **nicht** durch
+Einstellungen oder Datenmengen zu beheben ist.
+
+### Was daraus folgt: der naechste Hebel ist die AUFGABENFORM, nicht eine Zahl
+
+exp-019 hat gemessen, **warum** `reparatur` nicht besser wird: die zweiteilige Antwort
+`Stelle p: wert` **multipliziert zwei Komponenten**. Die Stelle gelingt in 88,6 %, der Wert in
+82,1 % (innerhalb des Fensters), und `0,886 x 0,82 = 0,727` trifft die gemessenen 72,4 % auf 0,3
+Prozentpunkte. Der einfeldrige Verwandte `reparatur1` liegt bei 88,5 %, der Typ `stelle` allein bei
+96,8 %.
+
+**Kein Hebel dieser Leiter beruehrt diese Ursache** - deshalb kann keiner wirken. Der naechste
+Schritt ist eine **Aenderung der Aufgabenform** und damit ein Korpus- und Codehebel (der Weg, den
+D-046 fuer den Fall vorsieht, dass die Einstellungen ausgeschoepft sind). Der Ansatzpunkt ist
+genau die gemessene Multiplikation: wenn der **Wert** das teure Feld ist, muss sein Antwortraum
+kleiner werden, ohne die Aufgabe zu verraten. Konkret zu pruefen: statt des absoluten Werts
+(`Stelle 5: 4096`, vier bis fuenf Ziffern) die **Aenderung** ausgeben lassen
+(`Stelle 5: +7` bzw. `-3`, ein bis zwei Ziffern) - dasselbe Wissen, ein viel kleinerer Antwortraum,
+und der Verifier kann beide Richtungen pruefen. Ein weiterer Kandidat ist die getrennte Abfrage in
+**einem** Satz (`Stelle 5 und Wert 4096`), damit die beiden Felder nicht mehr als zwei
+unabhaengige Entscheidungen in einer Fortsetzung stehen.
+
+**Abgrenzung, ehrlich benannt:** das ist ein **Vorschlag**, keine Messung. Belegt sind die
+Multiplikation der beiden Komponenten, die fuenf widerlegten Hebel und die daraus folgende
+Aussage, dass die Einstellungsachse ausgeschoepft ist. Ob eine andere Antwortform die Quote hebt,
+ist offen und muss selbst als Einzelvariable gemessen werden.
+
+### D-047-Status nach exp-020
+
+**Unveraendert nicht erreicht.** Gueltig bleibt `from7600-i1-step12400`: Kopf **855/960 = 89,06 %**,
+inhaltlich 734/838 = 87,59 %, `reparatur` **89/123 = 72,4 %** als einziger Typ unter 75 %. Die
+Rechnung ist unveraendert: `reparatur` von 72,4 % auf ~80 % (89 -> 98 von 123) hebt die
+inhaltliche Quote auf ~88,7 % und die Kopfzahl auf ~90,0 % - **D-047 haengt allein an `reparatur`**,
+und `reparatur` haengt an der Aufgabenform.
+
+**Stand der Leiter:** Position 0 (durch `--ohne-hebel` zurueckgesetzt). Angesagt ist Stufe 1
+(`replay_share 0.35 -> 0.20`) - die nach exp-019 **wirkungslos** ist, weil beide Anforderungen
+ueber dem Deckel liegen. Genau dafuer fehlt die Pruefung: `hebel_an` beurteilt einen Hebel an
+seinem **Zahlenwert**, nicht an der **gelieferten Datenmenge**. Offener Punkt, siehe exp-019.
