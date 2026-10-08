@@ -1,0 +1,58 @@
+# Trainingslauf auf dem KOMBINIERTEN Korpus (D-051) - erste Runde der Phase
+# "mehrere Familien in einem Lauf" (n5).
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data combine --src data/seq/train --src data/quant/train \
+#                      --src data/logic-large/train --out data/kombi/train
+#
+# WARUM EINE EIGENE LERNRATEN-EINSTELLUNG. Der Schrittzaehler ist seit B6 global,
+# und learning_rate_over() rechnet den Kosinus ueber `start_step + run.steps`.
+# Ein fortgesetzter Lauf von Schritt 17200 mit nur 2000 geplanten Schritten haette
+# damit einen Horizont von 19200 und startete bei t = 0,90 - die Rate waere
+# ~8e-6, also praktisch null. Fuer eine PHASE (neuer Korpus, neuer Plan) ist die
+# Kosinusformel deshalb die falsche Form: hier gilt eine KONSTANTE Rate, damit
+# die Fortsetzung nicht am auslaufenden Plan der Vorphase haengt.
+#
+# Die Rate ist mit 1e-4 bewusst niedriger als die 3e-4 des Trainings von Grund auf
+# (Feinjustierung statt Neulernen) und hoeher als die ~3,4e-5, mit denen der Loop
+# am Ende seiner Kosinuskurve arbeitet.
+
+[run]
+name = "kombi"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

@@ -92,20 +92,47 @@ Quelle" und "Quelle ohne Manifest".
 
 ## 5 Was dieser Korpus NICHT ist
 
-* **kein Trainingslauf** - trainiert wurde auf dem kombinierten Korpus noch nicht
-  (Runde 27 baut nur den Korpus). Erst ein Lauf kann zeigen, ob das negative
-  Transfer verschwindet; die Frage gehoert dann als **eine** Variable in den Loop.
 * **kein Ersatz** fuer die Familien-Korpora - die bleiben die Regressionsreferenz
   je Familie (der Loop misst auf `data/seq/val`).
 * **keine Aussage ueber die Mischung**: das Verhaeltnis 50k/30k/50k ist die
   vorhandene Groesse der Familien, keine gewaehlte Gewichtung. Eine Gewichtung
   waere eine eigene, pruefbare Variable.
+* **kein Korpus in der Delta-Form** - und das ist gemessen die wichtigste
+  Einschraenkung, siehe Abschnitt 6.
 
-## 6 Der naechste Schritt
+## 6 Erster Lauf auf dem Korpus (Runde 28) - und was er gekostet hat
 
-1. **Erster Lauf auf dem kombinierten Korpus** (eine Variable: das Manifest), mit
-   der Frage aus O-D21: bleibt die Sequenz-Faehigkeit erhalten, waehrend die
-   Logik-Familien dazukommen?
-2. Danach die **Mathematik-Phase im selben Korpus** in der festgehaltenen
+Der Korpus ist in Runde 28 **erstmals benutzt** worden: `shiro train` mit
+`configs/train.kombi.toml` (2000 Schritte, konstante Rate 1e-4) vom angenommenen
+Delta-Stand. Ergebnis, ausfuehrlich im Experiment-Log:
+
+**Es funktioniert, was es soll.** Der Held-out-Verlust faellt auf **allen vier**
+geprueften Familien, und zwar unter die **untrainierte Baseline**:
+
+| Datensatz | Baseline | vorher (Spezialist) | nachher (kombiniert) |
+|---|---|---|---|
+| `seq/val` | 5,7449 | 0,6223 | **0,5269** |
+| `quant/val` | 5,6612 | 5,9197 (**schlechter als Baseline**) | **0,3756** |
+| `logic-large/val` | 5,7055 | 5,4879 | **0,9401** |
+| `add/eval-3d` | 5,8605 | 6,7428 (**schlechter als Baseline**) | **5,3401** |
+
+**Aber es kostet die Antwortform.** Der Korpus traegt die **absolute** Form
+(`Stelle 5: 4096`), nicht die **Delta**-Form (`Stelle 5: +7`, **D-049**). Die
+breite Runde hat deshalb die Konvention **ihres Korpus** uebernommen und die
+gelernte Delta-Konvention **zerstoert**: auf den Delta-Panels faellt `reparatur`
+von 91,1 % auf **1,6 %** (2/123), waehrend derselbe Stand auf den **absoluten**
+Panels 91,88 % Kopfzahl und 81,3 % `reparatur` erreicht.
+
+**Die Lehre (D-052):** die Antwortform ist eine **Korpus**-Eigenschaft, nicht eine
+Rundeneinstellung. Eine Runde kann sie ueber ein Paket tragen (exp-026), eine
+**Phase** kann es nicht. Solange dieser Korpus absolut ist, ueberschreibt jede
+breite Runde die Delta-Konvention - und umgekehrt.
+
+## 7 Der naechste Schritt
+
+1. **Form-Rendering im Korpus**: die Antwortform beim **Bauen** des Korpus
+   anwenden (dieselbe Umstellung wie `als_delta`/`als_delta_einzeln`, nur auf
+   Korpusebene). Danach kann eine Phase **beide** Konventionen halten.
+2. Dann die **Mathematik-Phase im selben Korpus** in der festgehaltenen
    Reihenfolge **Algebra -> Formel-Verstaendnis und Funktion -> Math Basic**
    (`docs/trainingsloop-logik-plan.md` Abschnitt 5, Nutzerwortlaut).

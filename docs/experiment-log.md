@@ -3641,6 +3641,107 @@ Shard Datensaetze, Nutzbytes, Laengenbereich, Spezialbytes, Pruefsumme und schli
 Shards **byteweise** die der Quellen. Der Korpus ist untracked - wie alle Korpora ausser
 `data/sample` - und per Befehl reproduzierbar.
 
+## Runde 28 - Die erste Phase-Runde auf dem kombinierten Korpus: das negative Transfer ist weg, und die Antwortform gehoert dem KORPUS
+
+**Zwei Fragen in einer Runde.** (1) Verschwindet das **negative Transfer** (**O-D21**) und
+**verbreitert** sich das Modell, wenn mehrere Familien **gemeinsam** trainiert werden (n5,
+**D-051**)? (2) Was kostet das?
+
+### Der Aufbau - und warum die Lernrate eine eigene Einstellung braucht
+
+Eine **Phase-Runde** (kein Loop): `shiro train` mit dem neuen `configs/train.kombi.toml` vom
+angenommenen Delta-Stand, **2000 Schritte**, Batch 16 x 512, **konstante Rate 1e-4**, GPU.
+
+**Warum konstant und nicht Kosinus.** Der Schrittzaehler ist seit B6 **global**, und
+`learning_rate_over` rechnet den Kosinus ueber `start_step + run.steps`. Ein Resume bei Schritt
+17200 mit nur 2000 geplanten Schritten haette einen Horizont von 19200 und startete bei
+`t = 0,90` - die Rate waere **~8e-6**, also praktisch null (genau die Fehlerklasse, die **O-T3**
+beschreibt). Fuer eine **Phase** mit neuem Korpus und neuem Plan ist die Kosinusformel deshalb die
+falsche Form: hier gilt eine konstante Rate, damit die Fortsetzung nicht am auslaufenden Plan der
+Vorphase haengt.
+
+Lauf: 2000 Schritte in **616 s**, Verlust **5,7269 -> 0,0887** (beste 0,0469),
+`Device<Cube(Cuda(Cuda(0)))>`, Elternstand unversehrt (`bd72ee18...`). Neuer Stand
+**`checkpoints/kombi-step19200.safetensors`**, SHA-256 `cd125776acaad53c...`.
+
+### Ergebnis 1: das negative Transfer ist weg (O-D21 beantwortet)
+
+Held-out-Verlust je Familie, gleiche Config und gleicher Seed, **Baseline = untrainiert**:
+
+| Datensatz | Baseline | Elternstand (exp-026) | Kind (kombiniert) |
+|---|---|---|---|
+| `data/seq/val` | 5,7449 / PPL 312,6 | 0,6223 / PPL 1,9 | **0,5269 / PPL 1,7** |
+| `data/quant/val` | 5,6612 / PPL 287,5 | 5,9197 / PPL 372,3 (**schlechter als die Baseline**) | **0,3756 / PPL 1,5** |
+| `data/logic-large/val` | 5,7055 / PPL 300,5 | 5,4879 / PPL 241,7 (besser) | **0,9401 / PPL 2,6** |
+| `data/add/eval-3d` | 5,8605 / PPL 350,9 | 6,7428 / PPL 847,9 (**schlechter als die Baseline**) | **5,3401 / PPL 208,5** (besser) |
+
+**Zwei Befunde, beide neu:**
+
+1. **Das negative Transfer ist nicht auf die Addition beschraenkt.** Der Elternstand ist
+   **auch auf `quant`** schlechter als die untrainierte Baseline (5,9197 gegen 5,6612) - O-D21 war
+   mit *einer* Familie gemessen (add, Faktor 6,8); es sind **zwei**.
+2. **Gemeinsames Training behebt es.** Das Kind ist auf **allen vier** Sets besser als die
+   Baseline **und** besser als der Elternstand. Die groessten Spruenge liegen dort, wo der
+   Spezialist am schlechtesten war: `quant` von PPL **372 auf 1,5**, `add` von **848 auf 209**.
+
+Die Antwort auf die Frage aus n5 lautet damit: **ja, mehrere Familien in einem Lauf verbreitern
+das Modell und entfernen das negative Transfer.**
+
+### Ergebnis 2: der Preis - die Delta-Form ist weg
+
+Derselbe Stand auf den **Panels des Loops** (2 x 480, erweiterte Delta-Form):
+
+| Groesse (gepoolt) | Elternstand (exp-026) | Kind (kombiniert) |
+|---|---|---|
+| inhaltlich | 88,31 % (740/838) | **73,39 %** (615/838) |
+| Kopfzahl | 89,79 % (862/960) | **76,77 %** (737/960) |
+| `reparatur` (Delta) | 91,1 % (112/123) | **1,6 %** (2/123) |
+| `reparatur1` | 91,8 % (112/122) | 47,5 % (58/122) |
+| `stelle`, `luecke`, `naechste`, `offen`, `regel`, `vergleich` | 80,5-93,6 % | 78,4-98,2 % (unveraendert bis leicht besser) |
+
+**Und derselbe Stand auf den ABSOLUTEN Panels:**
+
+| Groesse (gepoolt, absolute Form) | Kind (kombiniert) |
+|---|---|
+| inhaltlich | **90,69 %** (760/838) |
+| Kopfzahl | **91,88 %** (882/960) |
+| `reparatur` | **81,3 %** (100/123), **Form kaputt 1/0** |
+| `reparatur1` | 86,1 % (105/122) |
+| schwaechster Typ | `reparatur` 81,3 % - **kein Typ unter 75 %** |
+
+**Damit ist die Diagnose gemessen, nicht gedeutet:** derselbe Stand ist in der **absoluten** Form
+**exzellent** (Kopf 91,88 %) und in der **Delta**-Form **zerstoert** (Kopf 76,77 %, `reparatur`
+2/123). **Nebenbefund mit Gewicht: D-047 ist damit erstmals in der ABSOLUTEN Form erreicht** -
+genau die Frage, die als **O-D34** offen stand. Der kombinierte Korpus traegt die **absolute**
+Form; das Training hat die Konvention **seines Korpus** uebernommen und die Delta-Konvention
+ueberschrieben. Das ist **genau der Mechanismus aus exp-025/026** (die Form der Trainingsdaten
+entscheidet die Konvention), jetzt auf **Korpusebene** und mit voller Wucht.
+
+### Folgerung: die Antwortform ist eine KORPUS-Eigenschaft (D-052)
+
+Eine **Runde** kann die Form ueber ein **Paket** tragen (exp-026: `--pack` + formgleiche
+Wiederholung), aber jede **breite** Trainingsrunde uebernimmt die Form, die **im Korpus steht**.
+Solange die Korpora absolut sind, ueberschreibt jede Phase-Runde die Delta-Konvention - und
+umgekehrt wuerde ein Delta-Korpus die absolute Form ueberschreiben. Der Ort der Form ist damit
+**nicht** die Runde, sondern der **Korpus**; festgehalten als **D-052**.
+
+### Was offen bleibt
+
+1. **Form-Rendering im Korpus** ist der naechste Schritt (die Form in den Korpus schreiben statt
+   in die Runde) - erst danach kann eine Phase-Runde beide Formen halten.
+2. Der Stand `kombi-step19200` erreicht D-047 in der **absoluten** Form und **zerstoert** sie in
+   der Delta-Form; er wird als **eigener Stand** gefuehrt, **nicht** als Ersatz des
+   Delta-Stands. Der Loop-Stand bleibt `...-78877c318528a5d3-step22000` (`952f9999...`).
+3. **Rate 1e-4 und Dosis 2000 sind gewaehlt, nicht ausgetestet.** Ob eine kleinere Rate die
+   Delta-Form erhaelt, ist nicht gemessen - es waere aber auch nur eine Verschiebung des
+   Problems, solange der Korpus die alte Form traegt.
+
+### Gates dieser Runde
+
+Keine Codeaenderung ausser der neuen Konfiguration. `cargo fmt --check` gruen; `cargo test`
+410 / 0 failed; `cargo clippy` unveraendert 7 fremde Befunde; `build --release` und CUDA-Build
+gruen; `shiro smoke` Digest **a6a53c95abd7f622** unveraendert; Doku-Gates 0 Befunde.
+
 ### Ein eigener Fehler, vom Validator gefunden
 
 Der **erste** Lauf benannte die Zieldateien nach dem **letzten** Pfadteil der Quelle. Alle

@@ -2075,3 +2075,61 @@ fremden Dateien (`src/data/quant.rs` 6, `src/probe.rs` 1), keine in meinen Datei
 Doku-Gates 0 Befunde (check-table-pipes 124 Dateien, check-doc-links 0 tote Links, lernstufen,
 programmiersprachen); Register 42 IDs (D-010..D-051), LF-only.
 
+## Runde 28 - Erste Phase-Runde auf dem kombinierten Korpus: negatives Transfer weg, Delta-Form weg (D-052)
+
+**Aufbau.** `shiro train` mit dem neuen `configs/train.kombi.toml` vom angenommenen Delta-Stand:
+2000 Schritte, Batch 16 x 512, **konstante Rate 1e-4**, GPU. **Warum konstant:** der
+Schrittzaehler ist global und `learning_rate_over` rechnet den Kosinus ueber
+`start_step + run.steps`; ein Resume bei 17200 mit 2000 Schritten haette `t = 0,90` und eine Rate
+von ~8e-6 (praktisch null, Fehlerklasse O-T3). Fuer eine Phase mit neuem Korpus ist die
+Kosinusformel die falsche Form. Lauf: 2000 Schritte in 616 s, Verlust 5,7269 -> 0,0887, neuer
+Stand `checkpoints/kombi-step19200.safetensors` (SHA-256 `cd125776acaad53c...`), Elternstand
+unversehrt (`bd72ee18...`).
+
+**Ergebnis 1 - das negative Transfer ist weg (O-D21 beantwortet).** Held-out-Verlust, gleiche
+Config/Seed, Baseline = untrainiert:
+
+| Datensatz | Baseline | Elternstand (exp-026) | Kind (kombiniert) |
+|---|---|---|---|
+| `seq/val` | 5,7449 / 312,6 | 0,6223 / 1,9 | **0,5269 / 1,7** |
+| `quant/val` | 5,6612 / 287,5 | 5,9197 / 372,3 (schlechter als Baseline) | **0,3756 / 1,5** |
+| `logic-large/val` | 5,7055 / 300,5 | 5,4879 / 241,7 | **0,9401 / 2,6** |
+| `add/eval-3d` | 5,8605 / 350,9 | 6,7428 / 847,9 (schlechter als Baseline) | **5,3401 / 208,5** |
+
+Der Elternstand ist auf **zwei** Familien schlechter als die untrainierte Baseline (add **und**
+quant) - O-D21 war mit einer gemessen. Das Kind ist auf **allen vier** Sets besser als Baseline
+und Elternstand; die groessten Spruenge dort, wo der Spezialist am schlechtesten war (quant
+PPL 372 -> 1,5; add 848 -> 209). **n5 ist damit beantwortet.**
+
+**Ergebnis 2 - der Preis: die Delta-Form ist weg.** Derselbe Stand auf den Panels des Loops
+(2 x 480):
+
+| Groesse (gepoolt) | Elternstand | Kind |
+|---|---|---|
+| erweiterte **Delta**-Panels: inhaltlich | 88,31 % | **73,39 %** |
+| erweiterte **Delta**-Panels: Kopfzahl | 89,79 % (862/960) | **76,77 %** (737/960) |
+| erweiterte **Delta**-Panels: `reparatur` | 91,1 % (112/123) | **1,6 %** (2/123) |
+| **absolute** Panels: Kopfzahl | - | **91,88 %** (882/960) |
+| **absolute** Panels: inhaltlich | - | **90,69 %** (760/838) |
+| **absolute** Panels: `reparatur` | - | **81,3 %** (100/123), Form kaputt 1/0 |
+
+**Die Diagnose ist gemessen:** derselbe Stand ist absolut **exzellent** und in der Delta-Form
+**zerstoert**. Der kombinierte Korpus traegt die **absolute** Form; die breite Trainingsrunde hat
+die Konvention **ihres Korpus** uebernommen. Derselbe Mechanismus wie exp-025/026, jetzt auf
+**Korpusebene**. **Nebenbefund: D-047 ist damit erstmals in der ABSOLUTEN Form erreicht** (Kopf
+91,88 %, kein Typ unter 75 %) - die offene Frage O-D34, hier positiv beantwortet.
+
+**Folgerung (D-052).** Eine **Runde** kann die Form ueber ein Paket tragen (exp-026), eine
+**Phase** nicht: der Ort der Form ist der **Korpus**. Naechster Schritt ist **Form-Rendering im
+Korpus**, nicht eine weitere Rundeneinstellung. `kombi-step19200` wird als **eigener Stand**
+gefuehrt (absolut exzellent, Delta zerstoert) und **ersetzt den Delta-Stand nicht**
+(`...-78877c318528a5d3-step22000`, `952f9999...`).
+
+**Offen benannt:** Rate 1e-4 und Dosis 2000 sind gewaehlt, nicht ausgetestet; eine kleinere Rate
+wuerde das Problem nur verschieben, solange der Korpus die alte Form traegt.
+
+**Gates.** Keine Codeaenderung ausser der neuen Konfiguration. `cargo fmt --check` gruen;
+`cargo test` 410 / 0 failed; `cargo clippy --all-targets -D warnings` unveraendert 7 fremde
+Befunde; `build --release` und CUDA-Build gruen; `shiro smoke` Digest **a6a53c95abd7f622**
+unveraendert; Doku-Gates 0 Befunde; Register 43 IDs (D-010..D-052), LF-only.
+
