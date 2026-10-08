@@ -1260,7 +1260,25 @@ pub struct RegistryEntry {
     pub training_config: String,
     pub evaluation_config: String,
     pub steps: usize,
+    /// **Die Lernrate, mit der diese Runde wirklich trainiert wurde.**
+    ///
+    /// Bis zur Reparatur stand hier der feste Wert `0.0003` - auch fuer Runden,
+    /// die mit einer anderen Lernrate liefen. Die Zeile behauptete damit eine
+    /// Einstellung, die nie gelaufen ist; wer die Runde nachrechnen wollte, haette
+    /// den falschen Wert benutzt. Die Lernrate ist ein Hebel der Leiter und wird
+    /// deshalb aus dem Lauf uebernommen.
+    #[serde(default)]
     pub learning_rate: f64,
+    /// Die Datenmischung dieser Runde (Anteil Wiederholung) - ebenfalls Hebel.
+    #[serde(default)]
+    pub replay_share: f64,
+    /// Das Lernpaket dieser Runde (Zielklasse).
+    #[serde(default)]
+    pub pack: String,
+    /// **Die angewendete Leiterstufe** (O-T9). `None` heisst: die Leiter war
+    /// erschoepft und die Runde lief mit der Basis.
+    #[serde(default)]
+    pub leiterstufe: Option<usize>,
     pub loss: f64,
     pub perplexity: f64,
     pub exact_match: f64,
@@ -1340,18 +1358,63 @@ pub fn leiterposition(registry: &Path, capability: &str) -> usize {
     let Ok(eintraege) = registry_read(registry) else {
         return 0;
     };
-    let mut n = 0usize;
-    for e in eintraege.iter().rev() {
-        if e.capability != capability {
-            continue;
-        }
-        if e.urteil == "VERWORFEN" {
-            n += 1;
-        } else {
-            break;
+    let letzte = eintraege.iter().rev().find(|e| e.capability == capability);
+    let Some(e) = letzte else {
+        return 0;
+    };
+    // **Neue Zeilen tragen die angewendete Stufe** - damit ist die naechste
+    // Position exakt ableitbar, ohne zu raten:
+    //
+    // | Urteil | naechste Position |
+    // |---|---|
+    // | `ANGENOMMEN` | 0 - die Leiter wird zurueckgesetzt |
+    // | `VERWORFEN` | Stufe + 1 - die widerlegte Stufe wird nicht wiederholt |
+    // | `UNENTSCHIEDEN` | **dieselbe** Stufe - die Messung ist offen, sie wird wiederholt |
+    // | `UNGUELTIG` | dieselbe Stufe - die Messung war nicht reproduzierbar |
+    // | `KEINE_RUNDE` | 0 - es lief nichts |
+    //
+    // **Der Fall `UNENTSCHIEDEN` war ein eigener Defekt.** Die alte Regel
+    // zaehlte nur **hintereinander am Ende** stehende `VERWORFEN`-Eintraege und
+    // brach bei allem anderen ab. Gemessen an exp-018: die letzte Zeile ist
+    // `UNENTSCHIEDEN`, also lieferte die Zaehlung **0** - obwohl sechs Stufen
+    // widerlegt waren. Der naechste Aufruf haette wieder bei der ersten Stufe
+    // begonnen und eine widerlegte Einstellung erneut gefahren.
+    match (e.urteil.as_str(), e.leiterstufe) {
+        ("ANGENOMMEN", _) | ("KEINE_RUNDE", _) => 0,
+        ("VERWORFEN", Some(s)) => s + 1,
+        ("UNENTSCHIEDEN", Some(s)) | ("UNGUELTIG", Some(s)) => s,
+        // Unbekanntes Urteil mit Stufe: nichts ist entschieden, also dieselbe
+        // Stufe wiederholen - nicht weiterklettern und nicht zuruecksetzen.
+        (_, Some(s)) => s,
+        // **Altzeilen ohne Stufennummer** (vor der Leiter-Reparatur). Die
+        // angewendete Stufe ist hier **nicht** ableitbar, weil die Leiter damals
+        // anders gezaehlt hat. Als Untergrenze dient die alte Zaehlregel; dass
+        // die alte und die neue Zaehlung nicht ineinander umrechenbar sind, ist
+        // in `docs/experiment-log.md` (exp-018) festgehalten und **kein** Grund,
+        // hier eine Zahl zu erfinden.
+        (_, None) => {
+            // Trailing `UNENTSCHIEDEN`/`UNGUELTIG` ueberspringen: sie haben die
+            // Position nicht bewegt, also sagt der Stand davor, wo die Leiter
+            // steht.
+            let mut n = 0usize;
+            let mut ueberspringen = true;
+            for e in eintraege.iter().rev() {
+                if e.capability != capability {
+                    continue;
+                }
+                if ueberspringen && (e.urteil == "UNENTSCHIEDEN" || e.urteil == "UNGUELTIG") {
+                    continue;
+                }
+                ueberspringen = false;
+                if e.urteil == "VERWORFEN" {
+                    n += 1;
+                } else {
+                    break;
+                }
+            }
+            n
         }
     }
-    n
 }
 
 // ---------------------------------------------------------------------------
@@ -1446,9 +1509,17 @@ pub struct Iteration {
     pub panels: Vec<PanelBefund>,
     pub next_action: String,
     pub next_reason: String,
-    /// **O-T9:** der Strategiewechsel, den diese Runde fuer die naechste
-    /// erzwingt. `None` heisst: die Runde wurde angenommen (oder es war die
-    /// letzte) - dann gibt es nichts zu wechseln.
+    /// **O-T9: die Leiterstufe, die diese Runde angewendet hat.**
+    ///
+    /// Nicht mehr "der Wechsel fuer die naechste Runde": seit der Reparatur des
+    /// exp-017-Defekts wird die Stufe **vor** der Datenerzeugung angewendet.
+    /// Damit beschreibt dieses Feld die Einstellung, die hier tatsaechlich
+    /// gelaufen ist - eine Zeile, die den Lauf nicht beschreibt, ist als
+    /// Nachweis wertlos.
+    ///
+    /// `None` heisst jetzt **die Leiter ist erschoepft** (nicht mehr "die Runde
+    /// wurde angenommen"): es gab keine wirksame Stufe mehr, und die Runde lief
+    /// mit der Basis.
     pub strategiewechsel: Option<Strategiewechsel>,
     pub checkpoint: String,
     /// Die ersten Fehlbeispiele als Beleg (Index, Typ, erwartet, erzeugt).
@@ -1494,6 +1565,50 @@ fn lade_basis(path: &Path) -> Result<TrainConfig> {
     })
 }
 
+/// **Der Fingerabdruck einer Runde: alles, was die trainierten Gewichte
+/// bestimmt.**
+///
+/// **Warum es ihn gibt - ein belegter Schaden.** Der Laufname war
+/// `agent-<cap>-from<start>-i<nr>`, und der Checkpoint haengt
+/// `-step<start+dosis>` an. Zwei Runden mit gleichem Elternteil, gleicher
+/// Iteration und gleicher Dosis bekamen damit **denselben Dateinamen**, auch
+/// wenn sie mit verschiedenen Einstellungen liefen. Gemessen in der Registry:
+/// exp-016 Runde 2 (replay 0.20) und exp-017 Runde 2 (replay 0.35) schrieben
+/// beide `agent-sequence_reasoning-from12400-i2-step17200.safetensors`. Der
+/// zweite Lauf **ueberschrieb** den ersten - und beide Registry-Zeilen zeigen
+/// auf denselben Pfad. Fuer mindestens eine von beiden beschreibt der
+/// registrierte Pfad damit ein Modell, das dort nicht mehr liegt: die Runde ist
+/// **nicht nachpruefbar**. Fuer einen Loop, dessen Zweck der replizierbare
+/// Nachweis ist, ist das der schwerste Fehler.
+///
+/// Der Fingerabdruck geht ueber **alle** Groessen, die in die Gewichte eingehen:
+/// Ausgangsstand (Startschritt), Iteration (eigener Datenseed), Dosis,
+/// Datenmischung, Lernrate, Lernpaket und Basisseed. Zwei Laeufe mit gleichem
+/// Fingerabdruck sind derselbe Lauf und duerfen denselben Namen tragen - genau
+/// das ist bei der bewussten Wiederholung einer `UNENTSCHIEDENEN` Runde
+/// gewollt.
+///
+/// Die **Faehigkeit** steht bewusst nicht darin: sie ist bereits Teil des
+/// Laufsnamens (`agent-<cap>-...`), und zwei Faehigkeiten koennen sich schon
+/// deshalb nicht denselben Namen teilen.
+pub fn runden_fingerabdruck(
+    start_step: usize,
+    nr: usize,
+    dosis: usize,
+    replay: f64,
+    lr: f32,
+    paket: &str,
+    seed: u64,
+) -> String {
+    // Feste Feldreihenfolge und feste Zahlendarstellung: der Abdruck muss bei
+    // gleicher Einstellung **immer** gleich lauten, sonst taugt er nicht als
+    // Wiedererkennung.
+    let roh = format!(
+        "start{start_step}|i{nr}|dosis{dosis}|replay{replay:.6}|lr{lr:.9e}|paket{paket}|seed{seed}"
+    );
+    format!("{:016x}", crate::data::manifest::fnv1a64(roh.as_bytes()))
+}
+
 /// **O-T9: eine verworfene Runde darf sich nicht wiederholen.**
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -1527,8 +1642,44 @@ pub struct Strategiewechsel {
     pub vorher: String,
     pub nachher: String,
     pub grund: &'static str,
+    /// **Die Stufe auf der Leiter.** Sie ist der dauerhafte Zeiger: dieselbe
+    /// Stufe ergibt immer dieselbe Einstellung, unabhaengig davon, in welchem
+    /// Prozess sie gezogen wird.
+    pub stufe: usize,
     #[serde(skip)]
     pub hebel: Hebel,
+}
+
+/// **Die Basis, gegen die die Hebeleiter gemessen wird.**
+///
+/// Das ist der Stand der letzten **angenommenen** Runde: die Werte aus der
+/// Config plus die ausdruecklichen Startwerte (`--lr`, `--replay-share`).
+///
+/// **Warum die Basis gebraucht wird.** Vorher zog die Leiter ihren Hebel aus
+/// den *laufenden* Werten - und die lebten nur im Prozess. Mit dem Prozessende
+/// waren sie weg, und der naechste Aufruf begann wieder bei der Config
+/// (gemessen: exp-017 Runde 1 war bitgleich zu exp-016 Runde 1, siehe
+/// [`strategiewechsel`]). Jede Stufe wird deshalb **immer relativ zur Basis**
+/// gerechnet. Damit haengt die Einstellung einer Stufe nur an der Stufennummer
+/// und der Basis - beides ist dauerhaft bzw. aus der Config bekannt.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Leiterbasis {
+    pub dosis: usize,
+    pub replay: f64,
+    pub lr: f32,
+    pub paket: Pack,
+}
+
+impl Leiterbasis {
+    /// Bequemer Bau fuer Tests und Aufrufer.
+    pub fn neu(dosis: usize, replay: f64, lr: f32, paket: Pack) -> Self {
+        Self {
+            dosis,
+            replay,
+            lr,
+            paket,
+        }
+    }
 }
 
 /// Die Leiter der Strategiewechsel - feste Reihenfolge, je Verwurf ein Hebel.
@@ -1541,10 +1692,44 @@ pub struct Strategiewechsel {
 /// Paketwechsel die Ursache und nicht die Menge aendert.
 pub const HEBEL_LEITER: usize = 4;
 
+/// **Wie viele Replay-Stufen es gibt.** Bei einer Basis von 0,35 sind das
+/// 0,20 / 0,05 / 0,00 - danach ist der Boden erreicht. Ohne diese Grenze
+/// bote die Leiter die 0,00 unter immer neuen Stufennummern erneut an.
+pub const REPLAY_STUFEN: usize = 3;
+
+/// **Wie weit die Leiter nach einer wirksamen Stufe sucht.** Muss die
+/// aufgebrauchten Stufen ueberspringen koennen: die Paketliste hat
+/// [`PAKET_LEITER`] Eintraege, Replay [`REPLAY_STUFEN`], und Dosis sowie
+/// Lernrate enden am jeweiligen Deckel. Acht Umlaeufe decken das mit Reserve
+/// ab; ist innerhalb dieser Spanne nichts wirksam, gilt die Leiter als
+/// erschoepft (siehe [`strategiewechsel`]).
+pub const LEITER_TIEFE: usize = HEBEL_LEITER * 8;
+
 /// **Obergrenze der Dosis je Runde.** Schutz vor einer Dosislawine: achtmal die
 /// Ausgangsdosis reicht, um Untertraining auszuschliessen, ohne den Lauf
 /// unbezahlbar zu machen (600 -> 1200 -> 2400 -> 4800, danach konstant).
 pub const DOSIS_MAX: usize = 4800;
+
+/// **Obergrenze der Lernrate.** Ohne sie waere die Lernrate der einzige Hebel,
+/// der nie wirkungslos wird (sie waechst multiplikativ und laeuft davon) - die
+/// Leiter haette dann kein Ende und der Loop koennte eine nachweislich zu
+/// grosse Lernrate beliebig oft weiter steigern. Mit Deckel wird der Hebel
+/// **erschoepflich**, und die Leiter meldet ihr Ende (siehe
+/// [`strategiewechsel`]).
+pub const LR_MAX: f32 = 1e-3;
+
+/// **Die Reihenfolge der Lernpakete auf der Leiter.** Bewusst eine Liste und
+/// kein Alternieren zwischen zwei Werten: solange nur zwischen `breit` und
+/// `frageart` gewechselt wurde, konnte die Leiter den Paketraum nicht
+/// ausschoepfen, und nach zwei Paketstufen wiederholten sich die Ziele.
+pub const PAKET_LEITER: [Pack; 6] = [
+    Pack::Breit,
+    Pack::Frageart,
+    Pack::Terminierung,
+    Pack::Stelle,
+    Pack::Offen,
+    Pack::ReparaturEinzeln,
+];
 
 /// Der Wechsel fuer die **naechste** Runde nach `verworfen` Verwuerfen.
 ///
@@ -1552,13 +1737,7 @@ pub const DOSIS_MAX: usize = 4800;
 /// Anzeige (`vorher`/`nachher`) als auch den anzuwendenden [`Hebel`]. Beides
 /// kommt aus **einer** Quelle, damit Anzeige und Wirkung nicht auseinander
 /// laufen koennen.
-pub fn strategiewechsel(
-    verworfen: usize,
-    dosis: usize,
-    replay: f64,
-    lr: f32,
-    letztes_paket: &str,
-) -> Strategiewechsel {
+pub fn strategiewechsel(verworfen: usize, basis: &Leiterbasis) -> Option<Strategiewechsel> {
     // **Wirkungslose Hebel werden uebersprungen** (exp-015). Gemessener Anlass:
     // in exp-015 stand die Dosis bereits am Leiterende, und der Loop meldete
     //
@@ -1567,55 +1746,104 @@ pub fn strategiewechsel(
     // Das ist ein "Wechsel", der nichts aendert - dieselbe Fehlerklasse wie der
     // frueher behobene Paket-No-op. Ein Hebel, der nichts aendert, ist keiner,
     // und die naechste Runde waere eine Wiederholung dessen, was gerade
-    // verworfen wurde. Deshalb sucht die Leiter ab `verworfen` den **ersten
-    // wirksamen** Hebel; nur wenn alle vier wirkungslos waeren (kann nicht
-    // eintreten, der Pakethebel alterniert immer), bliebe der letzte.
-    for offset in 0..HEBEL_LEITER {
-        let i = (verworfen + offset) % HEBEL_LEITER;
-        if let Some(w) = hebel_an(i, dosis, replay, lr, letztes_paket) {
-            return w;
+    // verworfen wurde. Deshalb sucht die Leiter ab `verworfen` die **erste
+    // wirksame** Stufe.
+    //
+    // **Und sie kann zu Ende gehen.** Vorher stand hier ein `expect` mit der
+    // Begruendung, der Pakethebel sei nie wirkungslos - solange er nur
+    // alternierte, stimmte das. Jetzt hat jede Hebelart endlich viele Stufen
+    // (Dosis gedeckelt, Replay mit Boden, Lernrate gedeckelt, Paketliste
+    // endlich). Ist die letzte Stufe widerlegt, gibt es **keinen** Hebel mehr -
+    // und `None` ist dann die ehrliche Antwort. Eine weitere Runde mit anderer
+    // Einstellung waere keine Untersuchung mehr, sondern Wiederholung; der
+    // Loop meldet das und die naechste Arbeit ist neue Trainingsdaten oder ein
+    // Codehebel, nicht eine andere Zahl.
+    for stufe in verworfen..(verworfen + LEITER_TIEFE) {
+        if let Some(w) = hebel_an(stufe, basis) {
+            return Some(w);
         }
     }
-    hebel_an(HEBEL_LEITER - 1, dosis, replay, lr, letztes_paket)
-        .expect("der Pakethebel alterniert immer und ist damit nie wirkungslos")
+    None
 }
 
-/// Ein einzelner Hebel der Leiter; `None`, wenn er **nichts aendern wuerde**.
-pub fn hebel_an(
-    i: usize,
-    dosis: usize,
-    replay: f64,
-    lr: f32,
-    letztes_paket: &str,
-) -> Option<Strategiewechsel> {
-    match i % HEBEL_LEITER {
+/// Ein einzelner Hebel der Leiter; `None`, wenn er **nichts aendern wuerde**
+/// oder seine Stufen **aufgebraucht** sind.
+///
+/// **Die Stufe bestimmt alles.** `weite = stufe / HEBEL_LEITER` zaehlt, wie oft
+/// die Leiter schon herumgelaufen ist; die Wirkung waechst mit der Weite
+/// (`Dosis * 2^(weite+1)`, `Replay - 0.15*(weite+1)`, `lr * 1.5^(weite+1)`,
+/// Paketliste der Reihe nach). Dadurch ist die Leiter **tiefer als vier
+/// Stufen** - vorher lief sie nach vier Verwuerfen wieder bei derselben
+/// Einstellung an und konnte den Raum nicht ausschoepfen.
+pub fn hebel_an(stufe: usize, basis: &Leiterbasis) -> Option<Strategiewechsel> {
+    let i = stufe % HEBEL_LEITER;
+    let weite = stufe / HEBEL_LEITER;
+
+    // **Die Wertleitern sind monoton und endlich.** Beide Eigenschaften sind
+    // noetig, und beide waren zuerst verletzt:
+    //
+    // * **Monoton**, weil sonst dieselbe Einstellung unter zwei Stufennummern
+    //   zweimal herauskame. Gemessen im Test `leiter_geht_ueber_vier_stufen_hinaus`:
+    //   die Lernrate lief bei Weite 2 auf den Deckel (1,0e-3) und bot bei Weite 3
+    //   **denselben** Wert noch einmal an (`lr=1.000e-3` doppelt) - eine Runde,
+    //   die nichts untersucht.
+    // * **Endlich**, weil die Leiter sonst nie erschoepfen koennte.
+    //
+    // Beide Helfer rechnen den Wert einer Weite aus; die Stufe davor ist damit
+    // vergleichbar, ohne Zustand zu halten.
+    let dosis_bei = |w: usize| {
+        let faktor = 2u64.saturating_pow((w + 1) as u32);
+        ((basis.dosis as u64).saturating_mul(faktor) as usize).min(DOSIS_MAX)
+    };
+    let lr_bei = |w: usize| {
+        let x = basis.lr * 1.5f32.powi((w + 1) as i32);
+        if x > LR_MAX { LR_MAX } else { x }
+    };
+
+    match i {
         0 => {
-            let neu = (dosis * 2).min(DOSIS_MAX);
-            (neu != dosis).then(|| Strategiewechsel {
+            let neu = dosis_bei(weite);
+            // Gesaettigt oder schon einmal angeboten -> keine Stufe.
+            if neu == basis.dosis || (weite > 0 && neu == dosis_bei(weite - 1)) {
+                return None;
+            }
+            Some(Strategiewechsel {
                 parameter: "train_steps",
-                vorher: dosis.to_string(),
+                vorher: basis.dosis.to_string(),
                 nachher: neu.to_string(),
                 grund: "Dosis: der erste Lauf sah 6,4 % des Korpus einmal - Untertraining, nicht Unfaehigkeit",
+                stufe,
                 hebel: Hebel::Dosis(neu),
             })
         }
         1 => {
-            let neu = (replay - 0.15).max(0.0);
-            ((neu - replay).abs() > 1e-12).then(|| Strategiewechsel {
+            // Endlich viele Stufen: unter dem Boden gibt es nichts mehr zu
+            // senken, und dieselbe 0.00 zweimal anzubieten waere eine
+            // Wiederholung unter neuem Namen.
+            if weite >= REPLAY_STUFEN {
+                return None;
+            }
+            let neu = (basis.replay - 0.15 * (weite + 1) as f64).max(0.0);
+            (neu != basis.replay).then(|| Strategiewechsel {
                 parameter: "replay_share",
-                vorher: format!("{replay:.2}"),
+                vorher: format!("{:.2}", basis.replay),
                 nachher: format!("{neu:.2}"),
                 grund: "Datenmischung: mehr gezielte Daten statt Wiederholung - die Schwaeche soll oefter vorkommen",
+                stufe,
                 hebel: Hebel::Replay(neu),
             })
         }
         2 => {
-            let neu = lr * 1.5;
-            (neu != lr).then(|| Strategiewechsel {
+            let neu = lr_bei(weite);
+            if neu == basis.lr || (weite > 0 && neu == lr_bei(weite - 1)) {
+                return None;
+            }
+            Some(Strategiewechsel {
                 parameter: "lr",
-                vorher: format!("{lr:.3e}"),
+                vorher: format!("{:.3e}", basis.lr),
                 nachher: format!("{neu:.3e}"),
                 grund: "Lernrate: der Score bewegte sich, blieb aber unter der Schwelle - groessere Schritte",
+                stufe,
                 hebel: Hebel::Lernrate(neu),
             })
         }
@@ -1623,18 +1851,21 @@ pub fn hebel_an(
             // **Der Zielwert muss sich vom Ausgangswert unterscheiden.** Vorher
             // stand hier fest `Pack::Breit` - war das letzte Paket schon
             // `breit`, dann war `vorher == nachher`: ein "Wechsel", der nichts
-            // aendert, und die naechste Runde eine Wiederholung. Genau das
-            // sollte O-T9 verhindern. Deshalb alterniert der Hebel.
-            let ziel = if letztes_paket == Pack::Breit.key() {
-                Pack::Frageart
-            } else {
-                Pack::Breit
-            };
+            // aendert, und die naechste Runde eine Wiederholung.
+            //
+            // **Und jedes Paket kommt genau einmal.** Das Ausgangspaket wird aus
+            // der Liste **entfernt** (nicht nur uebersprungen): beim blossen
+            // Ueberspringen traf die Reihe bei `weite = 2` auf das
+            // Ausgangspaket, rueckte auf den naechsten Eintrag - und bot diesen
+            // bei `weite = 3` ein zweites Mal an.
+            let mut kandidaten = PAKET_LEITER.iter().copied().filter(|p| *p != basis.paket);
+            let ziel = kandidaten.nth(weite)?;
             Some(Strategiewechsel {
                 parameter: "pack",
-                vorher: letztes_paket.to_string(),
+                vorher: basis.paket.key().to_string(),
                 nachher: ziel.key().to_string(),
                 grund: "Lernpaket: dieselbe Zielklasse zweimal erfolglos - die Ursache wechseln, nicht die Menge",
+                stufe,
                 hebel: Hebel::Paket(ziel),
             })
         }
@@ -1673,27 +1904,26 @@ pub fn plateau_paketwechsel(
     }
 }
 
-/// **O-T9 als reine Regel.** Eine angenommene Runde braucht keinen Wechsel -
-/// eine **verworfene muss einen erzeugen**, sonst wiederholt die naechste Runde
-/// denselben Aufbau und liefert dasselbe Ergebnis.
-///
-/// Eigene Funktion, damit die Regel **pruefbar** ist und nicht im Schleifenkoerper
-/// versteckt liegt: der Test `verworfene_runde_erzwingt_dokumentierten_wechsel`
-/// haengt genau hier.
-pub fn wechsel_der_runde(
-    accepted: bool,
-    verworfen: usize,
-    dosis: usize,
-    replay: f64,
-    lr: f32,
-    paket: &str,
-) -> Option<Strategiewechsel> {
-    if accepted {
-        None
-    } else {
-        Some(strategiewechsel(verworfen, dosis, replay, lr, paket))
-    }
-}
+// **O-T9 als reine Regel - jetzt in [`strategiewechsel`] selbst.**
+//
+// Hier stand bis zur Reparatur des exp-017-Defekts eine eigene Funktion
+// `wechsel_der_runde(accepted, verworfen, ...)`, die fuer eine **verworfene**
+// Runde einen Hebel erzeugte und fuer eine angenommene `None` lieferte. Sie ist
+// **entfernt**, und zwar aus einem gemessenen Grund: sie war der Ort, an dem
+// Anzeige und Wirkung auseinanderliefen. Der Loop zog den Hebel dort erst am
+// **Rundenende**, sodass Runde 1 eines neuen Aufrufs die Basis wiederholte -
+// exp-017 Runde 1 war bitgleich zu exp-016 Runde 1 (gleiche Nutzlast
+// 12780669 B, gleicher Score 0.528922, gleicher Verlust).
+//
+// Seit der Reparatur gibt es **einen** Weg: der Zeiger (`verworfen`) wird am
+// Rundenende fortgeschrieben, die Stufe am Rundenanfang angewendet - beide aus
+// [`strategiewechsel`]. Eine zweite Funktion mit derselben Zustaendigkeit waere
+// genau die doppelte Buchhaltung, die den Defekt erzeugt hat.
+//
+// Die beiden Aussagen der alten Regel gelten weiter und werden geprueft:
+//   - eine **angenommene** Runde setzt den Zeiger auf 0 (naechste Stufe ist
+//     wieder die erste),
+//   - eine **verworfene** Runde geht eine Stufe weiter.
 
 /// Die naechste Aktion **aus den Messdaten** ableiten (Spec §7).
 ///
@@ -1708,6 +1938,7 @@ fn naechste_aktion(
     verbessert: bool,
     plateau: bool,
     unentschieden: bool,
+    leiter_ende: bool,
 ) -> (String, String) {
     if unentschieden {
         return (
@@ -1722,11 +1953,23 @@ fn naechste_aktion(
                 .to_string(),
         );
     }
+    // **Die erschoepfte Leiter ist eine eigene Aussage.** Sie darf nicht als
+    // gewoehnlicher Verwurf erscheinen: dort stuende "anderes Lernpaket waehlen",
+    // obwohl es keines mehr zu waehlen gibt. Die ehrliche Antwort ist, dass die
+    // Achse der Einstellungen ausgeschoepft ist - und die naechste Arbeit damit
+    // bei den Trainingsdaten oder am Code liegt, nicht bei einer weiteren Zahl.
+    if leiter_ende {
+        return (
+            "leiter_erschoepft".to_string(),
+            "alle Leiterstufen sind widerlegt oder wirkungslos: neue Trainingsdaten oder ein Codehebel noetig, keine andere Einstellung"
+                .to_string(),
+        );
+    }
     if plateau {
         return (
             "change_strategy".to_string(),
             format!(
-                "{} Iterationen ohne Verbesserung: Paket wechseln und Plateau melden",
+                "{} Iterationen ohne Verbesserung: naechste Leiterstufe ziehen und Plateau melden",
                 cap.budget.plateau_patience
             ),
         );
@@ -1739,7 +1982,7 @@ fn naechste_aktion(
     }
     (
         "reject_and_change_pack".to_string(),
-        "kein Fortschritt: Stand verworfen, anderes Lernpaket waehlen".to_string(),
+        "kein Fortschritt: Stand verworfen, naechste Leiterstufe ziehen".to_string(),
     )
 }
 
@@ -1963,24 +2206,33 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     }
 
     let eval_n = opts.eval_records.unwrap_or(cap.budget.eval_records);
-    let mut dosis = opts.train_steps.unwrap_or(cap.budget.train_steps);
     let max_iter = opts.iterations.unwrap_or(cap.budget.max_iterations);
-    // **Veränderlicher Strategiezustand (O-T9).** Diese drei Werte sind die
-    // Hebel, die eine verworfene Runde ziehen darf; sie stehen ausserhalb der
-    // Rundenschleife, damit ein Wechsel in der naechsten Runde auch wirkt.
-    let mut replay_share = cap.budget.replay_share;
-    let mut lr = basis.optim.lr;
-    // **Startkonfiguration ausdruecklich setzbar** (exp-017): sonst wiederholt
-    // Runde 1 eines neuen Aufrufs bitgleich die von vorher. Die Uebersteuerung
-    // gilt fuer die GANZE Runde und aendert genau EINE Variable.
+    // **Die Basis der Hebeleiter.** Diese drei Werte sind ab hier
+    // **unveraenderlich**: jede Stufe der Leiter wird gegen sie gerechnet, nie
+    // gegen die zuletzt gelaufene Einstellung. Nur so haengt eine Stufe an ihrer
+    // Nummer und nicht an der Prozessgeschichte.
+    let basis_dosis = opts.train_steps.unwrap_or(cap.budget.train_steps);
+    let basis_replay = cap.budget.replay_share;
+    let mut basis_lr = basis.optim.lr;
+    // **Startkonfiguration ausdruecklich setzbar** (`--lr`, `--replay-share`).
+    // Die Uebersteuerung aendert jetzt die **Basis**, nicht die Runde: sie sagt,
+    // von welchem Stand die Leiter aus gemessen wird (exp-018 hat so die
+    // Lernraten-Stufe auf 4,5e-4 gesetzt).
     if let Some(r) = opts.replay_override {
-        println!("Startwert     : replay_share aus --replay-share: {replay_share:.2} -> {r:.2}");
-        replay_share = r;
+        println!("Startwert     : replay_share aus --replay-share: {basis_replay:.2} -> {r:.2}");
     }
     if let Some(l) = opts.lr_override {
-        println!("Startwert     : lr aus --lr: {lr:.3e} -> {l:.3e}");
-        lr = l;
+        println!("Startwert     : lr aus --lr: {basis_lr:.3e} -> {l:.3e}");
+        basis_lr = l;
     }
+    let basis_replay = opts.replay_override.unwrap_or(basis_replay);
+    // Die **laufenden** Werte der aktuellen Runde. Sie werden zu Beginn jeder
+    // Runde auf die Basis zurueckgesetzt und dann mit genau einer Stufe
+    // belegt - nie mit zweien. `replay_share` und `lr` werden erst im
+    // Schleifenkoerper gesetzt; eine Vorbelegung waere toter Code.
+    let mut dosis = basis_dosis;
+    let mut replay_share;
+    let mut lr;
 
     // **Zwei disjunkte Panels statt einem (Replikationspflicht, exp-013).**
     // Panel A ist das historische Panel (Versatz 0, jeder `stride`. Datensatz) -
@@ -2065,9 +2317,11 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     // War die **vorige** Runde unentschieden? Dann darf der Plateau-Zweig in
     // dieser Runde das Lernpaket nicht aendern (exp-014).
     let mut letzte_runde_unentschieden = false;
-    // Hat die **vorige** Runde einen O-T9-Hebel gezogen? Dann darf der
-    // Plateau-Zweig nicht zusaetzlich das Paket wechseln, sonst aendern sich
-    // zwei Variablen gleichzeitig (exp-016).
+    // Hat die **vorige** Runde einen Hebel in ihrer Einstellung getragen? Dann
+    // darf der Plateau-Zweig nicht zusaetzlich das Paket wechseln, sonst aendern
+    // sich zwei Variablen gleichzeitig (exp-016). Seit der Reparatur traegt
+    // **jede** Runde genau eine Leiterstufe, der Plateau-Zweig ist damit
+    // gesperrt - der Paketwechsel kommt jetzt von der Leiter selbst.
     let mut letzte_runde_hatte_hebel = false;
     let mut letzter_pack: Option<Pack> = None;
     // Wie viele Runden bisher verworfen wurden - der Zeiger auf der
@@ -2081,12 +2335,9 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
     let mut verworfen = leiterposition(&opts.registry, &cap.id);
     if verworfen > 0 {
         println!(
-            "Hebelleiter   : {verworfen} verworfene Runde(n) aus der Registry fortgesetzt -> naechster Hebel ist Nr. {}",
-            (verworfen % HEBEL_LEITER) + 1
+            "Hebelleiter   : {verworfen} verworfene Runde(n) aus der Registry fortgesetzt -> Stufe {verworfen} wird angewendet"
         );
     }
-    // Ein Paketwechsel, den ein Strategiewechsel erzwungen hat (O-T9).
-    let mut erzwungenes_pack: Option<Pack> = None;
     // Der Stand, von dem die naechste Runde fortsetzt. Folgt dem ANGENOMMENEN
     // Zustand, nicht dem urspruenglichen Elternteil (siehe Schritt 6).
     let mut resume_state: Option<PathBuf> = opts.parent.clone();
@@ -2219,6 +2470,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 &[],
                 &samples,
                 dosis,
+                // Keine Runde gelaufen: hier gelten die **Basisdaten** der
+                // Leiter, denn es wurde nichts angewendet. Ein erfundener Wert
+                // waere schlimmer als gar keiner.
+                basis_lr,
+                basis_replay,
+                "-",
+                None,
             )?;
             out.push(Iteration {
                 nr,
@@ -2297,19 +2555,13 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
                 None => klasse_pack,
             },
         };
-        // Ein erzwungener Paketwechsel (O-T9) hat Vorrang vor beiden Achsen:
-        // er ist die begruendete Antwort darauf, dass das vorige Paket nicht
-        // weitergeholfen hat.
-        if let Some(p) = erzwungenes_pack.take() {
-            if p != pack {
-                println!(
-                    "Strategie     : erzwungener Paketwechsel (O-T9) {} -> {}",
-                    pack.key(),
-                    p.key()
-                );
-            }
-            pack = p;
-        }
+        // **Kein erzwungener Paketwechsel mehr an dieser Stelle.** Frueher setzte
+        // der am Rundenende gezogene Hebel `erzwungenes_pack`, das hier die
+        // Achswahl ueberschrieb. Seit der Reparatur des exp-017-Defekts gehoert
+        // der Pakethebel zur Leiterstufe und wird **vor** der Datenerzeugung
+        // angewendet; ein zweiter Weg zum selben Ziel waere genau die doppelte
+        // Buchhaltung, die den Defekt erst moeglich gemacht hat (angekuendigt vs.
+        // angewendet).
         // **Der Plateau-Wechsel darf eine ungeklaerte Messung nicht uebergehen.**
         //
         // Befund aus exp-014, im Log sichtbar: Runde 1 endete UNENTSCHIEDEN,
@@ -2339,6 +2591,61 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             pack = Pack::Breit;
             println!("Strategie     : vorheriges Paket brachte nichts -> Wechsel auf breit");
         }
+
+        // **Die Leiterstufe dieser Runde - hier und nicht erst am Rundenende.**
+        //
+        // Der Defekt, der das erzwingt (exp-017): der Hebel wurde am **Ende**
+        // einer verworfenen Runde gezogen und wirkte damit erst in der naechsten
+        // Iteration. Runde 1 eines neuen Aufrufs lief deshalb immer mit der
+        // Basis - und bei gleichem Elternteil und gleicher Achse **bitgleich**
+        // zur Runde 1 des vorigen Aufrufs. Gemessen: exp-017 Runde 1 hatte
+        // dieselbe Datennutzlast (12780669 B), denselben Score (0.528922) und
+        // denselben Verlust wie exp-016 Runde 1. Die Registry trug damit zwei
+        // Zeilen fuer **einen** Lauf, eine ganze Runde GPU-Zeit war verbraucht,
+        // ohne etwas zu untersuchen - und der Loop kuendigte den Hebel sogar an
+        // ("naechster Hebel ist Nr. 4"), ohne ihn anzuwenden. Anzeige und
+        // Wirkung liefen auseinander; genau davor warnt der Kommentar an
+        // [`strategiewechsel`].
+        //
+        // Jetzt gilt: die Stufe wird **vor** der Datenerzeugung angewendet, und
+        // zwar auf die **zurueckgesetzte Basis**. Damit traegt jede Runde genau
+        // eine Variable gegenueber der Basis, und zwei Runden mit derselben
+        // Stufe sind wirklich dieselbe Einstellung.
+        dosis = basis_dosis;
+        replay_share = basis_replay;
+        lr = basis_lr;
+        let leiterbasis = Leiterbasis {
+            dosis: basis_dosis,
+            replay: basis_replay,
+            lr: basis_lr,
+            paket: pack,
+        };
+        let stufe = strategiewechsel(verworfen, &leiterbasis);
+        let leiter_ende = stufe.is_none();
+        if let Some(w) = &stufe {
+            match w.hebel {
+                Hebel::Dosis(neu) => dosis = neu,
+                Hebel::Replay(neu) => replay_share = neu,
+                Hebel::Lernrate(neu) => lr = neu,
+                Hebel::Paket(ziel) => pack = ziel,
+            }
+            println!(
+                "Leiterstufe   : Nr. {} {} {} -> {} - {}",
+                w.stufe, w.parameter, w.vorher, w.nachher, w.grund
+            );
+        } else {
+            println!(
+                "Leiterstufe   : KEINE ab Stufe {verworfen} - alle Stufen sind widerlegt oder wirkungslos"
+            );
+            println!(
+                "   -> Die Einstellungsachse ist erschoepft: es braucht neue Trainingsdaten oder einen Codehebel, keine andere Zahl."
+            );
+        }
+        // Jede Runde traegt damit einen Hebel. Der Plateau-Zweig kann deshalb in
+        // der naechsten Runde **nie** zusaetzlich das Paket wechseln (exp-016);
+        // die Zeile steht hier, damit die Sperre sichtbar bleibt und nicht
+        // stillschweigend verschwindet.
+        letzte_runde_hatte_hebel = true;
         letzter_pack = Some(pack);
         println!("Lernpaket     : {} ({})", pack.key(), pack.reason());
 
@@ -2392,7 +2699,17 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // der Praefix den Elternstand nicht mehr treffen.
         let start_step = resume_state.as_deref().and_then(step_aus_name).unwrap_or(0);
         let mut lauf = basis.clone();
-        lauf.run.name = format!("agent-{}-from{start_step}-i{nr}", cap.id);
+        // **Der Name traegt den Fingerabdruck der Einstellung.** Ohne ihn
+        // bekommen zwei Runden mit gleichem Elternteil, gleicher Iteration und
+        // gleicher Dosis denselben Dateinamen, auch wenn sie mit verschiedenen
+        // Hebeln laufen - gemessen in der Registry (exp-016 Runde 2 mit
+        // replay 0.20 und exp-017 Runde 2 mit replay 0.35 schrieben beide
+        // `...-from12400-i2-step17200.safetensors`). Der zweite Lauf ueberschrieb
+        // den ersten, und die Registry zeigte fuer beide auf denselben Pfad.
+        // Siehe [`runden_fingerabdruck`].
+        let fingerabdruck =
+            runden_fingerabdruck(start_step, nr, dosis, replay_share, lr, pack.key(), seed);
+        lauf.run.name = format!("agent-{}-from{start_step}-i{nr}-{fingerabdruck}", cap.id);
         lauf.run.steps = dosis;
         lauf.run.log_every = 10;
         lauf.run.checkpoint_every = dosis.max(1);
@@ -2674,60 +2991,77 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
         // Plateau-Zweig das Paket nicht auf `breit` zwingen - und hat O-T9
         // bereits einen Hebel gezogen, ebenso wenig (sonst zwei Variablen).
         letzte_runde_unentschieden = unentschieden;
-        let (aktion, grund) = naechste_aktion(&cap, accepted, verbessert, plateau, unentschieden);
+        let (aktion, grund) = naechste_aktion(
+            &cap,
+            accepted,
+            verbessert,
+            plateau,
+            unentschieden,
+            leiter_ende,
+        );
 
-        // **Die TATSAECHLICH trainierte Dosis festhalten, bevor der
-        // Strategiewechsel sie aendert.** Sonst schreibt die Registry einen Wert
-        // in `steps`, der in dieser Runde nie gelaufen ist - gemessen im ersten
-        // GPU-Lauf: Runde 3 trainierte 600 Schritte, der Strategiewechsel setzte
-        // `dosis` auf 1200, und die Registry-Zeile behauptete 1200. Ein
-        // Register, das nicht den Lauf beschreibt, ist als Nachweis wertlos.
+        // **Die TATSAECHLICH trainierte Dosis festhalten.** Seit der Reparatur
+        // aendert der Rundenabschluss die Dosis nicht mehr (der Hebel wirkt am
+        // Rundenanfang), aber die Trennung bleibt: die Registry muss den Wert
+        // schreiben, der gelaufen ist, nicht den, der als naechster geplant ist.
         let dosis_trainiert = dosis;
+        // Die angewendete Leiterstufe - als Zahl, nicht als Text, damit die
+        // Registry maschinell lesbar bleibt.
+        let angewendete_stufe = stufe.as_ref().map(|w| w.stufe);
 
-        // **(9) O-T9: eine verworfene Runde darf sich nicht wiederholen.**
+        // **(9) O-T9: der Zeiger auf der Leiter wird fortgeschrieben.**
         //
-        // Der erste Loop-Lauf hat dreimal dieselbe Strategie gefahren und
-        // dreimal denselben Score-Gewinn (+0,007) erzielt - ein Verwurf ohne
-        // Strategiewechsel ist eine Wiederholung, keine Untersuchung. Hier wird
-        // deshalb **genau ein** Parameter gezogen; die Aenderung wirkt in der
-        // naechsten Runde, weil `dosis`, `replay_share` und `lr` ausserhalb der
-        // Schleife stehen. Zwei Hebel gleichzeitig waeren nicht unterscheidbar.
-        // **Ein UNENTSCHIEDENES Urteil zieht KEINEN Hebel.** Das ist der Kern der
-        // pessimistischen Regel (exp-013): wenn die Panels sich widersprechen,
-        // ist die Messung ungeklaert. Wuerde jetzt ein Hebel gezogen, wuerde die
-        // naechste Runde eine ZWEITE Variable aendern - und der Widerspruch
-        // liesse sich nie mehr aufloesen, weil niemand mehr weiss, welche
-        // Aenderung welche Wirkung hatte. Die richtige Antwort auf eine
-        // ungeklaerte Messung ist **wiederholen**, nicht umstellen.
-        let wechsel = if unentschieden {
-            None
-        } else {
-            wechsel_der_runde(accepted, verworfen, dosis, replay_share, lr, pack.key())
-        };
-        // Merken, ob O-T9 in DIESER Runde einen Hebel gezogen hat: dann darf der
-        // Plateau-Zweig der naechsten Runde nicht zusaetzlich das Paket wechseln.
-        letzte_runde_hatte_hebel = wechsel.is_some();
+        // Der Hebel selbst wurde bereits am **Rundenanfang** angewendet (siehe
+        // dort) - hier wird nur entschieden, welche Stufe die naechste Runde
+        // bekommt. Das ist die Reparatur des exp-017-Defekts: vorher wurde der
+        // Hebel hier gezogen und wirkte erst in der naechsten Iteration, sodass
+        // Runde 1 eines neuen Aufrufs die Basis wiederholte.
+        //
+        // **Der Zeiger springt auf `angewendete Stufe + 1`, er zaehlt nicht
+        // einfach hoch.** Grund: [`strategiewechsel`] ueberspringt wirkungslose
+        // Stufen. Liefert Stufe 0 nichts (etwa weil die Dosis am Deckel steht)
+        // und wird deshalb Stufe 1 angewendet, dann muss der Zeiger auf **2**
+        // stehen. Mit `verworfen += 1` waere er 1 - und die naechste Runde
+        // bekaeme **dieselbe** Einstellung noch einmal. Genau diese Wiederholung
+        // soll O-T9 verhindern.
+        //
+        // **Ein UNENTSCHIEDENES Urteil bewegt die Leiter NICHT.** Das ist der
+        // Kern der pessimistischen Regel (exp-013): wenn die Panels sich
+        // widersprechen, ist die Messung ungeklaert, und die naechste Runde muss
+        // **dieselbe** Stufe wiederholen - sonst laesst sich der Widerspruch nie
+        // aufloesen, weil niemand mehr weiss, welche Aenderung welche Wirkung
+        // hatte.
         if unentschieden {
             println!(
-                "   -> KEIN Strategiewechsel: die Runde wird mit UNVERAENDERTER Einstellung wiederholt"
+                "   -> KEIN Leiterfortschritt: die Runde wird mit UNVERAENDERTER Stufe wiederholt"
             );
-        }
-        if let Some(w) = &wechsel {
-            match w.hebel {
-                Hebel::Dosis(neu) => dosis = neu,
-                Hebel::Replay(neu) => replay_share = neu,
-                Hebel::Lernrate(neu) => lr = neu,
-                Hebel::Paket(ziel) => erzwungenes_pack = Some(ziel),
-            }
-            println!(
-                "Strategiewechsel (O-T9): {} {} -> {} - {}",
-                w.parameter, w.vorher, w.nachher, w.grund
-            );
-            verworfen += 1;
-        } else if verbessert {
+        } else if accepted || verbessert {
             // Ein angenommener Stand setzt die Leiter zurueck: die naechste
-            // Schwaeche verdient wieder den ersten Hebel (Dosis).
+            // Schwaeche verdient wieder die erste Stufe.
             verworfen = 0;
+        } else if let Some(angewendet) = stufe.as_ref().map(|w| w.stufe) {
+            verworfen = angewendet + 1;
+        }
+        // Was die naechste Runde bekommt - angesagt wird **dieselbe** Funktion,
+        // die sie anwenden wird. Anzeige und Wirkung koennen damit nicht
+        // auseinanderlaufen.
+        let naechste = strategiewechsel(
+            verworfen,
+            &Leiterbasis {
+                dosis: basis_dosis,
+                replay: basis_replay,
+                lr: basis_lr,
+                paket: pack,
+            },
+        );
+        match &naechste {
+            Some(w) => println!(
+                "Strategiewechsel (O-T9): Stufe {} ist dran - {} {} -> {}",
+                w.stufe, w.parameter, w.vorher, w.nachher
+            ),
+            None => println!(
+                "Strategiewechsel (O-T9): keiner mehr - die Leiter ist ab Stufe {verworfen} erschoepft"
+            ),
         }
         println!("Naechste Aktion: {aktion} - {grund}");
 
@@ -2756,6 +3090,10 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             &befunde,
             &samples,
             dosis_trainiert,
+            lr,
+            replay_share,
+            pack.key(),
+            angewendete_stufe,
         )?;
         let dversion_ref = dversion;
         let _ = dversion_ref;
@@ -2780,7 +3118,7 @@ pub fn run(opts: &AgentOptions) -> Result<Vec<Iteration>> {
             panels: befunde.clone(),
             next_action: aktion,
             next_reason: grund,
-            strategiewechsel: wechsel,
+            strategiewechsel: stufe,
             checkpoint: if accepted {
                 neu.display().to_string()
             } else {
@@ -2803,6 +3141,24 @@ fn checkpoints_pfad(dir: &Path, name: &str, step: usize) -> Option<PathBuf> {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Die Prosa-Zeile der Trainingsconfig fuer die Registry.
+///
+/// Eigene Funktion, damit **pruefbar** ist, dass die Zeile dieselben Werte
+/// nennt wie die Zahlenfelder daneben. Vorher stand hier nur die Schrittzahl,
+/// und `learning_rate` war fest `0.0003` - die Zeile beschrieb den Lauf damit
+/// nicht.
+pub fn trainingsconfig_text(steps: usize, pack: &str, replay: f64, lr: f32) -> String {
+    format!(
+        "{steps} Schritte, Micro, Batch wie Basisconfig, Paket {pack}, replay_share {replay:.2}, lr {lr:.3e}"
+    )
+}
+
+/// Diese Funktion ist der **einzige** Ort, an dem eine Registry-Zeile entsteht.
+/// Ihre vielen Parameter sind Absicht: sie soll nichts aus dem Schleifenkoerper
+/// erraten koennen, sondern alles ausdruecklich bekommen - genau deshalb faellt
+/// auf, wenn ein Wert fehlt (so wurde der fest verdrahtete
+/// `learning_rate`-Wert gefunden).
+#[allow(clippy::too_many_arguments)]
 fn eintrag(
     opts: &AgentOptions,
     cap: &Capability,
@@ -2824,6 +3180,10 @@ fn eintrag(
     panels: &[PanelBefund],
     samples: &[(usize, String, String, String)],
     steps: usize,
+    lr: f32,
+    replay_share: f64,
+    pack: &str,
+    leiterstufe: Option<usize>,
 ) -> Result<()> {
     let a = after.unwrap_or(before);
     let entry = RegistryEntry {
@@ -2834,10 +3194,16 @@ fn eintrag(
         generator_version: GENERATOR_VERSION.to_string(),
         verifier_version: VERIFIER_VERSION.to_string(),
         seed: 1337,
-        training_config: format!("{} Schritte, Micro, Batch wie Basisconfig", steps),
+        // **Die Zeile muss den Lauf beschreiben.** Sie nennt jetzt die Hebel
+        // mit, mit denen wirklich trainiert wurde - vorher stand hier nur die
+        // Schrittzahl, und `learning_rate` war fest 0.0003.
+        training_config: trainingsconfig_text(steps, pack, replay_share, lr),
         evaluation_config: format!("greedy, {} Datensaetze, fester Referenzsatz", a.asked),
         steps,
-        learning_rate: 0.0003,
+        learning_rate: lr as f64,
+        replay_share,
+        pack: pack.to_string(),
+        leiterstufe,
         loss: a.regression_loss,
         perplexity: a.regression_loss.exp(),
         exact_match: a.exact_match,
@@ -3441,60 +3807,64 @@ mod tests {
         );
     }
 
-    /// **O-T9 als Test.** Eine verworfene Runde muss einen dokumentierten
-    /// Strategiewechsel erzeugen - und der angezeigte Wert muss der
+    /// **O-T9 als Test.** Jede Stufe der Leiter muss einen dokumentierten,
+    /// **wirksamen** Wechsel liefern - und der angezeigte Wert muss der
     /// angewendete sein (eine Quelle, keine zwei Rechnungen).
     #[test]
     fn verwurf_erzwingt_genau_einen_strategiewechsel() {
-        let dosis_aus = 600usize;
-        let replay_aus = 0.35f64;
-        let lr_aus = 3e-4f32;
+        let b = Leiterbasis::neu(600, 0.35, 3e-4, Pack::Terminierung);
 
-        // Runde 0: Dosis verdoppeln.
-        let w0 = strategiewechsel(0, dosis_aus, replay_aus, lr_aus, "terminierung");
+        // Stufe 0: Dosis verdoppeln.
+        let w0 = strategiewechsel(0, &b).expect("Stufe 0 muss existieren");
         assert_eq!(w0.parameter, "train_steps");
         assert_eq!(w0.nachher, "1200");
         assert_eq!(w0.hebel, Hebel::Dosis(1200));
+        assert_eq!(w0.stufe, 0, "die Stufe muss mitgefuehrt werden");
         assert!(!w0.grund.is_empty(), "ohne Begruendung ist es kein Wechsel");
 
-        // Runde 1: Datenmischung senken - und die Anzeige nennt denselben Wert
+        // Stufe 1: Datenmischung senken - und die Anzeige nennt denselben Wert
         // wie der Hebel (keine zwei Wahrheiten).
-        let w1 = strategiewechsel(1, dosis_aus, replay_aus, lr_aus, "terminierung");
+        let w1 = strategiewechsel(1, &b).expect("Stufe 1 muss existieren");
         assert_eq!(w1.parameter, "replay_share");
         match w1.hebel {
             Hebel::Replay(neu) => assert_eq!(w1.nachher, format!("{neu:.2}")),
             other => panic!("falscher Hebel: {other:?}"),
         }
 
-        // Runde 2: Lernrate.
-        let w2 = strategiewechsel(2, dosis_aus, replay_aus, lr_aus, "terminierung");
+        // Stufe 2: Lernrate.
+        let w2 = strategiewechsel(2, &b).expect("Stufe 2 muss existieren");
         assert_eq!(w2.parameter, "lr");
         match w2.hebel {
             Hebel::Lernrate(neu) => {
-                assert!(neu > lr_aus, "die Lernrate muss steigen");
+                assert!(neu > b.lr, "die Lernrate muss steigen");
                 assert_eq!(w2.nachher, format!("{neu:.3e}"));
             }
             other => panic!("falscher Hebel: {other:?}"),
         }
 
-        // Runde 3: Paketwechsel.
-        let w3 = strategiewechsel(3, dosis_aus, replay_aus, lr_aus, "terminierung");
+        // Stufe 3: Paketwechsel.
+        let w3 = strategiewechsel(3, &b).expect("Stufe 3 muss existieren");
         assert_eq!(w3.parameter, "pack");
         assert_eq!(w3.hebel, Hebel::Paket(Pack::Breit));
         assert_eq!(w3.nachher, Pack::Breit.key());
         // **Und der Paketwechsel darf kein No-Op sein:** war das letzte Paket
         // schon `breit`, muss er auf ein anderes zielen.
-        let w3b = strategiewechsel(3, dosis_aus, replay_aus, lr_aus, Pack::Breit.key());
+        let b_breit = Leiterbasis::neu(600, 0.35, 3e-4, Pack::Breit);
+        let w3b = strategiewechsel(3, &b_breit).expect("Stufe 3 muss existieren");
         assert_ne!(
             w3b.vorher, w3b.nachher,
             "Paketwechsel ohne Aenderung ist eine Wiederholung"
         );
         assert_eq!(w3b.hebel, Hebel::Paket(Pack::Frageart));
 
-        // **Kein Hebel wiederholt sich unmittelbar**: vier Verwuerfe, vier
+        // **Kein Hebel wiederholt sich unmittelbar**: vier Stufen, vier
         // verschiedene Parameter.
         let alle: Vec<&str> = (0..HEBEL_LEITER)
-            .map(|i| strategiewechsel(i, dosis_aus, replay_aus, lr_aus, "p").parameter)
+            .map(|i| {
+                strategiewechsel(i, &Leiterbasis::neu(600, 0.35, 3e-4, Pack::Terminierung))
+                    .expect("die ersten vier Stufen muessen existieren")
+                    .parameter
+            })
             .collect();
         let mut sortiert = alle.clone();
         sortiert.sort_unstable();
@@ -3506,54 +3876,94 @@ mod tests {
         );
     }
 
-    /// **O-T9 als Abnahmetest.** Ein Verwurf **ohne** dokumentierten
-    /// Strategiewechsel ist eine Wiederholung und muss auffallen; ein Verwurf
-    /// **mit** Wechsel ist bestanden.
+    /// **Die Leiter ist eine Leiter, keine Schleife.**
     ///
-    /// Der Test prueft die reine Regel (`wechsel_der_runde`), nicht den
-    /// Schleifenkoerper - nur so ist er ohne Modell und ohne Training lauffaehig.
+    /// **Warum dieser Test neu ist.** Bis zur Reparatur des exp-017-Defekts
+    /// kehrte die Leiter nach vier Verwuerfen zur ersten Einstellung zurueck
+    /// (`(verworfen % HEBEL_LEITER)` bei festen Schrittweiten). Damit standen
+    /// nach fuenf Verwuerfen wieder dieselben Einstellungen zur Wahl, obwohl
+    /// keine davon gewirkt hatte - und der Loop konnte den Raum nicht
+    /// ausschoepfen. Gemessen in der Registry: sechs Zeilen mit nur drei
+    /// verschiedenen Parametersaetzen, davon zwei bitgleiche Laeufe.
     #[test]
-    fn verworfene_runde_erzwingt_dokumentierten_wechsel() {
-        let (dosis, replay, lr) = (600usize, 0.35f64, 3e-4f32);
+    fn leiter_geht_ueber_vier_stufen_hinaus() {
+        let b = Leiterbasis::neu(DOSIS_MAX, 0.35, 3e-4, Pack::Reparatur);
 
-        // Angenommen: kein Wechsel noetig.
+        // Der Dosishebel ist hier wirkungslos (Deckel) und wird uebersprungen;
+        // die erste brauchbare Stufe ist deshalb **Stufe 1**, nicht Stufe 0.
+        let s1 = strategiewechsel(0, &b).expect("erste wirksame Stufe");
+        assert_eq!(s1.stufe, 1, "Stufe 0 ist gesaettigt und wird uebersprungen");
+        assert_eq!(s1.parameter, "replay_share");
+        assert_eq!(s1.nachher, "0.20");
+
+        // **Die zweite Replay-Stufe ist eine andere als die erste.** Genau das
+        // ging vorher nicht: dort kam immer wieder 0.20 heraus.
+        let s5 = strategiewechsel(5, &b).expect("zweite Replay-Stufe");
+        assert_eq!(s5.parameter, "replay_share");
+        assert_eq!(s5.nachher, "0.05");
+
+        // Die Lernrate steigt ueber die erste Stufe hinaus.
+        let s2 = strategiewechsel(2, &b).expect("erste Lernratenstufe");
+        let s6 = strategiewechsel(6, &b).expect("zweite Lernratenstufe");
+        assert_eq!(s2.parameter, "lr");
+        assert_eq!(s6.parameter, "lr");
         assert!(
-            wechsel_der_runde(true, 0, dosis, replay, lr, "breit").is_none(),
-            "eine angenommene Runde darf keinen Wechsel erzwingen"
+            matches!((s2.hebel, s6.hebel), (Hebel::Lernrate(a), Hebel::Lernrate(x)) if x > a),
+            "die zweite Lernratenstufe muss groesser sein als die erste: {s2:?} {s6:?}"
         );
 
-        // Verworfen: MUSS einen benannten, begruendeten Wechsel liefern.
-        let w = wechsel_der_runde(false, 0, dosis, replay, lr, "breit")
-            .expect("VERWORFEN ohne Strategiewechsel = Wiederholung (O-T9)");
-        assert!(!w.parameter.is_empty(), "der Hebel muss benannt sein");
-        assert!(!w.grund.is_empty(), "der Wechsel muss begruendet sein");
-        assert_ne!(
-            w.vorher, w.nachher,
-            "ein Wechsel, der nichts aendert, ist kein Wechsel"
-        );
-
-        // Ueber die ganze Leiter: jeder Verwurf liefert einen anderen Hebel,
-        // und jeder aendert tatsaechlich etwas.
-        let mut namen = Vec::new();
-        for i in 0..HEBEL_LEITER {
-            let wi = wechsel_der_runde(false, i, dosis, replay, lr, "terminierung")
-                .unwrap_or_else(|| panic!("Verwurf {i} ohne Wechsel"));
-            assert_ne!(wi.vorher, wi.nachher, "Hebel {i} aendert nichts");
-            namen.push(wi.parameter);
+        // **Und sie geht zu Ende - ohne eine Einstellung zweimal anzubieten.**
+        //
+        // Der Zeiger springt beim Anwenden auf `Stufe + 1` (der Loop macht das
+        // genauso), weil [`strategiewechsel`] wirkungslose Stufen ueberspringt.
+        // Deshalb wird hier **so gelaufen, wie der Loop laeuft** - nicht stur
+        // `0,1,2,...`: sonst kaeme dieselbe Einstellung unter zwei
+        // Stufennummern zweimal heraus, und genau diese Wiederholung ist der
+        // Fehler, den O-T9 verhindern soll.
+        let mut gesehen = std::collections::BTreeSet::new();
+        let mut zeiger = 0usize;
+        let mut schritte = 0usize;
+        loop {
+            schritte += 1;
+            assert!(schritte < 100, "die Leiter endet nicht: {gesehen:?}");
+            match strategiewechsel(zeiger, &b) {
+                Some(w) => {
+                    assert!(
+                        w.stufe >= zeiger,
+                        "die Leiter darf nicht zuruecklaufen: {} < {zeiger}",
+                        w.stufe
+                    );
+                    assert_ne!(w.vorher, w.nachher, "Stufe {} aendert nichts", w.stufe);
+                    let schluessel = format!("{}={}", w.parameter, w.nachher);
+                    assert!(
+                        gesehen.insert(schluessel.clone()),
+                        "Stufe {} wiederholt die Einstellung {schluessel}",
+                        w.stufe
+                    );
+                    zeiger = w.stufe + 1;
+                }
+                None => break,
+            }
         }
-        let mut sortiert = namen.clone();
-        sortiert.sort_unstable();
-        sortiert.dedup();
-        assert_eq!(
-            sortiert.len(),
-            HEBEL_LEITER,
-            "Hebel wiederholen sich: {namen:?}"
+        // **Weit mehr als die alten vier Stufen.** Gemessen an der Registry
+        // standen vorher nur drei Parametersaetze zur Verfuegung (Dosis war
+        // gesaettigt, also Replay / Lernrate / Paket) - und zwei davon
+        // wiederholten sich nach vier Verwuerfen.
+        assert!(
+            gesehen.len() >= 12,
+            "die Leiter ist zu flach: nur {} Stufen {gesehen:?}",
+            gesehen.len()
         );
-
-        // **Gegenprobe:** die Regel muss auch bei einem bereits breiten Paket
-        // etwas aendern - genau dort war der alte Pakethebel ein No-Op.
-        let wb = wechsel_der_runde(false, 3, dosis, replay, lr, Pack::Breit.key()).unwrap();
-        assert_ne!(wb.vorher, wb.nachher);
+        // **Die Erschoepfung ist monoton:** ist die Leiter einmal zu Ende,
+        // bleibt sie es. Sonst koennte eine spaetere Runde doch wieder eine
+        // laengst widerlegte Einstellung anbieten.
+        let ende = zeiger;
+        for stufe in ende..(ende + 50) {
+            assert!(
+                strategiewechsel(stufe, &b).is_none(),
+                "nach dem Leiterende kommt bei Stufe {stufe} doch noch ein Hebel"
+            );
+        }
     }
 
     /// Der Dosis-Hebel darf nicht ins Unendliche wachsen.
@@ -3565,24 +3975,231 @@ mod tests {
     /// prueft der Test die **Deckelung** und nicht mehr den Stillstand.
     #[test]
     fn dosis_hat_einen_deckel() {
+        let b = |d| Leiterbasis::neu(d, 0.35, 3e-4, Pack::Breit);
         // Unter dem Deckel verdoppelt der Hebel.
-        let w = strategiewechsel(0, 1200, 0.35, 3e-4, "breit");
+        let w = strategiewechsel(0, &b(1200)).expect("Stufe 0");
         assert_eq!(w.hebel, Hebel::Dosis(2400));
         // Knapp darunter wird auf den Deckel gekappt, nicht darueber hinaus.
-        let w2 = strategiewechsel(0, 3000, 0.35, 3e-4, "breit");
+        let w2 = strategiewechsel(0, &b(3000)).expect("Stufe 0");
         assert_eq!(w2.hebel, Hebel::Dosis(DOSIS_MAX));
         // **Am Deckel ist der Dosishebel wirkungslos und wird uebersprungen.**
-        let w3 = strategiewechsel(0, DOSIS_MAX, 0.35, 3e-4, "breit");
+        let w3 = strategiewechsel(0, &b(DOSIS_MAX)).expect("naechste wirksame Stufe");
         assert_ne!(w3.hebel, Hebel::Dosis(DOSIS_MAX), "kein No-op mehr");
         assert_ne!(w3.vorher, w3.nachher);
+    }
+
+    /// **Die Lernrate hat einen Deckel - sonst waere die Leiter unendlich.**
+    ///
+    /// Ohne Deckel waechst die Lernrate multiplikativ und wird nie
+    /// wirkungslos; die Leiter haette dann kein Ende und koennte eine
+    /// nachweislich zu grosse Lernrate beliebig oft weiter steigern. Mit Deckel
+    /// endet der Hebel, und die Leiter kann erschoepfen.
+    #[test]
+    fn lernrate_hat_einen_deckel() {
+        let b = Leiterbasis::neu(DOSIS_MAX, 0.0, 3e-4, Pack::Reparatur);
+        let mut gesehen = Vec::new();
+        for stufe in 0..200 {
+            if let Some(w) = strategiewechsel(stufe, &b) {
+                if let Hebel::Lernrate(neu) = w.hebel {
+                    assert!(
+                        neu <= LR_MAX,
+                        "Lernrate {neu:e} ueber dem Deckel {LR_MAX:e}"
+                    );
+                    gesehen.push(neu);
+                }
+            }
+        }
+        assert!(!gesehen.is_empty(), "es muss Lernratenstufen geben");
+        // Die letzte angebotene Lernrate liegt **auf** dem Deckel, und danach
+        // kommt keine weitere - genau das ist die Erschoepfung.
+        let mut sortiert = gesehen.clone();
+        sortiert.sort_by(|a, b| a.partial_cmp(b).expect("keine NaN"));
+        sortiert.dedup();
+        assert_eq!(
+            *sortiert.last().expect("nicht leer"),
+            LR_MAX,
+            "die Leiter muss beim Deckel ankommen: {sortiert:?}"
+        );
     }
 
     /// Die Replay-Rate darf nicht negativ werden.
     #[test]
     fn replay_bleibt_nicht_negativ() {
-        let w = strategiewechsel(1, 600, 0.05, 3e-4, "breit");
+        let b = Leiterbasis::neu(600, 0.05, 3e-4, Pack::Breit);
+        let w = strategiewechsel(1, &b).expect("Replay-Stufe");
         assert_eq!(w.hebel, Hebel::Replay(0.0));
         assert_eq!(w.nachher, "0.00");
+    }
+
+    /// **Der Fingerabdruck verhindert den belegten Namenszusammenstoss.**
+    ///
+    /// Der gemessene Schaden: exp-016 Runde 2 (replay 0.20) und exp-017 Runde 2
+    /// (replay 0.35) liefen mit **gleichem** Elternteil, gleicher Iteration und
+    /// gleicher Dosis - und schrieben deshalb beide
+    /// `agent-sequence_reasoning-from12400-i2-step17200.safetensors`. Der zweite
+    /// Lauf ueberschrieb den ersten, und die Registry zeigte fuer beide auf
+    /// denselben Pfad. Fuer eine der beiden Zeilen beschreibt der registrierte
+    /// Pfad damit ein Modell, das dort nicht mehr liegt.
+    #[test]
+    fn fingerabdruck_trennt_den_gemessenen_namenszusammenstoss() {
+        // exp-016 Runde 2: replay 0.20. exp-017 Runde 2: replay 0.35.
+        let e016 = runden_fingerabdruck(12400, 2, 4800, 0.20, 3e-4, "breit", 1337);
+        let e017 = runden_fingerabdruck(12400, 2, 4800, 0.35, 3e-4, "breit", 1337);
+        assert_ne!(
+            e016, e017,
+            "die beiden Runden teilten sich den Dateinamen - genau das darf nicht mehr passieren"
+        );
+    }
+
+    /// **Jede Groesse, die in die Gewichte eingeht, muss den Namen aendern.**
+    ///
+    /// Eine Luecke im Abdruck waere ein erneuter Namenszusammenstoss - und damit
+    /// wieder ein ueberschriebener, nicht mehr nachpruefbarer Stand. Deshalb
+    /// wird hier **jede** Groesse einzeln veraendert und geprueft, dass der
+    /// Abdruck sich aendert.
+    #[test]
+    fn fingerabdruck_haengt_an_jeder_einstellung() {
+        let original = runden_fingerabdruck(12400, 2, 4800, 0.35, 3e-4, "breit", 1337);
+        // Gleiche Einstellung -> gleicher Abdruck (sonst waere er als
+        // Wiedererkennung unbrauchbar).
+        assert_eq!(
+            original,
+            runden_fingerabdruck(12400, 2, 4800, 0.35, 3e-4, "breit", 1337),
+            "der Abdruck muss deterministisch sein"
+        );
+
+        let varianten: [(&str, String); 7] = [
+            (
+                "start_step",
+                runden_fingerabdruck(7600, 2, 4800, 0.35, 3e-4, "breit", 1337),
+            ),
+            (
+                "iteration",
+                runden_fingerabdruck(12400, 1, 4800, 0.35, 3e-4, "breit", 1337),
+            ),
+            (
+                "dosis",
+                runden_fingerabdruck(12400, 2, 2400, 0.35, 3e-4, "breit", 1337),
+            ),
+            (
+                "replay_share",
+                runden_fingerabdruck(12400, 2, 4800, 0.20, 3e-4, "breit", 1337),
+            ),
+            (
+                "lr",
+                runden_fingerabdruck(12400, 2, 4800, 0.35, 4.5e-4, "breit", 1337),
+            ),
+            (
+                "pack",
+                runden_fingerabdruck(12400, 2, 4800, 0.35, 3e-4, "reparatur", 1337),
+            ),
+            (
+                "seed",
+                runden_fingerabdruck(12400, 2, 4800, 0.35, 3e-4, "breit", 4711),
+            ),
+        ];
+        for (name, v) in &varianten {
+            assert_ne!(
+                &original, v,
+                "eine andere {name} ergibt denselben Dateinamen - das ist ein ueberschriebener Stand"
+            );
+        }
+        // Und die Laenge des Abdrucks ist fest, damit Namen vergleichbar bleiben.
+        assert_eq!(original.len(), 16, "16 Hexzeichen: {original}");
+    }
+
+    /// **Die Registry muss den Lauf beschreiben, den sie protokolliert.**
+    ///
+    /// Bis zur Reparatur stand `learning_rate` fest auf 0.0003 - auch fuer
+    /// Runden, die mit einer anderen Lernrate liefen. Diese Zeile behauptete
+    /// eine Einstellung, die nie gelaufen ist, und wer die Runde nachrechnen
+    /// wollte, haette den falschen Wert benutzt. Derselbe Fehler waere bei
+    /// `replay_share` und `pack` moeglich, deshalb prueft dieser Test das
+    /// **Schreiben und Lesen** der drei Hebelwerte.
+    #[test]
+    fn registry_schreibt_die_angewandten_hebel() {
+        let dir = std::env::temp_dir().join(format!("shiro-reg-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("Tempordner");
+        let pfad = dir.join("experiments.jsonl");
+
+        let mut e = leerer_eintrag();
+        e.learning_rate = 4.5e-4;
+        e.replay_share = 0.20;
+        e.pack = "reparatur".to_string();
+        e.leiterstufe = Some(2);
+        e.steps = 4800;
+        registry_append(&pfad, &e).expect("anhaengen");
+
+        let zurueck = registry_read(&pfad).expect("lesen");
+        assert_eq!(zurueck.len(), 1);
+        let z = &zurueck[0];
+        assert_eq!(
+            z.learning_rate, 4.5e-4,
+            "die Lernrate muss aus dem Lauf kommen"
+        );
+        assert_eq!(z.replay_share, 0.20);
+        assert_eq!(z.pack, "reparatur");
+        assert_eq!(z.leiterstufe, Some(2));
+        assert_eq!(z.steps, 4800);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// **Die Prosa und die Zahlenfelder muessen dasselbe sagen.**
+    ///
+    /// Eine Registry-Zeile, deren Text eine andere Lernrate nennt als ihr Feld
+    /// `learning_rate`, ist als Nachweis unbrauchbar - man weiss dann nicht,
+    /// welcher der beiden Werte der wahre ist. Beide kommen deshalb aus
+    /// **einer** Quelle, und dieser Test prueft, dass die Quelle alle drei
+    /// Hebel nennt.
+    #[test]
+    fn config_text_nennt_dieselben_hebel_wie_die_felder() {
+        let t = trainingsconfig_text(4800, "reparatur", 0.20, 4.5e-4);
+        assert!(t.contains("4800 Schritte"), "{t}");
+        assert!(t.contains("reparatur"), "{t}");
+        assert!(t.contains("0.20"), "die Datenmischung fehlt: {t}");
+        assert!(t.contains("4.500e-4"), "die Lernrate fehlt: {t}");
+        // Gegenprobe: ein anderer Wert ergibt einen anderen Text.
+        assert_ne!(t, trainingsconfig_text(4800, "reparatur", 0.20, 3e-4));
+        assert_ne!(t, trainingsconfig_text(4800, "breit", 0.20, 4.5e-4));
+    }
+
+    /// Ein Eintrag mit allen Pflichtfeldern - fuer Tests, die nur einzelne
+    /// Felder pruefen.
+    fn leerer_eintrag() -> RegistryEntry {
+        RegistryEntry {
+            experiment_id: "sequence_reasoning-i1".to_string(),
+            capability: "sequence_reasoning".to_string(),
+            parent_checkpoint: None,
+            dataset_version: "test".to_string(),
+            generator_version: "test".to_string(),
+            verifier_version: "test".to_string(),
+            seed: 1337,
+            training_config: String::new(),
+            evaluation_config: String::new(),
+            steps: 0,
+            learning_rate: 0.0,
+            replay_share: 0.0,
+            pack: String::new(),
+            leiterstufe: None,
+            loss: 0.0,
+            perplexity: 0.0,
+            exact_match: 0.0,
+            structural_accuracy: 0.0,
+            compositional_accuracy: None,
+            adversarial_accuracy: None,
+            regression_results: String::new(),
+            failure_distribution: BTreeMap::new(),
+            selected_next_action: String::new(),
+            reason_for_action: String::new(),
+            checkpoint: String::new(),
+            accepted: false,
+            score: 0.0,
+            score_before: 0.0,
+            urteil: String::new(),
+            deterministisch: true,
+            panels: Vec::new(),
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -3838,36 +4455,11 @@ mod tests {
         assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
 
         let zeile = |urteil: &str, cap: &str| {
-            let e = crate::agent::RegistryEntry {
-                experiment_id: "x".into(),
-                capability: cap.into(),
-                parent_checkpoint: None,
-                dataset_version: "v".into(),
-                generator_version: "g".into(),
-                verifier_version: "v".into(),
-                seed: 1337,
-                training_config: "t".into(),
-                evaluation_config: "e".into(),
-                steps: 1,
-                learning_rate: 0.0,
-                loss: 0.0,
-                perplexity: 0.0,
-                exact_match: 0.0,
-                structural_accuracy: 0.0,
-                compositional_accuracy: None,
-                adversarial_accuracy: None,
-                regression_results: "r".into(),
-                failure_distribution: BTreeMap::new(),
-                selected_next_action: "a".into(),
-                reason_for_action: "g".into(),
-                checkpoint: "c".into(),
-                accepted: urteil == "ANGENOMMEN",
-                score: 0.0,
-                score_before: 0.0,
-                urteil: urteil.to_string(),
-                deterministisch: true,
-                panels: Vec::new(),
-            };
+            let mut e = leerer_eintrag();
+            e.experiment_id = "x".into();
+            e.capability = cap.into();
+            e.accepted = urteil == "ANGENOMMEN";
+            e.urteil = urteil.to_string();
             registry_append(&reg, &e).expect("anhaengen");
         };
 
@@ -3881,8 +4473,8 @@ mod tests {
         zeile("UNENTSCHIEDEN", "sequence_reasoning");
         assert_eq!(
             leiterposition(&reg, "sequence_reasoning"),
-            0,
-            "nach einer ungeklaerten Runde wird wiederholt, nicht weitergeklettert"
+            2,
+            "eine ungeklaerte Runde wiederholt DIESELBE Stufe: sie klettert nicht weiter (das waere 3) und faellt auch nicht auf 0 zurueck - sie hat die Position nicht bewegt"
         );
 
         // Eine Annahme setzt die Leiter ebenfalls zurueck.
@@ -3894,6 +4486,68 @@ mod tests {
         // Eine andere Faehigkeit zaehlt nicht mit.
         zeile("VERWORFEN", "andere_faehigkeit");
         assert_eq!(leiterposition(&reg, "sequence_reasoning"), 1);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// **Die Position kommt aus der angewendeten Stufe - exakt, nicht gezaehlt.**
+    ///
+    /// Zeilen mit `leiterstufe` sind eindeutig: die naechste Position folgt aus
+    /// Urteil und Stufe zusammen. Der Fall, der die alte Zaehlregel zerlegt hat,
+    /// ist der **gemessene** aus exp-018: die letzte Zeile lautet
+    /// `UNENTSCHIEDEN`, und die alte Regel brach dort ab und lieferte **0** -
+    /// obwohl sechs Stufen widerlegt waren. Der naechste Aufruf haette wieder
+    /// bei der ersten, laengst widerlegten Einstellung begonnen.
+    #[test]
+    fn leiterposition_liest_die_angewandte_stufe() {
+        let dir = std::env::temp_dir().join(format!("shiro-lp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("Tempordner");
+        let reg = dir.join("registry.jsonl");
+
+        let zeile = |urteil: &str, stufe: Option<usize>| {
+            let mut e = leerer_eintrag();
+            e.capability = "sequence_reasoning".into();
+            e.urteil = urteil.into();
+            e.leiterstufe = stufe;
+            registry_append(&reg, &e).expect("anhaengen");
+        };
+
+        // Leere Registry -> Anfang.
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
+
+        // Widerlegt -> eine Stufe weiter (nicht dieselbe noch einmal).
+        zeile("VERWORFEN", Some(4));
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 5);
+
+        // **Der exp-018-Fall:** offene Messung -> DIESELBE Stufe.
+        zeile("UNENTSCHIEDEN", Some(5));
+        assert_eq!(
+            leiterposition(&reg, "sequence_reasoning"),
+            5,
+            "eine offene Messung wiederholt dieselbe Stufe (exp-018)"
+        );
+
+        // Nicht reproduzierbare Messung -> ebenfalls dieselbe Stufe.
+        zeile("UNGUELTIG", Some(5));
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 5);
+
+        // Annahme -> Leiter zurueck auf Anfang.
+        zeile("ANGENOMMEN", Some(3));
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
+
+        // Keine Runde gelaufen -> ebenfalls Anfang.
+        zeile("VERWORFEN", Some(2));
+        zeile("KEINE_RUNDE", None);
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
+
+        // Eine andere Faehigkeit zaehlt nicht mit.
+        let mut f = leerer_eintrag();
+        f.capability = "andere".into();
+        f.urteil = "VERWORFEN".into();
+        f.leiterstufe = Some(0);
+        registry_append(&reg, &f).expect("anhaengen");
+        assert_eq!(leiterposition(&reg, "sequence_reasoning"), 0);
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -3984,7 +4638,8 @@ mod tests {
     #[test]
     fn gesaettigter_hebel_wird_uebersprungen() {
         // Dosis am Deckel, Replay am Boden -> beide wirkungslos.
-        let w = strategiewechsel(0, DOSIS_MAX, 0.0, 3e-4, "breit");
+        let w = strategiewechsel(0, &Leiterbasis::neu(DOSIS_MAX, 0.0, 3e-4, Pack::Breit))
+            .expect("es muss eine wirksame Stufe geben");
         assert_ne!(w.vorher, w.nachher, "der Hebel muss etwas aendern");
         assert_ne!(
             w.parameter, "train_steps",
@@ -3999,14 +4654,15 @@ mod tests {
             "der naechste wirksame Hebel ist die Lernrate"
         );
 
-        // Alle drei Zahlenhebel gesaettigt -> nur das Paket bleibt, und das
-        // alterniert immer.
-        let w2 = strategiewechsel(0, DOSIS_MAX, 0.0, 0.0, "breit");
+        // Alle drei Zahlenhebel gesaettigt -> nur das Paket bleibt.
+        let w2 = strategiewechsel(0, &Leiterbasis::neu(DOSIS_MAX, 0.0, 0.0, Pack::Breit))
+            .expect("das Paket bleibt als Hebel");
         assert_eq!(w2.parameter, "pack");
         assert_ne!(w2.vorher, w2.nachher);
 
         // **Gegenprobe:** ohne Saettigung bleibt die Reihenfolge wie bisher.
-        let w3 = strategiewechsel(0, 600, 0.35, 3e-4, "breit");
+        let w3 =
+            strategiewechsel(0, &Leiterbasis::neu(600, 0.35, 3e-4, Pack::Breit)).expect("Stufe 0");
         assert_eq!(w3.parameter, "train_steps");
         assert_eq!(w3.nachher, "1200");
     }
@@ -4095,15 +4751,23 @@ mod tests {
         let text = std::fs::read_to_string("configs/capabilities/sequence_reasoning.toml")
             .expect("Capability-Datei");
         let cap: Capability = toml::from_str(&text).expect("Capability lesen");
-        let (aktion, grund) = naechste_aktion(&cap, false, false, false, true);
+        let (aktion, grund) = naechste_aktion(&cap, false, false, false, true, false);
         assert_eq!(aktion, "repeat_unchanged");
         assert!(
             grund.contains("widersprechen"),
             "der Grund muss den Widerspruch nennen, nicht einen Fortschrittsmangel: {grund}"
         );
         // Gegenprobe: ohne Unentschieden bleibt die alte Ableitung erhalten.
-        let (aktion2, _) = naechste_aktion(&cap, false, false, false, false);
+        let (aktion2, _) = naechste_aktion(&cap, false, false, false, false, false);
         assert_eq!(aktion2, "reject_and_change_pack");
+        // **Und die erschoepfte Leiter ist eine eigene Aussage.** Ohne sie
+        // stuende dort "naechste Leiterstufe ziehen", obwohl es keine gibt.
+        let (aktion3, grund3) = naechste_aktion(&cap, false, false, false, false, true);
+        assert_eq!(aktion3, "leiter_erschoepft");
+        assert!(
+            grund3.contains("Trainingsdaten"),
+            "der Grund muss sagen, wo die naechste Arbeit liegt: {grund3}"
+        );
     }
 
     /// **Die beiden Panels sind disjunkt** - belegt ueber die Auswahlregel:

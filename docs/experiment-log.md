@@ -2341,3 +2341,214 @@ sollte als naechstes an die Reihe kommen.
 
 
 
+
+## exp-018 - Die Lernrate ist der vierte widerlegte Hebel, und vier Loop-Defekte fallen auf
+
+**Frage.** Der Loop hatte drei Hebel fuer `reparatur` ausgeschoepft (Dosis am
+Deckel, Replay zweimal, Paket einmal). Die **Lernrate** war der einzige noch nie
+gezogene Hebel. exp-018 zieht ihn - als **eine** Variable gegen den angenommenen
+Stand.
+
+**Aufbau.** Elternteil `checkpoints/agent-sequence_reasoning-from7600-i1-step012400.state`
+(SHA `aa8e7bb65e07eb7007580920c1244944ee1b0117692407b179a7bd1c9f855da3`),
+Dosis 4800, Replay 0,35, Paket `reparatur`, **Lernrate 4,5e-4 statt 3e-4**.
+Konfiguriert ueber `--lr 0.00045`; die Fruehpruefung bestaetigte
+`Startwert : lr aus --lr: 3.000e-4 -> 4.500e-4`. Zwei disjunkte 480er-Panels,
+Determinismus-Probe, Laufzeit 52:03 min.
+
+### Ergebnis
+
+| Runde | Einstellung | Panel A | Panel B | Urteil |
+|---|---|---|---|---|
+| i1 | lr 4,5e-4 (**eine** Variable) | 0,532 -> 0,523 (**-0,008**) | 0,530 -> 0,523 (**-0,007**) | **VERWORFEN** (einstimmig) |
+| i2 | lr 4,5e-4 **und** replay 0,20 (zwei Variablen) | 0,532 -> 0,530 (-0,001) | 0,530 -> 0,530 (+0,000) | UNENTSCHIEDEN |
+
+Runde i1 im Detail: inhaltlich 87,8 % -> 85,9 % (A) und 87,4 % -> 85,7 % (B),
+Regressionsdelta -0,0071 auf beiden Panels, Determinismus-Probe byte-identisch.
+
+**Befund: die hoehere Lernrate macht das Modell auf beiden unabhaengigen Baendern
+schlechter.** Beide Panels tragen nicht, das Urteil ist einstimmig - kein
+Widerspruch, also kein Zweifel an der Messung.
+
+**Runde i2 ist bewusst als erkundend gekennzeichnet.** Der Loop zog dort den
+Replay-Hebel **zusaetzlich** (0,35 -> 0,20), weil er am Rundenende den naechsten
+Hebel berechnete. Damit aenderten sich zwei Variablen gleichzeitig; das Urteil
+`UNENTSCHIEDEN` ist die richtige Antwort darauf, aber ueber die Wirkung des
+Replay-Anteils sagt die Runde **nichts**. Genau dieser Doppelzug ist einer der
+vier Defekte, die unten belegt sind.
+
+### Damit ist die Einstellungsachse fuer `reparatur` ausgeschoepft
+
+Alle vier Hebel der Leiter sind gegen den angenommenen Stand geprueft und
+**widerlegt oder wirkungslos**:
+
+| Hebel | geprueft in | Ergebnis |
+|---|---|---|
+| Dosis | exp-015/016/017 | 4800 = `DOSIS_MAX`, Hebel wirkungslos |
+| Replay 0,20 | exp-016 r2 (mit Paketwechsel vermischt), exp-018 r2 (mit lr vermischt) | nie als **eine** Variable sauber geprueft, zweimal verworfen |
+| Replay 0,05 | exp-017 r2 (als Nachwirkung) | verworfen |
+| Lernrate 4,5e-4 | **exp-018 i1** | **einstimmig verworfen** |
+| Paket `breit` | exp-017 r2 | verworfen |
+
+**Die Lehre daraus ist nicht "noch ein anderer Wert".** Die Fehlerbilder aus der
+480er-Tafel zeigen, wo der Engpass wirklich liegt (siehe unten): es ist die
+**Zifferngenauigkeit des Reparaturwerts**, und dafuer ist kein Hebel dieser
+Leiter zustaendig. Der naechste Schritt ist deshalb ein **Daten- oder
+Codehebel**, keine andere Zahl - genau der Weg, den die Nutzerauflage fuer den
+Fall vorsieht, dass die Einstellungen ausgeschoepft sind.
+
+### Die Diagnose, auf der das beruht
+
+Die `reparatur`-Aufgabe verlangt einen Wert, der hoechstens `FENSTER = 20` vom
+vorgefundenen Wert abweicht (`src/data/seq.rs`). **In allen belegten
+Fehlerbildern stimmt die Stelle und nur der Wert nicht:**
+
+| erwartet | erzeugt | Befund |
+|---|---|---|
+| `Stelle 5: 4096` | `Stelle 5: 1972` | Stelle richtig, Wert 2124 daneben |
+| `Stelle 6: 1274` | `Stelle 6: 127` | Stelle richtig, Wert **abgeschnitten** |
+| `Stelle 5: 663` | `Stelle 5: 639` | Stelle richtig, Wert 24 daneben |
+
+Alle drei Werte liegen **ausserhalb** des erlaubten Fensters von 20 - das Modell
+erzeugt nicht einmal einen Kandidaten. Dazu die Ziffernfehler der anderen Typen:
+`525` -> `5255` (Ziffer angehaengt), `114` -> `11` (Ziffer verloren), `376` ->
+`976` (Ziffer ersetzt), `19456` -> `9721621` und `9728` -> `972181` (Ziffernsalat).
+
+Die erste Abweichung je Antwortposition haeuft sich an Position 0 (10 Faelle),
+7 (10) und 11 (6) - das sind genau die Stellen, an denen die erste Ziffer des
+Werts steht.
+
+**Gegenprobe, die die Diagnose stuetzt:** der Typ `stelle` (LOKALISIEREN) liegt
+bei 60/62 = **96,8 %**, und `vergleich` bei 69/69 = **100 %**. Das Modell findet
+die Stelle also sicher; es kann den **Wert** an dieser Stelle nicht genau genug
+setzen.
+
+**Und die Fehlerlast liegt dort:** von 46 inhaltlichen Fehlern der 480er-Tafel
+kommen `reparatur` 16 und `reparatur1` 9 - also **25 von 46 = 54 %** aus der
+MINIMIEREN-Familie. Die Familie mit der groessten Fehlerlast ist zugleich die mit
+dem einzigen Typ unter der 75-%-Marke.
+
+**Ehrliche Abgrenzung.** Die Zifferngenauigkeit ist eine **Deutung** der
+Fehlerbilder, kein eigener Messwert. Belegt sind die Fehlerbilder, die Quote je
+Typ und die Ziffernverteilung; die Aussage "es ist die Zifferngenauigkeit, nicht
+die Suche" folgt daraus, ist aber selbst nicht direkt gemessen. Ein Messwert
+dafuer waere die Quote der Fehler, deren Wert **innerhalb** des Fensters liegt -
+den erhebt die Messkette bisher nicht.
+
+### Vier Loop-Defekte, die dabei belegt wurden
+
+Alle vier sind **gemessen**, nicht vermutet, und alle vier verletzen die
+Replikationsauflage. Sie sind vor dem Weitertrainieren behoben worden
+(Commit folgt, Entscheidung D-048).
+
+#### Defekt 1 - der Hebel wirkte erst in der zweiten Iteration, Runde 1 war eine Dublette
+
+Der Loop zog den Strategiehebel am **Rundenende**. Runde 1 eines neuen Aufrufs
+lief deshalb immer mit der Basis - und bei gleichem Elternteil und gleicher
+Achse **bitgleich** zur Runde 1 des vorigen Aufrufs.
+
+**Belege (drei unabhaengige):**
+
+| Groesse | exp-016 i1 | exp-017 i1 |
+|---|---|---|
+| Trainingsnutzlast | 12780669 B | 12780669 B |
+| Datensaetze | 56250 (6250 gezielt + 70550 Wiederholung) | identisch |
+| Score | 0.5289220136999823 | 0.5289220136999823 |
+| exact_match | 0.89375 | 0.89375 |
+| Regressionsverlust | 0.08192774131978153 | 0.08192774131978153 |
+
+Die Uebereinstimmung auf 17 Stellen ist kein Zufall. **exp-017 Runde 1 ist damit
+keine unabhaengige Evidenz, sondern eine Wiederholung von exp-016 Runde 1** - und
+die Registry trug zwei Zeilen fuer einen Lauf. Erschwerend: der Loop **kannte**
+den faelligen Hebel und kuendigte ihn an (`Hebelleiter : 3 verworfene Runde(n)
+... -> naechster Hebel ist Nr. 4`), wandte ihn aber nicht an. Anzeige und Wirkung
+liefen auseinander.
+
+**Korrektur an exp-016/exp-017:** die dortige Aussage, exp-017 habe "die Leiter
+gezogen (Hebel 4 = Paket)", gilt nur fuer **Runde 2**. Runde 1 von exp-017 ist
+eine Dublette und traegt **nichts** zur Untersuchung bei. Der Determinismus-Beweis
+aus exp-017 bleibt **gueltig** - er beruhte gerade darauf, dass i1 in beiden
+Laeufen identisch eingestellt war, und i2 sich wegen des unterschiedlichen
+Replay-Anteils unterschied. Die Deutung aendert sich: statt "i1 ist die
+Kontrollprobe" heisst es jetzt "i1 war eine versehentliche Kontrollprobe".
+
+#### Defekt 2 - gleicher Dateiname fuer verschiedene Einstellungen, ein Stand ueberschrieben
+
+Der Laufname war `agent-<cap>-from<start>-i<nr>`, der Checkpoint haengt
+`-step<start+dosis>` an. Zwei Runden mit gleichem Elternteil, gleicher Iteration
+und gleicher Dosis bekamen damit **denselben Dateinamen**, auch bei verschiedenen
+Einstellungen:
+
+* exp-016 Runde 2 (replay **0,20**, Paket `breit`) -> `agent-sequence_reasoning-from12400-i2-step17200.safetensors`
+* exp-017 Runde 2 (replay **0,35**, Paket `breit`) -> **derselbe Pfad**
+
+Der zweite Lauf **ueberschrieb** den ersten. Beide Registry-Zeilen zeigen auf
+diesen Pfad - fuer mindestens eine von beiden beschreibt der registrierte Pfad
+damit ein Modell, das dort nicht mehr liegt. **Die Runde ist nicht
+nachpruefbar.** Fuer einen Loop, dessen Zweck der replizierbare Nachweis ist, ist
+das der schwerste der vier Defekte.
+
+**Behoben:** der Laufname traegt jetzt einen `runden_fingerabdruck` ueber alle
+Groessen, die in die Gewichte eingehen (Startschritt, Iteration, Dosis,
+Datenmischung, Lernrate, Lernpaket, Basisseed). Die Faehigkeit steht bewusst
+nicht darin - sie steht schon im Namenspraefix.
+
+#### Defekt 3 - die Registry behauptete eine Lernrate, mit der nie trainiert wurde
+
+`RegistryEntry.learning_rate` war **fest auf `0.0003`** verdrahtet. Jede Zeile
+behauptete damit 3e-4, auch exp-018 mit 4,5e-4 und jede Runde, in der der
+Lernraten-Hebel gezogen wurde. Wer eine Runde nachrechnen wollte, haette den
+falschen Wert benutzt. `replay_share` und `pack` fehlten ganz - die Registry
+konnte nicht sagen, **was** geprueft wurde.
+
+**Behoben:** `eintrag` bekommt die echten Werte und schreibt sie in Felder
+(`learning_rate`, `replay_share`, `pack`, `leiterstufe`); die Prosa-Zeile kommt
+aus `trainingsconfig_text(..)`, damit Text und Zahlenfeld nicht auseinanderlaufen
+koennen. Altzeilen bleiben lesbar (`#[serde(default)]`).
+
+#### Defekt 4 - der dauerhafte Zeiger auf der Leiter ging bei `UNENTSCHIEDEN` verloren
+
+`leiterposition` zaehlte nur **hintereinander am Ende** stehende
+`VERWORFEN`-Eintraege und brach bei allem anderen ab. Die letzte Zeile der
+Registry ist exp-018 i2 mit `UNENTSCHIEDEN` - die Zaehlung lieferte damit **0**,
+obwohl sechs Stufen widerlegt waren. Der naechste Aufruf haette wieder bei der
+ersten, laengst widerlegten Einstellung begonnen.
+
+**Behoben:** die naechste Position folgt jetzt exakt aus Urteil und angewendeter
+Stufe - `ANGENOMMEN` -> 0, `VERWORFEN` -> Stufe + 1, `UNENTSCHIEDEN`/`UNGUELTIG`
+-> **dieselbe** Stufe (die Messung ist offen und wird wiederholt). Fuer
+Altzeilen ohne Stufennummer bleibt die alte Zaehlung als Untergrenze; dass alte
+und neue Zaehlung nicht ineinander umrechenbar sind, wird hier festgehalten und
+**nicht** durch eine erfundene Zahl ueberdeckt.
+
+#### Was die Reparatur strukturell aendert
+
+* Die Leiterstufe wird **vor** der Datenerzeugung angewendet und **relativ zur
+  Basis** gerechnet, nicht relativ zur zuletzt gelaufenen Einstellung. Damit
+  traegt jede Runde genau **eine** Variable gegenueber der Basis.
+* Der Zeiger springt auf `angewendete Stufe + 1`. Mit `verworfen += 1` haette die
+  naechste Runde **dieselbe** Stufe bekommen, sobald die Leiter eine wirkungslose
+  Stufe ueberspringt.
+* Die Leiter ist **tiefer als vier Stufen** und **geht zu Ende**: Dosis ist
+  gedeckelt (`DOSIS_MAX`), Replay hat endliche Stufen (`REPLAY_STUFEN`), die
+  Lernrate einen Deckel (`LR_MAX = 1e-3`), das Paket eine endliche Reihenfolge
+  (`PAKET_LEITER`, das Ausgangspaket wird **entfernt** statt uebersprungen).
+  Vorher lief die Leiter nach vier Verwuerfen wieder bei derselben Einstellung an.
+* Ist die Leiter erschoepft, meldet der Loop `leiter_erschoepft` und sagt, dass
+  neue Trainingsdaten oder ein Codehebel noetig sind - statt stillschweigend
+  dieselbe Einstellung erneut zu fahren.
+* Der Plateau-Zweig kann kein Paket mehr zusaetzlich wechseln: **jede** Runde
+  traegt einen Hebel, die Sperre aus exp-016 greift damit immer. Das ist keine
+  Verschlechterung - der Paketwechsel kommt jetzt von der Leiter selbst
+  (Stufe 3 = `breit`, Stufe 7 = `frageart`, ...).
+
+### D-047-Status nach exp-018
+
+**Unveraendert nicht erreicht.** Gueltig bleibt `from7600-i1-step12400` mit
+Kopfzahl **89,06 %** (855/960) und `reparatur` **72,4 %** als einzigem Typ unter
+75 %. exp-018 hat daran nichts geaendert - beide Runden wurden nicht angenommen.
+
+**Stand der Leiter:** sechs Verwuerfe, dann `UNENTSCHIEDEN`. Mit der reparierten
+Zaehlung steht der Zeiger auf **Stufe 6**. Da die Einstellungsachse fuer
+`reparatur` als ausgeschoepft gilt, ist die naechste Arbeit ein Daten- oder
+Codehebel, nicht Stufe 6.
