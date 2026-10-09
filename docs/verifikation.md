@@ -2870,3 +2870,81 @@ Nachtrag) und diese Datei sind im Arbeitsbaum von einer Parallelsitzung
 mitgeaendert und wurden deshalb erneut als **HEAD-Fassung + eigener Block** in
 den Index gestellt; gegengeprueft wird, dass im Index **nur eigene Pfade** liegen
 und `src/data/mod.rs` die fremde Zeile `pub mod seqgen;` **nicht** enthaelt.
+
+## Runde 40d - `O-A35` geschlossen: das Level der Formel-Familie ist vom Band entkoppelt
+
+**Was vorher war.** `level_fuer` schnitt **absolut** bei 20 und 40. Das
+Trainingsband reicht bis Betrag 60, das Held-out-Band **beginnt** bei 61 - dort
+war damit **jeder** Datensatz `schwer`. Im Held-out-Manifest standen nur **4**
+Level-Schluessel, und `level.*` war keine eigene Achse, sondern eine Umschreibung
+des Bandes. Das war als Confound benannt (Runde 40b), aber nicht behoben.
+
+**Was jetzt ist.** `level_fuer(g, band)` teilt **das eigene Band in Drittel**:
+
+| Band | Grenzen | Stufen |
+|---|---|---|
+| Training (1..60) | 20 / 40 | 1..20 leicht, 21..40 mittel, 41..60 schwer |
+| Held-out (61..100) | 74 / 87 | 61..74 leicht, 75..87 mittel, 88..100 schwer |
+
+Die **Trainingsseite ist Zahl fuer Zahl unveraendert** (die alten Schwellen
+20/40 sind genau die Drittelgrenzen des Trainingsbands). Neu ist die
+Held-out-Seite.
+
+**Selbst nachgemessen** (nicht geglaubt): im Held-out-Manifest stehen jetzt
+**20 Keys statt 12**, je Typ **alle drei** Stufen - `fkt-tabelle` 70 / 583 /
+1.847, `fkt-liegt` 65 / 509 / 1.926, `fkt-mittel` 44 / 498 / 1.958, `fkt-steig`
+67 / 618 / 1.815. Die Verteilung ist in **beiden** Baendern **dieselbe** schiefe
+(rund 2,5 / 22 / 75 %) - genau diese Gleichheit ist der Beweis der Entkopplung,
+denn eine bandabhaengige Regel muesste sich zwischen den Baendern unterscheiden.
+Neuer Modultest `level_ist_keine_umschreibung_des_bandes` rechnet die Grenzen
+20/40 und 74/87 nach und **faellt auf der alten Fassung**.
+
+**Zwei Kosten, offen benannt statt weggedeutet.** (1) "Leicht" ist **nicht
+banduebergreifend** vergleichbar: ein leichtes Held-out-Objekt hat Betraege ab
+61, ein schweres Trainingsobjekt hoechstens 60 - die Stufe ordnet **innerhalb**
+eines Bandes. (2) Die Schieflage bleibt, weil `groesse` ein **Maximum** ueber
+mehrere Zahlen ist; sie ist in beiden Baendern gleich, also kein Bandartefakt.
+
+**Die naheliegende Alternative ist gemessen verworfen.** Ich hatte vorgeschlagen,
+das Level aus einer **strukturellen** Groesse abzuleiten (Zahl der Rechenschritte
+bzw. der Eingaben). Gemessen an den Bytes beider Baender: sie traegt nur **zwei**
+Werte (`fkt-tabelle` 2/3 Eingaben 12.579/12.421, `fkt-mittel` 4/5 Schritte
+12.534/12.466), ist bei `fkt-steig` **konstant** (3 Schritte, 25.000/25.000 in
+beiden Baendern) und bei `fkt-liegt` **gar nicht vorhanden**. Fuer vier Typen
+kann sie weder drei Stufen noch "leicht und schwer in beiden Baendern" erzeugen.
+Der Einwand ist damit nicht uebergangen, sondern **widerlegt**.
+
+**Der Korpus wurde neu erzeugt, die Shard-Bytes sind identisch.** Das Level ist
+eine aus den Zahlen **abgeleitete Manifest-Angabe** und steht nicht im Datensatz;
+sichtbar ist die Korrektur allein in `val/manifest.json` (889 -> 1.171 B). Die
+Pruefsummen bleiben `15ccde7579a3625c` (train) und `26f6df1bf6e74add` (val), der
+zweite Lauf ist byteidentisch.
+
+**Folgenpruefung fuer den laufenden Stand:** `data/kombi-mathe2/train` (5 Shards,
+320.720 Datensaetze, formel-Shard `15ccde7579a3625c`) traegt **dieselben**
+`level.fkt-*`-Werte wie das neue Trainingsmanifest. Die Level-Korrektur
+**entwertet weder den kombinierten Korpus noch den Arm-B-Stand**
+`checkpoints/kombi-mathe2-step23200.safetensors` (SHA-256 `d5386d9b9a18728b...`).
+
+**Gates, unabhaengig wiederholt:** `cargo fmt --check` 0 Abweichungen;
+`cargo test` **464 passed / 0 failed / 1 ignored** (vorher 463; +1 = der neue
+Modultest); `cargo clippy --all-targets -- -D warnings` **nur die 7 fremden
+Befunde** (`src/data/quant.rs` 6, `src/probe.rs` 1), **0 in `src/data/formel.rs`**;
+`cargo build --release` gruen; Smoke-Digest `a6a53c95abd7f622` unveraendert;
+`validate-data` in beiden Baendern gruen.
+
+**Werkzeugfehler, offen gelegt:** das erste eigene Pruefskript
+(`/home/changchi/r39/m2-pruefe.py`) meldet fuer diese Familie **falschen Alarm** -
+es wirft alle Zahlen **eines Aufgabentextes** in *einen* Bereich und mischt damit
+Koeffizient (Betrag <= 8), Achsenabschnitt und Koordinaten (Betrag <= 100). Gueltig
+ist die Messung **je Groesse** (`band-je-groesse.py`) mit dem Ergebnis
+**0 gemeinsame Werte**. Der Korpus wurde **nicht** geaendert, um ein Werkzeug
+gruenzumachen; derselbe Fehlertyp (falsche Bezugsgroesse) wie in der
+Attention-Rechnung aus `h2`.
+
+**Noch offen und der eigentliche Rest:** die **Messung am Modell** - Verlust und
+Trefferquote je Familie fuer Arm A, Arm B und den Phase-Stand, plus die
+Antwortform getrennt in beiden Panel-Formen (Plan in Abschnitt 7 von
+`docs/formel-korpus.md`). Das Skript liegt in
+`/home/changchi/r40/messung40b.sh`. **Ohne diese Messung gibt es kein Urteil und
+keine Registerzeile zum Lauf.**

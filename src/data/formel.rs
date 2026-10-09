@@ -228,7 +228,12 @@ impl Category {
 }
 
 /// Schwierigkeitsgrad - ueber die **Groesse der genannten Zahlen**, nicht ueber die
-/// Aufgabenzahl (dieselbe Bauart wie in `algebra` und `seq`).
+/// Aufgabenzahl.
+///
+/// **Abweichung von `algebra` und `seq`:** dort sind die Schwellen **absolut**;
+/// hier sind sie **bandrelativ** (Drittel des eigenen Bandes). Der Grund steht bei
+/// [`level_fuer`] - absolute Schwellen machten `level.*` im Manifest zu einer
+/// Umschreibung des Bandes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Level {
     Easy,
@@ -577,20 +582,43 @@ pub fn band_von(g: &Gegeben) -> Option<Band> {
     }
 }
 
-/// Der Schwierigkeitsgrad aus der groessten genannten Zahl **im Betrag**.
+/// Der Schwierigkeitsgrad aus der groessten genannten Zahl **im Betrag** - gemessen
+/// als **Drittel des eigenen Bandes**.
 ///
-/// **Offen benannter Confound.** Die Schwellen 20/40 liegen **innerhalb** des
-/// Trainingsbands (Betraege 1..60), waehrend das Held-out-Band bei 61 beginnt -
-/// dort ist damit **jeder** Datensatz `schwer`. `level.*` ist auf der
-/// Held-out-Seite also keine eigene Achse, sondern eine Umschreibung des Bandes.
-/// Gemessen und im Bericht genannt (Verteilung je Band im Bericht von
-/// `cmd_generate_formel`); eine bandrelative Stufe waere statistisch unabhaengig,
-/// wuerde die Bezeichnung "leicht" aber bedeutungslos machen. Die absolute
-/// Schwelle bleibt deshalb - mit diesem Vorbehalt.
-fn level_fuer(g: &Gegeben) -> Level {
+/// **Warum bandrelativ (Befund `r39`/B).** Mit den frueheren absoluten Schwellen
+/// 20/40 war `level.*` **keine eigene Achse, sondern eine Umschreibung des Bandes**:
+/// die Schwellen liegen *innerhalb* des Trainingsbands (Betraege 1..60), das
+/// Held-out-Band beginnt bei 61 - dort war damit **jeder** Datensatz `schwer`.
+/// Belegt am ausgelieferten Manifest: `level.fkt-*.schwer` = **2500 von 2500** in
+/// jedem der vier Typen, und `level.*.leicht` bzw. `level.*.mittel` fehlten ganz.
+///
+/// **Warum nicht die Zahl der Rechenschritte bzw. der Eingaben.** Beide sind
+/// `r39`-Vorschlaege, decken die Familie aber nicht ab - an den Bytes gemessen:
+/// `fkt-steig` hat **immer** drei Schritte (25000/25000), `fkt-liegt` hat **gar
+/// keine** Schrittkette, und `fkt-tabelle` (2 oder 3 Eingaben) und `fkt-mittel`
+/// (4 oder 5 Schritte) tragen nur **zwei** Werte. Eine solche Achse haette fuer
+/// zwei Typen keine drei Stufen und fuer einen existierte sie nicht.
+///
+/// **Die Drittelung ist die naechstliegende Fassung, die das behebt:** sie ist fuer
+/// **jeden** Typ definiert, und weil in beiden Baendern gleich gezogen wird, wird
+/// die Level-Verteilung in beiden Baendern **dieselbe** - genau das macht `level`
+/// von `band` unabhaengig. Fuer das Trainingsband aendert sich **nichts** (Drittel
+/// von 1..60 sind 20/40, also die bisherigen Schwellen); korrigiert wird nur die
+/// Held-out-Seite.
+///
+/// **Zwei offen benannte Kosten.** (1) "Leicht" ist **nicht** banduebergreifend
+/// vergleichbar: ein "leichtes" Held-out-Objekt hat Betraege ab 61, ein "schweres"
+/// Trainingsobjekt hoechstens 60. Die Stufe ordnet *innerhalb* eines Bandes.
+/// (2) `groesse` ist ein **Maximum** ueber mehrere Zahlen und liegt deshalb meist
+/// hoch - die Verteilung ist schief und in **beiden** Baendern gleich schief.
+fn level_fuer(g: &Gegeben, band: Band) -> Level {
+    let r = raum(band);
+    let spanne = r.k.1 - r.k.0;
+    let grenze_1 = r.k.0 + spanne / 3;
+    let grenze_2 = r.k.0 + 2 * spanne / 3;
     match g.groesse() {
-        v if v <= 20 => Level::Easy,
-        v if v <= 40 => Level::Medium,
+        v if v <= grenze_1 => Level::Easy,
+        v if v <= grenze_2 => Level::Medium,
         _ => Level::Hard,
     }
 }
@@ -1378,7 +1406,7 @@ fn abschluss(record: Vec<u8>, cat: Category, answer: String, band: Band, g: &Geg
     Wurf::Treffer(Box::new(GenRecord {
         record,
         category: cat,
-        level: level_fuer(g),
+        level: level_fuer(g, band),
         answer,
         band,
     }))
@@ -2269,5 +2297,58 @@ mod tests {
         let ra: Vec<Vec<u8>> = a.train.iter().map(|r| r.record.clone()).collect();
         let rb: Vec<Vec<u8>> = b.train.iter().map(|r| r.record.clone()).collect();
         assert_eq!(ra, rb, "der Generator ist nicht reproduzierbar");
+    }
+
+    /// **`level` ist keine Umschreibung des Bandes** - der Befund `r39`/B, an den
+    /// Bytes gemessen und nicht behauptet.
+    ///
+    /// Vorher (absolute Schwellen 20/40) stand im ausgelieferten Held-out-Manifest
+    /// `level.fkt-*.schwer` = **2500 von 2500** in jedem der vier Typen, und
+    /// `level.*.leicht` bzw. `level.*.mittel` fehlten **ganz** - die Stufe trug
+    /// keine Information, die nicht schon im Band stand. Sie *war* das Band.
+    ///
+    /// Geprueft wird die Gegenprobe: in **beiden** Baendern kommt **jeder** Typ in
+    /// **allen drei** Stufen vor, und keine Stufe verschwindet. Dazu die beiden
+    /// Drittelgrenzen als nachgerechnete Zahl: 20/40 fuers Trainingsband (also
+    /// **unveraendert** gegenueber der alten absoluten Schwelle) und 74/87 fuers
+    /// Held-out-Band.
+    #[test]
+    fn level_ist_keine_umschreibung_des_bandes() {
+        let train = raum(Band::Train);
+        let val = raum(Band::Val);
+        assert_eq!(train.k.0 + (train.k.1 - train.k.0) / 3, 20);
+        assert_eq!(train.k.0 + 2 * (train.k.1 - train.k.0) / 3, 40);
+        assert_eq!(val.k.0 + (val.k.1 - val.k.0) / 3, 74);
+        assert_eq!(val.k.0 + 2 * (val.k.1 - val.k.0) / 3, 87);
+
+        let g = probe(20000);
+        for (name, stats) in [("Training", &g.train_stats), ("Held-out", &g.val_stats)] {
+            for cat in Category::ALL {
+                let st = stats.get(&cat).expect("Typ fehlt");
+                eprintln!(
+                    "DIAGNOSE Level {name:<9} {:<12} leicht {:<5} mittel {:<5} schwer {:<5} \
+                     (n {})",
+                    cat.short(),
+                    st.easy,
+                    st.medium,
+                    st.hard,
+                    st.total
+                );
+                assert!(st.easy > 0, "{name}/{}: keine leichte Stufe", cat.short());
+                assert!(
+                    st.medium > 0,
+                    "{name}/{}: keine mittlere Stufe",
+                    cat.short()
+                );
+                assert!(st.hard > 0, "{name}/{}: keine schwere Stufe", cat.short());
+                // **Die eigentliche Gegenprobe:** die alte Fassung hatte im
+                // Held-out-Band ausschliesslich `schwer`.
+                assert!(
+                    st.hard < st.total,
+                    "{name}/{}: alles ist schwer - level ist wieder das Band",
+                    cat.short()
+                );
+            }
+        }
     }
 }

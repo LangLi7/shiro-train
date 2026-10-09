@@ -243,19 +243,35 @@ Der Vergleich trennt die beiden Effekte **nicht**; das war in Runde 36 genauso.
   **signiert** gezogen, das Band prueft den Betrag; die erste Fassung war
   vorzeichenlos und ist ersetzt (Abschnitt 6). Der Korpus wurde dafuer neu
   erzeugt.
-* **`O-A35`** **Das Level ist mit dem Band gekoppelt (offen, im Code benannt).**
-  `level_fuer` schneidet bei 20/40, die Baender reichen bis Betrag 60 und
-  beginnen bei 61 - im Held-out-Band ist **jeder** Datensatz `schwer` (gemessen:
-  **0 leicht / 0 mittel / 2.500 schwer** je Typ). Messbar auch an den
-  Manifest-Schluesseln: **train 20 Keys, val 12**. `level.*` ist damit auf der
-  Held-out-Seite keine eigene Achse, sondern eine Umschreibung des Bandes.
-  **Die naheliegende Alternative ist gemessen und verworfen:** eine strukturelle
-  Achse (Zahl der Rechenschritte bzw. der Eingaben) traegt nur **zwei** Werte
-  (`fkt-tabelle` 2/3 Eingaben, `fkt-mittel` 4/5 Schritte), ist bei `fkt-steig`
-  **konstant** (3 Schritte in beiden Baendern, 25.000/2.500) und bei `fkt-liegt`
-  **gar nicht vorhanden**. Sie kann fuer alle vier Typen weder drei Stufen noch
-  "leicht und schwer in beiden Baendern" erzeugen. Die Kopplung bleibt deshalb
-  bestehen - **ausgesprochen**, nicht stillschweigend.
+* **`O-A35` -> GESCHLOSSEN (Runde 40d): das Level ist vom Band entkoppelt.**
+  Die erste Fassung schnitt **absolut** bei 20/40; weil das Trainingsband bis
+  Betrag 60 reicht und das Held-out-Band bei 61 **beginnt**, war dort **jeder**
+  Datensatz `schwer` (gemessen: **0 leicht / 0 mittel / 2.500 schwer** je Typ,
+  und im Manifest standen nur **4** Level-Schluessel). `level_fuer(g, band)`
+  teilt jetzt **das eigene Band in Drittel**: Training 1..60 -> 1..20 / 21..40 /
+  41..60 (= **genau** die alten Schwellen, die Trainingsseite ist Zahl fuer Zahl
+  unveraendert), Held-out 61..100 -> 61..74 / 75..87 / 88..100. Gemessen im
+  Held-out-Manifest: **12** Level-Schluessel, je Typ alle drei Stufen
+  (`fkt-tabelle` 70 / 583 / 1.847, `fkt-liegt` 65 / 509 / 1.926, `fkt-mittel`
+  44 / 498 / 1.958, `fkt-steig` 67 / 618 / 1.815) - und die Verteilung ist in
+  **beiden** Baendern **dieselbe** schiefe (rund 2,5 % / 22 % / 75 %, weil
+  `groesse` ein Maximum ueber mehrere Zahlen ist); genau diese Gleichheit ist
+  der Beweis der Entkopplung. Neuer Modultest
+  `level_ist_keine_umschreibung_des_bandes` rechnet die Grenzen 20/40 und 74/87
+  nach und faellt auf der alten Fassung. **Zwei offen benannte Kosten:**
+  (1) "leicht" ist **nicht banduebergreifend** vergleichbar - ein leichtes
+  Held-out-Objekt hat Betraege ab 61, ein schweres Trainingsobjekt hoechstens 60;
+  die Stufe ordnet **innerhalb** eines Bandes. (2) Die Verteilung bleibt schief,
+  weil `groesse` ein Maximum ist - die Ursache ist benannt, nicht wegdefiniert.
+  **Die Alternative "Level aus einer strukturellen Groesse" ist gemessen
+  verworfen:** die Zahl der Rechenschritte traegt nur **zwei** Werte
+  (`fkt-tabelle` 2/3 Eingaben: 12.579/12.421; `fkt-mittel` 4/5 Schritte:
+  12.534/12.466), ist bei `fkt-steig` **konstant** (3 Schritte, 25.000/25.000)
+  und bei `fkt-liegt` **gar nicht vorhanden**. Der Korpus wurde neu erzeugt; die
+  **Shard-Bytes sind identisch** (das Level steht nicht im Datensatz), sichtbar
+  ist die Korrektur allein in `val/manifest.json` (889 -> 1.171 B). **Der
+  Arm-B-Lauf bleibt damit gueltig** - geprueft: `data/kombi-mathe2/train` traegt
+  dieselben `level.fkt-*`-Werte wie das Trainingsmanifest.
 * **`O-A36` (NEU)** Der Verifier prueft Schritt-**Werte**, nicht
   Schritt-**Beschreibungen** (Abschnitt 3.1); dieselbe Luecke in `algebra`/`seq`.
 * **`O-A11`** Reihenfolge A4 gegen den Matrix-Einstieg - **der Nutzer
