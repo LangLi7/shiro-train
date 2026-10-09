@@ -2948,3 +2948,332 @@ Antwortform getrennt in beiden Panel-Formen (Plan in Abschnitt 7 von
 `docs/formel-korpus.md`). Das Skript liegt in
 `/home/changchi/r40/messung40b.sh`. **Ohne diese Messung gibt es kein Urteil und
 keine Registerzeile zum Lauf.**
+
+---
+
+## 8.7 Nachtrag (09.10.2026): Zielgroesse 3B, Tokenizer und der gemessene Kapazitaetsbefund
+
+**Runde:** reine Doku-Runde. **Kein Code, keine Daten, kein Training, kein Commit.** HEAD bei
+Beginn **`5a67e4a2d02316601178500f03a071d7e5775d34`** ("Runde 40d (Nachtrag zu D-062): O-A35
+geschlossen - das Level ist vom Band entkoppelt"), HEAD bei Ende **unveraendert derselbe**.
+
+**Auftrag (Nutzerpunkte):** (1) als naechstes ein Modell mit rund **3 Milliarden Parametern**
+bauen und trainieren, das 4,66-M-Modell als **Lehrer bzw. Basis** - es sei denn, es ist
+belegbar, dass die Kapazitaet **nicht** der Engpass ist, dann akzeptiert der Nutzer das;
+(2) ein **Tokenizer** fuer Sprache, Code und Mathematik (Text **und** Zahlen); (3) danach
+**autonom** weitermachen.
+
+**ERGEBNIS 1 - DIE PARAMETERZAHL IST HEUTE NICHT DER ENGPASS (GEMESSEN, NICHT BEHAUPTET).**
+Der staerkste Einzelbeleg stammt aus der **laufenden** Runde 32 und braucht keine neue
+Messung: **dasselbe** Modell mit **4.656.640** Parametern senkte den Verlust auf der neuen
+Familie `formel` von **4,6725** (Elternstand `kombi-delta-step21200`) auf **0,2835** (Arm B
+`kombi-mathe2-step23200`), Perplexitaet **107,0 -> 1,3** - **ohne ein einziges zusaetzliches
+Gewicht** (`/home/changchi/r40/eval-PHASE-formel-val.log`, `eval-B-formel-val.log`; Baseline
+5,8471 / PPL 346,2; Arm A `kombi-mathe-step23200` 3,6432). Dazu die Naht **Train EM 100,0 %
+gegen Held-out 83,3 % = 16,7 Punkte**, und **jeder** bisher gemessene Blocker wurde ohne
+Parameter behoben: negatives Transfer (`add` PPL 848 -> 209, `quant` 372 -> 1,5, D-052), die
+`reparatur`-Mauer 72,4 % (1,6 % -> 98,4 % ueber die Antwortform, D-049/D-053/D-054), Algebra
+0 % -> 25 % (ein Shard mehr, D-060). Ein **groesseres** Modell wuerde die Naht nach eigener
+Analyse eher **vergroessern** (`groessen-strategie-und-destillation.md` Z. 87).
+
+**ERGEBNIS 2 - DIE LEHRER-PRAEMISSE IST IN ZWEI VON DREI TEILEN TECHNISCH AUSGESCHLOSSEN.**
+Destillation laeuft **gross -> klein** (`backend-und-reihenfolge.md` Z. 23-26), und ein
+4,66-M-Modell kann ein 3B-Modell nicht anleiten (es ist **kleiner** und liegt mit rund 89 %
+byte-genau selbst unter der Marke). Ein Cross-Size-Resume ist **unmoeglich**: `param_count()`
+ist architekturgebunden (`src/config.rs` Z. 71-83), `resume_from` bricht bei
+Groessenunterschied ab (`src/model/lm.rs` Z. 942-948, "Stand hat N Gewichte, die Konfiguration
+verlangt M"), `TrainState` traegt **12 Byte je Parameter** flach und positionsgebunden
+(`src/train/state.rs` Z. 44/83/155). Die echten Rollen des Micro: Baseline, Qualitaetstor
+(D-047), Loop-Geruest, Korpus-Beitrag (`data/agent/*` 85.050 Datensaetze), Messinstrument und
+**Kontrollarm fuer einen groesseren Lauf**.
+
+**ERGEBNIS 3 - DIE 3B-STUFE IST GERECHNET.** Konkrete Konfiguration nach der Projektformel:
+**d_model 2816, 32 Lagen, d_ff 7424, 22 Koepfe** -> **3.023.621.120** Parameter (d_ff folgt
+`8/3 * d_model`, auf 256 gerundet). Trainingszustand **42,331 GB** (14 B/Param) bzw.
+**48,378 GB** (16 B/Param mit bf16-Arbeitskopie), **Resume-Stand 36,283 GB in EINER Datei**,
+Aktivierungen bei Batch 16 x 512 rund **41,1 GB** (gerechnet, nicht gemessen) - ohne Gradient
+Checkpointing geht es nicht. `6*N*D`: auf **61,86 GB** (20 Byte/Param, D-042) **1,12e21 FLOPs
+= 2.460 h = 102,5 Tage** auf einer L40S @35 % (126.700 GFLOPS, **Annahme**, O-T5) = **rund
+1.796 EUR**; auf dem heutigen Korpus nur **3,4 h = rund 2 EUR**. **Datenwand: 61,86 GB gegen
+133,40 MiB Familienmaterial = Faktor 442** (gegen `kombi-mathe2` Faktor 688) = **1.000-6.200
+Familien** heutiger Groesse, gebaut sind **zwoelf**.
+
+**ERGEBNIS 4 - TOKENIZER: NEIN, JETZT NICHT.** Die Abbildung existiert als **Identitaet**
+(Byte-Wert = Zeilenindex, `VOCAB_SIZE` 256 **inklusive** der sechs Strukturmarken,
+`src/data/bytes.rs` Z. 7-8/11-21/24), ein Artefakt fehlt **gewollt** (Roadmap Z. 68). Ein
+Tokenizer erzeugt genau den dort genannten Defekt ("Zahlen werden willkuerlich zerstueckelt,
+`12345` -> `123` + `45`", Z. 33); der **gemessene** Zahlenfehler des Projekts ist ein anderer
+(**423 -> 24**, Stellenwert, O-Z3). Sein echter Vorteil ist die **Sequenzlaenge** (4-5x,
+Z. 32) - und dafuer ist **Patching** dokumentiert (MegaByte Z. 56, Byte Latent Transformer
+Z. 57), das die **Positionszahl** senkt, an der die quadratische Attention haengt (heute erst
+11,3-14,8 % von `6*N*D`). Der Tokenizer wird **hinter die freien Sprachstufen (D-017)**
+gestellt und braucht dann einen eigenen Messplan.
+
+**ERGEBNIS 5 - DIE ZIELGROESSE BLEIBT DIE ENTSCHEIDUNG DES NUTZERS.** Die 3B sind als
+**Shiros** Zielgroesse im Register vermerkt (`D-063`), **nicht** still umgedeutet; die 9B/13B
+aus `ZUSAMMENFASSUNG.md` meinen weiterhin **Lehrer**-Groessen. Fuenf **pruefbare Gates** sind
+benannt (Korpus >= 20 B/Param; Familien gebaut und gesaettigt gemessen; Rechenbudget benannt;
+**Leiter gemessen**; Betrieb/Retention fuer 36,28 GB je Stand), und der **billige
+Gegenbeweis** ist festgelegt (O-G5): Modell **S (21.440.128)** auf demselben Korpus, derselben
+Dosis und demselben Elternstand je Familie gegen Arm B messen, **Deutung VORAB** festgelegt.
+Der 3B-Lauf auf dem **heutigen** Korpus entscheidet die Frage **nicht** - bei 0,028 Byte je
+Parameter ist das Ergebnis von Chinchilla vorausgesagt; **die Daten fuer den Beweis existieren
+nicht, und das ist selbst das Ergebnis.**
+
+**GEMESSENE ZAHLEN DIESER RUNDE (live, nicht aus Notizen uebernommen).** Korpus ueber alle
+**29** Manifeste: **1.376.645 Datensaetze / 414.916.383 B = 395,70 MiB**, davon nur `train`
+**398.114.066 B = 379,67 MiB**; **eindeutiges** Familienmaterial **139.883.536 B = 133,40 MiB**
+(`kombi*` sind abgeleitete Kopien); groesster kombinierter Korpus `data/kombi-mathe2/train`
+**320.720 Datensaetze / 89.905.697 B**, **5 Shards**. Die Verlusttafel der Runde 32 (drei
+Staende, fuenf Familien, Reihenfolge Baseline / Arm A / Arm B / Phase): `seq` 5,7449 / 0,5071 /
+**0,4973** / 0,5409 · `quant` 5,6612 / **0,3862** / 0,3969 / 0,3836 · `logic-large` 5,7055 /
+**0,9196** / 0,9491 / 0,9478 · `algebra` 5,8643 / 1,6734 / **1,6435** / 4,8844 · `formel`
+5,8471 / 3,6432 / **0,2835** / 4,6725 · `add/eval-3d` 5,8605 / +0,0483 / +0,0666 ·
+`add/eval-4d` 5,8143 / +0,0073 / +0,0522. **Hinweis:** `add` ist in **allen** Staenden
+**schlechter als die untrainierte Baseline** - das ist der aus D-061 bekannte
+Additions-Transfer und **kein** neuer Befund.
+
+**STAND DER LAUFENDEN MESSUNG (Runde 32) - KEIN URTEIL.** `bash /home/changchi/r32-stufen.sh`
+laeuft weiter (Start 08:44:23, PID 71359); abgeschlossen ist die **Verluststufe** (5 Familien x
+3 Kandidaten, oben). Die **Trefferstufe** hat **4 von 10** Zeilen (fuenf Familien x zwei Arme A/B; meine zuerst genannte Zahl 15 war falsch): `seq/val` Arm A **374/480 =
+77,9 %**, Arm B **381/480 = 79,4 %**; `quant/val` Arm A **70/291 = 24,1 %**, Arm B **79/291 = 27,1 %** (nur 291 statt 480 Fragen, weil das Kontextfenster 512 die laengeren Datensaetze ueberspringt); aktuell laeuft `logic-large/val` Arm A. Je Lauf sind es rund
+**27 Minuten** (480 byte-genaue Fragen, Kontext 512, GPU), die **Panels** stehen noch aus.
+**Eine Annahme oder Verwerfung wird hier NICHT ausgesprochen** - die Klauseln (a) bis (d) aus
+Runde 29 brauchen die vollstaendige Tafel beider Antwortformen. Es gibt daher **keine neue
+Registerzeile zum Lauf**, und `D-047` wird **nicht** neu bewertet.
+
+**PARALLEL IN DIESER RUNDE (Unterauftrag, nicht von mir geschrieben):** der Voll-Benchmark
+"Logisches und Analytisches Denken" ist **gebaut** - `scripts/benchmark-logik.sh` (9.584 B),
+`scripts/benchmark-logik.py` (83.755 B, 1.857 Zeilen) und
+`docs/voll-benchmark-logik-analytik.md` (23.000 B); 7 Familien, 40 Typnamen, 188 Jobs, 32.031
+Fragen, 11 Determinismus-Wiederholungen, Panels 2 x 480 mit `stride/2` als Versatz, Familie 4
+als "nicht gebaut" (O-L4), Job-Guard gegen laufende Messungen. **Der schwere Lauf ist NICHT
+gefahren** - die Zahlen des Benchmarks existieren noch nicht. Der Unterauftrag hat **fuenf
+eigene Rechenfehler** in seinem Werkzeug gefunden und behoben (u. a. Prozent gegen Anteil,
+Typfragenzahl aus dem ganzen Shard statt aus dem Panel, vertauschte gepoolte Spalten) und
+**drei falsche Angaben des Auftragstexts** korrigiert: `aa8e7bb6…` ist der SHA des
+**Eltern-.state**, nicht des `.safetensors`; "Versatz 5" ist der Sonderfall `stride/2`; `seq`
+hat **8** Typnamen und `format` **6** Aufgabentypen (die fuenf Klassen aus D-021 sind eine
+andere Achse).
+
+**NEUE UND GESCHLOSSENE PUNKTE:** `O-G1` (Zielgroesse) **geschlossen durch `D-063`**; `O-G2`
+(Destillation nicht als Registerzeile verankert) **verankert**, der Bauplan wird **`O-G6`**;
+`O-G3` mit Zielzahl verschaerft (61,86 GB, 1.000-6.200 Familien); `O-G4` verschaerft (auch 3B
+ohne Config-Datei); **neu `O-G5`** (die Leiter ist nie gemessen worden) und **`O-G6`** (kein
+Destillations-Bauplan). Kollisionspruefung mit dem Muster `O-<Buchstabe><Ziffer>`: im Kreis
+`O-G` waren `O-G1`..`O-G4` belegt, `O-G5`/`O-G6` kommen im ganzen Baum nicht vor.
+
+**REGISTERINTEGRITAET:** neu **`D-063`** als **eine** Zeile, direkt hinter `D-062`;
+**`D-063` ist die hoechste vergebene ID, `D-064` ist frei**; die Kette `D-010`..`D-063` ist
+geschlossen bis auf die **bekannte, dokumentierte Luecke** bei `D-011`/`D-012` (beide nur
+im importierten Entscheidungslog belegt, `docs/abschluss-vorbereitungsphase.md` Z. 115);
+gemessen mit dem Muster am Zeilenanfang: **53 D-IDs, 53 eindeutig, 0 Dopplungen**, Bereich
+`D-010` bis `D-063`.
+
+**GATES (in WSL2 gemessen, Verdikt ueber `if`/`else`, weil `$?` in diesem Harness leer wird):**
+`scripts/check-table-pipes.py` **GRUEN, 135 Dateien, 0 zerbrochene Tabellenzeilen** ·
+`scripts/check-doc-links.py` **GRUEN** auf den vier beruehrten Dateien: 8 + 3 + 13 + 13 =
+**37 Links, 0 tot** · `scripts/lernstufen-check.sh` **GRUEN, 0 Warnungen** ·
+`scripts/programmiersprachen-check.sh` **GRUEN, 0 Warnungen**. **Keine `cargo`-Gates** - es
+wurde **kein** Rust angefasst; der letzte gemessene Stand bleibt fmt 0 Abweichungen,
+**464 Tests / 0 failed / 1 ignored**, clippy nur die 7 fremden Befunde, Release gruen,
+Smoke-Digest `a6a53c95abd7f622` unveraendert.
+
+**ZEILENENDEN UND WERKZEUGFEHLER, OFFEN GELEGT.** `docs/zielgroesse-3b-und-tokenizer.md` ist
+**neu** (28.700 B, 473 Zeilen, **LF-only, ohne BOM**); `docs/abschluss-vorbereitungsphase.md`
+bleibt **LF-only (0 CR)**, `docs/groessen-strategie-und-destillation.md` und
+`docs/basis-modell-und-wachstumspfad.md` ebenfalls **0 CR**. Dieser Protokollblock ist wie die
+Datei **CRLF** und wurde angehaengt, nicht rueckdatiert. **Zwei eigene Fehler beim Einfuegen,**
+beide bemerkt und behoben: (a) das `write`-Werkzeug scheitert in diesem Baum fuer **neue**
+Dateien mit `EISDIR` (bekannter Defekt) - die Datei wurde ueber eine Temp-Datei und
+`[System.IO.File]::WriteAllText` mit `UTF8Encoding($false)` geschrieben; (b) zwei Einfuegungen
+per Zeilenindex hatten einen **Off-by-one** und liessen **zwei Restzeilen** stehen
+("  trainiert nichts. Siehe [...]" und "hoechste vergebene ID; `D-051` ist frei.**") - beide
+entfernt, und die neue Linkzeile wurde korrekt an den bestehenden Linkblock angehaengt. Das
+`edit`-Werkzeug wurde bewusst **nicht** benutzt, weil es nach dem Befund aus `g10` lebende
+LF-Dateien auf CRLF normalisieren kann.
+
+---
+
+## 8.7 Nachtrag (09.10.2026, zweiter Teil): Papierpaket - Leseumfang, Grenze und was im naechsten Loop daraus folgt
+
+**Frage des Nutzers:** "hast du den ganze AI/ML/DL paper gelesen und wirst beim naechsten loop anwenden?"
+
+**Kurzantwort: gelesen ja - aber NICHT als Volltext aller Papiere, und angewendet wird das Paket als
+BAUANLEITUNG fuer den Loop, nicht als Trainingsstoff fuers Modell.**
+
+**1) Leseumfang, ehrlich eingegrenzt.** Gelesen und im Baum abgelegt ist das Paket
+`docs/recursive-self-improvement/` (sechs Dateien, Runde `rsi1`): `README.md`,
+`01-recursive-self-improvement.md`, `02-feintuning-katalog.md`, `03-logisch-analytisches-denken.md`,
+`04-wissenschaftspapers-als-material.md`, `05-harness-erweiterung-spec.md`. Verifiziert wurden **48
+arXiv-Kennungen live** ueber `export.arxiv.org/api/query` (alle HTTP 200) - also **Metadaten- und
+Abstract-Ebene** samt der inhaltlich tragenden Befunde, **nicht** der Volltext aller 48 Papiere. Drei
+Belege grenzen das ein: (a) **zwei Kennungen aus der frueheren Nutzerangabe sind falsch** und das ist
+dokumentiert - `2504.03271` ist nicht AlphaProof, sondern "Energy Aware and Safe Path Planning for
+Unmanned Aircraft Systems" (eess.SY), `2401.00201` ist nicht AlphaGeometry, sondern "The iterative
+conception of function and the iterative conception of set" (math.LO); (b) AlphaGeometry und
+AlphaProof sind **Nature**, nicht arXiv - die Nature-Seiten liefern nur einen Bot-Check-Stub
+(3.036 B), belegbar waren ueber Crossref nur Titel, Datum und **Lizenz CC BY 4.0**; (c) die
+Goedel-Maschine (Schmidhuber 2003) hat eine existierende Abstract-Seite, die API liefert aber
+`totalResults=0` (API-Luecke, kein fehlendes Paper, keine Ersatzkennung).
+
+**2) Der inhaltlich tragende Einzelbefund.** arXiv **2310.01798** "Large Language Models Cannot
+Self-Correct Reasoning Yet" zeigt **gemessen**, dass Selbstkorrektur **ohne externes Signal die
+Leistung verschlechtert**. Folge im Repo: die Klasse C (Selbstgespraech) ist bewusst **nicht** gebaut.
+Das deckt sich mit Roadmap **Z. 539** ("Ohne externen Verifier keine echte Selbstverbesserung").
+
+**3) Was daraus schon angewendet ist.** `D-056` ist registriert und **bindend**: ML-/DL-/KI-Material
+ist **kein Lernmaterial**, hoechstens Sprachmaterial (Klasse B) und in der Regel
+**Konstruktionsmaterial** (Klasse C) - Bauanleitung fuer den Harness, niemals Trainingsstoff. Und der
+bestehende Loop **ist** bereits die verifizierbare Teilmenge von RSI: zwei disjunkte Panels,
+Determinismus-Probe, Annahme nur bei Einstimmigkeit (`D-050`), genau **eine** Variable je Runde,
+Hebelleiter mit dauerhafter Position. In mehreren Punkten geht er **ueber** die Papers hinaus.
+
+**4) Was im naechsten Loop gilt (Nutzerreihenfolge, unveraendert).** Erst das **Verdikt** ueber die
+Klauseln (a)-(d) aus Runde 29, getrennt je Familie **und** je Antwortform (`r42`, laeuft); danach der
+in **`D-063`/`O-G5`** festgelegte **Leiter-Test** (Modell S, 21.440.128, auf demselben Korpus mit
+derselben Dosis gegen Arm B) mit **vorab** festgelegter Deutung. **Kandidat danach** - und
+ausdruecklich **noch nicht gebaut**: die drei in `05-harness-erweiterung-spec.md` spezifizierten
+Skills `propose-experiment` (schliesst **O-R1**), `adjust-goal` (**O-R2**) und `triage-todolist`, samt
+Sperrliste (Verifier, Score-Gewichte, Schwellen, Panels, Testdaten, Daten loeschen, committen, Ziele
+senken - nur mit Mensch). **Kein Paper wandert als Trainingsstoff in einen Korpus.**
+
+**5) Zwischenstaende: JA.** Zwei kurze Meldungen sind zugesagt - eine nach der **Trefferstufe**, eine
+nach der **Panels-Stufe**. Bis dahin laeuft **nichts** Zusaetzliches auf der GPU; die laufende Messung
+(`r32-stufen.sh`, PID 71359) bleibt unangetastet.
+
+**KEINE NEUE D-ID** (reine Antwort plus Verfahrensnotiz, Muster `x12`/`g7`). Hoechste vergebene ID
+bleibt **`D-063`**; **`D-064` ist frei**. **Kein Commit.** HEAD bei Beginn dieses Nachtrags
+`5a67e4a2d02316601178500f03a071d7e5775d34` (`5a67e4a`, "Runde 40d"); HEAD bei Ende **gemessen**:
+**derselbe Wert** - also identisch, aber gemessen statt behauptet (die Parallelsitzung committet, ein
+stiller Wechsel waere moeglich gewesen).
+
+---
+
+## Silicon Valley / Pied Piper / Middle-Out — Recherche-Dossier (nur Doku, kein Bau, kein Commit)
+
+**Anlass:** Nutzerfrage, ob mit dem eigenen Byte-Modell ein Pied-Piper-artiger Kompressor gebaut werden koennte — inklusive „Middle-Out" und der Frage, ob daraus eine gefaehrliche Technologie wird. Auftrag ausdruecklich **nur Recherche**: sammeln fuer spaeter, Umsetzung offen.
+
+**Der wichtigste Befund: das Projekt hat den Kern schon entschieden.** `docs/byte-model-roadmap.md` traegt seit der Konzeptfassung den Abschnitt **§5.8 „Kompression mit Arithmetic Coding"** (Z. 365-376) mit `encode`/`decode`-Pseudocode, dem Satz *„Voraussetzung: Sender und Empfaenger berechnen **exakt dieselben** Wahrscheinlichkeiten. Deshalb ganzzahlige (quantisierte) Haeufigkeitstabellen"* und der Zeile *„Voraussetzung: […] am besten dieselbe Hardware oder bit-genaue Integer-Inferenz"*. Dazu **Z. 169** (fuer den Einsatz „Kompression" ist **Integer- bzw. Fixed-Point-Berechnung** vorgesehen), **Z. 183** (*„Fuer normale Texterzeugung egal, **fuer Kompression nicht**"*) und **Phase 8** (Z. 504-507: *„Modell als Vorhersager plus Arithmetic Coding, **Verifier: Entpacken und Bytes vergleichen**"*, *„verlustfrei gilt nur fuer das Arithmetic-Coding-Verfahren"*). Das Dossier ist damit **keine Erfindung und kein neuer Plan**, sondern eine **Verifikations- und Machbarkeitsschicht** auf einer bestehenden Projektentscheidung.
+
+**NEU: `docs/silicon-valley-pied-piper/`** mit drei Dateien, alle **LF, UTF-8 ohne BOM**: `README.md` (9.958 B / 145 Z., Kurzantwort, die zwei entscheidenden Zahlen, **offene Entscheidungstabelle unentschieden dokumentiert**), `01-konzept-und-grenzen.md` (15.575 B / 249 Z., Fiktion gegen Technik, drei Komponenten, Bedingungen der verlustfreien Rekonstruktion, **scharfe Trennung Dekompression / Entschluesselung / Musteranalyse**, Gefahrentabelle mit Gegenmassnahmen, Quellen), `02-shiro-machbarkeit-und-messplan.md` (18.490 B / 293 Z., Ist-Faehigkeiten mit `file:line`, die Rechnung, Determinismus konkret, Dateiklassen, Messplan als **Entwurf**, Phasenplan als **Entwurf**, `O-S1`…`O-S4`).
+
+**ZWEI NUTZERANNAHMEN GEPRUEFT — eine bestaetigt, eine korrigiert.** (1) **BESTAETIGT:** „Middle-Out" ist **nicht** rein fiktiv. TechCrunch, 14.07.2016, *„Dropbox's Lepton lossless image compression really uses a 'middle-out' algorithm"* — **HTTP 200**, 236.227 B, **26 Treffer** im Fliesstext. **ABER PRAEZISIERT:** Dropbox' eigenes `README.md` (**HTTP 200**, 5.815 B) und das Projekt-Wiki (**HTTP 200**) nennen das Wort **je 0-mal**. Die **Presse** traegt den Begriff, nicht der Hersteller; real ist die **Klasse von Verfahren** (verlustfreier Rekompressor mit Wahrscheinlichkeitsmodell plus arithmetischer Codierung), **nicht** ein nachbaubarer Algorithmus namens „Middle-Out". (2) **BESTAETIGT:** „Perplexitaet ist nicht gleich gute Dateikompression" — und hier **rechenbar belegt**: `bits/Byte = Verlust / ln(2)`, und ein **untrainiertes** Modell sagt Gleichverteilung ueber 256 Byte-Werte voraus, also `ln(256)/ln(2)` = **genau 8,000 bits/Byte** = Rohgroesse, **keine Kompression**. Dieser Anker ist exakt und nachpruefbar.
+
+**DIE RECHNUNG, die in jede kuenftige Aussage gehoert:** aus den **gemessenen** Held-out-Verlusten des Projekts ergeben sich **0,409** bits/Byte (`formel/val`, r41: 0,2835 Nats), **0,553** (`quant/val`), **0,780** (`seq/val`), **1,367** (`logic-large/val`) — aber **7,376** (`add/eval-3d`) und **8,455** bei der **untrainierten** Baseline. Die letzten beiden Zeilen zeigen: **ein schlechter Vorhersager vergroessert Dateien.** **Der Overhead wird ausdruecklich mitgerechnet:** die Gewichte sind **18.631.832 B = 149.054.656 Bits** (Resume-Stand heute gemessen **55.879.752 B**), daraus die Amortisationsdistanz — **18,7 MB** (formel), **19,1 MB** (quant), **19,7 MB** (seq), **21,4 MB** (logic-large), **227,8 MB** (add/eval-3d). **Zwei Vorbehalte sind im Dokument festgehalten, weil sie die Zahlen nur verschlechtern, nie verbessern:** die Amortisation ist gegen **roh** gerechnet, nicht gegen zstd/brotli/gzip (die zu amortisierende Ersparnis wird dadurch **kleiner**), und das **Kontextfenster 512 Byte** (Micro) bzw. **1024 Byte** (Small) schliesst langreichweite Redundanz aus.
+
+**KRYPTOGRAFIE UND SICHERHEIT SIND SAUBER GETRENNT.** Dekompression, Entschluesselung und Musteranalyse sind drei verschiedene Dinge: ein Kompressor setzt **Struktur** voraus, Verschluesselung ist genau so gebaut, dass der Geheimtext **keine verwertbare Struktur** zeigt — gegen starken Geheimtext liefert ein Modellkompressor daher **Expansion**, nicht Klartext. Die vier Gefahren des Nutzertextes (ungeprueftes Ausfuehren, Zugriff auf Geheimnisse, Optimierung, die Sicherheitsmechanismen aendert, automatische Ausnutzung) sind **korrekt** und werden auf die **bestehende Sperrliste** (`docs/recursive-self-improvement/05-harness-erweiterung-spec.md` § 5) und **D-044** abgebildet. **Arbeitsregel: nur selbst erzeugte Testdaten** — keine fremden Schluessel, keine Geheimtexte, keine produktiven Systeme.
+
+**DER MESS- UND PHASENPLAN IST AUSDRUECKLICH ENTWURF UND WURDE NICHT AUSGEFUEHRT.** Sechs Dateiklassen mit Lizenzbezug und SHA-Fixierung; **Klasse 6 (Zufallsdaten) ist die Pflichtkontrolle**: wird Zufall **kleiner** als die Rohdatei, ist **nicht** das Modell gut, sondern der **Codierer falsch**. Vorab festgelegte Kriterien: **Abbruch sofort** bei nicht bytegleichem Rundlauf oder bei `bits/Byte < 8` auf Klasse 5/6; **Annahme** nur, wenn auf mindestens einer Klasse 1-3 das Modell **amortisiert** alle **drei** Vergleichsverfahren schlaegt, auf **zwei** getrennten Testkoerpern, **mit** Modell- und Containeroverhead. Phase 1 (**Rundlauf-Beweis ohne Modell**) braucht **kein** Modell und ist der Punkt, an dem solche Projekte scheitern.
+
+**NEUE OFFENE PUNKTE, Kollisionspruefung zuerst — `O-S<Ziffer>` ueber 135 `*.md`-Dateien:** exaktes Muster `O-S[0-9]` **0 Treffer**; **Teilstring-Gegenprobe** `O-S` (case-sensitive) **4 Treffer**, **alle** in `ISO-Standard` (`programmiersprachen/grundlagen.md` Z. 663, `programmiersprachen/SOURCES.md` Z. 117 und Z. 474) und `IMO-Silber-Niveau` (`recursive-self-improvement/01-recursive-self-improvement.md` Z. 212) — **keine davon ist eine ID**. **Zusatzfalle offengelegt:** die **case-insensitive** Zaehlung liefert **55** Treffer, ist also **doppelt** irrefuehrend (Teilstring **und** Gross-/Kleinschreibung). **`O-S` ist frei**; vergeben sind **`O-S1`** (kein Codierer und kein Containerformat vorhanden — Roadmap §5.8 und Phase 8 beschreiben beides, gebaut ist nichts), **`O-S2`** (keine `bits/Byte`-Zahl auf **fremden** Dateien; alle Werte stammen aus Shiros eigenen synthetischen Baendern), **`O-S3`** (Quantisierungsschema nicht festgelegt: die Roadmap fordert „ganzzahlige Haeufigkeitstabellen", nennt aber **weder Wortbreite noch Summe noch Rundungsregel**), **`O-S4`** (Kontextfenster begrenzt die Reichweite; Fenster- oder Blockstrategie nicht untersucht). Uebrige Maxima derselben Zaehlung: `O-A` 36, `O-D` 38, `O-G` 6, `O-K` 29, `O-L` 9, `O-P` 22, `O-R` 6, `O-T` 18, `O-W` 8, `O-Z` 14. **KEINE neue `D-ID`** (Recherche ohne Verhaltensaenderung, Muster `g7`/`g8`/`g10`); hoechste bleibt **D-063**, `D-064` frei.
+
+**EIN FEHLGRIFF, OFFEN GELEGT:** die Kennung `1911.03537` wurde probeweise mitgeprueft und ist **nicht** Kompression, sondern *„A filamentary cascade model of the inertial range"* (`physics.flu-dyn`, 08.11.2019) — also **Hydrodynamik**. Die Kennung ist **nicht** verwendet und der Fehlgriff im Dossier vermerkt, damit er nicht spaeter als Zitat auftaucht. **Papiere live verifiziert** (arXiv-API, Abruf 09.10.2026, Feed `<updated>` `2026-10-09T10:38:21Z`, alle **HTTP 200**): *Language Modeling Is Compression* **2309.10668** (19.09.2023, cs.LG — Abstract woertlich gelesen: *„predictive models can be transformed into lossless compressors and vice versa"*), *LLMZip* **2306.04050** (06.06.2023, cs.IT), *Training LLMs over Neurally Compressed Text* **2404.03626** (04.04.2026, cs.CL).
+
+**LAUFENDER FREMDER MESSLAUF NICHT GESTOERT.** Beim Beginn lief `/home/changchi/r32-stufen.sh` (PID **71359**, Laufzeit 1:53:41) mit einem aktiven `shiro eval --config configs/train.micro.toml --checkpoint checkpoints/kombi-mathe2-step23200.safetensors --answers 480` (PID 76487, **153 % CPU**), dazu das Dashboard (PID 8619, Port 8787). Diese Runde hat **nichts** gestartet, **nichts** beendet und **keine** Datei unter `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/` oder `logs/` angefasst.
+
+**GATES:** siehe Abschlussnotiz unten. **Zeilenenden:** die drei neuen Dateien **LF-only, ohne BOM**; dieser Block ist **CRLF** wie die Datei (Bestand vor dem Anhaengen **3.380 CR / 3.380 LF = CRLF-only**, fremde Parallelzeilen unberuehrt). **`HEAD` bei Beginn und Ende:** siehe Abschlussnotiz.
+
+---
+
+## 8.7 Nachtrag (09.10.2026, dritter Teil): Runde 32 ist gemessen - Verdikt VERWORFEN, und die Formel-Familie ist lernbar
+
+**Auftrag:** die zwei fehlenden Messstufen der Runde 32 (Trefferquote und Panels) auswerten, die Klauseln
+(a)-(d) anwenden, Verdikt, Registerzeile, Commit. **Kein Training, kein neuer Checkpoint.**
+
+**VOLLSTAENDIGKEIT, GEPRUEFT STATT ANGENOMMEN.** Verluststufe **19 Laeufe** (`/home/changchi/r40/eval-*.log`:
+je 5 Familien fuer Arm A, Arm B und den Phase-Stand, dazu `add/eval-3d` und `-4d` fuer A und B).
+Trefferstufe **10 von 10** Zeilen (5 Familien x Arm A/B). Panels-Stufe **4 Laeufe** (Arm A/B x absolute/Delta-Form),
+**jeder** mit Panel A **und** Panel B. **NICHT VORHANDEN: die Determinismus-Probe.** In keinem der vier
+Panel-Logs steht eine Determinismus-Zeile (`grep -i determin` ueber `panel-*.log` = **0 Treffer**); sie gehoert zur
+Annahmeregel des Loops und wird im `--dry-run` nicht ausgeloest. Das wird hier offen benannt und **nicht** als
+erfuellt gezaehlt.
+
+**DIE ZAHLEN (roh aus den Logs, nicht rekonstruiert).**
+
+Verlust (Mittel-Loss, kleiner ist besser):
+
+| Held-out | Baseline | Arm A (`kombi-mathe`) | Arm B (`kombi-mathe2`) | Phase (`kombi-delta`) |
+|---|---|---|---|---|
+| `seq/val` | 5,7449 | 0,5071 | **0,4973** | 0,5409 |
+| `quant/val` | 5,6612 | **0,3862** | 0,3969 | 0,3836 |
+| `logic-large/val` | 5,7055 | **0,9196** | 0,9491 | 0,9478 |
+| `algebra/val` | 5,8643 | 1,6734 | **1,6435** | 4,8844 |
+| `formel/val` | 5,8471 | 3,6432 | **0,2835** | 4,6725 |
+| `add/eval-3d` | 5,8605 | +0,0483 | +0,0666 | nicht gemessen |
+| `add/eval-4d` | 5,8143 | +0,0073 | +0,0522 | nicht gemessen |
+
+Trefferquote (greedy, byte-genau; `--answers 480`, bei `quant` 291 und `logic-large` 433 wegen Kontextfenster 512):
+
+| Familie | Arm A | Arm B | Differenz |
+|---|---|---|---|
+| `seq/val` | 374/480 = 77,9 % | 381/480 = 79,4 % | **+1,5 Pp** |
+| `quant/val` | 70/291 = 24,1 % | 79/291 = 27,1 % | **+3,0 Pp** |
+| `logic-large/val` | 410/433 = 94,7 % | 405/433 = 93,5 % | -1,2 Pp |
+| `algebra/val` | 142/480 = 29,6 % | 82/480 = 17,1 % | **-12,5 Pp** |
+| `formel/val` | 12/480 = 2,5 % | 110/480 = 22,9 % | **+20,4 Pp** |
+
+Panels in der **DELTA-Form** (der Form, die beide Korpora tragen), gepoolt ueber Panel A und Panel B:
+
+| Typ | Arm A | Arm B | Differenz |
+|---|---|---|---|
+| `luecke` | 107/109 = 98,2 % | 98/109 = 89,9 % | -8,3 Pp |
+| `naechste` | 103/121 = 85,1 % | 81/121 = **66,9 %** | **-18,2 Pp** |
+| `offen` | 110/114 = 96,5 % | 99/114 = 86,8 % | -9,7 Pp |
+| `regel` | 73/133 = 54,9 % | 79/133 = 59,4 % | **+4,5 Pp** |
+| `reparatur` | 119/123 = 96,7 % | 75/123 = **61,0 %** | **-35,7 Pp** |
+| `reparatur1` | 110/122 = 90,2 % | 97/122 = 79,5 % | -10,7 Pp |
+| `stelle` | 112/116 = 96,6 % | 109/116 = 94,0 % | -2,6 Pp |
+| `vergleich` | 121/122 = 99,2 % | 122/122 = 100,0 % | +0,8 Pp |
+
+Kopfzahlen DELTA: Arm A inhaltlich **362/411 = 88,1 %** bzw. **372/427 = 87,1 %**, gesamt 89,6 % / 88,5 %,
+Score 0,535 / 0,532; Arm B inhaltlich **317/411 = 77,1 %** bzw. **321/427 = 75,2 %**, gesamt 80,4 % / 77,9 %,
+Score 0,496 / 0,490.
+
+Panels in der **ABSOLUTEN** Form (nicht die Form der Korpora): Arm A inhaltlich 306/411 = 74,5 % bzw.
+315/427 = 73,8 %; Arm B 312/411 = 75,9 % bzw. 315/427 = 73,8 %. Beide Arme scheitern hier an der Antwortform
+(`Form kaputt` 59/58 bei Arm A, 19/24 bei Arm B) - das ist die aus D-052/D-053 bekannte Wirkung und **kein**
+neuer Befund.
+
+**DIE KLAUSELN, EINZELN.**
+
+* **(a) Algebra gegen Baseline UND Phase: TEILWEISE.** Im Verlust ist Arm B mit **1,6435** besser als Arm A
+  (1,6734), als der Phase-Stand (4,8844) und als die untrainierte Baseline (5,8643). In der **Trefferquote**
+  aber faellt Algebra von **29,6 % auf 17,1 %** (-12,5 Pp). Beide Arme schlagen den Phase-Stand (0 von 120,
+  D-060); die Aussage "besser als Baseline und Phase" traegt, die Aussage "gegenueber der Kontrolle
+  unveraendert" traegt **nicht**.
+* **(b) Kein Typ faellt von >= 75 % auf < 75 %: VERLETZT.** Zwei Typen fallen unter die Marke: `naechste`
+  85,1 % -> **66,9 %** und `reparatur` 96,7 % -> **61,0 %**. `regel` liegt in **beiden** Armen unter 75 %
+  (54,9 % / 59,4 %) - das ist die aus D-061 bekannte Algebra-Wirkung und kein neuer Einbruch.
+* **(c) `regel` und `naechste` verschlechtern sich hoechstens um den Standardfehler: VERLETZT.**
+  `regel` **verbessert** sich (+4,5 Pp). `naechste` verschlechtert sich um **-18,2 Pp**; bei p ~ 0,75 und
+  n = 121 ist der Standardfehler je Typ rund **3,9 Pp**, die Aenderung also etwa **4,6 SE**. Das ist weit
+  ausserhalb der vorab erklaerten Toleranz.
+* **(d) `Form kaputt` = 0/0 auf beiden Panels: VERLETZT.** Arm A in der Delta-Form erfuellt es exakt
+  (**0 / 0**); Arm B hat **11** (Panel A) und **8** (Panel B). In der absoluten Form verletzen **beide** Arme
+  die Klausel.
+
+**VERDIKT: VERWORFEN.** Der Stand `kombi-mathe2-step23200` (SHA `d5386d9b...`) wird **nicht** als Nachfolger
+des eingefrorenen Phase-Stands angenommen: drei der vier Klauseln sind verletzt, und die Verletzungen liegen
+mit -18,2 Pp und -35,7 Pp weit ausserhalb jeder Messunsicherheit.
+
+**DER CONFOUND, AUSDRUECKLICH BENANNT (und NICHT durch eine Schwellenaenderung entschaerft).** Arm B hat
+**320.720** Datensaetze gegen **220.720** in Arm A (**+45 %**); der `seq`-Anteil faellt von 22,7 % auf 15,6 %.
+Gegenueber Arm A haben sich damit **zwei** Dinge gleichzeitig geaendert: die **Zusammensetzung** des Korpus
+und die **Dosis** je Familie. Der Schaden ist dem Formel-INHALT deshalb **nicht zurechenbar** - das ist der
+Grund fuer "verworfen fuer DIESEN Lauf" und **nicht** fuer "das Formel-Material schadet". Die Klauseln wurden
+**nicht** gelockert, um das Ergebnis zu retten.
+
+**WAS TROTZDEM BELEGT IST.** Die neue Familie ist mit **demselben** Modell (4.656.640 Parameter) lernbar:
+`formel/val` Verlust **3,6432 -> 0,2835** (Perplexitaet 38,2 -> 1,3) und Treffer **2,5 % -> 22,9 %**. Das ist
+der groesste Einzelfortschritt dieser Runde und der eigentliche Ertrag.
+
+**NAECHSTER SCHRITT (Vorschlag, nicht gefahren).** Ein kontrollierter Lauf mit **genau einer** Variable:
+entweder Arm A auf die **Datensatzzahl** von Arm B auffuellen (gleiche Dosis, andere Zusammensetzung) oder den
+**Formel-Shard allein** auf Arm A legen. Danach dieselbe Messung. Der **Leiter-Test** aus `D-063`/`O-G5`
+(Modell S, 21.440.128 Parameter, `data/kombi-mathe2/train`, 2000 Schritte, Rate 1e-4, Elternstand
+`kombi-delta-step021200.state`) ist **vorbereitet, aber in dieser Runde NICHT gestartet** - er ist ein eigener,
+mehrstuendiger GPU-Lauf und gehoert als eigene Einheit gefahren.
+
+**KEINE Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`** - ausser dass der
+Messlauf selbst seine Logs unter `/home/changchi/r40/` geschrieben hat.
