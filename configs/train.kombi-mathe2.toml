@@ -1,0 +1,81 @@
+# Trainingslauf auf dem KOMBINIERTEN Korpus MIT der Formel-Familie (Runde 40, Arm B).
+#
+# WAS DIESER LAUF BEANTWORTET. Nutzerauflage (F) aus Runde 29, Stufe 2 der
+# Reihenfolge Algebra -> Formel-Verstaendnis und Funktion -> Math Basic. Die
+# Familie ist gebaut und auf ihrem eigenen Held-out vermessen (D-062); hier wird
+# gemessen, was sie im GEMEINSAMEN Korpus bewirkt.
+#
+# ZWEI ARME, GLEICHER ELTERNSTAND, GLEICHER PLAN, EINE GEAENDERTE GROESSE:
+#   Arm A (ohne M2) = Runde 36: seq + quant + logic-large + algebra
+#                     -> checkpoints/kombi-mathe-step23200.safetensors
+#   Arm B (mit  M2) = dieser Lauf: dieselben vier + formel
+#                     -> checkpoints/kombi-mathe2-step23200.safetensors
+# Beide starten vom eingefrorenen Phase-Stand
+# `checkpoints/kombi-delta-step021200.state`. **Arm A IST damit die Kontrolle**
+# (Regel aus Runde 37: derselbe Plan ohne die neue Familie) - ein zweiter
+# GPU-Lauf als Kontrolle ist nicht noetig.
+#
+# DER KORPUS (gemessen): 5 Shards, 320.720 Datensaetze, 89.905.697 B Nutzlast,
+# 111 Aufgaben-Keys. Arm A hatte 220.720 Datensaetze und 60.338.908 B.
+#   seq 50.000/11.833.736 B (Delta-Form), quant 30.000/14.279.272 B,
+#   logic-large 50.000/17.750.168 B, algebra 90.720/16.475.732 B,
+#   formel 100.000/29.566.789 B
+# Erzeugt mit:
+#   shiro data combine --src data/seq/train --src data/quant/train \
+#     --src data/logic-large/train --src data/algebra/train \
+#     --src data/formel/train --out data/kombi-mathe2/train --antwortform delta
+#
+# OFFEN BENANNTER CONFOUND: Arm B hat 45 % mehr Datensaetze als Arm A, also
+# aendert sich neben der Zusammensetzung auch die DOSIS - bei gleicher
+# Schrittzahl sieht das Modell jeden Datensatz seltener. Der Vergleich trennt
+# die beiden Effekte NICHT; das war in Runde 36 genauso und wird im Urteil
+# mitgenannt, nicht verschwiegen.
+#
+# WARUM KONSTANTE LERNRATE. Wie in Runde 28/30/36: der Schrittzaehler ist global
+# und learning_rate_over() rechnet den Kosinus ueber `start_step + run.steps`.
+# Ein fortgesetzter Lauf von Schritt 21200 mit 2000 geplanten Schritten haette
+# einen Horizont von 23200 und startete bei t = 0,914 - die Rate waere praktisch
+# null. Fuer eine PHASE ist die Kosinusformel die falsche Form.
+#
+# Vorbehalt (D-023/O-T3): bitgenaues Fortsetzen ist nur INNERHALB eines Backends
+# belegt; dieser Lauf laeuft auf der GPU wie Runde 28, 30, 36 und 37.
+
+[run]
+name = "kombi-mathe2"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi-mathe2/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
