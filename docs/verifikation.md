@@ -3277,3 +3277,173 @@ mehrstuendiger GPU-Lauf und gehoert als eigene Einheit gefahren.
 
 **KEINE Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`** - ausser dass der
 Messlauf selbst seine Logs unter `/home/changchi/r40/` geschrieben hat.
+## 8.7 Nachtrag (09.10.2026, vierter Teil): Datenverlust erkannt, byte-genau behoben, Determinismus-Probe nachgeholt
+
+**Auftrag.** Den Loop dauerhaft einrichten, die Datenintegritaet wiederherstellen und die in Runde 32
+versaeumte Determinismus-Probe nachholen. Kein Training, kein Commit.
+
+**1. WAS PASSIERT WAR.** Am **09.10.2026 um 15:32:02** wurden sechs Korpusordner mit
+Generator-**Defaults** ueberschrieben. Belege: alle `manifest.json` und `shard-0000.bin` dieser Ordner
+tragen dieselbe mtime `2026-10-09T15:32:02`; die eingefrorenen Kopien in `data/kombi-mathe/train`
+tragen weiter die grossen Zahlen; `git ls-files data/` ist leer, es gab also keinen Git-Weg zurueck.
+
+| Ordner | vorher | nach dem Ueberschreiben |
+| --- | --- | --- |
+| `data/seq/train` | 50.000 | 512 |
+| `data/seq/val` | 5.000 (Panel-Referenzsatz) | 51 |
+| `data/quant/train` | 30.000 | 512 |
+| `data/quant/val` | 3.000 | 51 |
+| `data/algebra/train` | 90.720 | 512 |
+| `data/algebra/val` | 10.000 | 52 |
+
+Folgen ohne Reparatur: die Panels (jeder 10. aus `data/seq/val`) und alle Trefferquoten waeren nicht
+reproduzierbar gewesen, die Determinismus-Probe unmoeglich, und `configs/train.seq.toml` haette auf 512
+statt 50.000 Datensaetzen gezeigt.
+
+**2. WIE ES BEHOBEN WURDE.** Neuerzeugung mit den dokumentierten Befehlen
+(`generate-seq --n 50000`, `generate-quant --n 30000`, `generate-algebra --n 100000`) und danach
+`shiro data combine` mit dem unversehrten `data/logic-large/train` und `--antwortform delta`.
+Der Beweis ist ein Bytevergleich, kein Vertrauen - und er wurde **zweimal** gefuehrt, einmal auf dem
+Scratch-Ordner und einmal **in place** auf den wiederhergestellten Repo-Ordnern:
+
+    IDENTISCH seq | IDENTISCH quant | IDENTISCH logic-large | IDENTISCH algebra
+    GESAMT: 4 Shards, 220720 Datensaetze, 60338908 B  (= Arm A, byte-genau)
+
+Zusaetzlich sind `quant/train` (Pruefsumme `e113c0a1cd1198eb`) und `algebra/train`
+(`94ae26f901c765b0`) **roh** identisch mit den eingefrorenen Shards, weil das Form-Umschreiben nur `seq`
+beruehrt (9.430 Datensaetze). Die ueberschriebenen Staende liegen gesichert unter
+`/home/changchi/restore/verworfen-512/`; geloescht wurde nichts.
+
+**3. DIE DETERMINISMUS-PROBE IST NACHGEHOLT UND BESTANDEN.** Arm A
+`checkpoints/kombi-mathe-step23200.safetensors`, SHA-256 `e6428567b06c0b443c93f7a4a0c562cc431b330b98db0309b84eca11137f8eaf`.
+Panel A (absolute Form, kein Training) wurde **zweimal unabhaengig** gemessen und mit dem in Runde 32
+gespeicherten Lauf verglichen:
+
+| Vergleich | Ergebnis |
+| --- | --- |
+| Wiederholung 1 gegen Wiederholung 2 | **byte-identisch** (61 Zeilen, 3.837 B) |
+| Wiederholung 1 gegen `panel-A-abs.log` aus Runde 32 | **byte-identisch** |
+
+Damit ist die Pflichtklausel (D-050, exp-013/015) fuer Runde 32 erstmals erfuellt - nachtraeglich, und
+der zweite Vergleich beweist zugleich, dass `data/seq/val` byte-genau der damals gemessene Satz ist.
+
+**4. DIE HELD-OUT-SAETZE WURDEN GEMESSEN, NICHT ANGENOMMEN.** Derselbe Verlust-Eval-Befehl wie in
+Runde 32, Arm A, gegen die eingefrorenen Protokolle:
+
+| Satz | Ergebnis | Verdikt |
+| --- | --- | --- |
+| `data/seq/val` | 0,5071 / 1.217.601 Zielpositionen / 5.000 Datensaetze, Protokoll **byte-identisch** | byte-genau wiederhergestellt |
+| `data/algebra/val` | 1,6734 / 2.834.503 Zielpositionen / 10.000, Protokoll **byte-identisch** | byte-genau wiederhergestellt |
+| `data/quant/val` | 0,4559 / **1.409.265** Zielpositionen gegen 0,3862 / **1.400.724** im eingefrorenen Protokoll, gleiche Datensatzzahl 3.000 | **andere Messbasis** |
+
+**Ursache der dritten Zeile**, belegt und nicht geraten: der Quantor-Generator hat seit dem
+Auslieferungslauf seine Training/Held-out-Bandtrennung verschaerft - genau der in **O-D30** notierte
+Zustand ("der ausgelieferte Korpus stammt aus dem Lauf VOR der strikten Bandtrennung"; Held-out ist
+seither strikt auf 4 Objekte festgelegt). Der **Trainings**shard ist davon nicht betroffen (Pruefsumme
+identisch), der **Held-out**satz schon.
+
+**Grenze, die stehen bleibt:** die historische `quant/val`-Messbasis ist verloren; die quant-Zeilen der
+Runde 32 (Arm A 70 von 291 = 24,1 Prozent, Arm B 79 von 291 = 27,1 Prozent, Verlust 0,3862 und 0,3969)
+sind **nicht nachpruefbar**. Das Verdikt der Runde 32 haengt nicht daran (es stuetzt sich auf die
+byte-genau reproduzierten seq-Panels sowie `algebra` und `formel`), aber die quant-Spalte ist ab jetzt
+eine neue Basis. Neue Regel **R11**: alle Arme werden auf derselben Messbasis gemessen.
+
+**5. NEUE WERKZEUGE UND REGELN.** `docs/autonomer-loop-plan.md` (LF, ohne BOM, 12 Regeln R1-R12,
+Phasenfolge 0-3, Modellleiter, Ressourcenregel, Subagentenpflicht) und `scripts/korpus-report.py`
+(292 Zeilen, LF, ohne BOM, ausfuehrbar). Das Werkzeug rechnet Datensatzzahl, Nutzbytes und FNV-1a-64
+**aus den Bytes** nach, vergleicht gegen Sollwerte und gegen die eingefrorenen Pruefsummen und gibt bei
+Abweichung Exit 1 zurueck. Erster Lauf: **0 harte Befunde ueber 31 Manifeste**, 3 Hinweise (die drei
+Loop-Korpora `data/agent/*` haben keinen festen Sollwert). Diese Pruefung ist genau die, die den
+Vorfall vom 15:32:02 sofort gefunden haette. Registerzeilen **D-065** (Loop-Programm) und **D-066**
+(Datenintegritaet, Vorfall, Reparatur, Grenze).
+
+**6. EIGENER DOKU-FEHLER, GEFUNDEN UND BEHOBEN.** Die Registerzeile **D-064** aus der Runde-32-Auswertung
+hatte nur **drei** Spalten in einer **vier**spaltigen Tabelle (Trennzeichen zwischen "Entscheidung" und
+"Wert / Inhalt" fehlte). Korrigiert; die neuen Zeilen D-065 und D-066 haben geprueft je 5 Pipes.
+
+**7. NEBENBEFUND 1: ein Messlauf ist nicht schreibfrei.** `shiro agent capability run ... --dry-run`
+startet kein Training, baut aber seinen Rundenkorpus unter `data/agent/<cap>-i<n>/train` und schreibt
+ihn: `data/agent/sequence_reasoning-i1/train` wurde waehrend der Panel-Messung um 15:48:30 neu
+geschrieben (19.200 Datensaetze, 4.731.647 B). Fuer den Bytevergleich zweier Messlaeufe ist das
+unschaedlich, als Aussage "diese Runde hat `data/` nicht angefasst" waere es falsch. Regel **R12**.
+
+**8. NEBENBEFUND 2: zwei Nutzbyte-Zahlen.** Die Ausgabe von `shiro data generate-*` nennt unter
+"Nutzbytes" eine Zahl, die **4 Byte je Datensatz unter** dem `payload_bytes` des Manifests liegt (die
+vier Abschnittsmarken `<AUFGABE>`, `<DENKWEG>`, `<ANTWORT>`, `<ENDE>`). Fuer Doku und Gates gilt der
+Manifestwert; die Generatorzeile ist kein Widerspruch, sondern eine andere Definition.
+
+**9. ZUSTAND.** Kein Training gestartet, kein Commit, `HEAD` unveraendert
+`4431026ba873c7596675bb65bd4ea284b3e7793c`. `src/`, `configs/`, `deploy/` unberuehrt; `data/` nur im
+Rahmen der belegten Wiederherstellung. Kein fremder Prozess gestoert (vor und nach der Arbeit lief nur
+das Dashboard). Die Dosis-Kontrolle (Phase 1) ist **nicht** gestartet - sie ist der naechste Schritt und
+braucht Training, das dieser Auftrag ausschliesst.
+
+
+## 8.7 Nachtrag (09.10.2026, fuenfter Teil): Wiederanlauf nach dem Harness-Absturz, Benchmark-Suite, erste Fachmessung
+
+**Anlass.** Die Sitzung wurde durch einen Absturz des Harness beendet (dsh web, JavaScript heap out of
+memory, exit 134). Dieser Block haelt fest, was den Absturz ueberlebt hat, was verloren ging, und was
+danach gebaut und gemessen wurde.
+
+**1. WAS DER ABSTURZ GEKOSTET HAT - UND WAS NICHT.** Auf der Platte waren alle vorher geschriebenen
+Artefakte: `docs/autonomer-loop-plan.md` (16:00), `scripts/korpus-report.py` (15:50), die Registerzeilen
+**D-065** und **D-066** sowie der vierte Protokollblock. `HEAD` steht unveraendert auf
+`4431026ba873c7596675bb65bd4ea284b3e7793c`. Verloren gingen dagegen die **laufenden** Arbeiten: der
+laufende Messjob `bm3-stellen.sh` lief zwar weiter (er war als Hintergrundprozess gestartet), aber die
+drei Recon-Subagenten (LeetCode-API, Woerterbuchquellen, Repo-Bestand) wurden mitten im Lauf abgebrochen
+und mussten neu angestossen werden. Lehre: was nicht als Datei oder als eigener Prozess existiert,
+ueberlebt einen Absturz nicht.
+
+**2. DIE BENCHMARK-SUITE STEHT ALS CHECK-LEITER (D-067).** Neu: `docs/benchmark-suite.md` (252 Zeilen, LF,
+ohne BOM). Fuenf Stufen mit Zweck, Eingabe, vorab genanntem Kriterium, Basislinie und Laufzeit:
+Stufe 0 **UnitTest** (Smoke-Digest `a6a53c95abd7f622`, Testsuite, Korpus-Gate, `validate-data`),
+Stufe 1 **Basic Check** (48 Held-out-Fragen je Familie, trainiert gegen untrainiert),
+Stufe 2 **Check S2** (curriculumnah nach den Kompetenzbereichen aus `docs/lernstufen/level-L4.md`),
+Stufe 3 **Fachbenchmarks** (Sprache, Mathematik, Coding, Logik/Analytik, je mit eigenem Verifier),
+Stufe 4 **Durchbruch-Benchmark** (Klauseln (a)-(d) und die Marke D-047 auf 2 x 480 Panels, beide
+Antwortformen, Determinismus-Probe). Ausdruecklich festgehalten: Benchmark-Aufgaben sind
+**Messinstrumente** und nach **D-056** kein Trainingsstoff; kein LLM bewertet; keine Aggregation ueber
+Pruefsaetze; keine Zahl ohne Basislinie und ohne `n`. Die Regeln aus `benchmark-strategie.md`
+Abschnitt 7 gelten unveraendert.
+
+**3. CODING BRAUCHT KEINE FREMDQUELLE, SPRACHE VIELLEICHT SCHON.** Fuer Coding existieren die vier
+messbaren Klassen bereits im Repo: Ausgabe vorhersagen, Fehlerort, Testluecke, Schleifengrenze - mit
+`src/data/semantics.rs` (Mini-VM) und dem Korpus `data/semantics`; der Verifier ist ein **Interpreter**
+und damit deterministisch. Die vom Nutzer gewuenschte LeetCode-Anbindung
+(`github.com/alfaarghya/alfa-leetcode-api`) wird nur benutzt, wenn der Recon die Lizenz- und
+Nutzungsbedingungenfrage **belegt klaert**; sonst bleibt sie Werkzeug zur Aufgabenbeschaffung fuer
+spaetere Modellgroessen. Fuer Sprache gilt dieselbe Dreifachbedingung: belegte Lizenz,
+maschinenlesbares Wahrheitsfeld, endlicher Antwortraum - sonst eigener Generator.
+
+**4. ERSTE FACHMESSUNG: MATHEMATIK, STELLENACHSE.** Reine Messung, kein Training. Vier Stellenbaender des
+Spaltenrechnens mit Uebertrag, Kontext 512 Byte:
+
+| Band | n | untrainiert | Arm A | Arm B |
+| --- | --- | --- | --- | --- |
+| 1-stellig | 100 | 5,9904 (PPL 399,6) | 6,3843 (592,5) | 6,4936 (660,9) |
+| 2-stellig | 8.100 | 5,9116 (369,3) | 5,9743 (393,2) | 6,0186 (411,0) |
+| 3-stellig | 2.000 | 5,8605 (350,9) | 5,9089 (368,3) | 5,9271 (375,1) |
+| 4-stellig | 2.000 | 5,8143 (335,0) | 5,8216 (337,5) | 5,8665 (353,0) |
+
+**Befund: beide trainierten Arme sind auf ALLEN vier Baendern schlechter als das untrainierte Modell.**
+Die byte-genaue Antwortquote liegt auf dem bisher gemessenen 1-stelligen Band bei **0 von 100**. Zwei
+Praezisierungen, ohne die der Befund falsch gelesen wird: (a) die Namen `train-1d` und `train-2d`
+bezeichnen die Aufteilung des **Additionskorpus**, nicht den Trainingsstand der Arme - die
+Additionsfamilie ist in **keinem** Korpus von Arm A oder Arm B enthalten; (b) der Schaden ist ueber die
+Stellenzahl **gleichmaessig**, er ist damit kein Stellenproblem, sondern ein **Formatproblem**: die Arme
+sind auf die Muster ihrer eigenen Korpora spezialisiert und verlieren die allgemeine Byte-Verteilung, die
+der Additionskorpus verlangt. **O-D21 ist damit verschaerft**: der negative Transfer ist nicht auf 3 und
+4 Stellen beschraennt, er gilt auch fuer 1 und 2 Stellen. Die Trefferstufe der Messung lief zum
+Zeitpunkt dieses Blocks noch; ihr Ergebnis wird nachgetragen, nicht vorweggenommen.
+
+**5. GATES.** `check-table-pipes.py` 140 Dateien / 0 zerbrochene Tabellenzeilen, exit 0 (Einzellauf neue
+Datei 1 Datei / 0); `check-doc-links.py` exit 0 (Summe tote Links 0); `lernstufen-check.sh` exit 0;
+`programmiersprachen-check.sh` exit 0; `korpus-report.py --gate` 0 harte Befunde ueber 31 Manifeste,
+3 Hinweise (die drei Loop-Korpora unter `data/agent/`). Neue Datei LF-only, ohne BOM, abschliessendes LF;
+`docs/verifikation.md` bleibt CRLF-only.
+
+**6. ZUSTAND.** Kein Training gestartet, kein Modell geaendert, `src/`, `configs/` und `deploy/`
+unberuehrt. `data/` wurde nur durch die Messung selbst beruehrt (`--dry-run`-Panel-Laeufe schreiben ihren
+Rundenkorpus unter `data/agent/`, Regel R12 des Loop-Programms). Der laufende Messjob wurde nicht
+gestoert.
+
