@@ -2712,3 +2712,92 @@ ueberschritten wird, ist **kein Beweis**. **Offen:** `O-D36` (getrennt: halb Pha
 Algebra) · `O-D33` (korrigiert: Algebra, nicht Phase) · **`O-D37`** (Korpus-Anteil als
 Hebel ungemessen; Algebra = 41 % der Datensaetze) · **`O-D38`** (D-047 marginal,
 Replikation offen).
+
+## Runde 40 - Die zweite Mathematik-Familie gebaut und vermessen (M2, D-030 A2/A3, `D-062`)
+
+**Auftrag.** Nutzerauflage (F) aus Runde 29, Stufe 2 der Reihenfolge
+**Algebra -> Formel-Verstaendnis und Funktion -> Math Basic**. Nach `D-056` ist
+das **Denkmaterial** (geschlossener Antwortraum + unabhaengiger Verifier), nicht
+Sprach- oder Konstruktionsmaterial.
+
+**Gebaut.** `src/data/formel.rs` (81.346 B, 2080 Zeilen, 17 Modultests),
+`tests/formel.rs` (26.476 B, 13 Integrationstests), CLI `data generate-formel`,
+Korpus `data/formel/{train,val}`, Doku `docs/formel-korpus.md`.
+
+**Der eigentliche Entwurfsschritt war die Abgrenzung.** Die naheliegende erste
+Fassung ("`f(x) = a*x + b`, setze `x` ein, nenne den Wert") ist **dieselbe
+Rechnung** wie `alg-wert` aus der Algebra-Familie, nur in anderer Schreibweise -
+also eine Doppel-Familie (Zersplitterung, `D-031` Abschnitt 7). Sie wurde **vor
+dem Bau** verworfen und durch vier Typen ersetzt, die es in M1 nicht gibt:
+`fkt-tabelle` (Wertetabelle, mehrere Eingaben -> Antwortliste, Trenner `;`),
+`fkt-liegt` (liegt Q auf der Geraden? `ja`/`nein`), `fkt-mittel` (Nummer des
+falschen Schritts der Mittelpunktrechnung), `fkt-steig` (richtiger Wert des
+falschen Schritts der Steigungsrechnung).
+
+**D-059-Gate: erfuellt, und es ist ein Exit-Code.** Antwortraeume an den
+ausgelieferten Bytes, vom Planner **unabhaengig nachgerechnet**: 22.179 / 2 / 4 /
+118; Mehrheitsanteile 0,02 % / 50,25 % / 25,22 % / 8,56 %; Kurzstrategie
+"immer 0" in allen vier Typen 0,0 %. `--n 8` bricht mit **exit 1** ab und nennt
+den Grund, `--n 200` und `--n 100000` laufen durch.
+
+**Zwei selbst gefundene Defekte derselben Klasse.** (a) `fkt-steig` liess
+`dy == 0` zu: gemessen waren 8,6 % aller Antworten die `0` und die Kurzstrategie
+"immer 0" traf 8,6 % - Scheinvielfalt genau der `D-059`-Sorte, weil
+`dy % dx == 0` fuer `dy = 0` bei jedem Nenner gilt; behoben, danach 0,0 %.
+(b) Der erste Lauf war schief verteilt (58 % / 7,5 %), weil die rotierende
+Zuordnung die Annahmequoten abbildete; behoben durch den ausgewogenen Plan,
+danach exakt 25.000 je Typ.
+
+**Bandtrennung je Groesse, 0 Lecks.** Train gegen Held-out: Koordinaten und
+Tabelleneingaben 1..60 gegen 61..100, Betrag von `a` und `m` 1..4 gegen 5..8,
+`b` 1..60 gegen 61..100. Die Trennung ist **je Groesse** geprueft - eine erste
+eigene Messung, die alle Zahlen einer Aufgabe in einen Bereich warf, meldete
+falschen Alarm (Koeffizient und Achsenabschnitt sind verschiedene Groessen).
+`im_band` ist kein toter Code.
+
+**Korpus.** train 100.000 Datensaetze / 28.509.121 B Nutzlast / 28.709.153 B
+Datei / FNV `a7b223d11dbbdede` / laengster 336 B / 20 Keys; val 10.000 /
+2.897.626 B / 2.917.658 B / `0a959c9ef5686958` / 344 B / 12 Keys;
+110.000/110.000 global eindeutig, Schnitt train∩val = 0; beide Validatorstufen
+gruen; zweiter und dritter Lauf ueber alle vier Ausgabedateien `cmp`-identisch.
+
+**Der Instanzraum ist NICHT ausgeschoepft - der Unterschied zu M1.** M1 war mit
+90.720 Datensaetzen vollstaendig aufgezaehlt; hier ist die Obergrenze analytisch
+16.670.976 (Held-out 3.442.320), geliefert 100.000 = 0,66 %, und bei
+`--n 2.000.000` waechst der Vorrat noch linear. Die Decke wurde **nicht** durch
+Ausschoepfung gemessen (rund 10 GB RAM; ein OOM haette einen parallel laufenden
+Trainingsprozess mitreissen koennen) - der Vorbehalt steht im Bericht.
+
+**Gates, vom Planner unabhaengig wiederholt:** `cargo fmt --check` 0
+Abweichungen; `cargo test` **460 passed / 0 failed / 1 ignored** (vorher 430,
++30); `cargo clippy --all-targets -- -D warnings` **nur die 7 fremden Befunde**
+(`src/data/quant.rs` 6, `src/probe.rs` 1), **0 in den neuen Dateien**;
+`cargo build --release` gruen; Smoke-Digest **`a6a53c95abd7f622` unveraendert**;
+`validate-data` in beiden Baendern gruen.
+
+**Neue offene Punkte.** `O-A33` kein Typ-Bild der Familie im Loop (die Panels
+messen die Zahlenfolgen-Familie) · `O-A34` Koordinaten und `b` ohne Vorzeichen
+(alle Punkte im ersten Quadranten; `a`, `m` und die Verschiebung sind signiert,
+fallende Geraden kommen vor) · `O-A35` das **Level ist mit dem Band gekoppelt**
+(`level_fuer` schneidet bei 20/40, die Baender sind 1..60 und 61..100; messbar
+an den Manifest-Schluesseln: train 20 Keys, val 12 - im Held-out-Band ist jeder
+Datensatz `schwer`) · `O-A36` der Verifier prueft die Schritt-**Werte**, nicht
+die Schritt-**Beschreibungen** (dieselbe Luecke in `algebra` und `seq`).
+
+**NICHT getan, ausdruecklich.** Keine Messung AM MODELL, kein `data combine`,
+kein Training, keine Aenderung an `data/kombi*/`, `data/algebra/`,
+`checkpoints/`, `logs/`, `deploy/`, `registry/`. Der Messplan steht **vorab** in
+`docs/formel-korpus.md` Abschnitt 7: **Arm A** (Runde 36, Korpus ohne
+`formel`-Shard) **ist** die Kontrolle nach der Regel aus Runde 37, **Arm B** ist
+derselbe Plan mit dem zusaetzlichen Shard; der Confound ist benannt (Arm B hat
+45 % mehr Datensaetze, also aendert sich auch die Dosis).
+
+**Verfahren, weil der Arbeitsbaum eine Fremdsitzung traegt.**
+`docs/abschluss-vorbereitungsphase.md` und diese Datei sind im Arbeitsbaum von
+einer Parallelsitzung mitgeaendert. Beide wurden deshalb als **HEAD-Fassung +
+eigener Block** in den Index gestellt (`git hash-object -w` +
+`git update-index --cacheinfo`) - gegengeprueft: das Register hat genau
+**+1/-0** Zeilen und die letzten drei Zeilen sind `D-060`, `D-061`, `D-062`;
+keine Fremdzeile ist mitgekommen. `src/data/mod.rs` traegt fremd
+`pub mod seqgen;` und ist dort auf LF umgestellt; meine Zeile `pub mod formel;`
+wird ebenfalls aus der HEAD-Fassung bereitgestellt.

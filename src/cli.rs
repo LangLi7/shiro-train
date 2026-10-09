@@ -75,6 +75,12 @@ pub enum Command {
     GenerateSeq {
         opts: SeqGenOptions,
     },
+    /// Korpus "Formel-Verstaendnis und Funktion" (Mathematik-Stufe **A2/A3** nach
+    /// **D-030**): Punkt/Vektor/Mittelpunkt und Steigung/"liegt P auf der
+    /// Geraden?" (`src/data/formel.rs`).
+    GenerateFormel {
+        opts: FormelGenOptions,
+    },
     /// Shards und Manifest validieren.
     /// Korpus "Spiele und Raetsel" - alle Spiel-Umgebungen.
     GenerateGames {
@@ -331,6 +337,30 @@ impl Default for AlgebraGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-formel` (Mathematik-Stufe **A2/A3** nach
+/// **D-030**).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FormelGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for FormelGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/formel"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 impl Default for LogicGenOptions {
     fn default() -> Self {
         Self {
@@ -431,6 +461,9 @@ SUBKOMANDOS:
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
     data generate-algebra Korpus \"Algebra A1 - Terme mit Variablenbelegung\" erzeugen
                           (D-030 Stufe A1, D-055)
+    data generate-formel  Korpus \"Formel-Verstaendnis und Funktion\" erzeugen
+                          (D-030 Stufen A2/A3: Punkt/Mittelpunkt, Steigung,
+                          \"liegt P auf der Geraden?\")
     data combine          mehrere Familien in EIN Manifest legen (n5, D-051):
                           --src <ordner> je Quelle (mindestens ZWEI), --out <ziel>
                           --antwortform <absolut|delta> setzt die Antwortform des
@@ -481,6 +514,12 @@ OPTIONEN FUER data generate-quant:
 OPTIONEN FUER data generate-seq:
     --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
     --out <PFAD>          Zielordner (Standard: data/seq)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-formel:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/formel)
     --seed <N>            Seed (Standard: 1337)
     --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
 
@@ -587,6 +626,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_quant = false;
     let mut want_seq = false;
     let mut want_algebra = false;
+    let mut want_formel = false;
     let mut want_games = false;
     // Agentischer Loop: drei Woerter (`agent capability run`) plus Positional.
     let mut saw_agent = false;
@@ -653,6 +693,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-algebra" => {
                 want_algebra = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-formel" => {
+                want_formel = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -917,6 +962,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_quant,
         want_seq,
         want_games,
+        want_algebra,
+        want_formel,
     ]
     .iter()
     .filter(|w| **w)
@@ -926,12 +973,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     }
     if generatoren > 1 {
         bail!(
-            "generate-logic, generate-semantics, generate-format, generate-quant und generate-seq schliessen sich aus"
+            "generate-logic, generate-semantics, generate-format, generate-quant, generate-seq \
+             und generate-formel schliessen sich aus"
         );
     }
     if saw_data && generatoren == 0 {
         bail!(
-            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, `generate-format`, `generate-quant`, `generate-seq` oder `combine`)"
+            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, \
+             `generate-format`, `generate-quant`, `generate-seq`, `generate-formel` oder \
+             `combine`)"
         );
     }
 
@@ -1000,6 +1050,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out_dir: out_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/algebra")),
+            },
+        };
+    }
+
+    if want_formel {
+        out.command = Command::GenerateFormel {
+            opts: FormelGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/formel")),
             },
         };
     }

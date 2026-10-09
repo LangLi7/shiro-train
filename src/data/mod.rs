@@ -17,6 +17,7 @@ pub mod bytes;
 pub mod format;
 pub mod formatgen;
 pub mod formats;
+pub mod formel;
 pub mod games;
 pub mod generate;
 pub mod loader;

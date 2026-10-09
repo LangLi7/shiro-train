@@ -12,6 +12,7 @@ use shiro::config::{ModelConfig, TrainConfig};
 use shiro::data::algebra;
 use shiro::data::format;
 use shiro::data::formatgen;
+use shiro::data::formel;
 use shiro::data::games;
 use shiro::data::generate;
 use shiro::data::loader::Dataset;
@@ -66,6 +67,7 @@ fn real_main() -> Result<()> {
         } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
+        Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
             capability,
             parent,
@@ -1576,6 +1578,221 @@ fn fill_algebra_tasks(
     >,
 ) {
     use shiro::data::algebra::Level;
+    for (cat, st) in stats {
+        manifest.tasks.insert(cat.key().into(), st.total);
+        manifest.tasks.insert(
+            format!("bewegung.{}.{}", cat.short(), cat.movement()),
+            st.total,
+        );
+        for (level, n) in [
+            (Level::Easy, st.easy),
+            (Level::Medium, st.medium),
+            (Level::Hard, st.hard),
+        ] {
+            if n > 0 {
+                manifest
+                    .tasks
+                    .insert(format!("level.{}.{}", cat.short(), level.key()), n);
+            }
+        }
+    }
+}
+
+/// Erzeugt den Korpus "Formel-Verstaendnis und Funktion" (Mathematik-Stufe **A2/A3**
+/// nach **`D-030`**).
+///
+/// **Warum die Aufgaben-Schluessel ein `fkt-`-Praefix tragen:** die `tasks`-Zuordnung
+/// des Manifests ist **flach**, und `shiro data combine` **addiert** bei
+/// Namensgleichheit (`D-051`). Ein zweites `typ.reparatur` aus dieser Familie wuerde
+/// also die Zahl der Zahlenfolgen-Familie verfaelschen und jede Auswertung nach Typ
+/// unbrauchbar machen.
+fn cmd_generate_formel(opts: &cli::FormelGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let gen_opts = formel::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent,
+        seed: opts.seed,
+    };
+    let data = formel::generate(&gen_opts)?;
+
+    println!("Korpus       : Formel-Verstaendnis und Funktion (D-030 Stufen A2/A3)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!(
+        "Baender      : Training k 1..60, |m| 1..4, b 1..60; \
+Held-out k 61..100, |m| 5..8, b 61..100 - in jeder Groesse disjunkt"
+    );
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let train_entry = write_shard_with_entry(
+        &train_dir.join("shard-0000.bin"),
+        &train_records,
+        "fkt-trai",
+    )?;
+    let mut train_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Formel-Verstaendnis und Funktion (D-030 A2/A3) - Training ({} Datensaetze)",
+            train_records.len()
+        ),
+    );
+    fill_formel_tasks(&mut train_manifest, &data.train_stats);
+    train_manifest.shards.push(train_entry);
+    train_manifest.save(train_dir.join("manifest.json"))?;
+
+    let val_entry =
+        write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "fkt-val")?;
+    let mut val_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Formel-Verstaendnis und Funktion (D-030 A2/A3) - Held-out-Band - {} Datensaetze",
+            val_records.len()
+        ),
+    );
+    fill_formel_tasks(&mut val_manifest, &data.val_stats);
+    val_manifest.shards.push(val_entry);
+    val_manifest.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    for (name, stats, n, bericht) in [
+        (
+            "Training",
+            &data.train_stats,
+            train_records.len(),
+            &data.train_report,
+        ),
+        (
+            "Held-out",
+            &data.val_stats,
+            val_records.len(),
+            &data.val_report,
+        ),
+    ] {
+        println!(
+            "{name:<10}   : {n} Datensaetze, laengster Datensatz {} B",
+            data.max_record_len()
+        );
+        for (cat, st) in stats {
+            println!(
+                "  {:<16} {:>6}  (leicht {}, mittel {}, schwer {})  Bewegung {}",
+                cat.short(),
+                st.total,
+                st.easy,
+                st.medium,
+                st.hard,
+                cat.movement()
+            );
+        }
+        println!(
+            "  Ziehung       : {} Versuche, davon Band {} / nicht baubar {} / Dubletten {} / \
+Selbstpruefung {} - Vorrat erschoepft: {}",
+            bericht.versuche,
+            bericht.band_verworfen,
+            bericht.nicht_baubar,
+            bericht.dubletten,
+            bericht.selbstpruefung,
+            if bericht.vorrat_erschoepft {
+                "ja"
+            } else {
+                "nein"
+            }
+        );
+    }
+    report_formel(&data)?;
+    println!();
+    println!("Ziel         : {}", opts.out_dir.display());
+    println!(
+        "Pruefen      : SHIRO_DATA={} shiro validate-data",
+        train_dir.display()
+    );
+    Ok(())
+}
+
+/// Bericht der Formel-Familie: **Antwortraum** und **Kurzstrategie-Baseline** je
+/// Aufgabentyp - und das **`D-059`-Gate**.
+///
+/// Die Messung ist der Grund, warum dieser Bericht existiert: in der Algebra-Familie
+/// hatte `alg-vergleich` **eine** Antwort (100 %). Ohne diese Zahl sieht ein
+/// Aufgabentyp, der immer dasselbe antwortet, wie eine geloeste Aufgabe aus.
+///
+/// **Das Gate ist die zweite Haelfte der Lehre.** Eine Messung, die niemand
+/// auswertet, ist so wertlos wie eine Pruefung ohne Aufrufer: hat ein Typ nur **eine**
+/// Antwort, endet der Befehl mit **Exit-Code ungleich null**. Stille war der Grund,
+/// warum der Algebra-Defekt eine ganze Runde ueberlebt hat.
+fn report_formel(data: &formel::Generated) -> Result<()> {
+    let mut verletzt: Vec<String> = Vec::new();
+    for (name, liste, stats) in [
+        ("Training", &data.train, &data.train_stats),
+        ("Held-out", &data.val, &data.val_stats),
+    ] {
+        if liste.is_empty() {
+            continue;
+        }
+        let treffer = formel::kurzstrategie_treffer(liste);
+        println!("\n--- Kurzstrategie-Baseline ({name}, D-059) ---");
+        print!(
+            "{:<15} {:>7} {:>7} {:>10} {:>8}",
+            "Typ", "n", "Antw.", "Mehrheit", "%"
+        );
+        for (key, _) in &treffer {
+            print!(" {:>11}", key);
+        }
+        println!();
+        for cat in formel::Category::ALL {
+            let Some(st) = stats.get(&cat) else {
+                continue;
+            };
+            let (haeufig, pct) = st.shortcut_baseline();
+            print!(
+                "{:<15} {:>7} {:>7} {:>10} {:>8.1}",
+                cat.short(),
+                st.total,
+                st.distinct_answers(),
+                haeufig,
+                pct
+            );
+            for (_, je_typ) in &treffer {
+                let n = je_typ.get(&cat).copied().unwrap_or(0);
+                print!(" {:>10.1}%", n as f64 * 100.0 / st.total as f64);
+            }
+            println!();
+            if st.distinct_answers() < 2 {
+                verletzt.push(format!(
+                    "{} im Band {name}: nur EINE Antwort (`{haeufig}`, {pct:.1} %)",
+                    cat.short()
+                ));
+            }
+        }
+    }
+    if !verletzt.is_empty() {
+        shiro::error::bail!(
+            "D-059-Gate VERLETZT - ein Aufgabentyp mit nur einer Antwort trainiert eine \
+             Konstante: {}",
+            verletzt.join(" | ")
+        );
+    }
+    Ok(())
+}
+
+/// Schreibt die Aufgaben-Zuordnung des Formel-Korpus ins Manifest.
+fn fill_formel_tasks(
+    manifest: &mut Manifest,
+    stats: &std::collections::BTreeMap<
+        shiro::data::formel::Category,
+        shiro::data::formel::TaskStat,
+    >,
+) {
+    use shiro::data::formel::Level;
     for (cat, st) in stats {
         manifest.tasks.insert(cat.key().into(), st.total);
         manifest.tasks.insert(
