@@ -189,22 +189,60 @@ Diese vier Klassen sind **im Repo schon gebaut**: `src/data/semantics.rs`
 es damit **keine fremde Quelle** - der Verifier ist ein Interpreter, und der ist
 deterministisch.
 
-**Zur gewuenschten LeetCode-Anbindung.** Der Nutzer nennt
-`https://github.com/alfaarghya/alfa-leetcode-api`. Zwei Vorbehalte, die vor einer
-Nutzung geklaert sein muessen und gerade geprueft werden:
+**Zur gewuenschten LeetCode-Anbindung (geprueft, Urteil: nicht nutzbar).** Der
+Nutzer nennt `https://github.com/alfaarghya/alfa-leetcode-api`. Die Pruefung vom
+09.10.2026 ergibt ein klares Nein, und zwar aus drei unabhaengigen Gruenden, jeder
+woertlich belegt:
 
-1. Die **Aufgabentexte** sind urheberrechtlich geschuetzt; ob ein Abruf und die
-   Verwendung als Benchmark zulaessig ist, ist eine Lizenz- und
-   Nutzungsbedingungen-Frage und keine technische.
-2. Die **Loesungspruefung** ist bei einem 512-Byte-Modell nicht durchfuehrbar
-   (Codekompilierung, Testfaelle, Sprache). Nutzbar waere hoechstens die
-   **Metadatenebene** (Titel, Schwierigkeit, Themen-Tags) als Aufgabenauswahl.
+1. **Die Nutzungsbedingungen verbieten das Abrufen.** LeetCode, Abschnitt
+   "USE OF SERVICES", Unterabschnitt "Restrictions", `https://leetcode.com/terms/`
+   (HTTP 200, Stand 04.05.2024): "Activities such as 'crawling,' 'scraping,' or
+   'spidering' any part of the Service ... are strictly forbidden."
+2. **Die Aufgaben sind ausdruecklich Eigentum von LeetCode.** Derselbe Abschnitt,
+   Unterabschnitt "Content": "You agree that all Content is our sole and
+   exclusive property, which includes all software, images, questions, solutions,
+   or any material associated with the Service platform." Es gibt **kein**
+   Lizenzangebot (kein CC, keine Ausnahme).
+3. **Der einzige Datenpfad ist technisch gesperrt.** `https://leetcode.com/robots.txt`
+   (HTTP 200) sperrt fuer **alle** User-Agents: `Disallow: /api/`,
+   `Disallow: /*/api`, `Disallow: /graphql` - genau den Weg, den der Wrapper liest.
 
-**Entscheidungsregel (vorab).** LeetCode wird nur benutzt, wenn der Recon die
-Lizenzfrage **belegt klaert**; andernfalls bleibt Coding auf dem eigenen
-Interpreter-Korpus, und die LeetCode-Anbindung wird als **Werkzeug zur
-Aufgabenbeschaffung fuer spaetere Modellgroessen** vermerkt, nicht als Benchmark.
-Ein Benchmark, der auf ungeklaerter Rechtslage steht, wird nicht gebaut.
+Auch die eingeschraenkte Variante "nur Metadaten" traegt nicht: Titel, Slug,
+Schwierigkeit und Tags sind Teil des "Content" und kommen ueber denselben
+gesperrten Endpunkt. Die MIT-Lizenz des Wrappers gilt **nur fuer dessen
+Quellcode**, nicht fuer die durchgereichten Inhalte. Nebenbefund: der im Auftrag
+genannte Pfad `alfi-al/alfa-leetcode-api` liefert HTTP 404, richtig ist
+`alfaarghya/alfa-leetcode-api` (Version 2.0.4, MIT).
+
+**Fachlicher Vorbehalt, unabhaengig von der Lizenz.** Die Schnittstelle liefert
+**keine ausfuehrbaren Testfaelle und keinen Verifier** - nur Beschreibung,
+Editorial und `sampleTestCase`/`exampleTestcases` als Zeichenkette. Ohne
+unabhaengigen Verifier faellt jede daraus gebaute Messung unter die Projektregel,
+nach der verifizierbare Familien das Messmaterial sind (Roadmap Z.539).
+
+**Entschieden (vorab, jetzt gueltig):** LeetCode wird **nicht** benutzt. Eine
+schriftliche Erlaubnis des Rechteinhabers wuerde das aendern; eine solche liegt
+nicht vor und wurde nicht angefragt.
+
+**Offene Alternativen, die den Verifier mitbringen** (Abruf 09.10.2026, alle
+HTTP 200, Lizenz woertlich belegt):
+
+| Quelle | Lizenz | Umfang | Eignung fuer ein 512-Byte-Modell |
+| --- | --- | --- | --- |
+| **CruxEval** | MIT ("MIT License / Copyright (c) 2023 Meta") | 800 Zeilen, nur `test` | **beste Passung:** zwei Aufgaben - Eingabe vorhersagen (I) und Ausgabe vorhersagen (O); Antwortraum 1-50 Zeichen, Soll-Wert steht im Datensatz, also deterministischer Vergleich **ohne** Code-Sandbox; `code`+`input` passen meist in 512 Byte |
+| **MBPP** | **Widerspruch:** Repo-LICENSE Apache-2.0 gegen HF-Karte CC-BY-4.0 | 974 Aufgaben (sanitized 427) | Aufgabentext 38-249 Zeichen, also kurz genug fuer Mehrfachwahl-Aufgabenverstaendnis; Verifier sind `assert`-Listen |
+| **HumanEval** | MIT ("The MIT License / Copyright (c) OpenAI") | 164 Aufgaben, nur `test` | `prompt` und `test` passen zusammen fast nie in 512 Byte; der Ausfuehrungspfad ist im Repo bewusst deaktiviert ("deliberately commented out") |
+| **APPS** | MIT (Repo); der HF-Spiegel `codeparrot/apps` nennt **keine** Lizenz | 10 000 Probleme, 131 777 Testfaelle | Aufgabentext im Mittel ~1,8 kB, also ueber dem Kontextfenster; die Karte warnt selbst vor "many false positives ... due to lack of test coverage" |
+| **CodeContests** | **Widerspruch:** Repo Apache-2.0 gegen HF-Karte CC BY 4.0 | 13 328/117/165 | Beschreibungen fast immer ueber 4096 Byte; die Karte sagt woertlich, `private_tests` "should not be made available as inputs to a model" |
+
+**Konsequenz fuer diese Suite.** Stufe 3 Coding startet auf den **eigenen**
+Klassen (Abschnitt oben), weil dort der Verifier ein Interpreter ist - also
+deterministisch, lizenzfrei und ohne Fremdabhaengigkeit. **CruxEval** ist der
+erste Kandidat fuer eine externe Ergaenzung, sobald die Aufgabenverstaendnis-
+Klassen auf dem eigenen Korpus messbar sind; **MBPP** folgt fuer
+Mehrfachwahl-Aufgaben. Beide werden erst aufgenommen, wenn die
+Kontaminationspruefung (Ueberschneidung mit Shiro-Trainingsdaten, Projektregel
+D-018) gelaufen ist - sie ist **nicht** gelaufen.
 
 ## 5. Berichtsformat
 
@@ -247,6 +285,6 @@ jede Zahl nachpruefbar bleibt.
 | Basic Check je Familie | Skript offen; die Messbefehle existieren (`eval`, `eval --answers`) |
 | Check S2 als Aufgabensatz | offen: Kompetenzbereiche aus `docs/lernstufen/level-L4.md` auf Repo-Familien abbilden |
 | Sprache: Quellenentscheidung | Recon laeuft |
-| Coding: LeetCode-Lizenzurteil | Recon laeuft |
+| Coding: LeetCode-Lizenzurteil | **entschieden: nicht nutzbar** (Abschnitt 4.4); externe Ergaenzung waere CruxEval (MIT), erst nach der Kontaminationspruefung |
 | Logik/Spiele: Panels je Spieltyp | Instrument vorhanden (`benchmark-logik.py`), Lauf offen |
 | Durchbruch-Benchmark | Instrument vorhanden, laeuft in Phase 4 des Loop-Programms |
