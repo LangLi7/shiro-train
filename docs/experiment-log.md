@@ -4741,3 +4741,151 @@ Elternstand reproduzierbar.
   diese Runde: -10,5 Pp gegenueber dem eingefrorenen Elternstand). Damit ist die Klausel
   (c) des vorab festgelegten Messplans **verletzt** und der Typ bleibt der einzige
   Engpass, der die Mathematik-Phase ueberlebt.
+## Runde 37 - Der Kontrolllauf: die Phase kostet halb, die Algebra-Familie halb - und `regel` kostet ALLEIN die Algebra (D-061, O-D36 getrennt)
+
+**Anlass: der Schaeden aus Runde 36, und eine vorab festgelegte Deutung.** Runde 36 hat
+gemessen, dass der Mathematik-Lauf die Algebra-Familie von **0 % auf 25 %** bringt - und
+dabei zwei Kosten erzeugt: den **Additions-Transfer** (`add/eval-3d` 5,1127 -> 5,9089,
+`-4d` 5,1479 -> 5,8216, Baseline 5,8605 / 5,8143) und **`regel`** (65,4 % -> 54,9 %,
+Klausel (c) verletzt). Der Mechanismus war **nicht getrennt**; benannt waren drei
+Kandidaten: Korpus-Zusammensetzung, verschobene Batch-Fenster, **Wiederholung einer
+Phase**. Diese Runde faehrt den **Kontrolllauf**, der genau diese Frage entscheidet.
+
+### Der Lauf: EINE geaenderte Groesse gegenueber Runde 36
+
+```text
+scripts/run-with-gpu-preference.sh train --config configs/train.kombi-kontrolle.toml \
+        --resume checkpoints/kombi-delta-step021200.state
+```
+
+Gegenueber Runde 36 zeigt `data.dir` wieder auf **`data/kombi-delta/train` - derselbe
+Korpus OHNE den Algebra-Shard** (130.000 statt 220.720 Datensaetze). Modell, Dosis (2000
+Schritte), Rate (1e-4 konstant), Seed (1337), Batch (16 x 512) und Elternstand sind
+**unveraendert**.
+
+| Kennzahl | Wert |
+|---|---|
+| Backend | `Device<Cube(Cuda(Cuda(0)))>` - **GPU** |
+| Dauer | **486,527 s** (8:07 min) |
+| Durchsatz | **593,46 GFLOPS** effektiv |
+| Verlust | **0,1780 -> 0,1252** (beste 0,0412) |
+| Stand | `checkpoints/kombi-kontrolle-step23200.safetensors`, SHA-256 `0ee9d9d0251bd930...` |
+
+**Die vorab festgelegte Deutung** (Wortlaut im Kopf von `configs/train.kombi-kontrolle.toml`,
+**vor** dem Lauf geschrieben): faellt `add` auch hier auf ~5,9 -> die Phase ist die Ursache;
+bleibt es bei ~5,1 -> der Algebra-Inhalt; **dazwischen -> beide Anteile, und so wird es
+berichtet.**
+
+### (1) Der Additions-Transfer: BEIDE Anteile, etwa halb und halb
+
+| Datensatz | untrainierte Baseline | Elternstand | **Kontrolle (ohne Algebra)** | Kind (mit Algebra) |
+|---|---|---|---|---|
+| `add/eval-3d` | 5,8605 | 5,1127 | **5,5961** (+0,4834) | 5,9089 (+0,7962) |
+| `add/eval-4d` | 5,8143 | 5,1479 | **5,5099** (+0,3620) | 5,8216 (+0,6737) |
+
+**Der Kontrolllauf verliert den Transfer AUCH** - also ist die Algebra-Familie **nicht** die
+alleinige Ursache. Die Zerlegung, aus den gemessenen Zahlen gerechnet: eval-3d **60,7 %**
+der Einbusse stammen aus der **blossen Phasenwiederholung**, **39,3 %** aus dem
+Algebra-Shard; eval-4d **53,7 %** bzw. **46,3 %**. Das ist der Zweig **"dazwischen"** der
+vorab festgelegten Deutung - **beide Anteile wirken**, und es wird kein Entweder-oder
+erfunden.
+
+### (2) `regel`: die Ursache ist ALLEIN die Algebra-Familie - die Phase VERBESSERT den Typ
+
+| Typ (Delta-Panels, gepoolt) | Elternstand | **Kontrolle (ohne Algebra)** | Kind (mit Algebra) |
+|---|---|---|---|
+| **`regel`** | 87/133 = **65,41 %** | **108/133 = 81,20 %** | 73/133 = **54,89 %** |
+| `naechste` | 87/121 = 71,90 % | **110/121 = 90,91 %** | 103/121 = 85,12 % |
+| `offen` | 104/114 = 91,23 % | 105/114 = 92,11 % | 110/114 = 96,49 % |
+| `luecke` | 106/109 = 97,25 % | 104/109 = 95,41 % | 107/109 = 98,17 % |
+| `stelle` | 112/116 = 96,55 % | **98/116 = 84,48 %** | 112/116 = 96,55 % |
+| `reparatur` | 121/123 = 98,37 % | 115/123 = 93,50 % | 119/123 = 96,75 % |
+| `reparatur1` | 113/122 = 92,62 % | 105/122 = 86,07 % | 110/122 = 90,16 % |
+| `vergleich` | 122/122 = 100 % | 122/122 = 100 % | 121/122 = 99,18 % |
+
+**Das ist der schaerfste Befund der Runde:** die blosse Phasenwiederholung hebt `regel` von
+**65,4 % auf 81,2 %** (+15,8 Pp) und `naechste` von 71,9 % auf 90,9 % (+19,0 Pp) - und der
+**Algebra-Shard** reisst `regel` auf **54,9 %** herunter (-26,3 Pp gegen die Kontrolle).
+**Die Zuordnung aus Runde 30 ist damit korrigiert:** dort wurde der `regel`-Verlust der
+"zweiten Phase auf derselben Verteilung" zugeschrieben (`O-D33`); gemessen ist er die
+**Wirkung der Korpus-Zusammensetzung**. Die Kontrolle *verbessert* den Typ, statt ihn zu
+verschlechtern.
+
+**Die Phase verschiebt das Typenprofil in BEIDE Richtungen** und wird deshalb nicht als
+"gut" verbucht: `stelle` faellt von 96,6 % auf 84,5 % (-12,1 Pp) und `reparatur1` von
+92,6 % auf 86,1 % (-6,5 Pp), waehrend `regel`/`naechste` deutlich steigen.
+
+### (3) D-047 im Delta-Form: die Kontrolle erreicht die Marke - aber nur um 0,32 SE
+
+| Stand | Kopfzahl (Delta, 2 x 480) | Typen unter 75 % | D-047 |
+|---|---|---|---|
+| Elternstand (R30) | 852/960 = 88,75 % | `regel` 65,4 % | nicht erreicht |
+| Kind mit Algebra (R36) | 855/960 = 89,06 % | `regel` 54,9 % | nicht erreicht |
+| **Kontrolle ohne Algebra (R37)** | **867/960 = 90,31 %** | **keiner** (schwaechster `regel` 81,2 %) | **formal erreicht** |
+
+**Beide Bedingungen der Marke sind erfuellt** (Kopfzahl >= 90 % **und** kein inhaltlicher
+Typ unter 75 %) - **zum ersten Mal in der Delta-Form**. **Und die Einschraenkung gehoert in
+denselben Satz:** der Abstand zur Marke betraegt **0,31 Pp = 0,32 Standardfehler** (SE
+0,955 Pp bei n = 960). Das ist **schwaecher** als der Fall, den Runde 18 als "innerhalb
+eines Standardfehlers, nicht entscheidbar" verworfen hat (dort 0,93 SE). **Also: formal
+erreicht, statistisch NICHT belastbar** - eine **Replikation** (zweite Datenziehung ueber
+`--seed`, D-050) steht aus und ist der naechste Schritt dafuer. **Ein Stand, der die Marke
+um ein Drittel Standardfehler ueberschreitet, ist kein Beweis.**
+
+### (4) Die uebrigen Familien und die Gegenprobe, dass der Korpus wirkt
+
+| Datensatz | Baseline | Elternstand | **Kontrolle** | Kind (mit Algebra) |
+|---|---|---|---|---|
+| `seq/val` | 5,7449 | 0,5409 | **0,5172** | 0,5071 |
+| `quant/val` | 5,6612 | 0,3836 | **0,3805** | 0,3862 |
+| `logic-large/val` | 5,7055 | 0,9478 | **0,9705** | 0,9196 |
+| `algebra/val` | 5,8643 | 4,8844 | **4,9514** | **1,6734** |
+
+**Die Kontrolle bleibt auf `algebra/val` beim Elternstand** (4,9514 gegen 4,8844) - sie hat
+die Familie nie gesehen; **nur das Kind aus Runde 36 lernt sie** (1,6734). Das ist die
+Gegenprobe, dass die beiden Arme wirklich verschiedene Korpora trainiert haben und die
+Algebra-Verbesserung aus Runde 36 nicht aus dem Elternstand stammt.
+
+### (5) Was diese Runde NICHT getan hat
+
+* **Keine Codeaenderung** - der Lauf nutzt den Stand aus Runde 36 unveraendert; `src/`,
+  `tests/` und `deploy/` sind von dieser Runde **nicht angefasst**. Der Arbeitsbaum traegt
+  unveraendert die Aenderungen der Parallelsitzung (nicht Teil dieses Commits).
+* **Keine Loop-Runde** (kein `agent capability run` mit Training; die Panels liefen als
+  `--dry-run`).
+* **Keine absoluten Panels fuer die Kontrolle.** Gemessen wurden die **Delta**-Panels (die
+  Konvention des Korpus) und sechs Verlust-Saetze. Fuer `regel`/`naechste` ist das
+  ausreichend (die Daten sind in beiden Formen **byte-identisch**, die Zaehler daher
+  identisch); fuer einen vollstaendigen D-047-Status **beider** Formen fehlt die absolute
+  Messung und wird als offen benannt.
+* **Keine Replikation der Marke.** Die 0,32 SE sind als nicht belastbar benannt; die
+  Wiederholung mit zweiter Datenziehung ist der naechste Schritt.
+* **Keine zweite Mathematik-Familie** - Formel-Verstaendnis/Funktion und Math Basic bleiben
+  offen (Reihenfolge nach D-030).
+
+### Tore
+
+Reine Messrunde **ohne Codeaenderung**: es gilt der Torstand aus Runde 35 unveraendert (fmt
+gruen, `cargo test` **430 / 0 failed**, clippy nur die 7 bekannten fremden Befunde, `build
+--release` gruen, Smoke-Digest `a6a53c95abd7f622`, vier Doku-Tore 0 Befunde). Neu in den
+Baum: `configs/train.kombi-kontrolle.toml`, `checkpoints/kombi-kontrolle-step{22000,23000,23200}.{safetensors,state}`
+(nicht committet, D-020), `logs/kombi-kontrolle-*.jsonl`.
+
+### Neue und praezisierte offene Punkte
+
+* **`O-D36` GETRENNT (Runde 37):** der Additions-Transfer zerfaellt gemessen in **etwa
+  halb Phase, halb Algebra-Shard** (eval-3d 60,7 % / 39,3 %, eval-4d 53,7 % / 46,3 %). Die
+  fruehere Formulierung "Mechanismus nicht getrennt" ist damit **erledigt**; offen bleibt
+  die **Folge**: `data/add` ist weiterhin **nicht** Teil des Korpus.
+* **`O-D33` KORRIGIERT:** der `regel`-Verlust ist **nicht** die Phase, sondern die
+  **Algebra-Familie** (Kontrolle 81,2 % gegen Kind 54,9 %). Die Zuordnung aus Runde 30 ist
+  damit widerlegt.
+* **`O-D37` (NEU) Die Korpus-Zusammensetzung ist der Hebel, und ihr Anteil ist ungemessen.**
+  Der Algebra-Shard stellt **41 %** der Datensaetze (90.720 von 220.720); derselbe
+  Trainingsplan **ohne** ihn erreicht auf den Delta-Panels **90,31 %** Kopfzahl und
+  **81,2 %** `regel`, **mit** ihm 89,06 % und 54,9 %. Wie der Anteil wirkt (Dosis je
+  Familie, Mischungsverhaeltnis, Replay der alten Familien), ist **nicht** gemessen - und
+  die naechste Mathematik-Familie wuerde den Anteil weiter verschieben.
+* **`O-D38` (NEU) D-047 ist in der Delta-Form formal erreicht, aber nicht belastbar**
+  (0,32 SE). Die Replikation mit zweiter Datenziehung (D-050) und die **absoluten** Panels
+  fuer denselben Stand fehlen.

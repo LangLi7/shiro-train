@@ -280,3 +280,34 @@ Additions-Transfer ist weg:** `add/eval-3d` 5,1127 -> **5,9089** und `-4d`
 weiter:** 87/133 = 65,4 % -> **73/133 = 54,9 %**, waehrend `naechste` sich auf
 **85,1 %** erholt; die vorab festgelegte Klausel (c) ist damit **verletzt**
 (`O-D33`). **D-047 bleibt in beiden Formen nicht erreicht.**
+
+## 11 Der Kontrolllauf: derselbe Plan OHNE den Algebra-Shard (Runde 37, D-061)
+
+**Die beiden Kosten aus Abschnitt 10 sind in dieser Runde getrennt worden** - mit
+**genau einer** geaenderten Groesse: `data.dir` zeigt wieder auf
+`data/kombi-delta/train` (130.000 statt 220.720 Datensaetze), alles andere wie in
+Abschnitt 10. GPU, 486,527 s; Stand
+`checkpoints/kombi-kontrolle-step23200.safetensors` (SHA-256 `0ee9d9d0...`).
+
+| Groesse (Delta-Panels, 2 x 480) | Elternstand | **Kontrolle (ohne Algebra)** | Kind (mit Algebra) |
+|---|---|---|---|
+| Kopfzahl | 852/960 = 88,75 % | **867/960 = 90,31 %** | 855/960 = 89,06 % |
+| **`regel`** | 87/133 = 65,41 % | **108/133 = 81,20 %** | 73/133 = **54,89 %** |
+| `naechste` | 87/121 = 71,90 % | **110/121 = 90,91 %** | 103/121 = 85,12 % |
+| `stelle` | 112/116 = 96,55 % | **98/116 = 84,48 %** | 112/116 = 96,55 % |
+| `add/eval-3d` | 5,1127 | **5,5961** | 5,9089 |
+| `add/eval-4d` | 5,1479 | **5,5099** | 5,8216 |
+| `algebra/val` | 4,8844 | **4,9514** | **1,6734** |
+
+**Was daraus folgt - und was korrigiert wird.** (1) Der Additions-Transfer ist
+**zur Haelfte** die Phasenwiederholung und **zur Haelfte** der Algebra-Shard
+(eval-3d 60,7 % / 39,3 %, eval-4d 53,7 % / 46,3 %). (2) **`regel` verliert
+ALLEIN durch die Algebra-Familie:** die Kontrolle **hebt** den Typ von 65,4 %
+auf **81,2 %**, das Kind reisst ihn auf 54,9 %. Damit ist die Zuordnung aus
+Abschnitt 9 **widerlegt** (`O-D33`). (3) Die Kontrolle erfuellt **beide**
+D-047-Bedingungen in der Delta-Form - aber nur um **0,32 Standardfehler**
+(0,31 Pp bei SE 0,955), also **formal erreicht und statistisch nicht
+belastbar** (`O-D38`). (4) Auf `algebra/val` bleibt die Kontrolle beim
+Elternstand - der Nachweis, dass die beiden Arme wirklich verschiedene Korpora
+trainiert haben. **Der Korpus bleibt damit die Entscheidungsgroesse:** wie stark
+eine Familie im Korpus **gewichtet** ist, ist ungemessen (`O-D37`).

@@ -1,0 +1,76 @@
+# KONTROLLLAUF zur Isolierung von O-D36 (Runde 37).
+#
+# WAS DIESER LAUF BEANTWORTET. Runde 36 hat gemessen, dass der Mathematik-Lauf
+# (Algebra als viertes Shard) die Algebra-Familie von 0 % auf 25 % bringt - und
+# dabei den **Additions-Transfer zerstoert**: `add/eval-3d` 5,1127 -> 5,9089 und
+# `add/eval-4d` 5,1479 -> 5,8216, also zurueck auf Baseline-Niveau (5,8605 /
+# 5,8143). Der Elternstand lag dort noch DEUTLICH unter der untrainierten
+# Baseline. Der Mechanismus war **nicht getrennt**; benannt waren drei
+# Kandidaten: (a) die Zusammensetzung des Korpus (Algebra = 41 % der
+# Datensaetze), (b) die verschobenen Batch-Fenster (`shuffle = false`), (c) die
+# Wiederholung einer Phase auf derselben Verteilung.
+#
+# GENAU EINE GEAENDERTE GROESSE gegenueber Runde 36: `data.dir` zeigt wieder auf
+# `data/kombi-delta/train` - **derselbe Korpus OHNE den Algebra-Shard**
+# (130.000 statt 220.720 Datensaetze). Modell, Dosis (2000 Schritte), Rate
+# (1e-4 konstant), Seed (1337), Batch (16 x 512) und Elternstand
+# `checkpoints/kombi-delta-step021200.state` sind unveraendert.
+#
+# VORAB FESTGELEGTE DEUTUNG (damit das Ergebnis nicht hinterher passt):
+#   * faellt `add/eval-3d` auch hier auf ~5,9 (Baseline) -> die **Phase bzw. die
+#     Korpusgroesse** ist die Ursache, NICHT die Algebra-Familie;
+#   * bleibt `add/eval-3d` bei ~5,1 (Elternstand) -> der **Algebra-Inhalt** ist
+#     die Ursache;
+#   * liegt der Wert dazwischen -> beide Anteile wirken, und das wird so
+#     berichtet (kein Entweder-oder erfinden).
+#   * Nebenmessung ohne Zusatzkosten: `regel` (Runde 30: 65,4 %, Runde 36:
+#     54,9 %) und `naechste` (71,9 % -> 85,1 %) auf denselben Delta-Panels -
+#     dieselbe Frage fuer die beiden belasteten Typen (`O-D33`).
+#
+# WARUM KONSTANTE LERNRATE. Wie in Runde 28/30/36: der Schrittzaehler ist seit B6
+# global, `learning_rate_over()` rechnet den Kosinus ueber
+# `start_step + run.steps`. Ein fortgesetzter Lauf von Schritt 21200 mit 2000
+# geplanten Schritten startete bei t = 0,914 - die Rate waere praktisch null.
+#
+# Vorbehalt (D-023/O-T3): bitgenaues Fortsetzen ist nur INNERHALB eines Backends
+# belegt; dieser Lauf laeuft auf der GPU wie Runde 30 und 36.
+
+[run]
+name = "kombi-kontrolle"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi-delta/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

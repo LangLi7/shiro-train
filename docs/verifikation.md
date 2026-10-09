@@ -2659,3 +2659,56 @@ als `--dry-run`. **Keine Trefferquote fuer seq/quant/logic-large** - die
 **O-D35** (Kostenschaetzung widerlegt), **O-D36** (Additions-Transfer weg, Mechanismus
 nicht getrennt, `data/add` nicht im Korpus). **O-D33 erweitert** (`regel` verliert auf der
 Phasenebene erneut).
+## Runde 37 - Der Kontrolllauf: die Phase kostet halb, die Algebra-Familie halb - und `regel` kostet ALLEIN die Algebra (D-061)
+
+**Anlass: die Schaeden aus Runde 36 und eine VOR dem Lauf festgelegte Deutung.** Der
+Mathematik-Lauf (D-060) brachte Algebra von **0 % auf 25 %** und kostete den
+**Additions-Transfer** (`add/eval-3d` 5,1127 -> 5,9089, `-4d` 5,1479 -> 5,8216) sowie
+**`regel`** (65,4 % -> 54,9 %). Der Mechanismus war nicht getrennt.
+
+**Der Kontrolllauf aendert gegenueber Runde 36 GENAU EINE Groesse:** `data.dir` zeigt auf
+**`data/kombi-delta/train` - denselben Korpus OHNE den Algebra-Shard** (130.000 statt
+220.720 Datensaetze). GPU, **486,527 s**, 593,46 GFLOPS; Stand
+`checkpoints/kombi-kontrolle-step23200.safetensors`, SHA-256
+`0ee9d9d0251bd930375acd381010f58af24e24edca0c88fb7e4cb058f1b1c2b2`.
+**Die Deutung stand vor dem Lauf in der Konfiguration:** ~5,9 -> die Phase; ~5,1 -> der
+Algebra-Inhalt; dazwischen -> beide Anteile.
+
+**(1) Additions-Transfer - BEIDE Anteile:** `add/eval-3d` 5,1127 -> **5,5961** -> 5,9089 und
+`add/eval-4d` 5,1479 -> **5,5099** -> 5,8216. Gerechnet: eval-3d **60,7 % Phase / 39,3 %
+Algebra**, eval-4d **53,7 % / 46,3 %**. Das ist der Zweig **"dazwischen"** - beide wirken.
+
+**(2) `regel` - ALLEIN die Algebra-Familie:** Elternstand 87/133 = 65,41 %,
+**Kontrolle 108/133 = 81,20 %**, Kind 73/133 = **54,89 %**; `naechste` 71,90 % ->
+**90,91 %** -> 85,12 %. **Die Zuordnung aus Runde 30 ist damit widerlegt** (`O-D33`): der
+Verlust stammt nicht von der Phase, sondern von der Korpus-Zusammensetzung. Die Phase
+verschiebt das Profil ausserdem nach unten bei `stelle` (96,55 -> 84,48 %), `reparatur1`
+(92,62 -> 86,07 %) und `reparatur` (98,37 -> 93,50 %) - sie wird deshalb **nicht** als
+Verbesserung verbucht.
+
+**(3) D-047 in der Delta-Form - formal erreicht, aber nicht belastbar:** Kopfzahlen
+852/960 = 88,75 % (Elternstand) -> 855/960 = 89,06 % (Kind) -> **867/960 = 90,31 %
+(Kontrolle)**; die Kontrolle hat **keinen** Typ unter 75 % (schwaechster `regel` 81,2 %).
+**Der Abstand zur Marke ist 0,31 Pp = 0,32 SE** (SE 0,955 Pp bei n = 960) und damit
+**schwaecher als der mit 0,93 SE verworfene Fall aus Runde 18** - **formal erreicht,
+statistisch nicht belastbar**; Replikation (D-050) und absolute Panels fehlen (`O-D38`).
+
+**(4) Gegenprobe:** die Kontrolle bleibt auf `algebra/val` beim Elternstand
+(**4,9514** gegen 4,8844) - sie hat die Familie nie gesehen; nur das Kind aus Runde 36 lernt
+sie (1,6734). Uebrige Familien: `seq/val` 0,5409 -> **0,5172** -> 0,5071; `quant/val`
+0,3836 -> **0,3805** -> 0,3862; `logic-large/val` 0,9478 -> **0,9705** -> 0,9196.
+
+**Keine Codeaenderung von mir** (`src/`, `tests/`, `deploy/` unberuehrt; der Arbeitsbaum
+traegt unveraendert die Aenderungen der Parallelsitzung, die **nicht** Teil dieses Commits
+sind); **keine Loop-Runde** (Panels als `--dry-run`); **keine absoluten Panels** fuer die
+Kontrolle; **keine zweite Mathematik-Familie**. Es gilt der Torstand aus Runde 35 (fmt
+gruen, `cargo test` 430 / 0 failed, clippy nur die 7 fremden Befunde, `build --release`
+gruen, Smoke-Digest `a6a53c95abd7f622`, vier Doku-Tore 0 Befunde).
+
+**Die Regel, die bleibt:** zu jedem Phasenschritt, der eine **Familie** hinzufuegt, gehoert
+ein **Kontrolllauf mit demselben Plan ohne diese Familie**; eine Phasenwiederholung ist
+selbst eine Variable; und eine Marke, die um **weniger als einen Standardfehler**
+ueberschritten wird, ist **kein Beweis**. **Offen:** `O-D36` (getrennt: halb Phase, halb
+Algebra) · `O-D33` (korrigiert: Algebra, nicht Phase) · **`O-D37`** (Korpus-Anteil als
+Hebel ungemessen; Algebra = 41 % der Datensaetze) · **`O-D38`** (D-047 marginal,
+Replikation offen).
