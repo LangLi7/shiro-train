@@ -253,19 +253,28 @@ impl Level {
 /// Ein Band beschreibt, aus welchen Bereichen die Zahlen eines Datensatzes kommen
 /// duerfen.
 ///
+/// **Das Band prueft den BETRAG; das Vorzeichen wird separat gezogen** - dasselbe
+/// Muster wie in der Algebra-Familie nach `O-A30`. Erst dadurch kommen die
+/// negativen Quadranten und die Geraden mit negativem Achsenabschnitt ueberhaupt
+/// vor; ohne Vorzeichen waere der ganze Stoff von A2/A3 (Punkte im
+/// Koordinatensystem, fallende Geraden) auf den ersten Quadranten verkuerzt.
+/// Dass beide Vorzeichen wirklich vorkommen, wird an den Bytes gemessen
+/// (`vorzeichen_und_quadranten` in `tests/formel.rs`).
+///
 /// **Alle vier Bereiche sind disjunkt** - das Trainingsband und das Held-out-Band
 /// ueberlappen in **keiner** Groesse. Die Trennung ist damit konstruktiv und nicht
 /// eine Eigenschaft des Zufalls; nachgeprueft wird sie an den **Bytes**
 /// (`baender_sind_an_den_bytes_getrennt` in `tests/formel.rs`).
 #[derive(Debug, Clone, Copy)]
 pub struct Raum {
-    /// Werteband der **Koordinaten**: beide Koordinaten beider Punkte, und jede
+    /// **Betragsband** der Koordinaten: beide Koordinaten beider Punkte, und jede
     /// Eingabe der Wertetabelle.
     pub k: (i64, i64),
     /// **Betragsband** der Steigung `m` bzw. des Faktors `a` (`f(x) = a*x + b`).
     pub m: (i64, i64),
-    /// Betragsband des Achsenabschnitts `b`; immer `>= 1`, damit die kanonische
-    /// Form `f(x) = a*x + b` **nie** ein Glied verliert.
+    /// **Betragsband** des Achsenabschnitts `b`; das Vorzeichen wird separat
+    /// gezogen, `0` ist ausgeschlossen, damit die kanonische Form
+    /// `f(x) = a*x + b` bzw. `f(x) = a*x - |b|` **nie** ein Glied verliert.
     pub b: (i64, i64),
     /// Betragsband der **Verschiebung**, mit der bei `fkt-liegt` ein Punkt
     /// **neben** die Gerade gelegt wird.
@@ -283,7 +292,7 @@ pub const TRAIN_RAUM: Raum = Raum {
     d: (1, 6),
 };
 
-/// Held-out-Band: **groessere** Koordinaten, **steilere** Steigungen, groessere
+/// Held-out-Band: **groessere Betraege**, **steilere** Steigungen, groessere
 /// Verschiebung - in jeder der vier Groessen disjunkt zum Trainingsband.
 ///
 /// **Ehrliche Einordnung (`D-035`):** das ist ein **Parameter-Held-out** (Stufe 2),
@@ -346,29 +355,44 @@ impl Punkt {
 
 /// Die lineare Funktion `f(x) = a*x + b`, ganzzahlig und **kanonisch**.
 ///
-/// `a != 0` und `b >= 1` sind Bauzusagen des Generators; damit hat die Textform
-/// **immer** beide Glieder und ist ohne Fallunterscheidung lesbar.
+/// `a != 0` und `b != 0` sind Bauzusagen des Generators; damit hat die Textform
+/// **immer** beide Glieder. **Das Vorzeichen des Achsenabschnitts ist frei** und
+/// steht als zweite Schreibweise in der Kanonik (`+ b` bzw. `- |b|`) - ohne sie
+/// gaebe es keine Gerade mit negativem Achsenabschnitt, also keine fallende Gerade
+/// durch die untere Halbebene, und genau das gehoert zu A2/A3.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Funktion {
-    /// Steigung; das Vorzeichen ist frei, der Betrag liegt im `m`-Band.
+    /// Steigung; das Vorzeichen ist frei, der **Betrag** liegt im `m`-Band.
     pub a: i64,
-    /// Achsenabschnitt; **immer positiv**, damit das Glied nie weggelassen wird.
+    /// Achsenabschnitt; das Vorzeichen ist frei, der **Betrag** liegt im `b`-Band,
+    /// `0` ist ausgeschlossen.
     pub b: i64,
 }
 
 impl Funktion {
-    /// `f(x) = 3*x + 7` bzw. `f(x) = -3*x + 7`.
+    /// `f(x) = 3*x + 7`, `f(x) = -3*x + 7` oder `f(x) = 3*x - 7`.
     pub fn text(&self) -> String {
-        format!("f(x) = {}*x + {}", self.a, self.b)
+        if self.b < 0 {
+            format!("f(x) = {}*x - {}", self.a, -self.b)
+        } else {
+            format!("f(x) = {}*x + {}", self.a, self.b)
+        }
     }
 
-    /// Liest die kanonische Textform zurueck.
+    /// Liest die kanonische Textform zurueck (beide Vorzeichenformen).
     pub fn parse(text: &str) -> Option<Funktion> {
         let rumpf = text.trim().strip_prefix("f(x) = ")?;
-        let (links, rechts) = rumpf.split_once("*x + ")?;
+        let (links, rechts, vz) = match rumpf.split_once("*x + ") {
+            Some((l, r)) => (l, r, 1i64),
+            None => {
+                let (l, r) = rumpf.split_once("*x - ")?;
+                (l, r, -1i64)
+            }
+        };
+        let b = rechts.trim().parse::<i64>().ok()? * vz;
         Some(Funktion {
             a: links.trim().parse().ok()?,
-            b: rechts.trim().parse().ok()?,
+            b,
         })
     }
 
@@ -506,8 +530,11 @@ impl Gegeben {
 /// **zweiten** Term sass, waehrend der erste in Ordnung war.
 pub fn im_band(g: &Gegeben, band: Band) -> bool {
     let r = raum(band);
-    let koordinate = |v: i64| (r.k.0..=r.k.1).contains(&v);
+    // **Betrag, nicht Wert**: das Vorzeichen ist frei (O-A30-Muster). Sonst waeren
+    // die negativen Quadranten und die fallenden Geraden ausgeschlossen.
+    let koordinate = |v: i64| (r.k.0..=r.k.1).contains(&v.abs());
     let steigung = |v: i64| (r.m.0..=r.m.1).contains(&v.abs());
+    let abschnitt = |v: i64| v != 0 && (r.b.0..=r.b.1).contains(&v.abs());
     if let Some(p) = g.p
         && (!koordinate(p.x) || !koordinate(p.y))
     {
@@ -527,7 +554,7 @@ pub fn im_band(g: &Gegeben, band: Band) -> bool {
         return false;
     }
     if let Some(b) = g.b
-        && !(r.b.0..=r.b.1).contains(&b)
+        && !abschnitt(b)
     {
         return false;
     }
@@ -550,7 +577,16 @@ pub fn band_von(g: &Gegeben) -> Option<Band> {
     }
 }
 
-/// Der Schwierigkeitsgrad aus der groessten genannten Zahl.
+/// Der Schwierigkeitsgrad aus der groessten genannten Zahl **im Betrag**.
+///
+/// **Offen benannter Confound.** Die Schwellen 20/40 liegen **innerhalb** des
+/// Trainingsbands (Betraege 1..60), waehrend das Held-out-Band bei 61 beginnt -
+/// dort ist damit **jeder** Datensatz `schwer`. `level.*` ist auf der
+/// Held-out-Seite also keine eigene Achse, sondern eine Umschreibung des Bandes.
+/// Gemessen und im Bericht genannt (Verteilung je Band im Bericht von
+/// `cmd_generate_formel`); eine bandrelative Stufe waere statistisch unabhaengig,
+/// wuerde die Bezeichnung "leicht" aber bedeutungslos machen. Die absolute
+/// Schwelle bleibt deshalb - mit diesem Vorbehalt.
 fn level_fuer(g: &Gegeben) -> Level {
     match g.groesse() {
         v if v <= 20 => Level::Easy,
@@ -670,8 +706,8 @@ impl Generated {
 ///
 /// **Erwartung, VOR der Messung notiert:** `ImmerNull` trifft bei keinem Typ
 /// nennenswert (`fkt-tabelle` antwortet eine Liste, `fkt-liegt` `ja`/`nein`,
-/// `fkt-mittel` `Schritt n`, `fkt-steig` einen Wert `>= 1`, weil `b >= 1` und
-/// `a != 0`). `ErsteZahl` und `Eingabe` koennen nur bei `fkt-tabelle` ueberhaupt in
+/// `fkt-mittel` `Schritt n`, `fkt-steig` einen Wert `!= 0`). `ErsteZahl` und
+/// `Eingabe` koennen nur bei `fkt-tabelle` ueberhaupt in
 /// die Naehe kommen - und dort nur, wenn eine Ausgabe zufaellig gleich der ersten
 /// Eingabe ist, also mit einer Trefferquote in der Groessenordnung `1 / |k-Band|`
 /// (Train 1/60). `SchrittEins` trifft bei `fkt-mittel` mit rund `1 / 4` - das ist
@@ -819,8 +855,8 @@ pub fn gegeben_aus_task(task: &str) -> Result<Gegeben> {
                 f.text()
             );
         }
-        if f.a == 0 || f.b < 1 {
-            crate::error::bail!("formel: Funktion ausserhalb der Bauzusagen (a != 0, b >= 1)");
+        if f.a == 0 || f.b == 0 {
+            crate::error::bail!("formel: Funktion ausserhalb der Bauzusagen (a != 0, b != 0)");
         }
         g.m = Some(f.a);
         g.b = Some(f.b);
@@ -965,8 +1001,15 @@ fn mittel_schritte(a: Punkt, b: Punkt, mit_probe: bool) -> Option<Vec<(String, i
 
 /// Die Schrittwerte des **Steigungs**-Denkwegs - **Generatorpfad**.
 ///
-/// `None`, wenn `dx == 0` ist, wenn `dy == 0` ist oder wenn `dy` **kein**
-/// ganzzahliges Vielfaches von `dx` ist.
+/// `None`, wenn eine der vier Bauzusagen verletzt ist:
+///
+/// 1. `dx != 0`,
+/// 2. `dy != 0`,
+/// 3. `dy` ist ein **ganzzahliges Vielfaches** von `dx` (sonst waere die Steigung
+///    ein Bruch und der Antwortraum unendlich),
+/// 4. `dx`, `dy` und `m` sind **paarweise verschieden** (sonst steht die Antwort
+///    als Wert einer anderen Schrittzeile im Datensatz - gemessen 20,4 %; siehe
+///    unten).
 ///
 /// **Warum `dy != 0` verlangt wird.** Eine waagerechte Strecke hat die Steigung
 /// `0`. Der Fall ist zulaessig, aber er ist der **triviale**, und die Konstruktion
@@ -979,6 +1022,18 @@ fn steig_schritte(a: Punkt, b: Punkt) -> Option<Vec<(String, i64)>> {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     if dx == 0 || dy == 0 || dy % dx != 0 {
+        return None;
+    }
+    let m = dy / dx;
+    // **Die drei Rechenwerte muessen paarweise verschieden sein.** Sonst steht die
+    // Antwort - bei `fkt-steig` der **richtige Wert des falschen Schritts** - schon
+    // als Wert einer **anderen** Schrittzeile im Datensatz. Das war ein gemessener
+    // Fehler: **20,4 %** aller Steigungsdatensaetze trugen die Antwort woertlich in
+    // einer fremden Zeile, weil `dx = +-1` den Wert `m = dy` erzwingt und kleine
+    // Werte ohnehin oft zusammenfallen. Nach dieser Bedingung ist das Leck **0**.
+    // Beim Mittelpunkt ist die Bedingung **nicht** noetig: dort ist die Antwort die
+    // **Zeilennummer**, eine Wertwiederholung verraet sie nicht.
+    if m == dx || m == dy || dx == dy {
         return None;
     }
     Some(vec![
@@ -1020,6 +1075,11 @@ fn steig_soll(a: Punkt, b: Punkt) -> Option<Vec<i64>> {
         return None;
     }
     let m = ganze_loesung(dy, dx)?;
+    // Dieselbe Bauzusage wie im Generator: die drei Werte sind paarweise
+    // verschieden (siehe [`steig_schritte`]).
+    if m == dx || m == dy || dx == dy {
+        return None;
+    }
     Some(vec![dx, dy, m])
 }
 
@@ -1171,23 +1231,21 @@ pub fn verify(record: &[u8]) -> Result<Verified> {
             // Schritten (ohne Probe) und mit fuenf (mit Probe) - welcher Fall
             // vorliegt, entscheidet die **Zahl der Schrittzeilen**, nicht ein
             // Generatorzustand. Alles andere wird abgewiesen.
-            let soll = match category {
-                Category::Mittel => {
-                    let mit_probe = match ist.len() {
-                        4 => false,
-                        5 => true,
-                        n => {
-                            crate::error::bail!(
-                                "formel: {n} Schritte fuer den Mittelpunkt - zulaessig sind \
-                                 4 (ohne Probe) oder 5 (mit Probe)"
-                            );
-                        }
-                    };
-                    mittel_soll(a, b, mit_probe)
+            let mit_probe = if category == Category::Mittel {
+                match ist.len() {
+                    4 => false,
+                    5 => true,
+                    n => {
+                        crate::error::bail!(
+                            "formel: {n} Schritte fuer den Mittelpunkt - zulaessig sind \
+                             4 (ohne Probe) oder 5 (mit Probe)"
+                        );
+                    }
                 }
-                _ => steig_soll(a, b),
-            }
-            .ok_or_else(|| {
+            } else {
+                false
+            };
+            let soll = soll_werte(category, a, b, mit_probe).ok_or_else(|| {
                 crate::error::anyhow!(
                     "formel: {} ist mit diesen Punkten nicht ganzzahlig rechenbar",
                     category.short()
@@ -1434,18 +1492,29 @@ fn baue_schritt(
 /// **Ein Ziehungsversuch** - alle Groessen kommen aus dem Band, und **jede** wird
 /// gegen das Band geprueft.
 ///
+/// **Jede Koordinate wird als Betrag gezogen und dann mit separatem Vorzeichen
+/// versehen** (O-A30-Muster). Damit liegen die Punkte in **allen vier Quadranten**
+/// und die Geraden fallen auch; ohne diesen Schritt waere der ganze Stoff von A2/A3
+/// auf den ersten Quadranten verkuerzt.
+///
 /// Die Reihenfolge ist die Lehre aus `O-A30`: erst **ziehen**, dann mit [`im_band`]
 /// **pruefen**, bei Verstoss **verwerfen und neu ziehen**. Keine Groesse wird
 /// ungeprueft durchgereicht - auch die **abgeleitete** nicht: der zweite Punkt bei
 /// `fkt-liegt` und der zweite Punkt der Schrittketten gehen mit in die Pruefung ein.
 fn wuerfle(rng: &mut Rng, r: &Raum, band: Band, cat: Category) -> Wurf {
+    // Koordinate = Betrag aus dem Band, Vorzeichen separat.
+    let koordinate = |rng: &mut Rng| {
+        let betrag = rng.range(r.k.0, r.k.1);
+        vorzeichen(rng, betrag)
+    };
     match cat {
         Category::Tabelle => {
             let betrag = rng.range(r.m.0, r.m.1);
             let a = vorzeichen(rng, betrag);
-            let b = rng.range(r.b.0, r.b.1);
+            let bbetrag = rng.range(r.b.0, r.b.1);
+            let b = vorzeichen(rng, bbetrag);
             let anzahl = if rng.below(2) == 0 { 2 } else { MAX_EINGABEN };
-            let mut xs: Vec<i64> = (0..anzahl).map(|_| rng.range(r.k.0, r.k.1)).collect();
+            let mut xs: Vec<i64> = (0..anzahl).map(|_| koordinate(rng)).collect();
             xs.sort_unstable();
             // **Paarweise verschieden**: zwei gleiche Eingaben waeren keine
             // Wertetabelle - der Versuch wird verworfen und neu gezogen.
@@ -1460,10 +1529,10 @@ fn wuerfle(rng: &mut Rng, r: &Raum, band: Band, cat: Category) -> Wurf {
         }
         Category::Liegt => {
             let p = Punkt {
-                x: rng.range(r.k.0, r.k.1),
-                y: rng.range(r.k.0, r.k.1),
+                x: koordinate(rng),
+                y: koordinate(rng),
             };
-            let qx = rng.range(r.k.0, r.k.1);
+            let qx = koordinate(rng);
             let steigung = rng.range(r.m.0, r.m.1);
             let m = vorzeichen(rng, steigung);
             if qx == p.x {
@@ -1491,12 +1560,12 @@ fn wuerfle(rng: &mut Rng, r: &Raum, band: Band, cat: Category) -> Wurf {
         }
         Category::Mittel | Category::Steig => {
             let a = Punkt {
-                x: rng.range(r.k.0, r.k.1),
-                y: rng.range(r.k.0, r.k.1),
+                x: koordinate(rng),
+                y: koordinate(rng),
             };
             let b = Punkt {
-                x: rng.range(r.k.0, r.k.1),
-                y: rng.range(r.k.0, r.k.1),
+                x: koordinate(rng),
+                y: koordinate(rng),
             };
             let g = Gegeben::punkte(a, b, None);
             if !im_band(&g, band) {
@@ -1677,6 +1746,45 @@ mod tests {
         let mut out = record.to_vec();
         out.splice(pos..pos + alt.len(), neu.bytes());
         out
+    }
+
+    /// **Die kanonische Form der Funktion traegt beide Vorzeichen** - und nur eine
+    /// Schreibweise je Vorzeichen.
+    ///
+    /// Vorher war `b >= 1` eine Bauzusage; damit gab es **keinen** negativen
+    /// Achsenabschnitt und keine Gerade, die die untere Halbebene schneidet. Jetzt
+    /// schreibt die Kanonik `+ b` bzw. `- |b|`, `b = 0` ist ausgeschlossen. Der
+    /// Verifier erzwingt die Form (`f.text() != text` -> Fehler), also gibt es
+    /// weiterhin **genau eine** Schreibweise je Funktion.
+    #[test]
+    fn funktion_ist_kanonisch_mit_beiden_vorzeichen() {
+        for f in [
+            Funktion { a: 3, b: 7 },
+            Funktion { a: -3, b: 7 },
+            Funktion { a: 3, b: -7 },
+            Funktion { a: -3, b: -7 },
+        ] {
+            let text = f.text();
+            assert_eq!(Funktion::parse(&text), Some(f), "nicht umkehrbar: {text}");
+            // Nur **eine** Schreibweise: `+ -7` darf es nicht geben.
+            assert!(!text.contains("+ -"), "doppeltes Vorzeichen: {text}");
+            assert_eq!(text.matches('*').count(), 1);
+        }
+        assert_eq!(Funktion { a: 2, b: 5 }.text(), "f(x) = 2*x + 5");
+        assert_eq!(Funktion { a: 2, b: -5 }.text(), "f(x) = 2*x - 5");
+        // Eine **nicht** kanonische Schreibweise ist lesbar, aber nicht die
+        // Normalform - der Verifier weist sie ab (`f.text() != text`).
+        let roh = Funktion::parse("f(x) = 2*x + -5").expect("lesbar");
+        assert_eq!(roh.text(), "f(x) = 2*x - 5");
+        assert_ne!(roh.text(), "f(x) = 2*x + -5");
+        let g = probe(200);
+        for r in &g.train {
+            let task = task_in(&r.record);
+            let gg = gegeben_aus_task(&task).expect("Groessen lesbar");
+            if let Some(b) = gg.b {
+                assert_ne!(b, 0, "Achsenabschnitt 0 ist ausgeschlossen");
+            }
+        }
     }
 
     /// Die vier Namen und Bewegungen sind die des Auftrags - **wortgleich**.
@@ -2006,7 +2114,11 @@ mod tests {
                 st.total,
                 st.distinct_answers()
             );
-            assert_eq!(st.distinct_answers(), 5, "vier oder fuenf Schritte, fuenf Antworten");
+            assert_eq!(
+                st.distinct_answers(),
+                5,
+                "vier oder fuenf Schritte, fuenf Antworten"
+            );
             assert!(
                 (14.0..=30.0).contains(&pct),
                 "der Mehrheitsanteil liegt nicht in der Naehe von 20 %: {pct:.1} %"
@@ -2017,7 +2129,8 @@ mod tests {
             if r.category != Category::Mittel {
                 continue;
             }
-            *lang.entry(schritwerte(&denkweg_in(&r.record)).unwrap().len())
+            *lang
+                .entry(schritwerte(&denkweg_in(&r.record)).unwrap().len())
                 .or_insert(0) += 1;
         }
         eprintln!("DIAGNOSE train mittel Schrittzahlen: {lang:?}");

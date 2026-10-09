@@ -2801,3 +2801,72 @@ eigener Block** in den Index gestellt (`git hash-object -w` +
 keine Fremdzeile ist mitgekommen. `src/data/mod.rs` traegt fremd
 `pub mod seqgen;` und ist dort auf LF umgestellt; meine Zeile `pub mod formel;`
 wird ebenfalls aus der HEAD-Fassung bereitgestellt.
+
+## Runde 40b - Korrektur an der zweiten Mathematik-Familie: Vorzeichen, neuer Korpus, und ein eigener Verfahrensfehler
+
+**Anlass: ein Fehler in MEINEM Vorgehen, nicht im Bau.** Ich habe `eaca735`
+committet und die Familie in Doku und Register beschrieben, **waehrend** der
+Bau-Agent meine dritte Korrektur (Vorzeichen) noch einarbeitete. Der Commit und
+meine Beschreibung zeigen damit einen Stand, den der Arbeitsbaum schon
+ueberholt hatte: die committete `formel.rs` ist **vorzeichenlos** (2.160 Zeilen),
+der Arbeitsbaum traegt die **korrigierte** Fassung (2.266 Zeilen), und der
+Korpus auf der Platte ist bereits der **neu erzeugte**. Dieser Block stellt den
+Stand richtig und beschreibt, was sich geaendert hat. Die Korrektur ist der
+Projektregel gefolgt: **lebende Dokumente werden richtiggestellt**, der
+Protokollblock wird angehaengt statt rueckdatiert.
+
+**Was die Korrektur geaendert hat.** Die erste Fassung liess nur **positive**
+Zahlen zu - kein Punkt in einem negativen Quadranten, **keine fallende Gerade**.
+Beides ist genau die Substanz von A2/A3. Jetzt prueft `im_band` den **Betrag**
+(`v.abs()`), und `vorzeichen()` zieht das Vorzeichen fuer **jede** Koordinate,
+fuer `a`, fuer `m` und fuer `b` (1/2 je Wert); `Funktion::text()` rendert
+`f(x) = -3*x + 7` und `f(x) = 3*x - 7`, **nie** `+ -7`. `Gegeben.xs` ist eine
+Liste, deren **jedes** Element durch `im_band` laeuft.
+
+**Selbst gemessen, nicht geglaubt** (`/home/changchi/r39/band-je-groesse.py` am
+ausgelieferten Korpus, je **Groesse** statt je Aufgabenvorlage):
+
+| Groesse | Training | Held-out | Urteil |
+|---|---|---|---|
+| Eingaben und Koordinaten | -60..60 | -100..100 | 0 gemeinsame Werte |
+| Betrag von `a` und `m` | 1..4 | 5..8 | 0 gemeinsame Werte |
+| `b` (auch negativ) | -60..60 | -100..100 | 0 gemeinsame Werte |
+
+Vorzeichen in **beiden** Baendern; alle vier Quadranten belegt (train 1.477
+Datensaetze im dritten Quadranten, val 128). Antwortraeume **24.117 / 2 / 5 /
+235**, Mehrheiten **0,02 % / 50,28 % / 22,94 % / 8,70 %**, kein Typ mit
+Antwortraum 1. Korpus: train 100.000 / 29.566.789 B / FNV `15ccde7579a3625c`,
+val 10.000 / 3.002.406 B / `26f6df1bf6e74add`, laengster 357 bzw. 363 B,
+110.000/110.000 eindeutig. **Determinismus vom Planner selbst nachgefahren:**
+Neuerzeugung mit Seed 1337, alle **vier** Ausgabedateien `cmp`-identisch.
+Gates erneut unabhaengig: fmt 0 Abweichungen, **463 passed / 0 failed /
+1 ignored** (vorher 460), clippy nur die 7 fremden Befunde, build gruen,
+Smoke-Digest `a6a53c95abd7f622` unveraendert, `validate-data` beide Baender gruen.
+
+**`O-A34` geschlossen, `O-A35` bleibt offen - und die Alternative dazu ist
+gemessen verworfen.** Eine strukturelle Achse (Zahl der Rechenschritte bzw. der
+Eingaben) traegt nur **zwei** Werte (`fkt-tabelle` 2/3 Eingaben, `fkt-mittel`
+4/5 Schritte), ist bei `fkt-steig` **konstant** (3 Schritte in beiden Baendern)
+und bei `fkt-liegt` **gar nicht vorhanden**; im Held-out-Band sind je Typ
+**0 leicht / 0 mittel / 2.500 schwer**. Sie kann fuer alle vier Typen weder drei
+Stufen noch "leicht und schwer in beiden Baendern" erzeugen. Die Kopplung bleibt
+deshalb bestehen - **ausgesprochen**, nicht stillschweigend.
+
+**Ein eigener WERKZEUGFEHLER, offen gelegt.** Das erste Pruefskript
+(`/home/changchi/r39/m2-pruefe.py`) meldet fuer diese Familie **falschen Alarm**
+("UEBERLAPP" fuer jede Vorlage), weil es alle Zahlen **eines Aufgabentextes** in
+*einen* Bereich wirft und damit Koeffizient (Betrag <= 8), Achsenabschnitt und
+Koordinaten (Betrag <= 100) mischt; `[-60,60]` gegen `[-100,100]` ueberlappt dann
+zwangslaeufig. Gueltig ist die Messung **je Groesse**. Der Korpus wurde **nicht**
+geaendert, um ein Werkzeug gruenzumachen - derselbe Fehlertyp (Bezugsgroesse
+falsch gewaehlt) wie in der Attention-Rechnung aus `h2`.
+
+**Nicht getan:** kein `data combine`, kein Training, keine Messung am Modell. Der
+Messplan steht vorab in `docs/formel-korpus.md` Abschnitt 7; **Arm A** (Runde 36)
+ist die Kontrolle, **Arm B** = dieselben vier Shards + `formel`.
+
+**Verfahren.** `docs/abschluss-vorbereitungsphase.md` (Registerzeile `D-062`,
+Nachtrag) und diese Datei sind im Arbeitsbaum von einer Parallelsitzung
+mitgeaendert und wurden deshalb erneut als **HEAD-Fassung + eigener Block** in
+den Index gestellt; gegengeprueft wird, dass im Index **nur eigene Pfade** liegen
+und `src/data/mod.rs` die fremde Zeile `pub mod seqgen;` **nicht** enthaelt.

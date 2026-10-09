@@ -186,30 +186,34 @@ fn zweiter_lauf_ist_byteidentisch() {
     }
 }
 
-/// **Die Baender sind an den BYTES getrennt** - jede genannte Zahl gegen ihr Band,
-/// und die Bereiche ueberlappen nicht.
+/// **Die Baender sind an den BYTES getrennt** - jede genannte Zahl gegen ihr Band.
+///
+/// **Das Band prueft den BETRAG** (O-A30-Muster): das Vorzeichen ist frei, geprueft
+/// wird `|Wert|`. Ein Test, der die Werte prueft, wuerde die negativen Quadranten
+/// als Bandleck melden - und genau das ist beim ersten Lauf passiert
+/// (`Eingabe -41 verlaesst das Band Train`), obwohl der Datensatz korrekt war.
 #[test]
 fn baender_sind_an_den_bytes_getrennt() {
     let k = korpus("baender");
-    let mut train_grenze = (i64::MIN, i64::MIN);
-    let mut val_grenze = (i64::MAX, i64::MAX);
+    let mut train_max = i64::MIN;
+    let mut val_min = i64::MAX;
     let mut geprueft = 0usize;
     for (liste, band) in [(&k.train, formel::Band::Train), (&k.val, formel::Band::Val)] {
         let r = formel::raum(band);
         for rec in liste {
             let task = formel::task_in(rec);
             let g = formel::gegeben_aus_task(&task).expect("Groessen lesbar");
-            // **Jede** Groesse einzeln - das Bandleck der Algebra-Familie sass im
-            // zweiten Term, nicht im ersten.
+            // **Jede** Groesse einzeln, jeweils **im Betrag** - das Bandleck der
+            // Algebra-Familie sass im zweiten Term, nicht im ersten.
             for p in [g.p, g.q].into_iter().flatten() {
                 assert!(
-                    (r.k.0..=r.k.1).contains(&p.x) && (r.k.0..=r.k.1).contains(&p.y),
+                    (r.k.0..=r.k.1).contains(&p.x.abs()) && (r.k.0..=r.k.1).contains(&p.y.abs()),
                     "Koordinate {p:?} verlaesst das Band {band:?}: {task}"
                 );
             }
             for x in &g.xs {
                 assert!(
-                    (r.k.0..=r.k.1).contains(x),
+                    (r.k.0..=r.k.1).contains(&x.abs()),
                     "Eingabe {x} verlaesst das Band {band:?}: {task}"
                 );
             }
@@ -221,7 +225,7 @@ fn baender_sind_an_den_bytes_getrennt() {
             }
             if let Some(b) = g.b {
                 assert!(
-                    (r.b.0..=r.b.1).contains(&b),
+                    b != 0 && (r.b.0..=r.b.1).contains(&b.abs()),
                     "Achsenabschnitt {b} verlaesst das Band {band:?}: {task}"
                 );
             }
@@ -234,23 +238,123 @@ fn baender_sind_an_den_bytes_getrennt() {
                 .max()
                 .unwrap_or(0);
             match band {
-                formel::Band::Train => train_grenze.0 = train_grenze.0.max(groesste),
-                formel::Band::Val => val_grenze.0 = val_grenze.0.min(groesste),
+                formel::Band::Train => train_max = train_max.max(groesste),
+                formel::Band::Val => val_min = val_min.min(groesste),
             }
             geprueft += 1;
         }
     }
     assert!(geprueft > 1000, "zu wenige geprueft: {geprueft}");
     assert!(
-        train_grenze.0 < val_grenze.0,
+        train_max < val_min,
         "die Koordinatenbaender ueberlappen: train bis {}, val ab {}",
-        train_grenze.0,
-        val_grenze.0
+        train_max,
+        val_min
     );
     // Die Baender selbst sind konstruktiv disjunkt.
     assert!(formel::TRAIN_RAUM.k.1 < formel::VAL_RAUM.k.0);
     assert!(formel::TRAIN_RAUM.m.1 < formel::VAL_RAUM.m.0);
     assert!(formel::TRAIN_RAUM.b.1 < formel::VAL_RAUM.b.0);
+}
+
+/// **Beide Vorzeichen kommen vor - negative Quadranten und fallende Geraden.**
+///
+/// Das ist die Auflage aus der Vorbereitung: das Band prueft den **Betrag**, das
+/// Vorzeichen wird **separat** gezogen (O-A30-Muster der Algebra-Familie). Ohne
+/// diesen Nachweis waere der Stoff von A2/A3 auf den ersten Quadranten verkuerzt.
+/// Gemessen wird an den **Bytes** des Korpus, je Band:
+///
+/// * negative x- **und** y-Koordinaten (also Punkte im 2., 3. und 4. Quadranten),
+/// * ein **vollstaendig negativer** Punkt (3. Quadrant),
+/// * negative Tabelleneingaenge und negative Funktionswerte,
+/// * negative Steigungen (fallende Geraden) und negative Achsenabschnitte,
+/// * und die Gegenprobe: auch die positiven Faelle kommen vor.
+#[test]
+fn vorzeichen_und_quadranten() {
+    let k = korpus("vorzeichen");
+    for (name, liste, band) in [
+        ("train", &k.train, formel::Band::Train),
+        ("val", &k.val, formel::Band::Val),
+    ] {
+        let r = formel::raum(band);
+        let (mut x_neg, mut x_pos, mut y_neg, mut y_pos) = (0usize, 0usize, 0usize, 0usize);
+        let (mut quad3, mut quad_all) = (0usize, BTreeSet::<(i64, i64)>::new());
+        let (mut m_neg, mut m_pos) = (0usize, 0usize);
+        let (mut b_neg, mut b_pos) = (0usize, 0usize);
+        let (mut x_ein_neg, mut wert_neg) = (0usize, 0usize);
+        for rec in liste {
+            let task = formel::task_in(rec);
+            let g = formel::gegeben_aus_task(&task).expect("Groessen lesbar");
+            for p in [g.p, g.q].into_iter().flatten() {
+                if p.x < 0 {
+                    x_neg += 1;
+                } else {
+                    x_pos += 1;
+                }
+                if p.y < 0 {
+                    y_neg += 1;
+                } else {
+                    y_pos += 1;
+                }
+                quad_all.insert((p.x.signum(), p.y.signum()));
+                if p.x < 0 && p.y < 0 {
+                    quad3 += 1;
+                }
+            }
+            for x in &g.xs {
+                if *x < 0 {
+                    x_ein_neg += 1;
+                } else {
+                    x_pos += 1;
+                }
+                let f = formel::Funktion {
+                    a: g.m.expect("Faktor"),
+                    b: g.b.expect("Achsenabschnitt"),
+                };
+                if f.wert(*x) < 0 {
+                    wert_neg += 1;
+                }
+            }
+            if let Some(m) = g.m {
+                if m < 0 {
+                    m_neg += 1;
+                } else {
+                    m_pos += 1;
+                }
+            }
+            if let Some(b) = g.b {
+                if b < 0 {
+                    b_neg += 1;
+                } else {
+                    b_pos += 1;
+                }
+            }
+        }
+        eprintln!(
+            "DIAGNOSE {name} Vorzeichen: x- {x_neg} / x+ {x_pos} | y- {y_neg} / y+ {y_pos} | \
+             dritter Quadrant {quad3} | Quadranten {quad_all:?} | m- {m_neg} / m+ {m_pos} | \
+             b- {b_neg} / b+ {b_pos} | Tabelleneingaenge negativ {x_ein_neg}, Werte negativ {wert_neg}"
+        );
+        assert!(x_neg > 0 && x_pos > 0, "Band {name}: x-Vorzeichen fehlt");
+        assert!(y_neg > 0 && y_pos > 0, "Band {name}: y-Vorzeichen fehlt");
+        assert!(quad3 > 0, "Band {name}: kein Punkt im dritten Quadranten");
+        assert!(
+            m_neg > 0 && m_pos > 0,
+            "Band {name}: fallende Geraden fehlen"
+        );
+        assert!(
+            b_neg > 0 && b_pos > 0,
+            "Band {name}: Achsenabschnitt-Vorzeichen fehlt"
+        );
+        assert!(
+            quad_all.contains(&(-1, -1))
+                && quad_all.contains(&(-1, 1))
+                && quad_all.contains(&(1, -1)),
+            "Band {name}: nicht alle Quadranten kommen vor: {quad_all:?}"
+        );
+        // Der Betrag bleibt im Band - das Vorzeichen aendert daran nichts.
+        assert!(r.k.0 > 0);
+    }
 }
 
 /// **Jeder Typ kommt in beiden Baendern vor** - und alle vier Bewegungen.
@@ -312,8 +416,114 @@ fn kein_typ_hat_eine_einzelne_antwort() {
     }
 }
 
-/// **`fkt-mittel`: der Mehrheitsanteil der falschen Zeile wird gemessen und
-/// genannt** (Auflage des Auftrags) - er liegt in der Naehe von `1 / 4`.
+/// **Die Schrittlaenge 3–5 ist abgedeckt - und die Grenze bei `fkt-steig` ist
+/// GEMESSEN, nicht behauptet.**
+///
+/// Drei Messungen an den ausgelieferten Bytes:
+///
+/// 1. **Abdeckung:** der Korpus enthaelt **3**, **4** und **5** Schritte
+///    (`fkt-steig` 3 · `fkt-mittel` 4 ohne Probe und 5 mit Probe). Beide Typen
+///    liegen damit innerhalb der geforderten 3 bis 5 Schritte.
+/// 2. **Antwortleck der heutigen Fassung:** wie oft die Antwort von `fkt-steig`
+///    schon **wortwoertlich** als Wert einer **anderen** Schrittzeile dasteht
+///    (moeglich, weil `dx`, `dy` und `m` zusammenfallen koennen).
+/// 3. **Warum `fkt-steig` bei DREI Schritten bleibt:** jede vierte Zeile waere nur
+///    als **Probe** zu haben, und die Probe `m * dx = dy` wiederholt
+///    **konstruktionsbedingt** den Wert von Schritt 2 - also in **jedem vierten**
+///    Datensatz (der falsche Schritt waere dann Schritt 2) die Antwort woertlich im
+///    Denkweg. Der Test rechnet den Prozentsatz der Datensaetze nach, in denen die
+///    hypothetische Probe genau den Antwortwert traegt.
+#[test]
+fn schrittzahl_und_antwortleck() {
+    let k = korpus("schrittzahl");
+    assert_eq!(formel::Category::Mittel.schrittbereich(), (4, 5));
+    assert_eq!(formel::Category::Steig.schrittbereich(), (3, 3));
+
+    let mut laengen: BTreeMap<usize, usize> = BTreeMap::new();
+    let (mut steig, mut leck_heute, mut probe_traefe_antwort, mut falscher_schritt_2) =
+        (0usize, 0usize, 0usize, 0usize);
+    for liste in [&k.train, &k.val] {
+        for r in liste {
+            let v = formel::verify(r).unwrap();
+            if !matches!(
+                v.category,
+                formel::Category::Mittel | formel::Category::Steig
+            ) {
+                continue;
+            }
+            let werte = schrittwerte(r);
+            *laengen.entry(werte.len()).or_insert(0) += 1;
+            if v.category != formel::Category::Steig {
+                continue;
+            }
+            steig += 1;
+            // (2) Leck der heutigen Fassung: die Antwort steht als Wert einer
+            // anderen Schrittzeile im Datensatz.
+            let soll = richtige_schritte(r);
+            let falsch = (0..soll.len())
+                .find(|i| werte[*i] != soll[*i])
+                .expect("genau ein falscher Schritt");
+            let mut andere: Vec<i64> = werte.clone();
+            andere.remove(falsch);
+            if andere.contains(&soll[falsch]) {
+                leck_heute += 1;
+            }
+            // (3) Die hypothetische vierte Zeile `Probe: m * dx -> dy`: ihr Wert ist
+            // `m * dx = dy` und damit **immer** der Wert von Schritt 2.
+            let (dx, dy, m) = (soll[0], soll[1], soll[2]);
+            assert_eq!(m * dx, dy, "die Probe traegt konstruktionsbedingt dy");
+            if m * dx == soll[falsch] {
+                probe_traefe_antwort += 1;
+            }
+            if falsch == 1 {
+                falscher_schritt_2 += 1;
+            }
+        }
+    }
+    eprintln!("DIAGNOSE Schrittzahlen im Korpus: {laengen:?}");
+    assert!(
+        laengen.get(&3).copied().unwrap_or(0) > 0,
+        "3 Schritte fehlen"
+    );
+    assert!(
+        laengen.get(&4).copied().unwrap_or(0) > 0,
+        "4 Schritte fehlen"
+    );
+    assert!(
+        laengen.get(&5).copied().unwrap_or(0) > 0,
+        "5 Schritte fehlen"
+    );
+
+    let pct = |n: usize| n as f64 * 100.0 / steig as f64;
+    eprintln!(
+        "DIAGNOSE fkt-steig n={steig}: Antwortleck der heutigen Fassung {leck_heute} \
+         ({:.1} %), hypothetische Probe traefe die Antwort {probe_traefe_antwort} \
+         ({:.1} %), falscher Schritt ist Schritt 2: {falscher_schritt_2} ({:.1} %)",
+        pct(leck_heute),
+        pct(probe_traefe_antwort),
+        pct(falscher_schritt_2)
+    );
+    // **Das Leck der ausgelieferten Fassung ist 0.** Die Bauzusage "dx, dy und m
+    // sind paarweise verschieden" sperrt es; vorher waren es 20,4 %.
+    assert_eq!(
+        leck_heute, 0,
+        "die Antwort steht in {leck_heute} Datensaetzen als fremder Schrittwert"
+    );
+    // Die hypothetische vierte Zeile traegt die Antwort **mindestens** dann, wenn
+    // Schritt 2 der falsche ist; zusaetzlich bei Wertgleichheiten.
+    assert!(
+        probe_traefe_antwort >= falscher_schritt_2,
+        "die Probe traegt die Antwort mindestens im Fall `falscher Schritt = 2`"
+    );
+    assert!(
+        pct(probe_traefe_antwort) > 20.0,
+        "die Probe muesste in rund einem Viertel der Faelle die Antwort tragen: {:.1} %",
+        pct(probe_traefe_antwort)
+    );
+}
+
+/// **`fkt-mittel` traegt die vollstaendige Antwortverteilung ueber 4 und 5
+/// Schritte** - und der Mehrheitsanteil wird gemessen.
 #[test]
 fn mittel_mehrheitsanteil_wird_gemessen() {
     let k = korpus("mittel");
@@ -330,18 +540,18 @@ fn mittel_mehrheitsanteil_wird_gemessen() {
         assert!(n >= 100, "zu wenige fkt-mittel im Band {name}: {n}");
         assert_eq!(
             zaehler.len(),
-            4,
-            "vier Schritte, vier Antworten: {zaehler:?}"
+            5,
+            "vier oder fuenf Schritte ergeben fuenf Antworten: {zaehler:?}"
         );
         let (haeufig, oft) = zaehler.iter().max_by_key(|(_, c)| **c).unwrap();
         let pct = *oft as f64 * 100.0 / n as f64;
         eprintln!(
-            "DIAGNOSE {name} fkt-mittel: n={n} Antwortraum 4 Mehrheit `{haeufig}` {pct:.1} % \
-             (Idealwert 25,0 %)"
+            "DIAGNOSE {name} fkt-mittel: n={n} Antwortraum 5 Mehrheit `{haeufig}` {pct:.1} % \
+             (Idealwert 20,0 % aus 4- und 5-Schritt-Fassung)"
         );
         assert!(
-            (15.0..=35.0).contains(&pct),
-            "Mehrheitsanteil {pct:.1} % liegt nicht in der Naehe von 25 %"
+            (12.0..=32.0).contains(&pct),
+            "Mehrheitsanteil {pct:.1} % liegt nicht in der Naehe von 20 %"
         );
     }
 }
@@ -614,8 +824,30 @@ fn punkt(text: &str) -> (i64, i64) {
     (x.trim().parse().unwrap(), y.trim().parse().unwrap())
 }
 
+/// Die Werte hinter ` -> ` aller `Schritt k:`-Zeilen.
+fn schrittwerte(rec: &[u8]) -> Vec<i64> {
+    formel::denkweg_in(rec)
+        .lines()
+        .filter(|l| l.starts_with("Schritt "))
+        .map(|l| {
+            l.rsplit(" -> ")
+                .next()
+                .unwrap()
+                .trim()
+                .parse()
+                .expect("Schrittwert")
+        })
+        .collect()
+}
+
+/// Die Zahl der Rechenschritte - **steht in den Bytes**.
+fn schrittzahlen(rec: &[u8]) -> usize {
+    schrittwerte(rec).len()
+}
+
 /// Die richtigen Schrittwerte - im Test **eigens** gerechnet.
-fn richtige_schritte(rec: &[u8]) -> Vec<i64> {    let task = formel::task_in(rec);
+fn richtige_schritte(rec: &[u8]) -> Vec<i64> {
+    let task = formel::task_in(rec);
     let v = formel::verify(rec).unwrap();
     let a = punkt(
         task.lines()

@@ -1,7 +1,8 @@
 # Der Korpus "Formel-Verstaendnis und Funktion" (Mathematik-Stufe M2, D-030 A2/A3)
 
-**Stand: gebaut und gemessen (Runde 40). Die Messung am MODELL steht noch aus -
-der Messplan in Abschnitt 7 ist VOR dem Lauf festgelegt.**
+**Stand: gebaut und vermessen (Runde 40; die Vorzeichen-Korrektur ist in Runde 40b
+nachgezogen und der Korpus dafuer neu erzeugt). Die Messung am MODELL steht noch
+aus - der Messplan in Abschnitt 7 ist VOR dem Lauf festgelegt.**
 
 Dies ist die **zweite** Mathematik-Familie. Die Reihenfolge ist durch `D-030`
 festgelegt und vom Nutzer in Runde 29 als Auflage (F) bestaetigt:
@@ -44,10 +45,10 @@ zweier Punkte und die **Steigung** als Verhaeltnis zweier Differenzen.
 
 | Bewegung | Typ | Aufgabe | Antwort | train | val | Antwortraum train/val | Mehrheit train/val |
 |---|---|---|---|---|---|---|---|
-| **ABLEITEN** | `fkt-tabelle` | Wertetabelle zu `f(x) = a*x + b`: 2-3 Eingaben | Ausgaben in Eingabereihenfolge | 25.000 | 2.500 | **22.179 / 2.483** | 0,02 % / 0,08 % |
-| **VERGLEICHEN** | `fkt-liegt` | liegt Q auf der Geraden durch P mit Steigung m? | `ja`/`nein` | 25.000 | 2.500 | **2 / 2** | 50,25 % / 50,12 % |
-| **LOKALISIEREN** | `fkt-mittel` | Mittelpunkt zweier Punkte, 4 Schritte vorgerechnet | Nummer des falschen Schritts | 25.000 | 2.500 | **4 / 4** | 25,22 % / 26,20 % |
-| **MINIMIEREN** | `fkt-steig` | Steigung durch zwei Punkte, 3 Schritte vorgerechnet | richtiger Wert des falschen Schritts | 25.000 | 2.500 | **118 / 74** | 8,56 % / 9,72 % |
+| **ABLEITEN** | `fkt-tabelle` | Wertetabelle zu `f(x) = a*x + b`: 2-3 Eingaben | Ausgaben in Eingabereihenfolge | 25.000 | 2.500 | **24.117 / 2.498** | 0,02 % / 0,08 % |
+| **VERGLEICHEN** | `fkt-liegt` | liegt Q auf der Geraden durch P mit Steigung m? | `ja`/`nein` | 25.000 | 2.500 | **2 / 2** | 50,28 % / 50,64 % |
+| **LOKALISIEREN** | `fkt-mittel` | Mittelpunkt zweier Punkte, 4 Schritte vorgerechnet | Nummer des falschen Schritts | 25.000 | 2.500 | **5 / 5** | 22,94 % / 23,32 % |
+| **MINIMIEREN** | `fkt-steig` | Steigung durch zwei Punkte, 3 Schritte vorgerechnet | richtiger Wert des falschen Schritts | 25.000 | 2.500 | **235 / 293** | 8,70 % / 9,80 % |
 
 Manifest-Schluessel: `typ.fkt-*`, `bewegung.fkt-*.<BEWEGUNG>`,
 `level.fkt-*.<leicht|mittel|schwer>`. Das Praefix `fkt-` ist **Pflicht**: die
@@ -104,19 +105,19 @@ gebaut war. Fuer M2 galt deshalb vor der Abnahme: **kein Typ mit Antwortraum 1**
 **kein Bandleck**, **zwei konstruktiv getrennte Baender**.
 
 **Gemessen an den ausgelieferten Bytes** (unabhaengig nachgerechnet, nicht aus
-dem Generatorbericht uebernommen): Antwortraeume **22.179 / 2 / 4 / 118**,
-Mehrheitsanteile **0,02 % / 50,25 % / 25,22 % / 8,56 %**. Kein Typ hat einen
+dem Generatorbericht uebernommen): Antwortraeume **24.117 / 2 / 5 / 235**,
+Mehrheitsanteile **0,02 % / 50,28 % / 22,94 % / 8,70 %**. Kein Typ hat einen
 Antwortraum von 1, kein Typ hat eine Mehrheit nahe 100 %.
 
 **Das Gate ist keine Behauptung, sondern ein Exit-Code:** mit `--n 8` bricht der
 Generator mit **exit 1** ab und nennt den Grund
-(`D-059-Gate VERLETZT - ... fkt-tabelle im Band Held-out: nur EINE Antwort`),
+(`D-059-Gate VERLETZT - ... fkt-liegt im Band Training: nur EINE Antwort`),
 mit `--n 20` nennt er zwei Typen; `--n 200` und `--n 100000` laufen durch.
 
 **Kurzstrategie-Baseline** (Katalog **vor** der Messung festgelegt, Antworten nur
 aus Bytes): "immer `0`" **0,0 %** in allen vier Typen, "erste Zahl der Aufgabe"
-hoechstens **0,8 %** (`fkt-steig`), "erste Eingabe" 0,0 %, "`Schritt 1`"
-**25,2 %** bei `fkt-mittel` (Idealwert bei vier Schritten: 25,0 %).
+hoechstens **0,46 %** (`fkt-steig`), "erste Eingabe" 0,0 %, "`Schritt N`"
+**22,9 %** bei `fkt-mittel` (Idealwert bei vier falschen Schritten: 25,0 %).
 
 ### 4.1 Ein vom Bau selbst gefundener Defekt derselben Klasse
 
@@ -130,32 +131,33 @@ Sollwert), danach **0,0 %**.
 
 | Menge | Datensaetze | Nutzlast | Datei | Pruefsumme (FNV-1a-64) | laengster | Keys |
 |---|---|---|---|---|---|---|
-| `data/formel/train` | **100.000** | 28.509.121 B | **28.709.153 B** | **`a7b223d11dbbdede`** | 336 B | 20 |
-| `data/formel/val` | **10.000** | 2.897.626 B | **2.917.658 B** | **`0a959c9ef5686958`** | 344 B | 12 |
+| `data/formel/train` | **100.000** | 29.566.789 B | **29.766.821 B** | **`15ccde7579a3625c`** | 357 B | 20 |
+| `data/formel/val` | **10.000** | 3.002.406 B | **3.022.438 B** | **`26f6df1bf6e74add`** | 363 B | 12 |
 
 * **Beide Validatorstufen gruen** ("Alle Shards gueltig"), `RECORD_MAX` 3500
-  nirgends erreicht (groesster Datensatz 344 B).
+  nirgends erreicht (groesster Datensatz 363 B).
 * **110.000/110.000 Datensaetze global eindeutig**, Schnitt `train ∩ val = 0`
   (unabhaengig nachgezaehlt).
 * **Determinismus:** zweiter und dritter Lauf mit Seed 1337 sind ueber **alle
   vier** Ausgabedateien `cmp`-identisch (4/4).
-* **Ziehung:** 421.008 Versuche fuer 100.000 (23,8 %) - verworfen wegen Band
-  38.721, nicht baubar 281.925, Dubletten 362; die **Selbstpruefung des
-  Verifiers hat 0 selbst gebaute Datensaetze abgelehnt**.
+* **Ziehung:** 686.926 Versuche fuer 100.000 (14,6 %) - verworfen wegen Band
+  37.904, nicht baubar 548.984, Dubletten 38; die **Selbstpruefung des Verifiers
+  hat 0 selbst gebaute Datensaetze abgelehnt** (die Ausbeute sinkt mit den
+  strengeren Bauzusagen: `dy != 0`, paarweise verschiedene Werte, Vorzeichen).
 
 ### 5.1 Der Instanzraum ist NICHT ausgeschoepft - und das ist der Unterschied zu M1
 
 | | M1 Algebra | M2 Formel |
 |---|---|---|
 | Band | linear, **vollstaendig aufgezaehlt** | kombinatorisch |
-| Obergrenze | **90.720** (= geliefert) | **16.670.976** (Training), 3.442.320 (Held-out) |
-| geliefert | 90.720 = **100 %** | 100.000 = **0,66 %** |
+| Obergrenze | **90.720** (= geliefert) | **124.999.368** (Training), 19.540.160 (Held-out) |
+| geliefert | 90.720 = **100 %** | 100.000 = **0,44 %** |
 | gemessen | Saettigung bei `--n 200.000` | bei `--n 2.000.000` **noch linear** |
 
 Die Obergrenze ist **analytisch** aus der Banddefinition gerechnet, nicht durch
-Ausschoepfung: 16,67 Mio. Datensaetze brauchen grob 10 GB RAM (Liste +
+Ausschoepfung: 124,9 Mio. Datensaetze brauchen grob 40 GB RAM (Liste +
 Dublettensperre + Sortier-Klon), und ein OOM-Abbruch haette einen parallel
-laufenden Trainingsprozess mitreissen koennen. Bei **0,66 %** Ausschoepfung
+laufenden Trainingsprozess mitreissen koennen. Bei **0,44 %** Ausschoepfung
 besteht **kein Kontaminationsrisiko**; der Korpus ist damit beliebig
 vergroesserbar, ohne neue Aufgabe. **Das ist die eigentliche Antwort auf `O-A29`
 fuer diese Familie: der Vorrat ist gross, aber die Decke ist gemessen und
@@ -165,9 +167,9 @@ benannt.**
 
 | Groesse | Training | Held-out | gemessen (100k-Korpus) |
 |---|---|---|---|
-| Koordinaten (`Punkt A/B`, `Punkt P/Q`) und **jede** Tabelleneingabe | 1..60 | 61..100 | **0 gemeinsame Werte** |
+| Koordinaten (`Punkt A/B`, `Punkt P/Q`) und **jede** Tabelleneingabe | -60..60 | -100..100 | **0 gemeinsame Werte** |
 | Betrag von `a` und `m` | 1..4 | 5..8 | **0 gemeinsame Werte** |
-| `b` (Achsenabschnitt, immer >= 1) | 1..60 | 61..100 | **0 gemeinsame Werte** |
+| `b` (Achsenabschnitt, auch negativ) | -60..60 | -100..100 | **0 gemeinsame Werte** |
 | Betrag der Verschiebung `d` (nicht gedruckt) | 1..6 | 7..12 | Baubereich, **nicht** von `im_band` geprueft |
 
 Die Trennung ist je **Groesse** geprueft, nicht je Aufgabenvorlage: eine erste
@@ -178,12 +180,27 @@ verschiedenen Baendern. Nach der Auftrennung: **0 Lecks** (M1 hatte 7,1 %).
 zusaetzlich von Tests aufgerufen (der `O-A30`-Befund war eine Bandpruefung mit
 null Aufrufern).
 
-**Ehrliche Einschraenkung (offener Punkt `O-A34`):** das **Vorzeichen** wird fuer
-`a`, `m` und `d` gezogen (fallende Geraden kommen also vor), **nicht** fuer die
-Koordinaten und nicht fuer `b` - alle Punkte liegen im **ersten Quadranten**.
-Die Korrektur ist klein und benannt: `im_band` muss die Koordinate ueber
-`abs()` pruefen (wie die Steigung es schon tut) und der Generator das Vorzeichen
-auch dort ziehen; danach ist der Korpus neu zu erzeugen.
+**`O-A34` ist geschlossen (Runde 40b).** Die erste Fassung der Familie liess nur
+**positive** Zahlen zu (`k` 1..60 gegen 61..100, `m` 1..4 gegen 5..8, `b` >= 1):
+damit waere kein Punkt in einem negativen Quadranten und **keine fallende
+Gerade** vorgekommen - genau die Substanz von A2/A3. Jetzt gilt das
+**`O-A30`-Muster**: `im_band` prueft den **Betrag** (`v.abs()`), und
+`vorzeichen()` zieht das Vorzeichen fuer **jede** Koordinate, fuer `a`, fuer `m`
+und fuer `b`. Gemessen an den Bytes: train -60..60 gegen val -100..100 (bzw.
+|a|,|m| 1..4 gegen 5..8), **Vorzeichen in beiden Baendern**, **0 gemeinsame
+Werte je Groesse**. Die Quadranten sind damit wirklich abgedeckt: im Training
+liegen **1.477** Datensaetze im dritten Quadranten und **alle vier**
+Vorzeichenkombinationen kommen vor, im Held-out **128**; die Vorzeichen sind
+ausgeglichen (train x- 3.031 / x+ 4.225, y- 2.978 / y+ 3.022; m- 985 / m+ 1.015,
+b- 522 / b+ 478).
+
+**Werkzeughinweis (eigener Fehler im Pruefwerkzeug, nicht im Korpus).** Das erste
+Pruefskript (`m2-pruefe.py`) meldet fuer diese Familie **falschen Alarm**: es
+wirft alle Zahlen **eines Aufgabentextes** in *einen* Bereich und mischt damit
+Koeffizient (Betrag <= 8), Achsenabschnitt und Koordinaten (Betrag <= 100) -
+`[-60,60]` gegen `[-100,100]` ueberlappt dann zwangslaeufig. Gueltig ist die
+Messung **je Groesse** (`band-je-groesse.py`). Der Korpus wurde **nicht**
+geaendert, um ein Werkzeug gruenzumachen.
 
 ## 7 Messplan (Auflage E) - vorab festgelegt, damit er nicht nachtraeglich passt
 
@@ -222,13 +239,23 @@ Der Vergleich trennt die beiden Effekte **nicht**; das war in Runde 36 genauso.
 * **`O-A33`** Kein **Typ-Bild der Familie im Loop**: die Panels messen die
   Zahlenfolgen-Familie, nicht `fkt-*`; die Wirkung je M2-Typ ist nur auf
   `data/formel/val` sichtbar (wie `O-A32` fuer M1).
-* **`O-A34` (NEU)** Koordinaten und `b` sind **vorzeichenlos** (erster Quadrant);
-  `a`, `m`, `d` sind signiert. Fix benannt in Abschnitt 6.
-* **`O-A35` (NEU)** **Das Level ist mit dem Band gekoppelt.** `level_fuer`
-  schneidet bei 20/40, die Baender sind 1..60 und 61..100 - im Held-out-Band ist
-  **jeder** Datensatz `schwer`. Messbar an den Manifest-Schluesseln: **train 20
-  Keys, val 12 Keys** (val hat je Typ nur EIN Level). `level.*` ist damit keine
-  eigene Achse, sondern eine Umschreibung des Bandes.
+* **`O-A34` -> GESCHLOSSEN (Runde 40b):** Koordinaten, `a`, `m` und `b` werden
+  **signiert** gezogen, das Band prueft den Betrag; die erste Fassung war
+  vorzeichenlos und ist ersetzt (Abschnitt 6). Der Korpus wurde dafuer neu
+  erzeugt.
+* **`O-A35`** **Das Level ist mit dem Band gekoppelt (offen, im Code benannt).**
+  `level_fuer` schneidet bei 20/40, die Baender reichen bis Betrag 60 und
+  beginnen bei 61 - im Held-out-Band ist **jeder** Datensatz `schwer` (gemessen:
+  **0 leicht / 0 mittel / 2.500 schwer** je Typ). Messbar auch an den
+  Manifest-Schluesseln: **train 20 Keys, val 12**. `level.*` ist damit auf der
+  Held-out-Seite keine eigene Achse, sondern eine Umschreibung des Bandes.
+  **Die naheliegende Alternative ist gemessen und verworfen:** eine strukturelle
+  Achse (Zahl der Rechenschritte bzw. der Eingaben) traegt nur **zwei** Werte
+  (`fkt-tabelle` 2/3 Eingaben, `fkt-mittel` 4/5 Schritte), ist bei `fkt-steig`
+  **konstant** (3 Schritte in beiden Baendern, 25.000/2.500) und bei `fkt-liegt`
+  **gar nicht vorhanden**. Sie kann fuer alle vier Typen weder drei Stufen noch
+  "leicht und schwer in beiden Baendern" erzeugen. Die Kopplung bleibt deshalb
+  bestehen - **ausgesprochen**, nicht stillschweigend.
 * **`O-A36` (NEU)** Der Verifier prueft Schritt-**Werte**, nicht
   Schritt-**Beschreibungen** (Abschnitt 3.1); dieselbe Luecke in `algebra`/`seq`.
 * **`O-A11`** Reihenfolge A4 gegen den Matrix-Einstieg - **der Nutzer
