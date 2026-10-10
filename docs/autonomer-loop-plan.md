@@ -94,6 +94,31 @@ der in Runde 32 gespeicherte Lauf sind **byte-identisch** (je 61 Zeilen,
 eine Runde erfuellt - in Runde 32 selbst war sie versaeumt und wurde
 nachgeholt.
 
+## 4.1 Pflichtachse: Antwortlaenge und Zahlenende (neu, Nutzerauflage 09.10.2026)
+
+Jede Mathematik-Messung berichtet ab jetzt ZUSAETZLICH zur Trefferquote die
+Laengsgroessen, weil die byte-genaue Quote sie nicht zeigt. Referenzwerte aus
+`offen-01` (64 gedruckte Abweichungsbeispiele, gemessen am 09.10.2026):
+
+| Groesse | Was sie misst | Referenzwert |
+| --- | --- | --- |
+| Ueberlaenge | erzeugte Antwortlaenge geteilt durch die erwartete | **78,7x** (27,9x bis 110x) |
+| Byte-Konzentration | Anteil des haeufigsten Bytes in der erzeugten Antwort | **46,0 %** |
+| Zahl an der Antwortposition | steht die erwartete Zahl dort, wo sie hingehoert | **0 von 13** Funden (13 als Teilkette, aber mitten in der Ziffernsuppe) |
+| gemeinsamer Praefix | Bytes, die vor der ersten Abweichung stimmen | 1,0 bis 1,4 Byte (nur das fuehrende Leerzeichen) |
+
+**Kriterium, VOR der Messung festgelegt.** Eine Runde gilt auf dieser Achse nur
+dann als Erfolg, wenn im Mittel ueber die geprueften Baender (a) die Ueberlaenge
+sinkt, (b) die Byte-Konzentration sinkt und (c) mindestens eine erwartete Zahl
+AN DER ANTWORTPOSITION steht. Eine bessere Trefferquote ohne diese drei Zahlen
+ist kein Beleg fuer Terminierung.
+
+**Vorhandene Maschinerie, kein neues Werkzeug.** Ausgewertet werden die
+gedruckten Abweichungen der bestehenden Messlaeufe (`shiro eval --answers N`)
+mit den schon vorhandenen reinen Funktionen (`budget_fuer`, `FormBefund` in
+`src/probe.rs` und `src/agent.rs`); die Achse braucht kein neues Kommando und
+keinen neuen Trainingslauf.
+
 ## 5. Phasenfolge (bindend)
 
 ### Phase 0 - Datenintegritaet (erledigt am 09.10.2026)
@@ -247,6 +272,46 @@ Familie gegen Arm B.
 | S deutlich besser | Kapazitaet wirkt -> Groessenleiter ziehen |
 | S etwa gleich | erst Korpus und Familien, dann Groesse (D-063) |
 | S schlechter | unverwertbar, zuerst G1 klaeren |
+
+### Phase 4 - Kombinationsrunden Mathematik (Nutzerauflage 09.10.2026)
+
+**Reihenfolge und Bauart.** Grundrechenarten ZUERST, danach Algebra - und beide
+NICHT als Einzelfamilie, sondern GEMEINSAM mit den logisch/analytischen Familien
+(`seq`, `quant`, `logic-large`) in EINEM Manifest. Nutzerwortlaut: *"anstatt
+direkt algebra lieber in kombination machen basic math danach algebra und in
+kombination von logisches und Analytisches denken mit trainieren"*.
+
+**Warum das noetig ist (gemessen, nicht vermutet).** Die Additionsfamilie ist in
+KEINEM der bisherigen Arme enthalten: `kombi-mathe` (220 720 Datensaetze) und
+`kombi-mathe2` (320 720) bestehen aus seq, quant, logic-large, algebra und
+formel. Folge: beide Arme sind auf **allen vier** Stellenbaendern schlechter als
+das untrainierte Modell, die Trefferquote ist **0 von 3 080** (offen-01, D-069),
+und die Erzeugung laeuft in eine Wiederholung statt in die Antwort (78,7-fache
+Ueberlaenge, 46 % ein einziges Byte).
+
+**Aufbau der ersten Kombinationsrunde: GENAU EINE Variable.** Neuer Korpus =
+bisherige Familien PLUS die Grundrechenarten `data/add/train-1d` (100
+Datensaetze) und `data/add/train-2d` (8 100); Dosis, Rate, Seed, Batch und Plan
+bleiben unveraendert. Elternstand ist **vor der Runde gegen das Register zu
+bestaetigen** (Regel R9, Sollwert-Gate); Kandidaten sind der zuletzt nicht
+verworfene Arm `checkpoints/kombi-mathe-step023200.state` und der eingefrorene
+Phasenstand `checkpoints/kombi-delta-step021200.state` - beide liegen vor
+(53,3 MB).
+
+**Messung.** Verlust je Familie UND je Antwortform (bestehende Messbatterie),
+Trefferquote auf den vier Additionsbaendern `train-1d`, `train-2d`, `eval-3d`,
+`eval-4d`, dazu die Pflichtachse aus Abschnitt 4.1, dazu die Determinismus-Probe.
+
+### Phase 5 - Spiele und Puzzles (spaeter, nicht vorziehen)
+
+Sudoku-artige und dreidimensionale Puzzlefamilien auf Basis von `data/games`
+(D-041, bm4). Erst nach Phase 4: die vier analytischen Bewegungen sind dieselben,
+und der Korpus muss zuerst tragen.
+
+### Phase 6 - Sprache (spaeter, nicht vorziehen)
+
+Sprachlogik Deutsch (offen-04) und die belegten Sprachquellen (offen-05, D-068).
+Die Stufenfolge aus D-017 bleibt davon unberuehrt.
 
 ## 6. Modellleiter und Groessenregel
 

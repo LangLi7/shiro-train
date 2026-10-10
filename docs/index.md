@@ -1,9 +1,9 @@
 # Index der Projektdokumentation
 
 **Das ist das Lesezeichen des Projekts.** Wer wissen will, wo etwas steht,
-sucht hier - nicht im Verzeichnisbaum. Stand: 09.10.2026, HEAD `95ffd5b`.
+sucht hier - nicht im Verzeichnisbaum. Stand: 09.10.2026, HEAD `aa1e7cd`.
 
-Bestand: **143 Dokumente, 3 720 395 B** (gemessen ueber `docs/` und die Wurzel des Repos).
+Bestand: **143 Dokumente, 3 738 894 B** (gemessen ueber `docs/` und die Wurzel des Repos).
 Die Tabelle nennt je Datei Groesse, Zeilen, ob sie in Git **versioniert** ist, die
 Selbstbeschreibung des Dokuments (seine erste Ueberschrift) und die **D-IDs**, die
 darin vorkommen. Der Status `unversioniert` heisst: die Datei liegt im Arbeitsbaum,
@@ -53,9 +53,9 @@ bash   scripts/programmiersprachen-check.sh               # docs/programmierspra
 
 | Datei | Bytes | Zeilen | Git | Selbstbeschreibung | D-IDs |
 | --- | --- | --- | --- | --- | --- |
-| [docs/abschluss-vorbereitungsphase.md](abschluss-vorbereitungsphase.md) | 261896 | 401 | versioniert (geaendert) | **Entscheidungsregister** D-010 bis D-070, Blocker, Backlog | D-023, D-010, D-013, D-011 |
+| [docs/abschluss-vorbereitungsphase.md](abschluss-vorbereitungsphase.md) | 267678 | 403 | versioniert (geaendert) | **Entscheidungsregister** D-010 bis D-070, Blocker, Backlog | D-023, D-010, D-013, D-011 |
 | [docs/experiment-log.md](experiment-log.md) | 278643 | 4891 | versioniert | Detailliertes Experimentprotokoll der Loop-Runden (4.891 Zeilen) | D-045, D-023, D-047, D-046 |
-| [docs/verifikation.md](verifikation.md) | 552679 | 3929 | versioniert (geaendert) | **Protokoll** aller Arbeitsrunden (CRLF). Hier steht, was wann gemessen wurde | D-010, D-012, D-013, D-014 |
+| [docs/verifikation.md](verifikation.md) | 561674 | 4070 | versioniert (geaendert) | **Protokoll** aller Arbeitsrunden (CRLF). Hier steht, was wann gemessen wurde | D-010, D-012, D-013, D-014 |
 
 ### 1.3 Konzept, Roadmap und Bewertung
 
@@ -122,7 +122,7 @@ bash   scripts/programmiersprachen-check.sh               # docs/programmierspra
 | Datei | Bytes | Zeilen | Git | Selbstbeschreibung | D-IDs |
 | --- | --- | --- | --- | --- | --- |
 | [docs/agentic-loop.md](agentic-loop.md) | 13986 | 277 | versioniert (geaendert) | Agentischer Capability-Loop | D-045 |
-| [docs/autonomer-loop-plan.md](autonomer-loop-plan.md) | 20912 | 360 | versioniert | **Loop-Programm**: Regeln R1-R12, Phasenfolge, Messbatterie | D-065, D-050, D-048, D-063 |
+| [docs/autonomer-loop-plan.md](autonomer-loop-plan.md) | 24634 | 425 | versioniert (geaendert) | **Loop-Programm**: Regeln R1-R12, Phasenfolge, Messbatterie | D-065, D-050, D-048, D-063 |
 | [docs/implementierung-backend.md](implementierung-backend.md) | 14887 | 290 | unversioniert (geaendert) | Wie Backend, Modell und Messkette gebaut wurden | D-010, D-013, D-014, D-015 |
 | [docs/model-ablage.md](model-ablage.md) | 12372 | 198 | unversioniert (geaendert) | Wo Modelle liegen: checkpoints/ gegen models/, Fortsetzen | D-020, D-023 |
 | [docs/parallelsitzung-nachricht.md](parallelsitzung-nachricht.md) | 7356 | 148 | unversioniert (geaendert) | Uebergabe an die Parallelsitzung: Gerätewahl (GPU bevorzugt) — BITTE ZUERST | D-010, D-023 |
@@ -305,20 +305,20 @@ im Repo auf ihn verweist:
 
 | Kandidat | Verweise aus fremden/unversionierten Dateien | aus sauberen Dateien | Verweise aus Quellcode/Config |
 | --- | --- | --- | --- |
-| `docs/byte-model-gpu-analyse.md` | 13 | 4 | `configs/model.small.toml`, `deploy/runpod.toml`, `src/config.rs`, `src/logging.rs`, `src/main.rs` |
-| `docs/gpu-manuelle-einrichtung.md` | 6 | 1 | `src/backend.rs` |
-| `docs/runpod.md` | 4 | 2 | - |
-| `docs/algebra-korpus.md` | 3 | 1 | - |
-| `docs/algebra-eintritt-in-den-korpus.md` | 4 | 2 | `src/data/algebra.rs`, `src/data/formel.rs` |
-| `docs/formel-korpus.md` | 4 | 1 | - |
-| `docs/kombi-korpus.md` | 8 | 3 | - |
-| `docs/autonomer-loop-plan.md` | 4 | 0 | - |
-| `docs/trainingsloop-logik-plan.md` | 6 | 3 | - |
-| `docs/experiment-log.md` | 16 | 6 | `src/agent.rs` |
-| `docs/ursachen-abschluss.md` | 6 | 1 | - |
-| `docs/ZUSAMMENFASSUNG.md` | 6 | 2 | - |
-| `docs/STACK-BEWERTUNG.md` | 4 | 0 | - |
-| `docs/stack.md` | 3 | 7 | - |
+| `docs/byte-model-gpu-analyse.md` | 12 | 5 | `configs/model.small.toml`, `deploy/runpod.toml`, `src/config.rs`, `src/logging.rs`, `src/main.rs` |
+| `docs/gpu-manuelle-einrichtung.md` | 5 | 2 | `src/backend.rs` |
+| `docs/runpod.md` | 3 | 3 | - |
+| `docs/algebra-korpus.md` | 3 | 2 | - |
+| `docs/algebra-eintritt-in-den-korpus.md` | 3 | 3 | `src/data/algebra.rs`, `src/data/formel.rs` |
+| `docs/formel-korpus.md` | 3 | 2 | - |
+| `docs/kombi-korpus.md` | 8 | 4 | - |
+| `docs/autonomer-loop-plan.md` | 3 | 1 | - |
+| `docs/trainingsloop-logik-plan.md` | 5 | 4 | - |
+| `docs/experiment-log.md` | 15 | 7 | `src/agent.rs` |
+| `docs/ursachen-abschluss.md` | 5 | 2 | - |
+| `docs/ZUSAMMENFASSUNG.md` | 5 | 3 | - |
+| `docs/STACK-BEWERTUNG.md` | 3 | 1 | - |
+| `docs/stack.md` | 3 | 8 | - |
 
 **Ergebnis: kein einziger Kandidat ist gefahrlos zu bewegen.** Jeder wird aus
 Quellcode, Konfiguration oder Deploy-Dateien genannt, und jeder zusaetzlich aus
@@ -344,9 +344,9 @@ waere der richtige Ort dafuer - nicht ein Nebenprodukt eines Umzugs.
 
 | Angabe | Wert |
 | --- | --- |
-| erzeugt | 09.10.2026, HEAD `95ffd5b` |
+| erzeugt | 09.10.2026, HEAD `aa1e7cd` |
 | Dokumente | 143 |
-| Gesamtgroesse | 3 720 395 B |
+| Gesamtgroesse | 3 738 894 B |
 | versioniert | 80 |
 | unversioniert | 63 |
 | Register-Eintrag | D-070 (Layout-Konvention und Index) |

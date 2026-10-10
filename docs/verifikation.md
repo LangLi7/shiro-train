@@ -3599,3 +3599,74 @@ hoechste ID vorher live geprueft: D-069, D-070 war frei.
 Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`; kein
 Training, keine Prozesse gestartet (pgrep-Gegenprobe leer).
 
+## 8.7 Achter Teil - Kombinationsstrategie und Laengsachse (09.10.2026)
+
+**Auftrag (Nutzerauflage).** Weiterarbeiten mit dem vorhandenen Stand, damit das
+Modell trainiert wird; Goal anpassen, weil das Ziel der Dauerbetrieb des
+autonomen Loops ist; Grundrechenarten und Algebra NICHT einzeln, sondern in
+KOMBINATION mit dem logisch/analytischen Denken trainieren; Spiele/Puzzles
+(Sudoku-artig, auch dreidimensional) und Sprache spaeter; Antwortlaenge bzw.
+Zahlenende als eigenes Qualitaetsmerkmal; Zielrahmen ist Verbesserung UND
+Selbstverbesserung.
+
+**Ist-Stand beim Beginn (nur lesend geprueft).** HEAD `aa1e7cd` (eigener
+Doku-Index), Arbeitsbaum 130 fremde Eintraege (30 geaendert, 100 unversioniert).
+Register: hoechste ID **D-070**, D-071 frei, Kette D-010..D-070 geschlossen.
+Registry (`registry/experiments.jsonl`, 38 Zeilen): der letzte Eintrag traegt
+`urteil=KEINE_RUNDE`, `accepted=False`, `exact_match=0,9146` - es lief also kein
+vollstaendiger Rundenabschluss. Kein Shiro-Prozess von mir gestartet; der einzige
+laufende Prozess ist das Dashboard der Parallelsitzung (PID 344, Port 8787, aus
+deren Commit) und wurde nicht angefasst. GPU 13 % / 1778 MiB = Desktop.
+
+**Korpora (gemessen).** `data/kombi-mathe/train` 4 Shards / 220 720 Datensaetze /
+60 338 908 B; `data/kombi-mathe2/train` 5 Shards / 320 720 / 89 905 697 B;
+`data/add/train-1d` 100 / 4 535 B und `data/add/train-2d` 8 100 / 584 415 B;
+`data/algebra/train` 90 720 / 16 475 732 B; `data/formel/train` 100 000 /
+29 566 789 B. **Resume-Staende vorhanden:** `kombi-mathe-step023200.state` und
+`kombi-mathe2-step023200.state` (je 53,3 MB), dazu der eingefrorene Phasenstand
+`kombi-delta-step021200.state`. (Der erste Blick hatte sie als fehlend gemeldet,
+weil der Dateiname fuehrende Nullen traegt - `step023200`, nicht `step23200`;
+die Korrektur steht hier statt im Widerspruch.)
+
+**Geaendert: das Goal des Loops.** Neuer Wortlaut im Durable State: Dauerbetrieb
+des autonomen Trainings- und Benchmark-Loops, Zweck ist messbare Verbesserung UND
+Ausbau der Selbstverbesserung (RSI-Rahmen, D-056, offen-10 bleibt eingereiht).
+Die Pflichtklauseln sind woertlich unveraendert uebernommen (genau EINE Variable
+je Runde, beide 2x480-Panels, Determinismus-Probe, Klauseln (a)-(d), getrennte
+Wertung je Familie UND je Antwortform, unabhaengige Manifest-Pruefung,
+unabhaengiger Reviewer). Neu im Goal: die Kombinationsstrategie, die spaeteren
+Phasen in fester Reihenfolge, die Laengsachse als Pflicht und die unveraenderte
+bindende Reihenfolge (Dosis-Kontrolle -> Formel-Shard -> Kapazitaet S nur nach
+Beleg -> Kombinationsrunden).
+
+**Geaendert: das Loop-Programm** (`docs/autonomer-loop-plan.md`). Neu ist
+Abschnitt **4.1 Pflichtachse Antwortlaenge und Zahlenende** mit dem vorab
+festgelegten Kriterium und den Referenzwerten aus offen-01 (78,7-fache
+Ueberlaenge, 46,0 Prozent Byte-Konzentration, 0 von 13 Zahlen an der
+Antwortposition, gemeinsamer Praefix 1,0 bis 1,4 Byte). Neu sind die Phasen
+**4 Kombinationsrunden Mathematik**, **5 Spiele und Puzzles** und **6 Sprache**;
+Phase 4 nennt als GENAU EINE Variable den Zusatz der Grundrechenarten
+(`data/add/train-1d` und `train-2d`) zum bisherigen Familienmix und verlangt, den
+Elternstand vor der Runde gegen das Register zu bestaetigen (Regel R9).
+
+**Warum die Kombination noetig ist - der Beleg ist gemessen, nicht plausibel.**
+Die Additionsfamilie fehlt in beiden Armen; deshalb steht die Trefferquote bei
+0 von 3 080 und beide Arme sind auf allen vier Stellenbaendern schlechter als
+das untrainierte Modell (D-069). Der Nutzersatz "es verliert systematisch das
+Zahlenende" trifft den gemessenen Mechanismus: nicht die Rechnung fehlt, sondern
+die Terminierung (78,7-fache Ueberlaenge, 46 Prozent ein einziges Byte).
+
+**Gates (WSL2, Exit-Code).** `scripts/check-table-pipes.py` exit 0,
+`scripts/check-doc-links.py` exit 0 (Summe tote Links 0),
+`scripts/lernstufen-check.sh` exit 0, `scripts/programmiersprachen-check.sh`
+exit 0.
+
+**Naechster Schritt.** Phase 4 als eigene Einheit: Korpus bauen (bisherige
+Familien plus Grundrechenarten), EINE Variable, Training auf der GPU, Messung je
+Familie und je Antwortform, Laengsachse auswerten, Determinismus-Probe, Verdikt
+mit Registerzeile und Commit. Nichts davon in diesem Block vorweggenommen.
+
+**Nicht getan:** kein Training gestartet, kein Modell gewechselt, keine Aenderung
+an `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`; offen-02 und offen-03
+unveraendert an ihrer Stelle; kein fremder Prozess gestoert.
+
