@@ -3737,3 +3737,87 @@ Belegt ist die Struktur, nicht die gemessene Seitenhoehe. Keine Screenshots.
 Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`.
 D-072 im Register; die Einzelheiten in `docs/trainings-dashboard.md` Abschnitt
 13.
+
+---
+
+## 8.7 Nachtrag (Benutzertest): SearXNG und Firecrawl als lokale Docker-Werkzeuge (10.10.2026)
+
+**Auftrag.** Beide Werkzeuge lokal per Docker betreiben und **so benutzen, wie ein
+Projektnutzer es tut** - Suche mit echten Projektbegriffen, Crawl echter URLs,
+Realitaetsprobe gegen eine bereits dokumentierte Quellenzeile. Alles notieren, was
+nicht so funktioniert, wie es sollte; in der Testphase **nichts** beheben.
+
+**Bestand (gemessen).** Beide existierten bereits: SearXNG **lief** (Host-Port
+**8081**, nicht 8080), der Firecrawl-Stack lag gestoppt bereit (7 Container,
+Compose-Projekt `firecrawl`, Projektordner `G:\.Projekt\firecrawl`, Netz
+`firecrawl_backend`); die Images waren vorhanden, es wurde **nichts** gebaut und
+**nichts** gepullt. **WSL2 hat kein Docker** ("could not be found in this WSL 2
+distro", WSL-Integration aus); der Client laeuft auf Windows gegen Docker Desktop
+4.94.0 (Engine 29.8.2). Start mit `docker start` in der Reihenfolge
+foundationdb - foundationdb-init - redis/rabbitmq/nuq-postgres/playwright - api,
+rund 35 s bis "All services running". Portkonflikt geprueft: `flowsint-redis-prod`
+belegt Host 6379, `firecrawl-redis-1` hat keinen Host-Port - keine Kollision.
+
+**Was funktioniert hat.** Suche mit drei echten Begriffen (`arithmetic coding`,
+`peS2o`, `Reaktionsgleichung ausgleichen`): 3x HTTP 200, gueltiges JSON, je 20
+Treffer, **0,36-0,76 s**. Crawl von drei echten URLs (arXiv 1911.00172, arXiv
+2002.08909, HF peS2o): 3x HTTP 200, Markdown **8,4-9,6 KB**, **0,43-1,33 s**,
+vollstaendige Metadaten. Firecrawl `/v1/search`: 200, 5 Treffer, 0,60 s, nutzt
+SearXNG (`SEARXNG_ENDPOINT=http://searxng:8080`). Speicherbedarf im Leerlauf
+zusammen ~3,7 GiB (API allein 2,87 GiB).
+
+**Realitaetsprobe BESTANDEN.** kNN-LM: `Submitted on 1 Nov 2019` und
+`arXiv:1911.00172` (Repo-Zeile: 01.11.2019). REALM: `Submitted on 10 Feb 2020`
+(Repo-Zeile: 10.02.2020). peS2o: **`note = {ODC-By, \url{...}}`** woertlich im
+Zitationsblock der Dataset-Card (Repo-Zeile: ODC-By, "im Zitationsblock belegt").
+arXiv-Lizenz je Paper: `nonexclusive-distrib/1.0`. Damit sind Titel, Datum,
+Kennung und Lizenz der Zeilen in `docs/quellen-uebersicht.md` ueber diesen Weg
+reproduzierbar. **Nicht** pruefbar ueber diesen Weg: Volltexte, Pruefsummen,
+Umfangsangaben.
+
+**Zehn Befunde, keiner davon behoben** (Liste mit Schwere und Fixplan in
+`docs/benutzertest-searxng-firecrawl.md` Abschnitt 7):
+
+* **Blocker F2:** HTTP 404 kommt als `success: true` zurueck, der Statuscode steht
+  nur in `metadata.statusCode` (arXiv 9999.99999: 404, 502 Zeichen Markdown). Eine
+  Auswertung, die auf `success` prueft, speichert Fehlerseiten als Inhalt.
+  **Auswertungsregel daraus: Erfolg nur bei `metadata.statusCode == 200` UND
+  nicht-leerem Markdown.**
+* **Warnungen:** **F4** die API verlangt keinen Authorization-Header und ist auf
+  `0.0.0.0:3002` gebunden (ohne Header identisches Ergebnis, `USE_DB_AUTHENTICATION=false`).
+  **S1** die Metasuche liefert 20 Treffer aus **einer** Engine (`google cse`);
+  drei Engines sind stumm (`brave` "Suspended: too many requests", `duckduckgo`
+  "CAPTCHA", `startpage` "Suspended: CAPTCHA"), sichtbar nur im Rohfeld
+  `unresponsive_engines`. **S2** unbekannte `engines=`/`categories=` werden still
+  ignoriert (HTTP 200 statt Fehler). **S3** der Sprachfilter wirkt nur schwach
+  (`language=en` liefert deutsche Treffer). **F1** kein Health-Endpunkt (`/test`,
+  `/v1/health`, `/v2/health` je 404; nur `/` antwortet). **F5** `curl --data '{...}'`
+  unter PowerShell ergibt 400 "malformed JSON" - dateibasiert mit
+  `--data-binary @datei` kommt 200.
+* **Kosmetisch:** **S4** `format=csv` ergibt 403 mit roher HTML-Seite; **S5** das
+  Feld `number_of_results` fehlt ganz; dieses Dokument steht nicht in
+  `docs/index.md` (Auflage: keine andere Repo-Datei aendern).
+* **Beobachtungen ohne Mangelwert:** die Wiederholung derselben Suche tauscht die
+  Plaetze 2 und 3 (18.721 gegen 18.695 B - keine Determinismus-Klausel
+  angewendet); die Wiederholung desselben Crawls ist identisch (14.297 B).
+  Nebenbefund aus dem Korpus-Crawl: die peS2o-Dataset-Card meldet "The viewer is
+  disabled because this dataset repo requires arbitrary Python code execution" -
+  ein Zustand der Quelle, kein Fehler des Werkzeugs.
+
+**Grenze der Pruefung, offen benannt.** Geprueft wurden die HTTP-Schnittstellen
+der Werkzeuge, nicht ihre interne Qualitaet; die Sprachfilter-Pruefung ist eine
+Stichprobe mit einem Begriff; die Realitaetsprobe deckt Metadaten ab, nicht
+Inhalte.
+
+**Nicht getan.** Kein Neustart zur Behebung, keine Aenderung an
+`G:\.Projekt\firecrawl` (weder Compose noch `.env` noch `settings.yml`), kein
+Eingriff in fremde Container (openterminal, flowsint, freellmapi, ollama), das
+Dashboard auf 8787 unberuehrt, keine Aenderung an `src/`, `data/`, `configs/`,
+`deploy/`, `checkpoints/`, `logs/`. Der Stack laeuft nach dem Test weiter
+(Nutzerwunsch), der Stoppbefehl steht im Dokument.
+
+**Neu:** **O-U1** kein Selbsttest fuer die Recherchewerkzeuge, **O-U2** die Zahl
+der antwortenden Suchquellen wird nirgends sichtbar; Kollisionspruefung
+dokumentiert (strenges Muster `O-U[0-9]` 0 Treffer, case-sensitive Teilstring 0
+Treffer, case-insensitive 2 Fehltreffer `o-Urteil`/`o-Unterbefehle`). **Register:**
+D-073.
