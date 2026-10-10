@@ -245,6 +245,17 @@ impl Cfg {
                 mtime.to_bits(),
             ));
         }
+        // Die Runden-Registry gehoert dazu: eine neue Runde ist eine echte
+        // Aenderung, und ohne diesen Stempel erschiene sie erst nach einem
+        // Neuladen von Hand. Der Stempel liest nur Groesse und Aenderungszeit,
+        // nicht den Inhalt - er kostet nichts.
+        if let Some((len, mtime)) = messungen::stempel(&self.registry) {
+            out.push((
+                format!("reg/{}", self.registry.display()),
+                len,
+                mtime.to_bits(),
+            ));
+        }
         out
     }
 
@@ -389,6 +400,13 @@ fn handle(stream: TcpStream, cfg: &Cfg) -> std::io::Result<()> {
         }
         "/api/compare" => (
             api_compare(cfg).into_bytes(),
+            "application/json; charset=utf-8",
+        ),
+        // Der Projektstand der Faehigkeit: wo steht das Projekt gegen die
+        // Marke D-047, welche Runde kam ihr am naechsten, woran haengt es.
+        // Die Anzeige je Eintrag bleibt /api/registry.
+        "/api/benchmarks" => (
+            api_benchmarks(cfg).into_bytes(),
             "application/json; charset=utf-8",
         ),
         "/api/smart" => {
@@ -1024,6 +1042,156 @@ fn api_registry(cfg: &Cfg, limit: usize) -> String {
         o.end_obj();
     }
     o.end_arr();
+    o.end_obj();
+    o.finish()
+}
+
+/// `/api/benchmarks` - der Projektstand der Faehigkeit.
+///
+/// ## Was dieser Endpunkt von `/api/registry` unterscheidet
+///
+/// `/api/registry` liefert die Eintraege: je Runde Faehigkeit, Panels,
+/// Typentabelle und das Urteil **dieser** Runde. Genau so ist die Ampel dort
+/// beschriftet. Dieser Endpunkt beantwortet die naheliegende naechste Frage:
+/// **wo steht das Projekt als Ganzes?**
+///
+/// * `zaehlung` - wie viele Runden es gab, wie viele Panels tragen, wie oft
+///   welches Urteilswort vorkam (`urteile`, jedes Wort einzeln) und wie viele
+///   Zeilen `accepted: true` tragen. `accepted` und das Urteilswort sind
+///   **zwei verschiedene Fragen**: gemessen tragen 12 Zeilen `accepted: true`,
+///   aber nur 5 das Wort `ANGENOMMEN`.
+/// * `marke` - ob und in wie vielen Runden D-047 erfuellt war, mit den
+///   Schwellen und der Quelle (Registerzeile D-047).
+/// * `beste` - die Runde mit der hoechsten Kopfzahl aus ihren Panels, samt
+///   Abstand zur Marke in Prozentpunkten und den Typen, die dort unter der
+///   Marke liegen. `null`, wenn keine Runde Panel-Zahlen traegt - "keine
+///   Aussage" ist etwas anderes als "nicht erreicht".
+/// * `verlauf` - je Runde die Kennzahlen, damit sichtbar ist, ob es vorangeht.
+///
+/// ## Was hier **nicht** passiert
+///
+/// Es wird **nicht** ueber Aufgabentypen mehrerer Runden gepoolt. Die Panels
+/// messen auf disjunkten Fragesaetzen; ein zusammengelegtes Typenbild waere
+/// eine Genauigkeit, die keine der Messungen hat (Projektregel, siehe
+/// `docs/trainings-dashboard.md` Abschnitt 11.7). `typen_unter_marke` gehoert
+/// deshalb **immer** zu genau einer genannten Runde.
+fn api_benchmarks(cfg: &Cfg) -> String {
+    use crate::benchmark;
+    use crate::registry;
+
+    let bericht = registry::lies_alle(&cfg.registry);
+    let u = benchmark::uebersicht(&bericht.runden);
+
+    let mut o = Out::new();
+    o.obj();
+    o.key("registry").str(&cfg.registry.display().to_string());
+    o.key("gelesen").int(bericht.zeilen);
+    o.key("uebersprungen").int(bericht.uebersprungen);
+    o.key("hinweis").opt_str(bericht.hinweis.as_deref());
+
+    o.key("runden").int(u.zaehlung.runden as u64);
+    o.key("mit_panels").int(u.zaehlung.mit_panels as u64);
+    o.key("ohne_urteil").int(u.zaehlung.ohne_urteil as u64);
+    o.key("aufgenommen").int(u.zaehlung.aufgenommen as u64);
+    o.key("deterministisch_geprueft")
+        .int(u.zaehlung.deterministisch_geprueft as u64);
+    o.key("urteile").arr();
+    for (wort, n) in &u.zaehlung.nach_urteil {
+        o.obj()
+            .key("wort")
+            .str(wort)
+            .key("anzahl")
+            .int(*n as u64)
+            .end_obj();
+    }
+    o.end_arr();
+
+    o.key("marke").obj();
+    o.key("erreicht_in").int(u.erreicht_in as u64);
+    o.key("erreicht_je").bool(u.erreicht_in > 0);
+    o.key("erreicht_von").opt_str(u.erreicht_von.as_deref());
+    o.key("bedingung_1").str(registry::D_047_BEDINGUNG_1);
+    o.key("schwelle_1").num(registry::D_047_EXACT_MATCH_MIN);
+    o.key("bedingung_2").str(registry::D_047_BEDINGUNG_2);
+    o.key("schwelle_2").num(registry::D_047_TYP_MIN);
+    o.key("quelle").str(registry::D_047_QUELLE);
+    // Dieselbe Regel wie in /api/registry: die Ampel gilt fuer EINEN Eintrag.
+    o.key("geltung")
+        .str("die Marke wird je Runde geprueft; 'beste' nennt genau diese Runde");
+    o.end_obj();
+
+    match &u.beste {
+        Some(b) => {
+            o.key("beste").obj();
+            o.key("experiment_id").str(&b.experiment_id);
+            o.key("kurzname").str(&b.kurzname);
+            o.key("capability").str(&b.capability);
+            o.key("kontext").str(&b.kontext);
+            o.key("pack").opt_str(b.pack.as_deref());
+            o.key("urteil").opt_str(b.urteil_wort.as_deref());
+            o.key("deterministisch").bool(b.deterministisch);
+            o.key("aufgenommen").bool(b.aufgenommen);
+            o.key("panels").int(b.panels as u64);
+            o.key("exact_match").opt_num(b.exact_match);
+            o.key("kopf_quote").opt_num(b.kopf_quote());
+            o.key("kopf_erfuellt").bool(b.urteil.kopf_erfuellt);
+            o.key("erreicht").bool(b.urteil.erreicht);
+            o.key("aussage_moeglich").bool(b.urteil.aussage_moeglich);
+            o.key("gemessene_typen").int(b.urteil.gemessene_typen);
+            o.key("abstand_pp").opt_num(b.abstand_pp());
+            o.key("naechster_typ")
+                .opt_str(b.naechster_typ().map(|t| t.typ.as_str()));
+            o.key("typen_unter_marke").arr();
+            for t in &b.urteil.typen_unter_marke {
+                o.obj();
+                o.key("typ").str(&t.typ);
+                o.key("gestellt").int(t.gestellt);
+                o.key("richtig").int(t.richtig);
+                o.key("prozent").num(t.quote);
+                o.key("fehlt_pp").num(t.fehlt_pp);
+                o.end_obj();
+            }
+            o.end_arr();
+            o.key("typen_ohne_zahl").arr();
+            for t in &b.urteil.typen_ohne_zahl {
+                o.obj()
+                    .key("typ")
+                    .str(&t.typ)
+                    .key("panels")
+                    .int(t.panels)
+                    .end_obj();
+            }
+            o.end_arr();
+            o.key("pool_hinweis").str(&b.urteil.pool_hinweis);
+            o.end_obj();
+        }
+        None => {
+            o.key("beste").null();
+        }
+    }
+
+    o.key("verlauf").arr();
+    for p in &u.verlauf {
+        o.obj();
+        o.key("experiment_id").str(&p.experiment_id);
+        o.key("kurzname").str(&p.kurzname);
+        o.key("urteil").opt_str(p.urteil.as_deref());
+        o.key("deterministisch").bool(p.deterministisch);
+        o.key("aufgenommen").bool(p.aufgenommen);
+        o.key("panels").int(p.panels as u64);
+        o.key("score").opt_num(p.score);
+        o.key("score_before").opt_num(p.score_before);
+        o.key("exact_match").opt_num(p.exact_match);
+        o.key("kopf").opt_num(p.kopf_quote);
+        o.key("erreicht").bool(p.erreicht);
+        o.end_obj();
+    }
+    o.end_arr();
+
+    o.key("hinweis_pool").str(
+        "kein Mittelwert ueber Aufgabentypen mehrerer Runden: die Panels messen auf \
+         disjunkten Fragesaetzen und werden nicht zusammengelegt",
+    );
     o.end_obj();
     o.finish()
 }

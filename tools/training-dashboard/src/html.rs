@@ -442,6 +442,13 @@ mod tests {
 
     /// Umschalter und Tooltip sind die Antwort auf "man sieht nicht, was der
     /// Graph bedeutet": Skala, Groesse und exakte Werte.
+    ///
+    /// Fassung 7: aus dem Einzelschalter `only-selected` sind sechs
+    /// Sammelschalter geworden (`chips-auswahl` … `chips-keine`). Der Grund
+    /// steht in der Anzeige: bei 141 Laeufen war das Ein- und Ausschalten
+    /// einzeln nicht mehr bedienbar. `chips-auswahl` ist der Nachfolger von
+    /// `only-selected` - dieselbe Aussage, ein anderer Weg, und es gibt nur
+    /// noch **einen** Schalter fuer die Sichtbarkeit (`cmp.hidden`).
     #[test]
     fn page_offers_scale_metric_and_exact_values() {
         let page = page();
@@ -450,7 +457,9 @@ mod tests {
             "yscale-lin",
             "metric-loss",
             "metric-ppl",
-            "only-selected",
+            "chips-auswahl",
+            "chips-alle",
+            "chips-keine",
             "tip",
         ] {
             assert!(page.contains(id), "Bedienelement '{id}' fehlt");
@@ -491,12 +500,18 @@ mod tests {
         let script = &page[script_start..];
 
         let mut fehlend: Vec<String> = Vec::new();
+        // Zusammengesetzte Namen wie `el("v-" + n)`: das Literal allein gibt es
+        // nicht. Fuer sie wird geprueft, dass ueberhaupt Elemente mit diesem
+        // Praefix existieren - sonst waere der Waechter fuer sie blind.
+        let mut praefixe: Vec<String> = Vec::new();
         let mut rest = script;
         while let Some(i) = rest.find("el(\"") {
             let after = &rest[i + 4..];
             let Some(end) = after.find('"') else { break };
             let id = &after[..end];
-            if !html.contains(&format!("id=\"{id}\"")) {
+            if id.ends_with('-') {
+                praefixe.push(id.to_string());
+            } else if !html.contains(&format!("id=\"{id}\"")) {
                 fehlend.push(id.to_string());
             }
             rest = &after[end..];
@@ -510,6 +525,12 @@ mod tests {
             fehlend.is_empty(),
             "das Skript greift auf Elemente zu, die es nicht gibt: {fehlend:?}"
         );
+        for p in &praefixe {
+            assert!(
+                html.contains(&format!("id=\"{p}")),
+                "kein Element mit dem Praefix '{p}' - das Skript baut den Namen zusammen"
+            );
+        }
     }
 
     // ------------------------------------------------------------------
@@ -696,6 +717,155 @@ mod tests {
         assert_eq!(script_problems(heil), Vec::<String>::new());
     }
 
+    /// Die Seite ist eine **Website mit fuenf Ansichten**, keine Rolle zum
+    /// Runterscrollen.
+    ///
+    /// Anlass (Nutzerbefund, 10.10.2026): "alles runterscrollen ist nicht
+    /// angenehm", "so viel zu klicken" und "dann verstehe ich die Daten auch
+    /// nicht". Daraus drei Regeln, die hier festgenagelt werden:
+    ///
+    /// 1. Genau EINE Ansicht ist sichtbar (`.view.active`), jede ist ueber
+    ///    die Navigation in EINEM Klick erreichbar, und der Zustand steht in
+    ///    der Adresse (`#/lauf/<id>`) - ein Link auf eine Ansicht ist teilbar.
+    /// 2. Es gibt **Sammelschalter** statt Einzelklicks (sechs Vorlagen fuer
+    ///    die Kurvenauswahl, ein Schalter fuer das Raster).
+    /// 3. Jede Beschriftung ist im Glossar erklaert, und derselbe Text haengt
+    ///    als schwebende Hilfe an der Zahl.
+    #[test]
+    fn page_is_a_website_with_five_views() {
+        let page = page();
+        // 1. Fuenf Ansichten, jede mit eigenem Anker.
+        for (ansicht, titel) in [
+            ("uebersicht", "übersicht"),
+            ("lauf", "lauf"),
+            ("faehigkeit", "fähigkeit"),
+            ("checkpoints", "checkpoints"),
+            ("hilfe", "hilfe"),
+        ] {
+            assert!(
+                page.contains(&format!("id=\"v-{ansicht}\"")),
+                "die Ansicht {ansicht} fehlt"
+            );
+            assert!(
+                page.contains(&format!("data-view=\"{ansicht}\"")),
+                "die Ansicht {ansicht} hat keinen Navigationseintrag"
+            );
+            assert!(
+                page.contains(&format!("data-titel=\"{titel}\"")),
+                "die Ansicht {ansicht} nennt ihren Titel nicht"
+            );
+        }
+        // Der Wechsler sitzt am Hash, nicht am Server: kein Pfad-Routing.
+        assert!(
+            page.contains("function zerlege(hash)") && page.contains("\"hashchange\""),
+            "der Ansichtswechsel haengt nicht an der Adresse"
+        );
+        assert!(
+            page.contains("location.hash = ziel"),
+            "ein Link auf eine Ansicht laesst sich nicht teilen"
+        );
+        // Die teilbaren Adressen stehen auf der Seite (im HTML maskiert).
+        assert!(
+            page.contains("#/uebersicht") && page.contains("#/lauf/&lt;lauf-id&gt;"),
+            "die teilbaren Adressen stehen nicht auf der Seite"
+        );
+        // 2. Sammelschalter statt Einzelklicks.
+        for id in [
+            "chips-auswahl",
+            "chips-beste",
+            "chips-neuste",
+            "chips-laufend",
+            "chips-alle",
+            "chips-keine",
+            "grid-more",
+        ] {
+            assert!(
+                page.contains(&format!("id=\"{id}\"")),
+                "der Sammelschalter {id} fehlt"
+            );
+        }
+        // Das Raster zeigt acht Bilder, nicht alle - und sagt die Zahl.
+        assert!(
+            page.contains("function gridAuswahl"),
+            "das Raster hat keine Auswahl"
+        );
+        assert!(
+            page.contains("von \" + cmp.runs.length + \" Läufen gezeigt"),
+            "das Raster nennt nicht, wie viele Läufe es verschweigt"
+        );
+        // 3. Glossar und schwebende Hilfe aus EINER Quelle.
+        assert!(page.contains("var GLOSSAR = ["), "das Glossar fehlt");
+        assert!(
+            page.contains("function verteileGlossar"),
+            "die Erklaerungen werden nicht an die Zahlen gehaengt"
+        );
+        assert!(
+            page.contains("function renderGlossar"),
+            "das Glossar wird nicht angezeigt"
+        );
+        assert!(
+            page.contains("/api/benchmarks"),
+            "die Faehigkeitsseite holt den Projektstand nicht"
+        );
+    }
+
+    /// Jede Farbe der Seite stammt aus der benannten Vorlage.
+    ///
+    /// Anlass (Nutzerbefund, 10.10.2026): "sieht nach AI slop und klobig
+    /// hingeklatscht aus". Der erste Entwurf hatte auch wirklich beliebige
+    /// Werte - dicke Raender, ein Eckquadrat auf jeder Karte, alles in
+    /// Grossbuchstaben. Diese Pruefung macht Farbdrift sichtbar: eine neue
+    /// Farbe im Code faellt hier auf, statt still dazuzukommen.
+    ///
+    /// Quelle: `design-md/clickhouse/DESIGN.md` (Skill `design-md`,
+    /// VoltAgent/awesome-design-md). Die drei Gruppen sind im Stylesheet als
+    /// Abweichungen benannt; die Kennfarben der Laeufe stehen im Skript
+    /// (`var PAL`), weil 142 Kurven unterscheidbare Farben brauchen.
+    #[test]
+    fn page_uses_only_the_documented_palette() {
+        let page = page();
+        let tokens = [
+            // Farben und Flaechen der Vorlage, woertlich.
+            "#0a0a0a", "#121212", "#1a1a1a", "#242424", "#2a2a2a", "#3a3a3a", "#faff69", "#e6eb52",
+            "#3a3a1f", "#ffffff", "#cccccc", "#e6e6e6", "#888888", "#5a5a5a", "#22c55e", "#ef4444",
+            "#3b82f6", "#f59e0b",
+            // Abgeleitet und im Stylesheet benannt: Zustandsraender und zwei
+            // Hover-Toene (dunkle Fassungen der Vorlagenfarben).
+            "#1d4030", "#4a1f1f", "#4a3a12", "#171717", "#2c2c2c",
+            // Kennfarben der Laeufe (`var PAL`): DATENFARBEN, keine Marke.
+            "#8ab4f8", "#e0a63c", "#c792ea", "#7fd1b9", "#ffb86c", "#82aaff", "#e06c75", "#56b6c2",
+            "#d6f56b", "#b0bec5", "#f0c674",
+        ];
+        let mut unbekannt: Vec<String> = Vec::new();
+        let mut rest = page.as_str();
+        while let Some(i) = rest.find('#') {
+            let nach = &rest[i..];
+            if nach.len() >= 7 {
+                let kandidat = &nach[..7];
+                // Nur echte Hexfarben: sechs Hexziffern.
+                if kandidat[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+                    let klein = kandidat.to_ascii_lowercase();
+                    if !tokens.contains(&klein.as_str()) && !unbekannt.contains(&klein) {
+                        unbekannt.push(klein);
+                    }
+                    rest = &nach[7..];
+                    continue;
+                }
+            }
+            rest = &nach[1..];
+        }
+        assert!(
+            unbekannt.is_empty(),
+            "Farben ausserhalb der benannten Palette: {unbekannt:?} - entweder aus der \
+             DESIGN.md uebernehmen oder im Stylesheet als Abweichung benennen"
+        );
+        // Gegenprobe: die Pruefung muss ueberhaupt Farben gefunden haben.
+        assert!(
+            page.contains("#faff69"),
+            "die Pruefung hat die Markenfarbe nicht gefunden"
+        );
+    }
+
     // ------------------------------------------------------------------
     // Der Abschnitt fuer fremde Messlaeufe (Fassung 6).
     //
@@ -741,7 +911,7 @@ mod tests {
         // Ueberschriften mit verschiedenen Inhalten waeren eine Falle.
         assert!(page.contains("<h2>messprotokoll"), "der Abschnitt fehlt");
         assert_eq!(
-            page.matches("<h2>messlaeufe").count(),
+            page.matches("<h2>messläufe").count(),
             1,
             "die Lauf-Tabelle muss die einzige 'messlaeufe'-Ueberschrift bleiben"
         );

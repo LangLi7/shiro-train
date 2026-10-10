@@ -3670,3 +3670,70 @@ mit Registerzeile und Commit. Nichts davon in diesem Block vorweggenommen.
 an `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`; offen-02 und offen-03
 unveraendert an ihrer Stelle; kein fremder Prozess gestoert.
 
+
+
+---
+
+## 8.7 Nachtrag (Messstand, Fassung 7): mehrseitige Website, neue Gestaltung, Projektstand der Faehigkeit (10.10.2026)
+
+**Anlass.** Vier Nutzerbefunde zum Dashboard, woertlich: "alles runterscrollen
+ist nicht angenehm nutzer expirience", "dann noch so viel zu klicken buttons um
+es zu deaktivieren wenn es sozusagen alle sein möchte", "dann erkenne ich und
+verstehe die daten auch nicht", "sieht nach ai slop und klobig hingeklatscht
+aus". Kein technischer Anlass, ein menschlicher.
+
+**Was gebaut wurde.** (1) Aus einer Seite mit zwoelf Abschnitten werden FUENF
+Ansichten (`uebersicht`, `lauf`, `faehigkeit`, `checkpoints`, `hilfe`); genau
+eine ist sichtbar, jede in einem Klick erreichbar, der Zustand steht in der
+Adresse (`#/lauf/<id>`), ohne Server-Routing. (2) Sechs Sammelschalter ersetzen
+141 Einzelklicks; der Null-Klick-Zustand zeigt 9 von 142 Kurven, das Raster 8
+statt 142 Bilder, jeweils mit der Zahl daneben. Der zweite Sichtbarkeitsschalter
+("nur Auswahl") ist entfernt - ein Mechanismus statt zweier. (3) Ein Glossar mit
+36 Groessen (je ein deutscher Satz) ist die EINE Quelle; derselbe Text haengt als
+schwebende Hilfe an jeder Beschriftung, zugeordnet nach dem Rendern. (4) Neuer
+Endpunkt `/api/benchmarks`: der Projektstand der Faehigkeit, gerechnet aus der
+Registry, ohne ueber Aufgabentypen mehrerer Runden zu poolen. (5) Neue
+Gestaltung nach der ClickHouse-Analyse aus dem Skill `design-md` (near-black,
+ein elektrisches Gelb, gestufte Flaechen, Haarlinien, keine Schatten); drei
+Abweichungen im Stylesheet benannt und begruendet.
+
+**Was gemessen wurde (echte Daten, kein Training).** `/api/benchmarks`:
+**38 Runden**, 17 mit Panels, 20 ohne Urteil, 12 mit `accepted: true`, 17
+deterministisch geprueft; Urteilsworte einzeln ANGENOMMEN 5, VERWORFEN 10,
+UNENTSCHIEDEN 2, KEINE_RUNDE 1. **Die Marke D-047 ist in 3 von 17 messbaren
+Runden erfuellt** (zuletzt `sequence_reasoning-i1`); die beste Runde steht bei
+Kopfzahl **91,25 %**, also +1,25 Prozentpunkte ueber der Marke, ohne einen
+Aufgabentyp unter 75 %. Diese Saetze standen vorher nirgends auf der Seite -
+`/api/registry` zeigt eine Ampel JE EINTRAG und ist auch so beschriftet.
+
+**Fuenf echte Funde, alle behoben.** (1) Die Startansicht blieb LEER:
+`zeige(zerlege(location.hash))` uebergab das ganze Objekt statt Name und
+Argument, damit passte kein Ansichtsname. Kein Test schlug an - gefunden hat es
+die Anzeigepruefung gegen den laufenden Server. (2) Der Null-Klick-Zustand
+zeigte 1 statt 9 Kurven: `chipsSetze` gab dem Praedikat den Index nicht weiter,
+`i < 8` war immer falsch. Genau die Eigenschaft, die den Umbau ausmacht, war
+kaputt. (3) "Beste Runde" allein nach Kopfzahl war falsch: zwei Runden koennen
+dieselbe Kopfzahl haben, waehrend eine davon einen Aufgabentyp unter 75 %
+reisst; gefunden vom Integrationstest. Regel jetzt: **erreicht schlaegt
+Kopfzahl**. (4) Der Element-Waechter fand `el("paths")` ohne Element (das Skript
+waere beim ersten Laden ausgestiegen) und `el("only-selected")` ohne Knopf; er
+prueft jetzt auch zusammengesetzte Namen. (5) Farbdrift: ein neuer Waechter
+laesst nur noch Vorlagenfarben, fuenf benannte Ableitungen und die zwoelf
+Datenfarben der Laeufe zu.
+
+**Tore.** `cargo fmt --check` exit 0; `cargo clippy --all-targets -- -D warnings`
+exit 0 (inkl. MSRV-Pruefung gegen 1.70); `cargo test` **159 Tests / 0 failed**
+(124 lib + 9 bin + 26 Integration); `cargo build --release` 1 286 672 B; Seite
+126 081 B; Anzeigepruefung gegen den laufenden Server mit dem echten Skript und
+echten Logdateien (142 Laeufe): **29 Pruefungen, alle bestanden**; vier
+Doku-Gates exit 0.
+
+**Grenze, offen benannt.** Die Scrollhoehe ist NICHT in Bildschirmhoehen
+gemessen: in dieser Umgebung stand kein Browser fuer einen Screenshot zur
+Verfuegung (Chrome fehlt, Chromium und Brave haengen schon bei `about:blank`).
+Belegt ist die Struktur, nicht die gemessene Seitenhoehe. Keine Screenshots.
+
+**Nicht getan.** Kein Training, kein Modellwechsel, kein GPU-Prozess; keine
+Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`.
+D-072 im Register; die Einzelheiten in `docs/trainings-dashboard.md` Abschnitt
+13.

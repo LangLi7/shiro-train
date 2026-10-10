@@ -1235,4 +1235,194 @@ Test aus?"):
 6. **Kein Schreiben durch das Dashboard.** Geschrieben wird ausschließlich von
    der messenden Stelle, über `scripts/messung-log.sh`. Das Dashboard liest.
 
+## 13. Fassung 7 — fünf Seiten und eine neue Gestaltung
+
+Diese Fassung hatte keinen technischen Anlass, sondern einen menschlichen. Vier
+Sätze des Nutzers vom 10.10.2026, wörtlich:
+
+1. *„alles runterscrollen ist nicht angenehm nutzer expirience"*
+2. *„dann noch so viel zu klicken buttons um es zu deaktivieren wenn es sozusagen
+   alle sein möchte"*
+3. *„dann erkenne ich und verstehe die daten auch nicht"*
+4. *„sieht nach ai slop und klobig hingeklatscht aus"*
+
+Der vierte Satz bezog sich auf einen ersten Umbau dieser Runde, der die Gestaltung
+der NVIDIA-Analyse übernommen hatte: 2px Radius auf allem, ein 12px-Quadrat auf
+jeder Karte, schwere Ränder, viel Großbuchstaben. Das war **zu laut für ein
+Messgerät**, und es ist ersetzt.
+
+### 13.1 Die fünf Seiten
+
+| Seite | Adresse | beantwortet |
+|---|---|---|
+| Übersicht | `#/uebersicht` | Läuft etwas, wird es besser, was wird gerade gemessen |
+| Lauf | `#/lauf`, `#/lauf/<id>` | Ein Lauf im Detail: Kurve, Belege, Ereignisse, SMART, Raster |
+| Fähigkeit | `#/faehigkeit` | Was das Modell kann: Runden, Aufgabentypen, Marke D-047 |
+| Checkpoints | `#/checkpoints` | Gespeicherte Stände und was in ihnen steckt |
+| Hilfe | `#/hilfe` | Glossar, Grenzen, Herkunft der Zahlen |
+
+Drei Regeln, die daraus folgen und im Code stehen:
+
+* **Genau eine Ansicht ist sichtbar** (`.view.active`). Was nicht zur Frage
+  gehört, steht nicht im Weg.
+* **Jede Ansicht ist einen Klick entfernt** — die Navigation liegt oben und
+  trägt die Zahl der Läufe, Runden und Checkpoints gleich mit.
+* **Der Zustand steht in der Adresse.** Es gibt kein Server-Routing: der Hash
+  wechselt nur im Browser, der Server sieht davon nichts. Ein Link auf eine
+  Ansicht (`#/lauf/agent-…jsonl`) zeigt beim Empfänger dieselbe Kurve.
+
+### 13.2 Die Gestaltungsvorlage
+
+Grundlage ist die **ClickHouse-Analyse** aus dem Skill `design-md`
+(`design-md/clickhouse/DESIGN.md`): eine Analyse-Datenbank, near-black Canvas
+(`#0a0a0a`), **ein** elektrisches Gelb (`#faff69`), gestufte dunkle Flächen
+(`#121212` / `#1a1a1a` / `#242424`), Haarlinien (`#2a2a2a`, `#3a3a3a`) statt
+Rahmen, keine Schatten, keine Verläufe. Gewichte 700/600/400 statt
+Großbuchstaben-Inflation; Kennzahlen groß und gelb (`stat-callout`).
+
+Drei Abweichungen sind im Stylesheet benannt und begründet:
+
+1. **Schrift.** Die Vorlage nennt Inter und JetBrains Mono. Eine Schriftdatei
+   wäre eine externe Ressource und ist in diesem Projekt verboten. Es läuft der
+   Ersatzstapel, den die Vorlage selbst nennt (System-Sans + System-Mono).
+2. **Dichte.** Die Vorlage ist eine Marketing-Seite (96px Bandabstand, 56px
+   Kennzahlen). Ein Messstand wird gelesen, nicht beworben: 24px, 28px. Die
+   Verhältnisse bleiben, die Stufen sind kleiner.
+3. **Kennfarben der Läufe.** Die Vorlage ist monochrom + gelb. 142 Läufe in
+   einer Kurve brauchen unterscheidbare Farben; diese zwölf sind **Datenfarben**
+   und stehen im Skript (`var PAL`), nicht im Design.
+
+Ein Wächter (`page_uses_only_the_documented_palette`) prüft, dass **jede** Farbe
+der Seite aus einer dieser drei Gruppen stammt. Eine neue Farbe fällt damit
+sofort auf, statt still dazuzukommen — genau der Weg, der zum „klobig" geführt
+hatte.
+
+### 13.3 Weniger scrollen
+
+| Vorher | Jetzt |
+|---|---|
+| 12 Abschnitte untereinander auf einer Seite | 5 Seiten, je 1–4 Abschnitte |
+| Raster zeichnete **142** kleine Diagramme | 8 (gewählter Lauf + die besten), „alle anzeigen" auf Klick |
+| Lauf-Tabelle ohne Begrenzung | eigener Scrollbereich, 540px |
+| Ereignis-Feed offen | eigener Scrollbereich, 540px |
+| Alles auf einmal geladen und gezeichnet | die verborgene Ansicht kostet nichts; beim Wechsel auf „lauf" wird neu gezeichnet (eine versteckte Zeichenfläche hat keine Größe) |
+
+### 13.4 Weniger klicken
+
+* **Sechs Sammelschalter** statt 141 Einzelklicks: „nur auswahl", „beste 5",
+  „neueste 8", „laufende", „alle", „keine". Darunter steht immer, **wie viele**
+  Kurven sichtbar sind — eine Anzeige, die 130 Kurven verschweigt, wäre eine
+  Lüge; eine, die sie als Knäuel zeigt, auch.
+* **Null-Klick-Zustand:** beim ersten Laden sind **9 von 142** Kurven sichtbar
+  (der gewählte Lauf und die acht neuesten). Der erste Eindruck ist lesbar.
+* **Filter und „nur laufende"** in der Lauf-Tabelle, mit Zähler daneben.
+* **Ein Mechanismus statt zwei:** der alte Schalter „nur Auswahl" tat dasselbe
+  wie die Chips auf einem zweiten Weg. Er ist entfernt (`cmp.hidden` ist der
+  einzige Sichtbarkeitsschalter); ein Wächter hält das fest.
+
+### 13.5 Zahlen verstehen
+
+* Das **Glossar** (`#/hilfe`) erklärt **36 Größen** in je einem deutschen Satz,
+  mit Formel oder Beispielzeile.
+* Derselbe Text hängt als **schwebende Hilfe** an jeder Beschriftung, die im
+  Glossar steht (Spaltenköpfe, Kennzahl-Labels, Kacheln). Es gibt **eine**
+  Quelle für den Text, damit Erklärung und Anzeige nicht auseinanderlaufen.
+* Die Zuordnung passiert **nach** dem Rendern (`verteileGlossar`): die
+  Anzeige-Funktionen bleiben unverändert, und eine neue Spalte bekommt ihre
+  Erklärung, sobald ihr Name im Glossar steht.
+* Die **Fähigkeitsseite** beantwortet die Frage, die vorher offen blieb — siehe
+  §13.6.
+
+### 13.6 Neuer Endpunkt `/api/benchmarks`
+
+`/api/registry` liefert die Einträge: je Runde Fähigkeit, Panels, Typentabelle
+und die Ampel **dieser** Runde. Die naheliegende nächste Frage — *wo steht das
+Projekt als Ganzes?* — beantwortete nichts. Das tut jetzt `/api/benchmarks`:
+
+| Feld | Bedeutung |
+|---|---|
+| `runden`, `mit_panels`, `ohne_urteil`, `aufgenommen`, `deterministisch_geprueft` | Zählung über alle gelesenen Zeilen |
+| `urteile[]` | **jedes** Urteilswort einzeln mit Anzahl — ein unbekanntes Wort bekommt einen eigenen Eintrag statt eines Sammeltopfs |
+| `marke` | ob und in wie vielen Runden D-047 erfüllt war, mit beiden Bedingungen, ihren Schwellen und der Quelle |
+| `beste` | die Runde mit der höchsten Kopfzahl: Kennung, Kopfzahl, Abstand in Prozentpunkten, die Typen unter der Marke, `null` wenn keine Runde Panels mit Zahlen trägt |
+| `verlauf[]` | je Runde Kennzahl, Exact Match, Kopfzahl, Urteil, Determinismus |
+
+**Die Regel für „beste": erreicht schlägt Kopfzahl.** Verglichen wird zuerst, ob
+die Runde die Marke erfüllt hat, dann die Höhe der Kopfzahl; bei Gleichstand
+gewinnt die spätere Zeile (die Datei ist append-only, ihre Reihenfolge ist die
+Zeitachse). Der Grund steht als Fund in §13.7.
+
+**Was hier nicht passiert:** es wird **nicht** über Aufgabentypen mehrerer
+Runden gepoolt. `typen_unter_marke` gehört immer zu genau einer genannten Runde,
+und der Satz steht als `hinweis_pool` in der Antwort und als Text auf der Seite.
+
+Erster Lauf gegen die echten Daten (10.10.2026): **38 Runden**, 17 mit Panels,
+20 ohne Urteil, 12 mit `accepted: true`, 17 deterministisch geprüft; Urteilsworte
+ANGENOMMEN 5 · VERWORFEN 10 · UNENTSCHIEDEN 2 · KEINE_RUNDE 1. Die Marke ist in
+**3 von 17 messbaren Runden** erfüllt, zuletzt `sequence_reasoning-i1`; die beste
+Runde steht bei Kopfzahl **91,25 %** (+1,25 Pp über der Marke) ohne Typ unter
+75 %. Diese Sätze standen vorher nirgends auf der Seite.
+
+### 13.7 Fünf echte Funde dieser Fassung
+
+1. **Die Startansicht blieb leer.** `zeige(zerlege(location.hash))` übergibt das
+   ganze Objekt statt Name und Argument — damit passte kein Ansichtsname, und
+   **keine** Ansicht wurde sichtbar. Kein Test schlug an; gefunden hat es die
+   Anzeigeprüfung gegen den laufenden Server (§13.8). Der Wechsel-Handler machte
+   es die ganze Zeit richtig.
+2. **Der Null-Klick-Zustand zeigte 1 statt 9 Kurven.** `chipsSetze` gab dem
+   Prädikat nur den Lauf, nicht den Index; `i < 8` war damit immer falsch. Genau
+   die Eigenschaft, die den Umbau ausmacht, war kaputt — ebenfalls von der
+   Anzeigeprüfung gefunden.
+3. **„Beste Runde" allein nach Kopfzahl war falsch.** Zwei Runden können
+   dieselbe Kopfzahl haben, während eine an einem Aufgabentyp unter 75 % liegt.
+   Gefunden vom Integrationstest `benchmarks_endpoint_counts_rounds_and_names_the_best_round`
+   (`probe-i2` statt `probe-i0`). Regel jetzt: erreicht schlägt Kopfzahl.
+4. **Der Element-Wächter fand zwei echte Lücken.** `el("paths")` zeigte auf ein
+   Element, das der neue Kopf nicht mehr hatte (das Skript wäre beim ersten
+   Laden ausgestiegen — `null.textContent`), und `el("only-selected")` auf einen
+   Knopf, den die Sammelschalter ersetzt hatten. Der Wächter prüft jetzt auch
+   **zusammengesetzte** Namen (`el("v-" + n)`): für sie muss es Elemente mit
+   diesem Präfix geben, sonst wäre er für sie blind.
+5. **Farbdrift.** Die Palette war im ersten Umbau beliebig. Der neue Wächter
+   `page_uses_only_the_documented_palette` lässt nur noch die Vorlagenfarben,
+   fünf benannte Ableitungen und die zwölf Datenfarben zu.
+
+### 13.8 Qualitätssicherung dieser Fassung
+
+| Gate | Ergebnis |
+|---|---|
+| `cargo fmt --check` | exit 0 |
+| `cargo clippy --all-targets -- -D warnings` | exit 0 (inkl. MSRV-Prüfung gegen 1.70) |
+| `cargo test` | **159 Tests, 0 failed** (124 lib + 9 bin + 26 Integration) |
+| Release-Binary | `shiro-dashboard` 1 286 672 B |
+| Seite | 126 081 B Quelle, 128 502 B ausgeliefert |
+| Anzeigeprüfung gegen den laufenden Server | **29 Prüfungen, alle bestanden** (Ansichten, Tiefensprung, Brotkrumen, Zähler, Filter, sechs Sammelschalter, Rastergrenze, Fähigkeitsseite, Glossar) — mit dem **echten** Skript der Seite, echtem DOM-Ersatz und **echten** Logdateien (142 Läufe) |
+| Vollständigkeit des Glossars | 36 Einträge, jede Spaltenbeschriftung der Tabelle hat einen |
+| `/api/benchmarks` (echt) | 38 Runden, 17 mit Panels, Marke in 3 Runden erfüllt, beste Runde Kopfzahl 91,25 % |
+| Palette | 35 Farben, alle aus Vorlage, benannter Ableitung oder Datenfarbe |
+| Dokumentations-Gates | `check-table-pipes.py`, `check-doc-links.py`, `lernstufen-check.sh`, `programmiersprachen-check.sh` — alle exit 0 |
+
+### 13.9 Was diese Fassung **nicht** zeigt (offen, mit Grund)
+
+1. **Die Scrollhöhe ist nicht in Bildschirmhöhen gemessen.** In dieser Umgebung
+   stand kein Browser für einen Screenshot zur Verfügung (Chrome fehlt, Chromium
+   und Brave hängen schon bei `about:blank`). Belegt ist die Struktur — fünf
+   Ansichten mit 1–4 Abschnitten, sichtbar ist immer genau eine, das Raster zeigt
+   8 statt 142 Bilder —, **nicht** die gemessene Seitenhöhe. Wer es genau wissen
+   will, misst es im Browser nach.
+2. **Keine Screenshots, kein visueller Beleg.** Die Gestaltung ist gegen die
+   Tokens der Vorlage geprüft (Farbwächter) und in Aufbau und Wortlaut belegt,
+   nicht angesehen.
+3. **Keine neuen Zahlen über das Modell.** Diese Fassung ändert nur die Anzeige;
+   Lauf-Tabelle, Kurve und Registry zeigen dieselben Werte wie Fassung 6.
+4. **Das Raster bleibt teuer, wenn man „alle anzeigen" klickt.** 142 Diagramme
+   sind 142 Zeichenflächen; das ist eine bewusste Entscheidung des Nutzers und
+   keine Voreinstellung mehr.
+5. **Die Gestaltung selbst steht nicht im Entscheidungsregister.** Die
+   Registerzeile **D-072** hält die *Struktur* fest (mehrseitige Website, der
+   Projektstand der Fähigkeit als eigene Ansicht, die Herkunft der Marke); die
+   Farbwahl und die Vorlage stehen hier, weil sie die Oberfläche betreffen und
+   nicht den Plan.
+
 

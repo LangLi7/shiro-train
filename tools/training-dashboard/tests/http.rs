@@ -301,6 +301,14 @@ impl Fixture {
         .unwrap();
     }
 
+    /// Schreibt eine Registry aus fertigen Zeilen - fuer Faelle, die
+    /// `write_registry` nicht abdeckt (z. B. eine Runde **ohne** Panels).
+    fn write_registry_lines(&self, text: &str) {
+        let dir = self.dir.join("registry");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(self.registry(), text).unwrap();
+    }
+
     /// Pfad des Messprotokolls innerhalb des Fixtures.
     ///
     /// Absichtlich der **Vorgabename im Log-Ordner**: so pruefen die Tests den
@@ -518,6 +526,154 @@ fn registry_endpoint_without_file_is_empty_with_hint() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Projektstand der Faehigkeit
+//
+// Anlass (Nutzerbefund, 10.10.2026): "dann verstehe ich die Daten auch nicht".
+// `/api/registry` zeigt eine Ampel JE EINTRAG - richtig beschriftet, aber die
+// naechste Frage bleibt offen: wo steht das Projekt als Ganzes? Diesen
+// Projektstand rechnet `/api/benchmarks`, und zwar **ohne** ueber
+// Aufgabentypen mehrerer Runden zu poolen.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn benchmarks_endpoint_counts_rounds_and_names_the_best_round() {
+    let f = Fixture::new("benchmarks");
+    f.write_run();
+    f.write_registry(3);
+    let reg = f.registry();
+    let port = f.serve_with(move |c| c.with_registry(reg));
+
+    let r = get(port, "/api/benchmarks");
+    assert_eq!(r.status, 200);
+    assert!(
+        r.headers.contains("application/json"),
+        "Content-Type war {}",
+        r.headers
+    );
+    assert!(!r.headers.contains("public"), "kein Cache fuer Live-Daten");
+    assert!(
+        shiro_dashboard::jsonread::parse_line(&r.body).is_some(),
+        "ungueltiges JSON: {}",
+        &r.body[..r.body.len().min(400)]
+    );
+
+    // Die Zaehlung nennt die Runden und die Zahl der Zeilen mit Panels.
+    assert!(r.body.contains("\"runden\":3"), "war: {}", r.body);
+    assert!(r.body.contains("\"mit_panels\":3"), "war: {}", r.body);
+    // Das Testgeruest schreibt immer eine kaputte erste Zeile - sie wird
+    // gezaehlt und nicht verschluckt.
+    assert!(r.body.contains("\"uebersprungen\":1"), "war: {}", r.body);
+    // Die Marke steht mit beiden Bedingungen, ihren Schwellen und der Quelle.
+    assert!(r.body.contains("\"marke\":{"), "war: {}", r.body);
+    assert!(r.body.contains("\"bedingung_1\""), "war: {}", r.body);
+    assert!(r.body.contains("\"bedingung_2\""), "war: {}", r.body);
+    assert!(r.body.contains("\"schwelle_1\":0.9"), "war: {}", r.body);
+    assert!(r.body.contains("\"schwelle_2\":0.75"), "war: {}", r.body);
+    assert!(
+        r.body.contains("abschluss-vorbereitungsphase"),
+        "war: {}",
+        r.body
+    );
+    // Das Urteil gilt fuer eine Runde - der Satz muss mitkommen.
+    assert!(
+        r.body.contains("die Marke wird je Runde geprueft"),
+        "war: {}",
+        r.body
+    );
+    // Es gibt eine beste Runde: die synthetische Registry traegt Panels.
+    // Sie ist die Runde, die die Marke ERFUELLT (reparatur 19/20 + 18/20) -
+    // nicht die spaetere mit gleicher Kopfzahl und gerissenem Typ.
+    assert!(r.body.contains("\"beste\":{"), "war: {}", r.body);
+    assert!(
+        r.body.contains("\"experiment_id\":\"probe-i0\""),
+        "die beste Runde ist nicht die, die die Marke erfuellt: {}",
+        r.body
+    );
+    assert!(r.body.contains("\"erreicht\":true"), "war: {}", r.body);
+    assert!(r.body.contains("\"kopf_quote\""), "war: {}", r.body);
+    assert!(r.body.contains("\"abstand_pp\""), "war: {}", r.body);
+    assert!(r.body.contains("\"typen_unter_marke\""), "war: {}", r.body);
+    // Und der Verlauf je Runde.
+    assert!(r.body.contains("\"verlauf\":["), "war: {}", r.body);
+    assert!(
+        r.body.contains("\"experiment_id\":\"probe-i0\""),
+        "war: {}",
+        r.body
+    );
+    // Die Regel gegen das Poolen steht als Text in der Antwort.
+    assert!(
+        r.body.contains("kein Mittelwert ueber Aufgabentypen"),
+        "der Hinweis gegen das Poolen fehlt: {}",
+        r.body
+    );
+}
+
+/// Ohne Panels gibt es **keine Aussage** - und das ist etwas anderes als
+/// "nicht erreicht". Genau diese Verwechslung waere die naheliegende Luege.
+#[test]
+fn benchmarks_endpoint_says_no_statement_without_panels() {
+    let f = Fixture::new("benchmarks-ohne-panel");
+    f.write_run();
+    f.write_registry_lines(concat!(
+        "keine gueltige JSON-Zeile\n",
+        r#"{"experiment_id":"ohne-panel","capability":"sequence_reasoning","exact_match":0.99,"urteil":"ANGENOMMEN","accepted":true}"#,
+        "\n"
+    ));
+    let reg = f.registry();
+    let port = f.serve_with(move |c| c.with_registry(reg));
+
+    let r = get(port, "/api/benchmarks");
+    assert_eq!(r.status, 200);
+    assert!(
+        shiro_dashboard::jsonread::parse_line(&r.body).is_some(),
+        "ungueltiges JSON: {}",
+        r.body
+    );
+    // Die kaputte Zeile wird gezaehlt, nicht verschluckt.
+    assert!(r.body.contains("\"uebersprungen\":1"), "war: {}", r.body);
+    assert!(r.body.contains("\"runden\":1"), "war: {}", r.body);
+    assert!(r.body.contains("\"mit_panels\":0"), "war: {}", r.body);
+    // Keine Aussage: beste ist null, erreicht_in ist 0 - aber die Kopfzahl
+    // exact_match:0.99 wird NICHT zur Panel-Kopfzahl umgedeutet.
+    assert!(r.body.contains("\"beste\":null"), "war: {}", r.body);
+    assert!(r.body.contains("\"erreicht_in\":0"), "war: {}", r.body);
+    assert!(r.body.contains("\"erreicht_je\":false"), "war: {}", r.body);
+    assert!(r.body.contains("\"erreicht_von\":null"), "war: {}", r.body);
+    // Das Urteilswort wird gezaehlt, und `accepted` getrennt davon.
+    assert!(
+        r.body.contains("\"wort\":\"ANGENOMMEN\""),
+        "war: {}",
+        r.body
+    );
+    assert!(r.body.contains("\"aufgenommen\":1"), "war: {}", r.body);
+}
+
+/// Ein fehlender Registry-Pfad ist kein Serverfehler: der Hinweis nennt den
+/// Pfad, und alle Zaehler stehen auf null statt auf erfunden.
+#[test]
+fn benchmarks_endpoint_survives_a_missing_registry() {
+    let f = Fixture::new("benchmarks-fehlt");
+    f.write_run();
+    let reg = f.registry();
+    let port = f.serve_with(move |c| c.with_registry(reg));
+
+    let r = get(port, "/api/benchmarks");
+    assert_eq!(r.status, 200, "eine fehlende Registry ist kein Fehler");
+    assert!(
+        shiro_dashboard::jsonread::parse_line(&r.body).is_some(),
+        "ungueltiges JSON: {}",
+        r.body
+    );
+    assert!(r.body.contains("\"runden\":0"), "war: {}", r.body);
+    assert!(r.body.contains("\"beste\":null"), "war: {}", r.body);
+    assert!(
+        r.body.contains("experiments.jsonl"),
+        "der gesuchte Pfad muss im Hinweis stehen: {}",
+        r.body
+    );
+}
+
 #[test]
 fn index_page_is_self_contained_html() {
     let f = Fixture::new("index");
@@ -531,7 +687,9 @@ fn index_page_is_self_contained_html() {
         "Content-Type war {}",
         r.headers
     );
-    assert!(r.body.contains("Trainings-Dashboard"));
+    // Fassung 7 heisst die Seite "Shiro - Messstand": sie ist keine einzelne
+    // Dashboard-Rolle mehr, sondern eine Website mit fuenf Seiten.
+    assert!(r.body.contains("Shiro - Messstand"));
     assert!(r.body.contains("<canvas"), "Kurve muss gezeichnet werden");
     // Keine externen Ressourcen - der Kern der Anforderung.
     assert!(!r.body.contains("http://"), "keine externen URLs");

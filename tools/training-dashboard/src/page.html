@@ -3,524 +3,693 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shiro - Trainings-Dashboard</title>
+<meta name="color-scheme" content="dark">
+<title>Shiro - Messstand</title>
 <style>
 /* =====================================================================
-   Shiro - Trainings-Dashboard, Fassung 3 (wissenschaftlich lesbar)
+   Shiro - Messstand. Fassung 7: mehrseitige Website.
 
-   Gestaltungsregeln, die hier erzwungen werden:
+   Gestaltung nach der ClickHouse-Analyse aus dem Skill design-md
+   (design-md/clickhouse/DESIGN.md, VoltAgent/awesome-design-md):
+   Analyse-Datenbank, near-black Canvas, EIN elektrisches Gelb, gestufte
+   dunkle Flaechen statt Schatten, Code und Zahlen im Vordergrund.
 
-   1. JEDE ZAHL HAT EINE RICHTUNG. Ein Verlust ohne Bewertung ist eine
-      Behauptung. Wo ein Verlust steht, steht daneben, ob er besser oder
-      schlechter geworden ist - als Wort, als Pfeil und als Farbe.
-   2. FARBE ALLEIN TRAEGT NICHTS. Gruen heisst "besser", Rot "schlechter",
-      Grau "keine Aussage". Weil beim Verlust "runter" das Gute ist, steht
-      das Wort immer daneben; Farbe und Pfeil sind Zusatz, nie Beweis.
-   3. EIN BEZUGSWERT STATT EINER NACKTEN ZAHL. Der Verlust eines
-      untrainierten Modells ueber 256 Klassen ist ln(256) = 5,5452. Diese
-      Linie steht im Diagramm, und jeder Wert wird als Faktor dagegen
-      genannt. "0,0887" allein sagt nichts; "62x besser als Zufall" sagt alles.
-   4. LOGARITHMISCHE Y-ACHSE ALS STANDARD. Ein Verlust fällt ueber
-      Groessenordnungen (5,7 -> 0,09). Linear gezeichnet ist der ganze
-      interessante Teil eine Linie am unteren Rand. Die Achse ist daher
-      umschaltbar, und die Beschriftung nennt die aktuelle Skala.
-   5. KEINE EXTERNE RESSOURCE. Kein CDN, kein npm, keine Schriftdatei,
-      kein Bild. Systemschriften, eingebettetes CSS/JS, Diagramm von Hand.
-   6. KEINE DEKORATION OHNE AUSSAGE. Jede Linie im Diagramm ist erklaert:
-      Referenzlinie = untrainiert, gestrichelte Linie = Startwert des Laufs,
-      Punkt = bester Stand, Marke am Rand = Checkpoint.
+   WOERTLICH AUS DER VORLAGE UEBERNOMMEN
+     canvas #0a0a0a · surface-soft #121212 · surface-card #1a1a1a ·
+     surface-elevated #242424 · primary #faff69 · primary-active #e6eb52 ·
+     on-primary #0a0a0a · hairline #2a2a2a · hairline-strong #3a3a3a ·
+     on-dark #ffffff · body #cccccc · body-strong #e6e6e6 · muted #888888 ·
+     muted-soft #5a5a5a · emerald #22c55e · rose #ef4444 · blue #3b82f6 ·
+     warning #f59e0b · Radius 4/6/8/12/Pille · Gewichte 700/600/400/500.
+
+   DREI BEWUSSTE ABWEICHUNGEN, alle benannt:
+   1. SCHRIFT. Die Vorlage nennt Inter (offen) und JetBrains Mono. Eine
+      Schriftdatei waere eine externe Ressource und ist in diesem Projekt
+      verboten. Es laeuft daher genau der Ersatzstapel, den die Vorlage
+      selbst nennt: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto.
+      Fuer Zahlen bleibt die System-Mono-Schrift.
+   2. DICHTE. Die Vorlage ist eine Marketing-Seite: 96px Bandabstand,
+      56px Kennzahlen, 32px Kartenpolster. Ein Messstand wird gelesen,
+      nicht beworben - hier 24px, 28px und 16px. Gleiche Skala, kleinere
+      Stufen; die Verhaeltnisse bleiben (Ueberschrift 700, Unterzeile 600,
+      Text 400, Kennzahl gross und gelb).
+   3. KENNFARBEN DER LAEUFE. Die Vorlage ist monochrom + gelb. 142 Laeufe
+      in einer Kurve brauchen unterscheidbare Farben; die Kurvenfarben
+      sind DATENFARBEN und stehen deshalb im Skript, nicht im Design.
+
+   Was hier weiter gilt (Projektregeln, aelter als jede Vorlage):
+   1. JEDE ZAHL HAT EINE RICHTUNG (besser/schlechter als Wort, Pfeil, Farbe).
+   2. FARBE ALLEIN TRAEGT NICHTS (das Wort steht immer daneben).
+   3. EIN BEZUGSWERT STATT EINER NACKTEN ZAHL (ln 256 = 5,5452).
+   4. KEINE EXTERNE RESSOURCE, KEIN SCHATTEN, KEINE DEKORATION OHNE AUSSAGE.
+   5. JEDE SEITE IN EINEM KLICK, jede Ansicht hoechstens zwei Bildschirme.
    ===================================================================== */
 
 :root {
-  --bg: #0d0f12;
-  --panel: #16191e;
-  --panel2: #1d2127;
-  --line: #2a2f37;
-  --line2: #3a414b;
-  --text: #e7eaef;
-  --dim: #98a1ae;
-  --dim2: #6f7885;
-  --accent: #a8d94a;
-  --accent2: #d6f56b;
-  --good: #4fb477;
-  --warn: #e0a63c;
-  --bad: #d9534f;
-  --neutral: #7d8794;
-  --ref: #d98cb3;
+  /* --- Marke und Flaeche (woertlich) --- */
+  --primary: #faff69;
+  --primary-active: #e6eb52;
+  --primary-disabled: #3a3a1f;
+  --on-primary: #0a0a0a;
+  --canvas: #0a0a0a;
+  --surface-soft: #121212;
+  --surface-card: #1a1a1a;
+  --surface-elevated: #242424;
+  --hairline: #2a2a2a;
+  --hairline-strong: #3a3a3a;
+  --on-dark: #ffffff;
+  --body-c: #cccccc;
+  --body-strong: #e6e6e6;
+  --muted: #888888;
+  --muted-soft: #5a5a5a;
+  --emerald: #22c55e;
+  --rose: #ef4444;
+  --blue: #3b82f6;
+  --warning: #f59e0b;
+
+  /* --- Rollen: die alten Namen bleiben, damit die Anzeige-Logik
+         unveraendert weiterlaeuft. --- */
+  --bg: var(--canvas);
+  --panel: var(--surface-card);
+  --panel2: var(--surface-soft);
+  --line: var(--hairline);
+  --line2: var(--hairline-strong);
+  --text: var(--on-dark);
+  --dim: var(--muted);
+  --dim2: var(--muted-soft);
+  --accent: var(--primary);
+  --accent2: var(--primary-active);
+  --good: var(--emerald);
+  --warn: var(--warning);
+  --bad: var(--rose);
+  --neutral: var(--muted);
+  --ref: var(--blue);
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 9999px;
+  --sp: 16px;
 }
 * { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--bg); color: var(--text);
-  font: 13.5px/1.55 var(--sans);
+  margin: 0; background: var(--canvas); color: var(--body-c);
+  font: 400 16px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
-header {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 11px 16px; border-bottom: 1px solid var(--line);
-  background: var(--panel); position: sticky; top: 0; z-index: 9;
+
+/* ---- Kopfleiste und Navigation ---------------------------------------
+   top-nav der Vorlage: schwarz, 64px, Wortmarke links, Menue, Bedienung
+   rechts. Der AKTIVE Eintrag ist eine dunkle Registerkarte (Flaeche + weisse
+   Schrift), kein gelber Balken - Gelb bleibt knapp. */
+header.top {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 0 24px; min-height: 64px;
+  background: var(--canvas); border-bottom: 1px solid var(--hairline);
+  position: sticky; top: 0; z-index: 20;
 }
-header .brand {
-  font: 600 14px/1 var(--mono); text-transform: lowercase; letter-spacing: .3px;
-  color: var(--accent);
+header.top .brand {
+  font: 700 17px/1 var(--sans); letter-spacing: -.3px;
+  color: var(--on-dark); display: inline-flex; align-items: center; gap: 9px;
 }
-header .sub { color: var(--dim2); font: 11px var(--mono); }
-header .spacer { flex: 1; }
-select, button {
-  background: var(--panel2); color: var(--text); border: 1px solid var(--line2);
-  border-radius: 5px; padding: 5px 9px; font: 12.5px var(--mono);
+header.top .brand i { width: 14px; height: 14px; border-radius: 4px; background: var(--primary); display: inline-block; }
+header.top .sub { color: var(--muted-soft); font: 400 13px var(--mono); }
+header.top .spacer { flex: 1; }
+
+nav.nav { display: flex; align-items: center; gap: 4px; }
+nav.nav a {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 8px 14px; border-radius: var(--r-md); text-decoration: none;
+  color: var(--muted); font: 500 14px/1.4 var(--sans);
 }
-button { cursor: pointer; }
-button:hover { border-color: var(--accent); }
-button.on { border-color: var(--accent); color: var(--accent); background: #1b2016; }
-main { padding: 16px; max-width: 1680px; margin: 0 auto; }
+nav.nav a:hover { color: var(--on-dark); background: var(--surface-soft); }
+nav.nav a.active { color: var(--on-dark); background: var(--surface-card); font-weight: 600; }
+nav.nav a .n { color: var(--muted-soft); font: 400 12px var(--mono); }
+nav.nav a.active .n { color: var(--muted); }
+
+/* ---- Brotkrumen (caption-uppercase der Vorlage: 12px/600/+1.5px) ----- */
+.crumb {
+  padding: 10px 24px; color: var(--muted);
+  font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--hairline); background: var(--canvas);
+}
+.crumb b { color: var(--body-strong); font-weight: 600; }
+.crumb .sep { color: var(--muted-soft); padding: 0 8px; font-weight: 400; }
+
+/* ---- Seiten (Ansichten) ---------------------------------------------
+   Genau EINE Ansicht ist sichtbar: die Antwort auf "alles runterscrollen". */
+main { padding: 24px; max-width: 1320px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+.view > .panel:first-child { margin-top: 0; }
+
+/* ---- Karten (feature-card-dark der Vorlage: surface-card, 1px Haarlinie,
+         12px Radius, kein Schatten). Kein Eckquadrat, keine Deko. -------- */
 .panel {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 7px; padding: 13px 15px; margin-top: 12px;
+  background: var(--surface-card); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg); padding: 20px 22px; margin-top: var(--sp);
 }
 .panel h2 {
-  font: 600 12.5px var(--mono); text-transform: lowercase; letter-spacing: .4px;
-  color: var(--accent); margin: 0 0 10px;
-  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font: 700 20px/1.25 var(--sans); letter-spacing: -.4px;
+  color: var(--on-dark); margin: 0 0 14px;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
 }
-.panel h2 .sub { color: var(--dim2); font-weight: 400; font-size: 11px; text-transform: none; }
+.panel h2 .sub { color: var(--muted); font: 400 14px/1.55 var(--sans); letter-spacing: 0; }
 .panel h3 {
-  font: 600 11.5px var(--mono); color: var(--dim); text-transform: lowercase;
-  margin: 14px 0 6px;
+  font: 600 12px/1.4 var(--sans); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 8px;
 }
+.panel h3:first-child { margin-top: 0; }
 
-/* ---- Das Antwortband: die eine Frage, beantwortet ------------------- */
+/* ---- Bedienung -------------------------------------------------------
+   button-primary = gelb gefuellt (die EINE Hauptaktion),
+   button-secondary = surface-card, Zustandsschalter: inaktiv transparent,
+   aktiv surface-elevated (Registerkarte der Vorlage). */
+select, button, input[type="search"] {
+  background: var(--surface-elevated); color: var(--on-dark);
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
+  padding: 9px 14px; font: 600 14px/1 var(--sans); min-height: 40px;
+}
+input[type="search"] { background: var(--surface-card); font-weight: 400; min-width: 200px; }
+input[type="search"]::placeholder { color: var(--muted-soft); }
+select:focus, input:focus { outline: 0; border-color: var(--primary); }
+button { cursor: pointer; }
+button:hover { border-color: var(--hairline-strong); background: #2c2c2c; color: var(--on-dark); }
+button.primary {
+  background: var(--primary); border-color: var(--primary); color: var(--on-primary);
+  padding: 9px 20px;
+}
+button.primary:hover { background: var(--primary-active); border-color: var(--primary-active); color: var(--on-primary); }
+button.ghost { background: transparent; border: 0; color: var(--primary); padding: 4px 2px; min-height: 0; text-decoration: underline; }
+button.on { background: var(--surface-elevated); border-color: var(--primary); color: var(--primary); }
+button.on:hover { background: #2c2c2c; color: var(--primary); }
+.ctrls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.ctrls .lbl {
+  color: var(--muted); font: 600 12px/1.4 var(--sans); text-transform: uppercase;
+  letter-spacing: 1.5px; margin-right: 2px;
+}
+.ctrls .sep { width: 1px; height: 24px; background: var(--hairline); margin: 0 6px; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar .grow { flex: 1; }
+.toolbar .count { color: var(--muted); font: 400 13px var(--mono); }
+
+/* ---- Kennzahlen (stat-callout der Vorlage: gross, 700, GELB) --------- */
 .verdict {
-  display: grid; grid-template-columns: 232px 1fr; gap: 0;
-  border: 1px solid var(--line2); border-radius: 7px; overflow: hidden;
-  background: var(--panel);
+  display: grid; grid-template-columns: 244px 1fr; gap: 0;
+  border: 1px solid var(--hairline); border-radius: var(--r-lg); overflow: hidden;
+  background: var(--surface-soft);
 }
 @media (max-width: 780px) { .verdict { grid-template-columns: 1fr; } }
 .verdict .mark {
-  padding: 14px 16px; display: flex; flex-direction: column; justify-content: center;
-  border-right: 1px solid var(--line2);
+  padding: 20px 22px; display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid var(--hairline);
 }
-@media (max-width: 780px) { .verdict .mark { border-right: 0; border-bottom: 1px solid var(--line2); } }
+@media (max-width: 780px) { .verdict .mark { border-right: 0; border-bottom: 1px solid var(--hairline); } }
 .verdict .mark .q {
-  font: 10.5px var(--mono); text-transform: lowercase; color: var(--dim2);
-  letter-spacing: .5px;
+  font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted);
 }
-.verdict .mark .a { font: 700 22px/1.15 var(--mono); margin-top: 5px; }
-.verdict .mark .why { color: var(--dim); font-size: 11.5px; margin-top: 5px; }
-.verdict.besser .mark { background: #14201a; }
+.verdict .mark .a { font: 700 32px/1.2 var(--sans); letter-spacing: -1px; margin-top: 8px; }
+.verdict .mark .why { color: var(--muted); font: 400 13px/1.55 var(--sans); margin-top: 8px; }
 .verdict.besser .mark .a { color: var(--good); }
-.verdict.stabil .mark { background: #1f1c14; }
 .verdict.stabil .mark .a { color: var(--warn); }
-.verdict.schlechter .mark { background: #201414; }
 .verdict.schlechter .mark .a { color: var(--bad); }
-.verdict.unklar .mark { background: var(--panel2); }
-.verdict.unklar .mark .a { color: var(--neutral); }
-.facts {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
-  gap: 1px; background: var(--line);
-}
-.fact { background: var(--panel); padding: 11px 13px; }
+.verdict.unklar .mark .a { color: var(--body-strong); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(152px, 1fr)); gap: 1px; background: var(--hairline); }
+.fact { background: var(--surface-soft); padding: 16px 18px; }
 .fact .k {
-  font: 10.5px var(--mono); color: var(--dim2); text-transform: lowercase;
-  letter-spacing: .4px;
+  font: 600 12px/1.4 var(--sans); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.5px;
 }
 .fact .v {
-  font: 650 17px/1.25 var(--mono); margin-top: 4px;
-  font-variant-numeric: tabular-nums;
+  font: 700 28px/1.2 var(--mono); letter-spacing: -1px; margin-top: 6px;
+  color: var(--primary); font-variant-numeric: tabular-nums;
 }
 .fact .v.good { color: var(--good); }
 .fact .v.warn { color: var(--warn); }
 .fact .v.bad { color: var(--bad); }
-.fact .v.neutral { color: var(--neutral); }
-.fact .n { color: var(--dim); font-size: 11px; margin-top: 2px; }
+.fact .v.neutral { color: var(--body-strong); }
+.fact .n { color: var(--muted); font: 400 13px/1.55 var(--sans); margin-top: 4px; }
 
-/* ---- Diagramm ------------------------------------------------------- */
+/* ---- Diagramm -------------------------------------------------------- */
 .chart-wrap { position: relative; }
 canvas { width: 100%; display: block; }
-#chart { height: 420px; }
-.ctrls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+#chart { height: 400px; }
 .chart-legend {
-  display: flex; gap: 16px; flex-wrap: wrap; color: var(--dim);
-  font-size: 11px; margin-top: 9px; font-family: var(--mono);
+  display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted);
+  font: 400 13px var(--sans); margin-top: 12px;
 }
-.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .chart-legend i { display: inline-block; width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; }
 .chart-legend i.dash { border-top-style: dashed; }
 .chart-legend i.dot { width: 9px; height: 9px; border: 0; border-radius: 50%; }
 .tip {
-  position: absolute; pointer-events: none; z-index: 4; display: none;
-  background: #0a0c0f; border: 1px solid var(--line2); border-radius: 6px;
-  padding: 8px 10px; font: 11.5px/1.6 var(--mono); color: var(--text);
-  box-shadow: 0 6px 22px rgba(0,0,0,.55); min-width: 196px;
+  position: absolute; pointer-events: none; z-index: 40; display: none;
+  background: var(--surface-elevated); border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md); padding: 10px 12px;
+  font: 400 13px/1.55 var(--mono); color: var(--body-strong); min-width: 200px;
 }
-.tip .h { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
-.tip .r { display: flex; justify-content: space-between; gap: 14px; }
-.tip .r .k { color: var(--dim2); }
-.hint { color: var(--dim2); font: 11px var(--mono); margin-top: 7px; }
+.tip .h { color: var(--primary); font-weight: 600; margin-bottom: 5px; }
+.tip .r { display: flex; justify-content: space-between; gap: 16px; }
+.tip .r .k { color: var(--muted); }
+.hint { color: var(--muted); font: 400 13px/1.55 var(--sans); margin-top: 10px; }
 
-/* ---- Raster kleiner Kurven ----------------------------------------- */
-.mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* Schwebende Hilfe: Bedienoberflaeche, kein Inhalt. */
+#tipbox {
+  position: fixed; z-index: 60; display: none; max-width: 340px;
+  background: var(--surface-elevated); border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md); padding: 12px 14px; color: var(--body-strong);
+  font: 400 13px/1.55 var(--sans);
+}
+#tipbox b { color: var(--primary); display: block; margin-bottom: 4px; font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+[data-tip] { border-bottom: 1px dotted var(--hairline-strong); cursor: help; }
+
+/* ---- Raster kleiner Kurven ------------------------------------------ */
+.mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp); }
 @media (max-width: 1060px) { .mini-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px) { .mini-grid { grid-template-columns: 1fr; } }
 .mini {
-  background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
-  padding: 9px 10px; cursor: pointer; border-left: 3px solid var(--line);
+  background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 12px 14px; cursor: pointer;
 }
-.mini:hover { border-color: var(--line2); }
-.mini.selected { border-color: var(--accent); }
-.mini.besser { border-left-color: var(--good); }
-.mini.stabil { border-left-color: var(--warn); }
-.mini.schlechter { border-left-color: var(--bad); }
+.mini:hover { border-color: var(--hairline-strong); background: #171717; }
+.mini.selected { border-color: var(--primary); }
 .mini .cap {
-  font: 600 11.5px var(--mono); color: var(--text); text-align: center;
+  font: 600 14px/1.4 var(--sans); color: var(--on-dark); text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mini .hyp {
-  color: var(--dim2); font: 10.5px var(--mono); text-align: center;
-  margin: 3px 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--muted-soft); font: 400 12px var(--mono); text-align: center;
+  margin: 4px 0 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mini .verdictline {
-  text-align: center; font: 11.5px var(--mono); margin-bottom: 4px;
-}
+.mini .verdictline { text-align: center; font: 400 13px var(--mono); margin-bottom: 6px; }
 .mini .verdictline.besser { color: var(--good); }
 .mini .verdictline.stabil { color: var(--warn); }
 .mini .verdictline.schlechter { color: var(--bad); }
-.mini canvas { height: 132px; }
+.mini canvas { height: 120px; }
 
-/* ---- Tabellen ------------------------------------------------------- */
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { text-align: left; padding: 6px 7px; border-bottom: 1px solid var(--line); }
+/* ---- Tabellen --------------------------------------------------------
+   caption-uppercase fuer die Kopfzeile, body-strong fuer die Zellen -
+   Hierarchie ueber Schriftgroesse, nicht ueber Farbe. */
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--hairline); }
 th {
-  color: var(--dim2); font: 10.5px var(--mono); text-transform: lowercase;
-  letter-spacing: .4px; white-space: nowrap;
+  color: var(--muted); font: 600 12px/1.4 var(--sans); text-transform: uppercase;
+  letter-spacing: 1.5px; white-space: nowrap; position: sticky; top: 0;
+  background: var(--surface-card); z-index: 1;
 }
+td { color: var(--body-c); }
 td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 tbody tr { cursor: pointer; }
-tbody tr:hover { background: var(--panel2); }
-tbody tr.selected { background: #1b2016; }
+tbody tr:hover { background: var(--surface-soft); }
+tbody tr.selected { background: var(--surface-elevated); }
+tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
 td.besser { color: var(--good); }
 td.schlechter { color: var(--bad); }
 td.stabil { color: var(--warn); }
+.tbl-scroll { max-height: 540px; overflow: auto; border-radius: var(--r-sm); }
 
-/* ---- Ereignis-Feed -------------------------------------------------- */
-.feed { max-height: 460px; overflow: auto; }
+/* ---- Ereignis-Feed und Listen --------------------------------------- */
+.feed { max-height: 540px; overflow: auto; }
 .ev {
-  display: grid; grid-template-columns: 84px 1fr; gap: 10px;
-  padding: 7px 9px; border-radius: 5px; margin-bottom: 5px;
-  background: var(--panel2); border-left: 3px solid var(--line2);
+  display: grid; grid-template-columns: 104px 1fr; gap: 12px;
+  padding: 10px 12px; border-radius: var(--r-sm); margin-bottom: 6px;
+  background: var(--surface-soft);
 }
 .ev .badge {
-  font: 10px var(--mono); text-transform: lowercase; letter-spacing: .4px;
-  color: var(--dim2); padding-top: 2px;
+  font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); padding-top: 2px;
 }
-.ev .txt { font-size: 12.5px; }
-.ev .meta { color: var(--dim2); font: 11px var(--mono); margin-top: 2px; }
-.ev.record { border-left-color: var(--good); }
-.ev.record .badge { color: var(--good); font-weight: 700; }
-.ev.end { border-left-color: var(--accent); }
-.ev.start { border-left-color: var(--neutral); }
-.ev.checkpoint { border-left-color: var(--line2); }
-.ev.nan { border-left-color: var(--bad); }
-.ev.nan .badge { color: var(--bad); font-weight: 700; }
-.ev.stagnation { border-left-color: var(--warn); }
+.ev .txt { font-size: 14px; color: var(--body-strong); }
+.ev .meta { color: var(--muted-soft); font: 400 12px var(--mono); margin-top: 3px; }
+.ev.record .badge { color: var(--good); }
+.ev.end .badge { color: var(--primary); }
+.ev.checkpoint .badge { color: var(--body-strong); }
+.ev.start .badge { color: var(--blue); }
+.ev.nan .badge { color: var(--bad); }
 .ev.stagnation .badge { color: var(--warn); }
-.ev.resume { border-left-color: var(--accent2); }
+.ev.resume .badge { color: var(--blue); }
 
-.empty { color: var(--dim2); padding: 14px 4px; }
-.pill {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font: 11px var(--mono); border: 1px solid var(--line2); color: var(--dim);
-}
-.pill.live { color: var(--good); border-color: var(--good); }
-.pill.done { color: var(--accent); border-color: var(--accent); }
-.pill.good { color: var(--good); border-color: var(--good); }
-.pill.warn { color: var(--warn); border-color: var(--warn); }
+.empty { color: var(--muted); padding: 20px 4px; font-size: 14px; }
 
-/* ---- Messprotokoll (logs/messungen.jsonl) ---------------------------
-   Eine Zeile je Messlauf, nicht je Protokollzeile: der Stand ist der
-   LETZTE Eintrag zu einem Namen. Das Protokoll traegt keinen Zeitstempel,
-   deshalb steht die Zeilenzahl daneben - sie ist der einzige Beleg dafuer,
-   dass der Stand aus mehr als einer Zeile entstanden ist. */
-.mess-status {
-  display: inline-block; min-width: 84px; padding: 1px 7px; border-radius: 999px;
-  border: 1px solid var(--line2); color: var(--dim);
-  font: 10.5px var(--mono); text-align: center; white-space: nowrap;
+/* ---- Marken (badge-pill / badge-yellow der Vorlage) ------------------ */
+.pill, .mess-status, .ampel, .tag {
+  display: inline-block; padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--surface-elevated); border: 1px solid var(--hairline);
+  color: var(--body-c); font: 500 13px/1.4 var(--sans); white-space: nowrap;
 }
-.mess-status.laeuft { color: var(--accent); border-color: var(--accent); }
-.mess-status.fertig { color: var(--good); border-color: var(--good); }
-.mess-status.fehler { color: var(--bad); border-color: var(--bad); }
-.mess-status.zeile { color: var(--warn); border-color: var(--warn); }
-.mess-datei { font: 11px var(--mono); color: var(--text); word-break: break-all; }
-.mess-ergebnis { font: 11px var(--mono); color: var(--accent2); }
-.mess-leer { font: 10.5px var(--mono); color: var(--dim2); }
-.mess-roh { max-height: 300px; overflow: auto; }
-.cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
+.pill.live, .mess-status.fertig, .ampel.ja { color: var(--good); border-color: #1d4030; }
+.pill.done, .mess-status.laeuft { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+.pill.good { color: var(--good); }
+.pill.warn, .mess-status.zeile { color: var(--warn); border-color: #4a3a12; }
+.mess-status.fehler, .ampel.nein { color: var(--bad); border-color: #4a1f1f; }
+.ampel.keine { color: var(--muted); }
+.tag { background: transparent; color: var(--muted); }
+.mess-status { min-width: 96px; text-align: center; font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+.mess-datei { font: 400 13px var(--mono); color: var(--body-strong); word-break: break-all; }
+.mess-ergebnis { font: 700 13px var(--mono); color: var(--primary); }
+.mess-leer { font: 400 12px var(--sans); color: var(--muted-soft); }
+.mess-roh { max-height: 340px; overflow: auto; }
+
+/* ---- Belege, Glossar, Code ------------------------------------------ */
+.cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--sp); }
 @media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } }
-.kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; font-size: 11.5px; }
-.kv .k { color: var(--dim2); font: 10.5px var(--mono); padding-top: 1px; }
-.kv .v { word-break: break-word; }
+.kv { display: grid; grid-template-columns: 156px 1fr; gap: 6px 14px; font-size: 14px; }
+.kv .k { color: var(--muted); font: 600 12px/1.6 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; padding-top: 2px; }
+.kv .v { color: var(--body-strong); word-break: break-word; }
 .kv .v.bad { color: var(--bad); }
-.kv .v .src { display: block; color: var(--dim2); font: 10.5px var(--mono); }
+.kv .v .src { display: block; color: var(--muted-soft); font: 400 12px var(--mono); }
 .cmd {
-  background: #0a0c0f; border: 1px solid var(--line); border-radius: 5px;
-  padding: 8px 10px; font: 11.5px/1.5 var(--mono); color: var(--accent2);
-  word-break: break-all; margin: 8px 0 4px;
+  background: var(--canvas); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 12px 14px;
+  font: 400 13px/1.55 var(--mono); color: var(--body-strong);
+  word-break: break-all; margin: 10px 0 6px;
 }
-details { margin-top: 9px; }
-summary { cursor: pointer; color: var(--dim2); font: 11px var(--mono); }
+details { margin-top: 12px; }
+summary {
+  cursor: pointer; color: var(--body-c); font: 600 13px/1.4 var(--sans);
+  padding: 4px 0;
+}
+summary:hover { color: var(--primary); }
 pre {
-  background: #0a0c0f; border: 1px solid var(--line); border-radius: 5px;
-  padding: 10px; overflow: auto; max-height: 260px;
-  font: 11px/1.5 var(--mono); color: var(--text);
+  background: var(--canvas); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 14px; overflow: auto; max-height: 320px;
+  font: 400 13px/1.55 var(--mono); color: var(--body-strong); margin: 8px 0 0;
 }
-ul.gaps { margin: 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
-ul.gaps li { margin-bottom: 5px; }
-.smart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(262px, 1fr)); gap: 10px; }
-/* Der Lauf-Fingerabdruck: einmal ueber der Kartenreihe, vollstaendig lesbar.
-   Vorher stand der Dateiname in jeder siebten Belegzeile. */
+code { background: var(--surface-elevated); border-radius: var(--r-xs, 4px); padding: 2px 6px; font: 400 13px var(--mono); color: var(--body-strong); }
+ul.gaps { margin: 0; padding-left: 22px; color: var(--body-c); font-size: 14px; }
+ul.gaps li { margin-bottom: 9px; }
+a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--primary-active); }
+
+/* ---- SMART-Karten ---------------------------------------------------- */
+.smart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(276px, 1fr)); gap: var(--sp); }
 .smart-id {
-  grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-  background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
-  border-radius: 6px; padding: 7px 10px; margin-bottom: 2px;
+  grid-column: 1 / -1; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 12px 14px;
 }
-.smart-id .id {
-  font: 11.5px var(--mono); color: var(--text);
-  overflow-wrap: anywhere; word-break: break-all;
-}
-.smart-id .nm { font: 11px var(--mono); color: var(--dim2); }
+.smart-id .id { font: 400 13px var(--mono); color: var(--body-strong); overflow-wrap: anywhere; word-break: break-all; }
+.smart-id .nm { font: 400 12px var(--mono); color: var(--muted); }
 .smart {
-  background: var(--panel2); border: 1px solid var(--line);
-  border-left: 3px solid var(--line2); border-radius: 6px; padding: 10px 12px;
+  background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 16px 18px;
 }
-.smart.erfuellt { border-left-color: var(--good); }
-.smart.teilweise { border-left-color: var(--warn); }
-.smart.laeuft { border-left-color: var(--accent); }
-.smart.offen { border-left-color: var(--bad); }
-.smart .head { display: flex; align-items: baseline; gap: 8px; }
-.smart .key { font: 700 18px var(--mono); color: var(--accent); }
-.smart .title { font: 600 12.5px var(--mono); }
-.smart .status { margin-left: auto; font: 10.5px var(--mono); color: var(--dim2); }
+.smart.erfuellt { border-color: #1d4030; }
+.smart.teilweise { border-color: #4a3a12; }
+.smart.laeuft { border-color: var(--hairline-strong); }
+.smart.offen { border-color: #4a1f1f; }
+.smart .head { display: flex; align-items: baseline; gap: 9px; }
+.smart .key { font: 700 20px/1.25 var(--sans); letter-spacing: -.4px; color: var(--primary); }
+.smart .title { font: 600 14px/1.4 var(--sans); color: var(--on-dark); }
+.smart .status { margin-left: auto; font: 600 12px/1.4 var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 .smart.erfuellt .status { color: var(--good); }
 .smart.teilweise .status { color: var(--warn); }
-.smart.laeuft .status { color: var(--accent); }
+.smart.laeuft .status { color: var(--body-strong); }
 .smart.offen .status { color: var(--bad); }
-.smart .value { font-size: 12.5px; margin: 6px 0 8px; }
+.smart .value { font-size: 14px; color: var(--body-strong); margin: 8px 0 10px; }
 .smart ul { list-style: none; margin: 0; padding: 0; }
-.smart li { border-top: 1px dashed var(--line); padding: 5px 0 3px; font-size: 11.5px; }
-.smart li .lbl { color: var(--dim2); font: 10.5px var(--mono); }
-.smart li .src { color: var(--dim2); font: 10.5px var(--mono); display: block; margin-top: 1px; }
+.smart li { border-top: 1px solid var(--hairline); padding: 8px 0 6px; font-size: 13px; color: var(--body-c); }
+.smart li .lbl { color: var(--muted); font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+.smart li .src { color: var(--muted-soft); font: 400 12px var(--mono); display: block; margin-top: 2px; }
 .smart li.bad .val { color: var(--bad); }
+
+/* ---- Lauf-Chips (Auswahl der Kurven) --------------------------------- */
 .chip {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  border: 1px solid var(--line2); border-radius: 999px; padding: 3px 9px;
-  font: 11px var(--mono); color: var(--dim2); background: var(--panel2);
-  user-select: none;
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill);
+  padding: 5px 12px; font: 400 13px var(--sans); color: var(--muted);
+  background: var(--surface-soft);
 }
-.chip.on { color: var(--text); }
-.chip.selected { border-color: var(--accent); color: var(--accent); }
+.chip:hover { border-color: var(--hairline-strong); color: var(--body-strong); }
+.chip.on { color: var(--body-strong); border-color: var(--hairline-strong); background: var(--surface-elevated); }
+.chip.selected { border-color: var(--primary); color: var(--primary); }
 
-/* ---- Inhalt (Registry) ---------------------------------------------
-   Der Abschnitt zeigt, WAS trainiert wurde: Faehigkeit, Aufgabentypen je
-   Panel und das Urteil gegen die Projektmarke D-047.
-
-   Gestaltungsregeln hier:
-   1. JE PANEL EINE EIGENE TABELLE. Panel A und Panel B messen auf
-      disjunkten Fragesaetzen; ein gemeinsames Blatt waere ein stilles
-      Zusammenlegen und wuerde eine Genauigkeit vortaeuschen, die keine
-      der beiden Messungen hat.
-   2. DIE AMPEL SPRICHT UEBER EINEN EINTRAG. Der Text darunter sagt das,
-      weil eine gruene Lampe sonst wie ein Projekturteil aussieht.
-   3. KEINE ZAHL OHNE HERKUNFT. Fehlt eine Messung, steht dort ein Wort
-      (nicht gestellt / keine Zahl), nie eine 0 und nie ein leeres Feld. */
-.reg-bar {
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.reg-bar label {
-  color: var(--dim2); font: 10.5px var(--mono); text-transform: lowercase;
-  letter-spacing: .4px;
-}
-.reg-bar select { max-width: min(560px, 92vw); }
-.reg-meta { color: var(--dim2); font: 11px var(--mono); margin-left: auto; }
+/* ---- Inhalt (Registry) und Faehigkeitsseite ------------------------- */
+.reg-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.reg-bar label { color: var(--muted); font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+.reg-bar select { max-width: min(640px, 92vw); }
+.reg-meta { color: var(--muted); font: 400 13px var(--sans); margin-left: auto; }
 .card-reg {
-  background: var(--panel2); border: 1px solid var(--line);
-  border-left: 3px solid var(--line2); border-radius: 6px;
-  padding: 10px 12px; margin-top: 10px;
+  background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 16px 18px; margin-top: 12px;
 }
-.card-reg.ja { border-left-color: var(--good); }
-.card-reg.nein { border-left-color: var(--bad); }
-.card-reg.keine { border-left-color: var(--neutral); }
+.card-reg.ja { border-color: #1d4030; }
+.card-reg.nein { border-color: #4a1f1f; }
+.card-reg.keine { border-color: var(--hairline-strong); }
 .card-reg .reg-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.card-reg .cap { font: 650 13px var(--mono); color: var(--accent); }
-.card-reg .pill { font-size: 10.5px; }
-.ampel {
-  margin-left: auto; padding: 3px 10px; border-radius: 999px;
-  font: 600 11px var(--mono); border: 1px solid var(--line2); color: var(--dim);
-  white-space: nowrap;
-}
-.ampel.ja { color: var(--good); border-color: var(--good); background: #14201a; }
-.ampel.nein { color: var(--bad); border-color: var(--bad); background: #201414; }
-.ampel.keine { color: var(--neutral); }
-.reg-kontext { color: var(--dim); font-size: 12px; margin: 6px 0 8px; word-break: break-word; }
-.reg-kopf {
-  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
-  background: var(--panel); font-size: 12px;
-}
-.reg-kopf .kriterium { margin-top: 6px; }
-.reg-kopf .kriterium .b { color: var(--dim2); font: 10.5px var(--mono); }
-.reg-kopf .kriterium .ok { color: var(--good); }
-.reg-kopf .kriterium .nok { color: var(--bad); }
-.reg-kopf .reisser { color: var(--bad); margin-top: 6px; }
+.card-reg .cap { font: 600 16px/1.4 var(--sans); color: var(--on-dark); }
+.card-reg .pill { font-size: 12px; }
+.reg-kontext { color: var(--muted); font: 400 13px/1.55 var(--sans); margin: 8px 0 10px; word-break: break-word; }
+.reg-kopf { border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 14px 16px; background: var(--surface-card); font-size: 14px; }
+.reg-kopf .kriterium { margin-top: 8px; color: var(--body-c); }
+.reg-kopf .kriterium .b { color: var(--muted); font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+.reg-kopf .kriterium .ok { color: var(--good); font-weight: 600; }
+.reg-kopf .kriterium .nok { color: var(--bad); font-weight: 600; }
+.reg-kopf .reisser { color: var(--bad); margin-top: 8px; font-size: 14px; }
 .reg-kopf .reisser b { font-family: var(--mono); }
-.reg-kopf .quelle { color: var(--dim2); font: 10.5px var(--mono); margin-top: 6px; }
-.reg-kopf .geltung { color: var(--warn); font-size: 11.5px; margin-top: 6px; }
-.reg-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 10px; margin-top: 10px; }
-.pbox { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; }
-.pbox h4 {
-  font: 650 12px var(--mono); color: var(--text); margin: 0 0 2px;
-  text-transform: lowercase; letter-spacing: .3px;
-}
-.pbox .ph { color: var(--dim2); font: 10.5px var(--mono); margin-bottom: 7px; }
-.pbox .summe {
-  color: var(--dim); font: 11px var(--mono); margin-top: 7px;
-  border-top: 1px dashed var(--line); padding-top: 6px;
-}
-.pbox td.none { color: var(--dim2); font-style: italic; }
-.pbox td.unter { color: var(--bad); font-weight: 650; }
+.reg-kopf .quelle { color: var(--muted-soft); font: 400 12px var(--mono); margin-top: 8px; }
+.reg-kopf .geltung { color: var(--warn); font-size: 13px; margin-top: 8px; }
+.reg-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(348px, 1fr)); gap: var(--sp); margin-top: 12px; }
+.pbox { background: var(--surface-soft); border: 1px solid var(--hairline); border-radius: var(--r-md); padding: 14px 16px; }
+.pbox h4 { font: 600 14px/1.4 var(--sans); color: var(--on-dark); margin: 0 0 4px; }
+.pbox .ph { color: var(--muted); font: 400 12px var(--mono); margin-bottom: 10px; }
+.pbox .summe { color: var(--muted); font: 400 13px var(--mono); margin-top: 10px; border-top: 1px solid var(--hairline); padding-top: 8px; }
+.pbox td.none { color: var(--muted-soft); font-style: italic; }
+.pbox td.unter { color: var(--bad); font-weight: 600; }
 .pbox td.ueber { color: var(--good); }
-.pbox tr.gesamt td { border-top: 1px solid var(--line2); color: var(--dim); }
-.reg-kv { display: grid; grid-template-columns: 132px 1fr; gap: 3px 10px; font-size: 11.5px; margin-top: 9px; }
-.reg-kv .k { color: var(--dim2); font: 10.5px var(--mono); }
-.reg-kv .v { word-break: break-word; }
-.reg-details { margin-top: 8px; }
-footer { color: var(--dim2); font-size: 11px; padding: 20px; text-align: center; }
-code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-</style>
+.pbox tr.gesamt td { border-top: 1px solid var(--hairline-strong); color: var(--body-strong); }
+.reg-kv { display: grid; grid-template-columns: 148px 1fr; gap: 4px 12px; font-size: 13px; margin-top: 10px; }
+.reg-kv .k { color: var(--muted); font: 600 12px/1.6 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
+.reg-kv .v { color: var(--body-strong); word-break: break-word; }
+.reg-details { margin-top: 10px; }
+
+/* Der Ladestreifen der Faehigkeitsseite: die Zahlen, die zaehlen -
+   stat-callout der Vorlage, in Gelb, ohne Kartenschachtelung. */
+.marke {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.marke .m { background: var(--surface-soft); padding: 18px 20px; }
+.marke .m .k { font: 600 12px/1.4 var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+.marke .m .v { font: 700 28px/1.2 var(--sans); letter-spacing: -1px; margin-top: 7px; color: var(--primary); }
+.marke .m .n { color: var(--muted); font: 400 13px/1.55 var(--sans); margin-top: 5px; }
+.marke .m.ja .v { color: var(--good); }
+.marke .m.nein .v { color: var(--bad); }
+.marke .m.offen .v { color: var(--body-strong); }
+
+/* ---- Glossar --------------------------------------------------------- */
+.glossar { font-size: 14px; margin: 0; }
+.glossar dt { font: 600 14px/1.4 var(--sans); color: var(--on-dark); margin-top: 14px; }
+.glossar dt:first-child { margin-top: 0; }
+.glossar dd { margin: 4px 0 0; color: var(--body-c); }
+.glossar .f { color: var(--muted); font: 400 12px var(--mono); display: block; margin-top: 3px; }
+footer {
+  color: var(--muted); font-size: 13px; padding: 32px 24px; text-align: center;
+  border-top: 1px solid var(--hairline); margin-top: 32px;
+}</style>
 </head>
 <body>
-<header>
-  <span class="brand">shiro · messstand</span>
-  <span class="sub" id="paths"></span>
+<!-- Kopfleiste: Wortmarke links, die fuenf Seiten in der Mitte, Bedienung
+     rechts. Jede Seite ist genau EIN Klick entfernt, und der Zustand steht
+     in der Adresse (#/lauf/probe-1791345360.jsonl) - ein Link auf eine
+     Ansicht ist damit teilbar. -->
+<header class="top">
+  <span class="brand"><i></i>shiro</span>
+  <nav class="nav" id="nav">
+    <a href="#/uebersicht" data-view="uebersicht">übersicht<span class="n" id="nav-runs"></span></a>
+    <a href="#/lauf" data-view="lauf">lauf<span class="n" id="nav-run"></span></a>
+    <a href="#/faehigkeit" data-view="faehigkeit">fähigkeit<span class="n" id="nav-runden"></span></a>
+    <a href="#/checkpoints" data-view="checkpoints">checkpoints<span class="n" id="nav-cps"></span></a>
+    <a href="#/hilfe" data-view="hilfe">hilfe</a>
+  </nav>
   <span class="spacer"></span>
-  <select id="run" title="Lauf auswaehlen"></select>
-  <button id="refresh" title="Sofort neu laden">neu laden</button>
-  <span class="pill" id="stream" title="Live-Verbindung zum Server: der Server meldet nur echte Aenderungen">verbinde …</span>
+  <span class="sub" id="paths"></span>
+  <select id="run" title="Lauf auswaehlen - die Auswahl gilt fuer die Seite 'lauf' und den Kopf"></select>
+  <button id="refresh" class="primary" title="Sofort neu laden (die Seite laedt sonst nur bei einer echten Aenderung nach)">neu laden</button>
+  <span class="pill" id="stream" title="Live-Verbindung zum Server: er meldet nur echte Aenderungen auf der Platte">verbinde …</span>
   <span class="pill" id="status">-</span>
 </header>
+<div class="crumb" id="crumb"></div>
 
 <main>
-  <!-- DIE FRAGE. Ein Diagramm, das man erst deuten muss, beantwortet sie nicht.
-       Hier steht die Antwort als Wort, daneben die Zahlen, die sie tragen. -->
-  <section class="panel" style="margin-top:0">
-    <h2>wird es besser? <span class="sub" id="verdict-sub">die eine Frage, die ein Trainingslauf beantworten muss</span></h2>
-    <div id="verdict"><div class="empty">Lauf auswaehlen.</div></div>
-  </section>
+  <!-- ============================ ÜBERSICHT ============================ -->
+  <section class="view" id="v-uebersicht" data-titel="übersicht">
+    <!-- DIE FRAGE. Ein Diagramm, das man erst deuten muss, beantwortet sie
+         nicht. Hier steht die Antwort als Wort, daneben die Zahlen. -->
+    <section class="panel">
+      <h2>wird es besser? <span class="sub" id="verdict-sub">die eine Frage, die ein Trainingslauf beantworten muss</span></h2>
+      <div id="verdict"><div class="empty">Lauf auswaehlen.</div></div>
+    </section>
 
-  <section class="panel">
-    <h2>verlust &amp; perplexitaet <span class="sub" id="curve-sub"></span></h2>
-    <div class="ctrls">
-      <span class="sub" style="color:var(--dim2);font:11px var(--mono)">y-achse:</span>
-      <button id="yscale-log" title="Logarithmisch: zeigt den ganzen Abstieg lesbar">log</button>
-      <button id="yscale-lin" title="Linear: der echte Abstand, oben gequetscht">linear</button>
-      <span class="sub" style="color:var(--dim2);font:11px var(--mono);margin-left:8px">groesse:</span>
-      <button id="metric-loss" title="Kreuzentropie je Byte - die Groesse, die optimiert wird">verlust</button>
-      <button id="metric-ppl" title="Perplexitaet = e^Verlust, die lesbare Einheit">perplexitaet</button>
-      <span class="sub" style="color:var(--dim2);font:11px var(--mono);margin-left:8px">kurven:</span>
-      <button id="only-selected" title="Nur den gewaehlten Lauf zeigen - dann erscheinen exakte Werte beim Ueberfahren">nur auswahl</button>
+    <div class="cols">
+      <section class="panel">
+        <h2>messläufe <span class="sub">alle Läufe, neueste zuerst</span></h2>
+        <div class="toolbar">
+          <input type="search" id="run-filter" placeholder="filter: name, z.B. kombi" title="Tabelle filtern: es wird nur angezeigt, nichts geladen oder geaendert">
+          <button id="run-only-live" title="Nur Läufe zeigen, die noch laufen">nur laufende</button>
+          <span class="grow"></span>
+          <span class="count" id="meas-count"></span>
+        </div>
+        <div class="tbl-scroll">
+          <table id="meas-table">
+            <thead><tr>
+              <th>lauf</th><th class="num">schritte</th>
+              <th class="num">verlust start</th><th class="num">verlust jetzt</th><th class="num">bester</th>
+              <th class="num">gegen untrainiert</th><th class="num">ppl</th>
+              <th>tendenz</th><th class="num">ms/schritt</th><th class="num">gflops</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="hint">Ein Klick auf eine Zeile wählt den Lauf - für die Kurve, die Karten und den Kopf. Spalten mit gestrichelter Unterkante haben eine Erklärung: mit der Maus darauf zeigen.</div>
+      </section>
+
+      <!-- Nicht der Trainingslauf, sondern die Messung: ein anderer Agent oder
+           ein Skript schreibt je Messlauf eine Zeile in das Protokoll. -->
+      <section class="panel">
+        <h2>messprotokoll <span class="sub">je Messlauf der letzte Stand - aus der Datei, die Agenten und Skripte fortschreiben</span></h2>
+        <div class="reg-bar"><span class="reg-meta" id="mess-meta">protokoll …</span></div>
+        <div id="mess-body"><div class="empty">Protokoll wird geladen.</div></div>
+        <div class="hint" id="mess-hint"></div>
+      </section>
     </div>
-    <div class="chart-wrap">
-      <canvas id="chart" width="1680" height="420"></canvas>
-      <div class="tip" id="tip"></div>
+  </section>
+
+  <!-- ============================== LAUF =============================== -->
+  <section class="view" id="v-lauf" data-titel="lauf">
+    <section class="panel">
+      <h2>verlust &amp; perplexität <span class="sub" id="curve-sub"></span></h2>
+      <div class="ctrls">
+        <span class="lbl">y-achse</span>
+        <button id="yscale-log" title="Logarithmisch: zeigt den ganzen Abstieg lesbar (Standard)">log</button>
+        <button id="yscale-lin" title="Linear: der echte Abstand, oben gequetscht">linear</button>
+        <span class="sep"></span>
+        <span class="lbl">größe</span>
+        <button id="metric-loss" title="Kreuzentropie je Byte - die Größe, die optimiert wird">verlust</button>
+        <button id="metric-ppl" title="Perplexität = e^Verlust, die lesbare Einheit">perplexität</button>
+        <span class="sep"></span>
+        <span class="lbl">kurven</span>
+        <button id="chips-auswahl" title="Nur den gewählten Lauf zeigen">nur auswahl</button>
+        <button id="chips-beste" title="Die fünf Läufe mit dem besten Verlust zeigen">beste 5</button>
+        <button id="chips-neuste" title="Die acht zuletzt geänderten Läufe zeigen">neueste 8</button>
+        <button id="chips-laufend" title="Nur Läufe ohne run_end zeigen">laufende</button>
+        <button id="chips-alle" title="Alle Kurven einblenden - bei über hundert Läufen ein Knäuel">alle</button>
+        <button id="chips-keine" title="Alle Kurven ausblenden">keine</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart" width="1680" height="400"></canvas>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="chart-legend" id="chart-legend"></div>
+      <div class="hint" id="chart-hint"></div>
+      <h3>kurvenauswahl je lauf</h3>
+      <div class="hint" id="chips-count" style="margin:0 0 6px"></div>
+      <div class="chart-legend" id="cmp-legend"></div>
+    </section>
+
+    <div class="cols">
+      <section class="panel">
+        <h2>belege <span class="sub" id="prov-sub">wofür die Zahlen stehen</span></h2>
+        <div id="prov"><div class="empty">Noch keine Belege.</div></div>
+        <div id="prov-recipe"></div>
+        <details id="prov-cfg"><summary>Konfigurationsdatei anzeigen (das Rezept)</summary><pre id="prov-cfg-text"></pre></details>
+      </section>
+      <section class="panel">
+        <h2>ereignisse <span class="sub" id="feed-sub"></span></h2>
+        <div class="feed" id="feed"><div class="empty">Noch keine Ereignisse.</div></div>
+      </section>
     </div>
-    <div class="chart-legend" id="chart-legend"></div>
-    <div class="hint" id="chart-hint"></div>
-    <!-- Laeufe einzeln ein- und ausblenden: bei 124 Laeufen ist die Kurve sonst
-         ein Knäuel. Klick auf einen Chip blendet den Lauf um. -->
-    <div class="chart-legend" id="cmp-legend" style="margin-top:6px"></div>
+
+    <section class="panel">
+      <h2>smart <span class="sub">spezifisch · messbar · akzeptiert · realistisch · terminiert - je Lauf, mit Beleg</span></h2>
+      <div class="smart-grid" id="smart">
+        <div class="empty">Lauf auswaehlen, dann erscheint die Karte.</div>
+      </div>
+    </section>
+
+    <!-- Das Raster kostet Platz und Rechenzeit (ein Bild je Lauf). Es steht
+         deshalb zugeklappt da und zeigt beim Öffnen die besten acht. -->
+    <section class="panel">
+      <h2>raster <span class="sub">ein Bild je Lauf, mit Bewertung - anklicken wählt aus</span></h2>
+      <div class="toolbar">
+        <span class="count" id="grid-count"></span>
+        <span class="grow"></span>
+        <button id="grid-more" title="Alle Läufe als kleines Bild zeigen - das sind bei über hundert Läufen ebenso viele Diagramme">alle anzeigen</button>
+      </div>
+      <div class="mini-grid" id="grid"><div class="empty">Keine Läufe gefunden.</div></div>
+    </section>
   </section>
 
-  <section class="panel">
-    <h2>raster <span class="sub">ein bild je lauf, mit bewertung - anklicken waehlt aus</span></h2>
-    <div class="mini-grid" id="grid"><div class="empty">Keine Laeufe gefunden.</div></div>
+  <!-- ============================ FÄHIGKEIT ============================ -->
+  <section class="view" id="v-faehigkeit" data-titel="fähigkeit">
+    <section class="panel">
+      <h2>projektstand der fähigkeit <span class="sub">aus der Runden-Registry gerechnet - nicht gepoolt, jede Zahl nennt ihren Eintrag</span></h2>
+      <div id="bench-marke" class="marke"><div class="m offen"><div class="k">Marke D-047</div><div class="v">…</div><div class="n">wird geladen</div></div></div>
+      <div id="bench-body"><div class="empty">Registry wird geladen.</div></div>
+      <div class="hint" id="bench-hint"></div>
+    </section>
+
+    <section class="panel">
+      <h2>inhalt (registry) <span class="sub">welche Fähigkeit, welche Aufgabentypen, wie weit bis zur Marke - je Eintrag, nicht fuer den Projektstand</span></h2>
+      <div class="reg-bar">
+        <label for="reg-pick">runde</label>
+        <select id="reg-pick" title="Runde auswaehlen: eine Zeile aus registry/experiments.jsonl"></select>
+        <span class="reg-meta" id="reg-meta">registry …</span>
+      </div>
+      <div id="reg-body"><div class="empty">Registry wird geladen.</div></div>
+      <div class="hint" id="reg-hint"></div>
+    </section>
   </section>
 
-  <div class="cols">
-    <section class="panel">
-      <h2>messlaeufe <span class="sub">alle Laeufe, neueste zuerst, mit Tendenz</span></h2>
-      <table id="meas-table">
-        <thead><tr>
-          <th>lauf</th><th class="num">schritte</th>
-          <th class="num">verlust start</th><th class="num">verlust jetzt</th><th class="num">bester</th>
-          <th class="num">gegen untrainiert</th><th class="num">ppl</th>
-          <th>tendenz</th><th class="num">ms/schritt</th><th class="num">gflops</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
-    <section class="panel">
-      <h2>ereignisse <span class="sub" id="feed-sub"></span></h2>
-      <div class="feed" id="feed"><div class="empty">Noch keine Ereignisse.</div></div>
-    </section>
-  </div>
-
-  <div class="cols">
-    <section class="panel">
-      <h2>belege <span class="sub" id="prov-sub">wofuer die Zahlen stehen</span></h2>
-      <div id="prov"><div class="empty">Noch keine Belege.</div></div>
-      <div id="prov-recipe"></div>
-      <details id="prov-cfg"><summary>Konfigurationsdatei anzeigen (das Rezept)</summary><pre id="prov-cfg-text"></pre></details>
-    </section>
+  <!-- =========================== CHECKPOINTS =========================== -->
+  <section class="view" id="v-checkpoints" data-titel="checkpoints">
     <section class="panel">
       <h2>checkpoints <span class="sub" id="cp-sub"></span></h2>
       <div class="feed" id="cps"><div class="empty">Keine Checkpoints gefunden.</div></div>
+      <div class="hint">Ein <code>.state</code> trägt Gewichte <b>und</b> den AdamW-Zustand - nur damit lässt sich ein Lauf exakt fortsetzen. Ein <code>.safetensors</code> trägt nur Gewichte. Eine Aufräumregel (welche Stände bleiben) gibt es noch nicht: offener Punkt O-W7.</div>
     </section>
-  </div>
-
-  <section class="panel">
-    <h2>smart <span class="sub">spezifisch · messbar · akzeptiert · realistisch · terminiert - je Lauf, mit Beleg</span></h2>
-    <div class="smart-grid" id="smart">
-      <div class="empty">Lauf auswaehlen, dann erscheint die Karte.</div>
-    </div>
   </section>
 
-  <section class="panel">
-    <h2>inhalt (registry) <span class="sub">welche faehigkeit, welche aufgabentypen, wie weit bis zur marke D-047 - je Eintrag, nicht fuer den Projektstand</span></h2>
-    <div class="reg-bar">
-      <label for="reg-pick">runde</label>
-      <select id="reg-pick" title="Runde auswaehlen: eine Zeile aus registry/experiments.jsonl"></select>
-      <span class="reg-meta" id="reg-meta">registry …</span>
-    </div>
-    <div id="reg-body"><div class="empty">Registry wird geladen.</div></div>
-    <div class="hint" id="reg-hint"></div>
-  </section>
+  <!-- ============================== HILFE ============================== -->
+  <section class="view" id="v-hilfe" data-titel="hilfe">
+    <div class="cols">
+      <section class="panel">
+        <h2>glossar <span class="sub">jede Zahl dieses Messstands in einem Satz</span></h2>
+        <dl class="glossar" id="glossar"></dl>
+      </section>
+      <div>
+        <section class="panel">
+          <h2>aufbau <span class="sub">welche Seite was beantwortet</span></h2>
+          <div class="kv">
+            <div class="k">übersicht</div><div class="v">Läuft etwas, wird es besser, was wird gerade gemessen.</div>
+            <div class="k">lauf</div><div class="v">Ein Lauf im Detail: Kurve, Belege, Ereignisse, SMART-Karte, Raster.</div>
+            <div class="k">fähigkeit</div><div class="v">Was das Modell kann: Runden der Registry, Aufgabentypen je Panel, Marke D-047.</div>
+            <div class="k">checkpoints</div><div class="v">Gespeicherte Stände und was in ihnen steckt.</div>
+            <div class="k">hilfe</div><div class="v">Dieses Glossar, die Grenzen des Werkzeugs und die Herkunft der Zahlen.</div>
+          </div>
+          <h3>adressen (teilbar)</h3>
+          <div class="cmd">#/uebersicht · #/lauf · #/lauf/&lt;lauf-id&gt; · #/faehigkeit · #/checkpoints · #/hilfe</div>
+        </section>
 
-  <!-- Nicht der Trainingslauf, sondern die Messung: ein anderer Agent oder ein
-       Skript schreibt je Messlauf eine Zeile in das Protokoll. Diese Anzeige
-       liest es nur. Fehlt eine Angabe, steht das hier - statt einer leeren
-       Behauptung. -->
-  <section class="panel">
-    <h2>messprotokoll <span class="sub">je Messlauf der letzte Stand - aus der fortgeschriebenen Datei, die Agenten und Skripte schreiben, nicht aus dem Trainingslauf</span></h2>
-    <div class="reg-bar">
-      <span class="reg-meta" id="mess-meta">protokoll &hellip;</span>
+        <!-- Die Grenzen gehören auf die Seite, nicht ins Kleingedruckte: eine
+             Anzeige, die ihre Lücken verschweigt, ist keine Nachvollziehbarkeit. -->
+        <section class="panel">
+          <h2>was hier nicht steht <span class="sub">Grenzen dieses Werkzeugs</span></h2>
+          <ul class="gaps" id="gaps"><li>Noch keine Angaben.</li></ul>
+        </section>
+      </div>
     </div>
-    <div id="mess-body"><div class="empty">Protokoll wird geladen.</div></div>
-    <div class="hint" id="mess-hint"></div>
-  </section>
-
-  <!-- Die Grenzen gehoeren auf die Seite, nicht ins Kleingedruckte: eine
-       Anzeige, die ihre Luecken verschweigt, ist keine Nachvollziehbarkeit. -->
-  <section class="panel">
-    <h2>was hier nicht steht <span class="sub">Grenzen dieses Werkzeugs</span></h2>
-    <ul class="gaps" id="gaps"><li>Noch keine Angaben.</li></ul>
   </section>
 </main>
 
+<div id="tipbox" role="tooltip"></div>
+
 <footer>
   <span>Liest nur <code>logs/*.jsonl</code> (Trainingslauf und Messprotokoll),
-  <code>checkpoints/</code>, <code>configs/</code>,
-  <code>data/*/manifest.json</code> und <code>.git/HEAD</code> - schreibt nichts, aendert kein Training.
-  Zeitangaben sind aus den gemessenen Schrittzeiten rueckwaerts gerechnet.
+  <code>checkpoints/</code>, <code>configs/</code>, <code>data/*/manifest.json</code>,
+  <code>registry/experiments.jsonl</code> und <code>.git/HEAD</code> - schreibt nichts,
+  ändert kein Training, startet keinen Lauf.
+  Zeitangaben sind aus den gemessenen Schrittzeiten rückwärts gerechnet.
   Referenzlinie: __UNTR_REF__</span>
 </footer>
 
@@ -537,7 +706,6 @@ var state = {
   runs: [], runId: null, series: null, feed: [], cps: [],
   yscale: "log",      // log zeigt den ganzen Abstieg; linear zeigt den echten Abstand
   metric: "loss",     // loss = Kreuzentropie, ppl = e^loss
-  onlySelected: false,
   seriesCache: {},
   // Live-Verbindung: `fingerprint` ist der zuletzt gesehene Stand des Servers,
   // `runCount` die Zahl der Laeufe darin. Beides zusammen entscheidet, was bei
@@ -782,6 +950,8 @@ function loadDetail() {
     renderCheckpoints();
     renderVerdict();
     var cur = currentRun();
+    zaehleNavigation();
+    zeigeKrumen(state.ansicht || "uebersicht");
     var st = el("status");
     if (cur && !cur.finished && cur.steps > 0) { st.textContent = "laeuft"; st.className = "pill live"; }
     else if (cur && cur.finished) { st.textContent = "abgeschlossen"; st.className = "pill done"; }
@@ -930,8 +1100,8 @@ function axes(ctx, w, h, pts, padL, padR, padT, padB) {
   function toX(s) { return padL + (s - xMin) / ((xMax - xMin) || 1) * plotW; }
 
   // Gitter + y-Beschriftung
-  ctx.strokeStyle = "#22262c"; ctx.lineWidth = 1;
-  ctx.fillStyle = "#6f7885"; ctx.font = "10.5px " + MONO;
+  ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 1;
+  ctx.fillStyle = "#888888"; ctx.font = "10.5px " + MONO;
   var yTicks = useLog ? decadeTicks(yMin, yMax) : niceTicks(yMin, yMax, 6);
   if (!yTicks.length) yTicks = [yMin, yMax];
   yTicks.forEach(function (v) {
@@ -948,7 +1118,7 @@ function axes(ctx, w, h, pts, padL, padR, padT, padB) {
   });
 
   // Achsenrahmen
-  ctx.strokeStyle = "#3a414b";
+  ctx.strokeStyle = "#3a3a3a";
   ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH); ctx.stroke();
 
   return {
@@ -1000,12 +1170,16 @@ function draw() {
   ctx.clearRect(0, 0, cv.width, cv.height);
 
   var visible = cmp.runs.filter(function (r) {
+    // `cmp.hidden` ist der EINZIGE Schalter fuer die Sichtbarkeit: die
+    // Sammelschalter oben setzen ihn, und was nicht sichtbar ist, steht als
+    // Zahl daneben. Ein zweiter Schalter ("nur Auswahl") tat dasselbe auf
+    // einem anderen Weg - zwei Wege, eine Regel, und irgendwann zwei
+    // Wahrheiten.
     if (cmp.hidden[r.id]) return false;
-    if (state.onlySelected && r.id !== state.runId) return false;
     return r.points && r.points.length;
   });
   if (!visible.length) {
-    ctx.fillStyle = "#6f7885"; ctx.font = "13px " + MONO;
+    ctx.fillStyle = "#888888"; ctx.font = "13px " + MONO;
     ctx.fillText("Keine Messpunkte - es wurde noch nichts trainiert.", 16, 30);
     drawLegend(); return;
   }
@@ -1022,10 +1196,10 @@ function draw() {
   if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
     var yr = ax.toY(rv);
     ctx.save();
-    ctx.strokeStyle = "#d98cb3"; ctx.lineWidth = 1.3; ctx.setLineDash([7, 4]);
+    ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 1.3; ctx.setLineDash([7, 4]);
     ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = "#d98cb3"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+    ctx.fillStyle = "#3b82f6"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
     ctx.fillText("untrainiert " + fmtTick(rv) + (state.metric === "ppl" ? " (e^ln256)" : " = ln(256)"), ax.padL + 6, yr - 5);
   }
 
@@ -1036,10 +1210,10 @@ function draw() {
     if (isFinite(sv) && sv >= ax.yMin && sv <= ax.yMax) {
       var ys = ax.toY(sv);
       ctx.save();
-      ctx.strokeStyle = "#5a626e"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = "#5a5a5a"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(ax.padL, ys); ctx.lineTo(ax.padL + ax.plotW, ys); ctx.stroke();
       ctx.restore();
-      ctx.fillStyle = "#7d8794"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+      ctx.fillStyle = "#cccccc"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
       ctx.fillText("start " + fmtTick(sv), ax.padL + 6, ys + 12);
     }
   }
@@ -1057,7 +1231,7 @@ function draw() {
   // 5. Checkpoint-Marken am unteren Rand - wer weitertrainieren will,
   //    braucht diese Stellen.
   if (cur) {
-    ctx.fillStyle = "#4fb477"; ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#22c55e"; ctx.globalAlpha = 0.85;
     cur.points.forEach(function (p) {
       if (!p[2]) return;
       var x = ax.toX(p[0]);
@@ -1078,10 +1252,10 @@ function draw() {
     var bv = state.metric === "ppl" ? Math.exp(cur.best) : cur.best;
     if (isFinite(bv)) {
       var bx = ax.toX(cur.best_step), by = ax.toY(bv);
-      ctx.fillStyle = "#a8d94a";
+      ctx.fillStyle = "#faff69";
       ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#0d0f12"; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = "#a8d94a"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+      ctx.strokeStyle = "#0a0a0a"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = "#faff69"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
       var label = "bester " + fmtTick(bv);
       var tw = ctx.measureText(label).width;
       var lx = bx + 8;
@@ -1091,7 +1265,7 @@ function draw() {
   }
 
   // 7. Achsenbeschriftung. Ohne Einheit ist die Achse nicht lesbar.
-  ctx.fillStyle = "#98a1ae"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
   var yLabel = state.metric === "ppl" ? "Perplexitaet (e^Verlust)" : "Verlust (Cross-Entropy, je Byte)";
   ctx.fillText(yLabel + "  ·  " + (ax.useLog ? "log" : "linear"), 8, 12);
   ctx.textAlign = "right";
@@ -1116,10 +1290,10 @@ function drawLegend() {
     s.appendChild(t);
     box.appendChild(s);
   }
-  item("#d98cb3", "untrainiertes Modell " + (REF ? fmtTick(state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : "-"), "dash");
-  item("#5a626e", "Startwert dieses Laufs", "dash");
-  item("#a8d94a", "bester Stand", "dot");
-  item("#4fb477", "Checkpoint");
+  item("#3b82f6", "untrainiertes Modell " + (REF ? fmtTick(state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : "-"), "dash");
+  item("#5a5a5a", "Startwert dieses Laufs", "dash");
+  item("#faff69", "bester Stand", "dot");
+  item("#22c55e", "Checkpoint");
   var cur = currentRun();
   if (cur) item(colorOf(cur.id), "gewaehlter Lauf: " + cur.name);
   var hint = el("chart-hint");
@@ -1189,10 +1363,10 @@ function showTip(ev) {
   if (ax && state.series && isFinite(p[0]) && isFinite(valueOf(p))) {
     var ctx = cv.getContext("2d");
     var x = ax.toX(p[0]), y = ax.toY(valueOf(p));
-    ctx.strokeStyle = "#e7eaef"; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
     ctx.beginPath(); ctx.moveTo(x, ax.padT); ctx.lineTo(x, ax.padT + ax.plotH); ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#e7eaef";
+    ctx.fillStyle = "#ffffff";
     ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
   }
 }
@@ -1203,13 +1377,13 @@ function row(k, v) {
 // =====================================================================
 // Raster, Tabelle, Feed, Checkpoints
 // =====================================================================
-var PAL = ["#a8d94a", "#8ab4f8", "#e0a63c", "#c792ea", "#7fd1b9", "#ffb86c",
+var PAL = ["#faff69", "#8ab4f8", "#e0a63c", "#c792ea", "#7fd1b9", "#ffb86c",
            "#82aaff", "#e06c75", "#56b6c2", "#d6f56b", "#b0bec5", "#f0c674"];
 var cmp = { runs: [], hidden: {}, loaded: false };
 
 function colorOf(id) {
   for (var i = 0; i < cmp.runs.length; i++) { if (cmp.runs[i].id === id) return PAL[i % PAL.length]; }
-  return "#7d8794";
+  return "#cccccc";
 }
 
 function hypOf(r) {
@@ -1228,18 +1402,31 @@ function loadCompare() {
     // Neueste zuerst - dieselbe Ordnung wie in der Auswahlliste.
     cmp.runs.sort(function (a, b) { return (b.mtime || 0) - (a.mtime || 0); });
     cmp.loaded = true;
+    chipsErststart();
     drawGrid();
     draw();
     renderMeas();
     renderChips();
+    chipsZaehlen();
+    verteileGlossar();
   });
 }
 
 function drawGrid() {
   var box = el("grid");
   if (!cmp.runs.length) { box.innerHTML = '<div class="empty">Keine Laeufe gefunden.</div>'; return; }
+  // Ein Bild je Lauf sind bei 141 Laeufen 141 Diagramme: das ist der groesste
+  // Zeitfresser dieser Seite und der laengste Scrollweg. Gezeigt werden acht -
+  // der gewaehlte Lauf und die besten -, und die Zahl steht daneben. Wer alle
+  // will, klickt "alle anzeigen"; das ist EIN Klick statt 141.
+  var liste = gridAuswahl();
+  var zaehl = el("grid-count");
+  if (zaehl) {
+    zaehl.textContent = liste.length + " von " + cmp.runs.length + " Läufen gezeigt"
+      + (state.gridAlle ? " (alle)" : " - der gewählte Lauf und die besten");
+  }
   box.innerHTML = "";
-  cmp.runs.forEach(function (r) {
+  liste.forEach(function (r) {
     var note = evaluate(r);
     var cls = note.dir === "besser" ? "besser" : (note.dir === "schlechter" ? "schlechter" : (note.dir === "stabil" ? "stabil" : ""));
     var d = document.createElement("div");
@@ -1273,7 +1460,7 @@ function drawGrid() {
 
     var ctx = cv.getContext("2d");
     if (!r.points || !r.points.length) {
-      ctx.fillStyle = "#6f7885"; ctx.font = "11px " + MONO;
+      ctx.fillStyle = "#888888"; ctx.font = "11px " + MONO;
       ctx.fillText("keine Messpunkte", 10, 24);
       return;
     }
@@ -1283,7 +1470,7 @@ function drawGrid() {
     var rv = refValue();
     if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
       ctx.save();
-      ctx.strokeStyle = "#d98cb3"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
       var yr = ax.toY(rv);
       ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
       ctx.restore();
@@ -1291,7 +1478,7 @@ function drawGrid() {
     drawCurveOn(ctx, r.points, ax, colorOf(r.id), 1.7, false);
     if (r.best !== null && r.best !== undefined) {
       var bv = state.metric === "ppl" ? Math.exp(r.best) : r.best;
-      ctx.fillStyle = "#a8d94a";
+      ctx.fillStyle = "#faff69";
       ctx.beginPath(); ctx.arc(ax.toX(r.best_step), ax.toY(bv), 3, 0, Math.PI * 2); ctx.fill();
     }
   });
@@ -1300,7 +1487,12 @@ function drawGrid() {
 function renderMeas() {
   var tb = el("meas-table").querySelector("tbody");
   tb.innerHTML = "";
+  var sichtbar = 0;
   cmp.runs.forEach(function (r) {
+    // Filter und "nur laufende" sind reine Anzeige: es wird nichts geladen
+    // und nichts geaendert. Wie viele Zeilen weg sind, steht daneben.
+    if (!passtFilter(r)) return;
+    sichtbar++;
     var note = evaluate(r);
     var cls = note.dir === "besser" ? "besser" : (note.dir === "schlechter" ? "schlechter" : (note.dir === "stabil" ? "stabil" : ""));
     var tr = document.createElement("tr");
@@ -1329,6 +1521,8 @@ function renderMeas() {
     };
     tb.appendChild(tr);
   });
+  var zaehl = el("meas-count");
+  if (zaehl) zaehl.textContent = sichtbar + " von " + cmp.runs.length + " Läufen";
 }
 
 function renderFeed() {
@@ -1479,7 +1673,7 @@ function renderProv(d) {
   cmd.textContent = d.command || "-";
   rec.appendChild(cmd);
   var note = document.createElement("div");
-  note.style.color = "#6f7885"; note.style.fontSize = "11px";
+  note.style.color = "#888888"; note.style.fontSize = "11px";
   note.textContent = d.command_note || "";
   rec.appendChild(note);
   if (d.config_keys && d.config_keys.length) {
@@ -1886,7 +2080,6 @@ function syncButtons() {
   setPressed("yscale-lin", state.yscale === "linear");
   setPressed("metric-loss", state.metric === "loss");
   setPressed("metric-ppl", state.metric === "ppl");
-  setPressed("only-selected", state.onlySelected);
 }
 
 function redrawAll() {
@@ -1896,6 +2089,7 @@ function redrawAll() {
   drawGrid();
   renderMeas();
   renderChips();
+  chipsZaehlen();
 }
 
 // Lauf-Chips: ein Klick blendet den Lauf im Diagramm ein oder aus.
@@ -1934,10 +2128,6 @@ el("yscale-log").addEventListener("click", function () { state.yscale = "log"; r
 el("yscale-lin").addEventListener("click", function () { state.yscale = "linear"; redrawAll(); });
 el("metric-loss").addEventListener("click", function () { state.metric = "loss"; redrawAll(); });
 el("metric-ppl").addEventListener("click", function () { state.metric = "ppl"; redrawAll(); });
-el("only-selected").addEventListener("click", function () {
-  state.onlySelected = !state.onlySelected;
-  redrawAll();
-});
 el("chart").addEventListener("mousemove", showTip);
 el("chart").addEventListener("mouseleave", function () {
   el("tip").style.display = "none";
@@ -1956,6 +2146,8 @@ function tickAll() {
     .then(function () { return refreshSmart(); })
     .then(loadRegistry)
     .then(loadMessungen)
+    .then(loadBenchmarks)
+    .then(function () { zaehleNavigation(); zeigeKrumen(state.ansicht || "uebersicht"); verteileGlossar(); })
     .catch(function (e) { el("status").textContent = "fehler: " + e.message; });
 }
 
@@ -2012,6 +2204,10 @@ function streamEvent(d) {
     // Server meldet nur bei echter Aenderung, und ein Messlauf schreibt
     // selten - eine neue Zeile ist genau so eine Aenderung.
     .then(loadMessungen)
+    // Die Faehigkeitsseite haengt an der Registry; auch die steht im
+    // Fingerabdruck des Servers, eine neue Runde meldet sich also von selbst.
+    .then(loadBenchmarks)
+    .then(function () { zaehleNavigation(); zeigeKrumen(state.ansicht || "uebersicht"); verteileGlossar(); })
     .catch(function (e) { el("status").textContent = "fehler: " + e.message; });
 }
 
@@ -2033,12 +2229,448 @@ function connectStream() {
   });
 }
 
+// =====================================================================
+// Fassung 7: fünf Seiten statt einer Rolle
+//
+// Warum: eine Seite mit zwölf Abschnitten untereinander beantwortet keine
+// Frage, sie zeigt alles. Hier ist genau EINE Ansicht sichtbar, jede ist
+// einen Klick entfernt, und der Zustand steht in der Adresse. Es gibt kein
+// Server-Routing - der Hash wechselt nur im Browser, der Server sieht davon
+// nichts und muss nichts können.
+// =====================================================================
+var ANSICHTEN = ["uebersicht", "lauf", "faehigkeit", "checkpoints", "hilfe"];
+
+function zerlege(hash) {
+  var teile = String(hash || "").replace(/^#\/?/, "").split("/")
+    .filter(function (t) { return t.length > 0; });
+  var name = ANSICHTEN.indexOf(teile[0]) >= 0 ? teile[0] : "uebersicht";
+  return { name: name, arg: teile.length > 1 ? decodeURIComponent(teile[1]) : null };
+}
+
+function zeigeKrumen(name) {
+  var c = el("crumb");
+  if (!c) return;
+  var teile = ["<b>messstand</b>"];
+  if (name === "lauf") {
+    var r = currentRun();
+    teile.push("lauf");
+    teile.push("<b>" + esc(r ? r.name : "kein Lauf gewählt") + "</b>");
+  } else {
+    var v = el("v-" + name);
+    teile.push("<b>" + esc(v ? (v.getAttribute("data-titel") || name) : name) + "</b>");
+  }
+  if (state.letzteMeldung) teile.push("stand " + state.letzteMeldung.toLocaleTimeString("de-DE"));
+  c.innerHTML = teile.join('<span class="sep">›</span>');
+}
+
+function zeige(name, arg) {
+  ANSICHTEN.forEach(function (n) {
+    var v = el("v-" + n);
+    if (v) v.className = "view" + (n === name ? " active" : "");
+    var a = document.querySelector('nav.nav a[data-view="' + n + '"]');
+    if (a) a.className = (n === name ? "active" : "");
+  });
+  state.ansicht = name;
+  // Tiefensprung: #/lauf/<id> wählt den Lauf mit aus - ein geteilter Link
+  // zeigt damit dieselbe Kurve wie beim Absender.
+  if (name === "lauf" && arg && arg !== state.runId) {
+    state.runId = arg;
+    var sel = el("run");
+    if (sel) sel.value = arg;
+    loadDetail(); refreshSmart(); loadCompare(); renderVerdict();
+  }
+  zeigeKrumen(name);
+  // Eine Zeichenfläche, die versteckt war, hat keine Größe. Beim Wechsel auf
+  // "lauf" wird deshalb neu gezeichnet.
+  if (name === "lauf") { draw(); drawGrid(); }
+  window.scrollTo(0, 0);
+}
+
+function wechsle(name, arg) {
+  var ziel = "#/" + name + (arg ? "/" + encodeURIComponent(arg) : "");
+  if (location.hash === ziel) zeige(name, arg);
+  else location.hash = ziel;
+}
+
+window.addEventListener("hashchange", function () {
+  var z = zerlege(location.hash);
+  zeige(z.name, z.arg);
+});
+
+// =====================================================================
+// Jede Zahl in einem Satz
+//
+// Ein Glossar mit EINEM Satz je Größe. Derselbe Text steht als schwebende
+// Hilfe an der Zahl und als Liste auf der Hilfeseite - eine Quelle, damit
+// Erklärung und Anzeige nicht auseinanderlaufen. "a" sind weitere
+// Schreibweisen derselben Größe, wie sie in Tabellen vorkommen.
+// =====================================================================
+var GLOSSAR = [
+  { k: "verlust", a: ["verlust jetzt", "loss"], s: "Kreuzentropie je Byte: wie unsicher das Modell beim nächsten Byte ist. Tiefer ist besser.", f: "0,0887 heißt rund 0,09 Bit je Byte" },
+  { k: "verlust start", s: "Derselbe Wert beim ersten gemessenen Schritt des Laufs - der Vergleichspunkt.", f: "Startwerte liegen um 5,7 = die Unsicherheit eines untrainierten Modells" },
+  { k: "perplexität", a: ["ppl", "perplexität"], s: "e^Verlust: die anschauliche Einheit. Sie sagt, zwischen wie vielen gleich wahrscheinlichen Fortsetzungen das Modell schwankt.", f: "Perplexität 3,0 heißt: so gut wie 3 Möglichkeiten zur Auswahl" },
+  { k: "gegen untrainiert", a: ["bester"], s: "Um wie viel besser als ein untrainiertes Modell, das über 256 Byte-Werte rät (ln 256 = 5,5452).", f: "62× besser als Zufall = 5,5452 / 0,0887" },
+  { k: "tendenz", s: "Die Richtung des Verlusts zwischen erstem und letztem Messpunkt: besser, stabil oder schlechter.", f: "unter 0,2 % Änderung gilt als Streuung, nicht als Richtung" },
+  { k: "schritte", s: "Wie viele Optimierungsschritte im Log stehen. Ein Schritt ist ein Batch aus 16 Fenstern à 512 Byte.", f: "bei fortgesetzten Läufen zählt der Schritt global weiter" },
+  { k: "ms/schritt", s: "Wie lange ein Schritt gedauert hat - gemessen, nicht geschätzt.", f: "daraus ist die Restzeit rückwärts gerechnet" },
+  { k: "gflops", s: "Rechenleistung in Milliarden Gleitkomma-Operationen je Sekunde, gerechnet als 6 × Parameter × Bytes / Zeit.", f: "gemessen 41–64 GFLOPS auf der CPU" },
+  { k: "durchbruch", s: "Ein neuer bester Verlust - jeder Tiefstwert zählt, auch wenn er nur wenig tiefer liegt." },
+  { k: "stagnation", s: "Seit mindestens 50 Schritten kein neuer Bestwert. Das ist ein Hinweis, kein Urteil." },
+  { k: "nan", s: "Der Verlust ist keine Zahl mehr geworden (not a number). Der Lauf ist damit unbrauchbar." },
+  { k: "resume", s: "Der Lauf wurde aus einem gespeicherten Stand fortgesetzt statt neu gestartet.", f: "ein .state trägt Gewichte UND den AdamW-Zustand" },
+  { k: "checkpoint", s: "Ein gespeicherter Modellstand. .state = fortsetzbar, .safetensors = nur Gewichte." },
+  { k: "lücke", s: "Was noch fehlt, bis die Projektmarke D-047 erfüllt ist. In Prozentpunkten." },
+  { k: "marke d-047", a: ["marke"], s: "Die Projektmarke: Held-out Exact Match mindestens 90 % UND kein inhaltlicher Aufgabentyp unter 75 %.", f: "Registerzeile D-047 in docs/abschluss-vorbereitungsphase.md" },
+  { k: "exact match", a: ["em", "kopfzahl"], s: "Anteil der Fragen, deren Antwort byte-genau stimmt - die Kopfzahl einer Runde.", f: "Kopfzahl und Panel-Mittel können abweichen, wenn gegen anderes Material gemessen wurde" },
+  { k: "inhaltlich", a: ["inhalt"], s: "Dieselbe Quote, aber ohne die Fragetypen, die nur die Form prüfen (Kurzantwort) - die strengere Zahl." },
+  { k: "gestellt", s: "Wie oft dieser Aufgabentyp in den Panels dieser Runde vorkam." },
+  { k: "richtig", s: "Wie oft die Antwort byte-genau stimmte." },
+  { k: "schwächster typ", s: "Der Aufgabentyp mit der niedrigsten Quote in einem Panel - dort sitzt die Lücke." },
+  { k: "ängenommen", a: ["angenommen"], s: "Die Runde hat den annehmenden Stand erzeugt; sie ist die neue Ausgangslage." },
+  { k: "verworfen", s: "Die Runde hat den Stand verschlechtert und wurde verworfen - ein negatives Ergebnis, kein Fehler." },
+  { k: "unentschieden", s: "Die Messung konnte nicht entscheiden (Widerspruch zwischen den Panels). Es wird kein Hebel gezogen." },
+  { k: "score", s: "Die Kennzahl, an der der Loop die Runde bewertet. Steigt sie, gilt die Runde als besser." },
+  { k: "score_before", s: "Dieselbe Kennzahl vor der Runde - der Vergleichspunkt." },
+  { k: "deterministisch", s: "Die Pflichtprobe: dieselbe Messung ein zweites Mal, byte-identisch. Ohne sie ist die Runde ungültig." },
+  { k: "runde", s: "Ein Eintrag in registry/experiments.jsonl: eine Capability, ein Trainingslauf, eine Messung." },
+  { k: "panel", s: "Ein Messband aus Fragen. Panel A und B fragen auf disjunkten Sätzen und werden nie stillschweigend zusammengelegt." },
+  { k: "phase", a: ["pack"], s: "Welches Paket die Runde trainiert hat (z. B. reparatur-delta für die Änderungs-Antwortform)." },
+  { k: "replay", a: ["replay_share"], s: "Anteil alter Daten in der Mischung - gegen das Vergessen früherer Fähigkeiten." },
+  { k: "leiterstufe", s: "Welcher Hebel der Leiter in dieser Runde gezogen wurde." },
+  { k: "status", s: "Stand eines Messlaufs: läuft, Zwischenstand, fertig oder gescheitert." },
+  { k: "ergebnis", s: "Die gemessene Zahl des Messlaufs, z. B. 0/480 - hingeschrieben, nicht gedeutet." },
+  { k: "zeilen", s: "Wie viele Protokollzeilen zu diesem Messlauf gehören. Das Protokoll trägt keinen Zeitstempel; die Reihenfolge ist die Zeitachse." },
+  { k: "gelesen", s: "Wie viele Zeilen die Anzeige gelesen hat. Bei der Registry und beim Messprotokoll wird nur der Schwanz gelesen - die Zahl sagt, wie groß er war." },
+  { k: "übersprungen", a: ["uebersprungen"], s: "Wie viele Zeilen unlesbar waren (kein JSON, unbekannter Status, Feld leer) und deshalb nicht in die Zahlen eingegangen sind. Sie werden gezählt, nicht verschwiegen." }
+];
+var GLOSSAR_TEXT = {};
+function normText(s) {
+  return String(s || "").toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[·:.,;()]+$/g, "")
+    .trim();
+}
+GLOSSAR.forEach(function (g) {
+  GLOSSAR_TEXT[normText(g.k)] = g;
+  (g.a || []).forEach(function (al) { GLOSSAR_TEXT[normText(al)] = g; });
+});
+
+var TIP_AUSWAHL = "th, .fact .k, .kv .k, .reg-kv .k, .smart li .lbl, .marke .m .k, .reg-bar label, .lbl, .crumbleiste";
+
+// Hängt die Erklärung an jede Beschriftung, die im Glossar steht. Das
+// passiert NACH dem Rendern, damit die Anzeige-Funktionen unverändert
+// bleiben und es nur EINE Quelle für den Text gibt.
+function verteileGlossar() {
+  var knoten = document.querySelectorAll(TIP_AUSWAHL);
+  for (var i = 0; i < knoten.length; i++) {
+    var g = GLOSSAR_TEXT[normText(knoten[i].textContent)];
+    if (!g) continue;
+    var t = g.s + (g.f ? "  " + g.f : "");
+    knoten[i].setAttribute("data-tip", t);
+    knoten[i].title = t;
+  }
+}
+
+function zeigeTipbox(ev) {
+  var box = el("tipbox");
+  if (!box) return;
+  var n = ev.target && ev.target.closest ? ev.target.closest("[data-tip]") : null;
+  if (!n) { box.style.display = "none"; return; }
+  var g = GLOSSAR_TEXT[normText(n.textContent)];
+  if (!g) { box.style.display = "none"; return; }
+  box.innerHTML = "<b>" + esc(g.k) + "</b>" + esc(g.s)
+    + (g.f ? '<div class="mess-leer" style="margin-top:5px">' + esc(g.f) + "</div>" : "");
+  box.style.display = "block";
+  var r = n.getBoundingClientRect();
+  var x = Math.min(Math.max(8, r.left), Math.max(8, window.innerWidth - box.offsetWidth - 12));
+  var y = r.bottom + 8;
+  if (y + box.offsetHeight > window.innerHeight - 8) y = Math.max(8, r.top - box.offsetHeight - 8);
+  box.style.left = x + "px";
+  box.style.top = y + "px";
+}
+document.addEventListener("mouseover", zeigeTipbox);
+document.addEventListener("mouseout", function (ev) {
+  var ziel = ev.relatedTarget;
+  if (ziel && ziel.closest && ziel.closest("[data-tip]")) return;
+  var box = el("tipbox");
+  if (box) box.style.display = "none";
+});
+
+function renderGlossar() {
+  var dl = el("glossar");
+  if (!dl) return;
+  var h = "";
+  GLOSSAR.forEach(function (g) {
+    h += "<dt>" + esc(g.k) + "</dt><dd>" + esc(g.s)
+      + (g.f ? '<span class="f">' + esc(g.f) + "</span>" : "") + "</dd>";
+  });
+  dl.innerHTML = h;
+}
+
+// =====================================================================
+// Kurvenauswahl: sechs Sammelschalter statt 141 Einzelklicks
+//
+// Vorher musste jeder Lauf einzeln an- und abgeschaltet werden. Jetzt gibt
+// es Vorlagen, und die Zahl der sichtbaren Kurven steht daneben - eine
+// Anzeige, die 130 Kurven verschweigt, wäre eine andere Lüge als eine, die
+// sie zeigt, aber nur als Knäuel.
+// =====================================================================
+state.gridAlle = false;
+state.filter = "";
+state.onlyLive = false;
+
+function chipsZaehlen() {
+  var t = el("chips-count");
+  if (!t) return;
+  var n = cmp.runs.filter(function (r) { return !cmp.hidden[r.id]; }).length;
+  t.textContent = n + " von " + cmp.runs.length + " Kurven sichtbar"
+    + (n === 0 ? " - keine Kurve ausgewählt" : (n > 12 ? " - das ist ein Knäuel, \"beste 5\" hilft" : ""));
+}
+
+function chipsSetze(f) {
+  // Der Index wird mitgegeben: "die neuesten acht" ist eine Aussage ueber die
+  // REIHENFOLGE, und `cmp.runs` liegt neueste zuerst. Ohne den Index war
+  // `i < 8` immer falsch (undefined), und der Null-Klick-Zustand zeigte genau
+  // eine Kurve statt neun - gefunden von der Anzeigepruefung am 10.10.2026.
+  cmp.runs.forEach(function (r, i) { cmp.hidden[r.id] = !f(r, i); });
+  renderChips();
+  chipsZaehlen();
+  draw();
+  drawGrid();
+}
+
+// Erster Aufruf: acht Kurven statt aller. Der Null-Klick-Zustand muss
+// lesbar sein, sonst ist der erste Eindruck ein Fadenknäuel.
+function chipsErststart() {
+  if (cmp.vorbelegt || !cmp.runs.length) return;
+  cmp.vorbelegt = true;
+  chipsSetze(function (r, i) { return i < 8 || r.id === state.runId; });
+}
+
+function chipsBesten(n) {
+  var rang = cmp.runs.slice().sort(function (a, b) {
+    var x = (a.best === null || a.best === undefined) ? 9e9 : a.best;
+    var y = (b.best === null || b.best === undefined) ? 9e9 : b.best;
+    return x - y;
+  }).slice(0, n).map(function (r) { return r.id; });
+  chipsSetze(function (r) { return rang.indexOf(r.id) >= 0 || r.id === state.runId; });
+}
+
+if (el("chips-auswahl")) el("chips-auswahl").addEventListener("click", function () {
+  chipsSetze(function (r) { return r.id === state.runId; });
+});
+if (el("chips-beste")) el("chips-beste").addEventListener("click", function () { chipsBesten(5); });
+if (el("chips-neuste")) el("chips-neuste").addEventListener("click", function () {
+  chipsSetze(function (r, i) { return i < 8 || r.id === state.runId; });
+});
+if (el("chips-laufend")) el("chips-laufend").addEventListener("click", function () {
+  chipsSetze(function (r) { return !r.finished; });
+});
+if (el("chips-alle")) el("chips-alle").addEventListener("click", function () {
+  chipsSetze(function () { return true; });
+});
+if (el("chips-keine")) el("chips-keine").addEventListener("click", function () {
+  chipsSetze(function () { return false; });
+});
+
+// =====================================================================
+// Filter und Rastergrenze - die zwei Stellen, an denen 141 Läufe wehtun
+// =====================================================================
+function passtFilter(r) {
+  if (state.onlyLive && r.finished) return false;
+  var f = normText(state.filter);
+  if (!f) return true;
+  return normText(r.name).indexOf(f) >= 0 || normText(r.id).indexOf(f) >= 0;
+}
+
+if (el("run-filter")) el("run-filter").addEventListener("input", function () {
+  state.filter = el("run-filter").value;
+  renderMeas();
+});
+if (el("run-only-live")) el("run-only-live").addEventListener("click", function () {
+  state.onlyLive = !state.onlyLive;
+  setPressed("run-only-live", state.onlyLive);
+  renderMeas();
+});
+
+// Acht Bilder statt aller: der gewählte Lauf und die besten.
+function gridAuswahl() {
+  if (state.gridAlle) return cmp.runs;
+  var raus = [];
+  var gewaehlt = cmp.runs.filter(function (r) { return r.id === state.runId; })[0];
+  if (gewaehlt) raus.push(gewaehlt);
+  cmp.runs.slice().sort(function (a, b) {
+    var x = (a.best === null || a.best === undefined) ? 9e9 : a.best;
+    var y = (b.best === null || b.best === undefined) ? 9e9 : b.best;
+    return x - y;
+  }).forEach(function (r) {
+    if (raus.length < 8 && raus.indexOf(r) < 0) raus.push(r);
+  });
+  return raus;
+}
+if (el("grid-more")) el("grid-more").addEventListener("click", function () {
+  state.gridAlle = !state.gridAlle;
+  setPressed("grid-more", state.gridAlle);
+  el("grid-more").textContent = state.gridAlle ? "nur die besten acht" : "alle anzeigen";
+  drawGrid();
+});
+
+// =====================================================================
+// Die Fähigkeitsseite: der Projektstand, aus der Registry gerechnet
+//
+// Die Registry-Anzeige darunter gilt je EINTRAG. Diese Übersicht sagt, wo
+// das Projekt als Ganzes steht: wie viele Runden es gab, welche die Marke
+// D-047 erreicht hat, und an welchem Aufgabentyp es hängt. Sie poolt keine
+// Aufgabentyp-Tabellen - das verbietet die Projektregel.
+// =====================================================================
+function pp(v) {
+  if (v === null || v === undefined || !isFinite(v)) return "nicht gemessen";
+  return (v * 100).toFixed(1) + " %";
+}
+
+function zeigeMarke(d) {
+  var box = el("bench-marke");
+  if (!box) return;
+  var m = d.marke || {};
+  var b = d.beste;
+  var kacheln = [];
+  var zustand = m.erreicht_je ? "ja" : (d.mit_panels > 0 ? "nein" : "offen");
+  kacheln.push({
+    cls: zustand, k: "Marke D-047",
+    v: zustand === "ja" ? "erreicht" : (zustand === "nein" ? "nicht erreicht" : "keine Aussage"),
+    n: m.erreicht_je
+      ? "in " + m.erreicht_in + " von " + d.mit_panels + " messbaren Runden, zuletzt " + (m.erreicht_von || "?")
+      : "in keiner der " + d.mit_panels + " messbaren Runden erfüllt"
+  });
+  kacheln.push({
+    cls: "offen", k: "beste Runde",
+    v: b ? b.experiment_id : "keine",
+    n: b ? (b.kopf_quote !== null && b.kopf_quote !== undefined ? pp(b.kopf_quote) + " Kopfzahl" + (b.deterministisch ? " · deterministisch geprüft" : " · ohne Determinismus-Probe") : "ohne Panel-Zahl") : "keine Runde trägt Panels"
+  });
+  kacheln.push({
+    cls: b && b.kopf_quote >= (m.schwelle_1 || 0.9) ? "ja" : "nein", k: "Kopfzahl gegen die Marke",
+    v: b && b.kopf_quote !== null && b.kopf_quote !== undefined ? (b.abstand_pp >= 0 ? "+" : "") + b.abstand_pp.toFixed(1) + " Pp" : "-",
+    n: "Marke " + pp(m.schwelle_1) + " Exact Match, gerechnet aus den Panels"
+  });
+  kacheln.push({
+    cls: d.verworfen > d.angenommen ? "offen" : "ja", k: "Runden",
+    v: d.runden + "",
+    n: d.angenommen + " angenommen · " + d.verworfen + " verworfen · " + d.unentschieden + " unentschieden"
+  });
+  box.innerHTML = kacheln.map(function (k) {
+    return '<div class="m ' + k.cls + '"><div class="k">' + esc(k.k) + '</div><div class="v">'
+      + esc(k.v) + '</div><div class="n">' + esc(k.n) + "</div></div>";
+  }).join("");
+}
+
+function renderBench(d) {
+  var box = el("bench-body");
+  if (!box) return;
+  var b = d.beste;
+  var h = [];
+  if (b) {
+    var typen = b.typen_unter_marke || [];
+    h.push('<div class="card-reg ' + (b.erreicht ? "ja" : "nein") + '">');
+    h.push('<div class="reg-head"><span class="cap">' + esc(b.kurzname || b.experiment_id) + "</span>"
+      + '<span class="pill">' + esc(b.capability || "-") + "</span>"
+      + '<span class="pill">' + esc(b.urteil || "kein Urteil") + "</span>"
+      + '<span class="pill">' + (b.deterministisch ? "deterministisch geprüft" : "ohne Probe") + "</span>"
+      + '<span class="ampel ' + (b.erreicht ? "ja" : "nein") + '">'
+      + (b.erreicht ? "Marke erreicht" : "Marke nicht erreicht") + "</span></div>");
+    h.push('<div class="reg-kontext">' + esc(b.kontext || "") + "</div>");
+    h.push('<div class="kv">'
+      + '<div class="k">Kopfzahl</div><div class="v">' + pp(b.kopf_quote)
+      + (b.kopf_erfuellt ? " - Bedingung 1 erfüllt" : " - Bedingung 1 <b>nicht</b> erfüllt") + "</div>"
+      + '<div class="k">Panels</div><div class="v">' + (b.panels || 0) + " Messbänder, " + (b.gemessene_typen || 0) + " gemessene Aufgabentypen</div>"
+      + '<div class="k">Exact Match (Zeile)</div><div class="v">' + pp(b.exact_match) + " - die Kopfzahl der Registerzeile, kann vom Panel-Mittel abweichen</div>"
+      + "</div>");
+    if (typen.length) {
+      h.push('<div class="reg-kopf"><div class="reisser">Bedingung 2 offen: <b>'
+        + typen.length + "</b> Aufgabentyp" + (typen.length === 1 ? "" : "en") + " unter " + pp(d.marke.schwelle_2) + ".</div>");
+      h.push('<div class="kriterium">' + typen.map(function (t) {
+        return "<b>" + esc(t.typ) + "</b> " + pp(t.prozent) + " ("
+          + t.richtig + " von " + t.gestellt + ", fehlen " + t.fehlt_pp.toFixed(1) + " Pp)";
+      }).join(" · ") + "</div></div>");
+    } else {
+      h.push('<div class="reg-kopf"><div class="kriterium"><span class="ok">Bedingung 2 erfüllt</span> - kein Aufgabentyp unter '
+        + pp(d.marke.schwelle_2) + ".</div></div>");
+    }
+    h.push('<div class="hint">Quelle der Marke: ' + esc(d.marke.quelle || "-") + "</div>");
+    h.push("</div>");
+  } else {
+    h.push('<div class="empty">Keine Runde trägt Panel-Zahlen. Ohne Panels lässt sich die Marke nicht prüfen - die Registerzeilen der frühen Runden haben keine.</div>');
+  }
+
+  var v = d.verlauf || [];
+  if (v.length) {
+    h.push("<h3>verlauf der runden (neueste zuerst)</h3>");
+    h.push('<div class="tbl-scroll"><table><thead><tr><th>runde</th><th class="num">score</th>'
+      + '<th class="num">score vorher</th><th class="num">exact match</th><th class="num">kopfzahl</th>'
+      + "<th>urteil</th><th>deterministisch</th></tr></thead><tbody>");
+    v.slice().reverse().forEach(function (r) {
+      h.push("<tr>"
+        + "<td>" + esc(r.experiment_id) + (r.kurzname ? ' <span class="mess-leer">' + esc(r.kurzname) + "</span>" : "") + "</td>"
+        + '<td class="num">' + (r.score === null || r.score === undefined ? "-" : fmtNum(r.score, 4)) + "</td>"
+        + '<td class="num">' + (r.score_before === null || r.score_before === undefined ? "-" : fmtNum(r.score_before, 4)) + "</td>"
+        + '<td class="num">' + (r.exact_match === null || r.exact_match === undefined ? "-" : pp(r.exact_match)) + "</td>"
+        + '<td class="num">' + (r.kopf === null || r.kopf === undefined ? "-" : pp(r.kopf)) + "</td>"
+        + "<td>" + esc(r.urteil || "-") + "</td>"
+        + "<td>" + (r.deterministisch ? "ja" : "<span class=\"mess-leer\">nein</span>") + "</td>"
+        + "</tr>");
+    });
+    h.push("</tbody></table></div>");
+  }
+  box.innerHTML = h.join("");
+
+  var hint = el("bench-hint");
+  if (hint) {
+    var teile = ["aus " + d.registry];
+    teile.push(d.runden + " Runden gelesen, " + d.mit_panels + " davon mit Panels");
+    teile.push(d.uebersprungen + " Zeile(n) übersprungen");
+    if (d.hinweis) teile.push(d.hinweis);
+    teile.push("kein Projekt-Mittelwert über Aufgabentypen: Panels messen auf disjunkten Fragesätzen und werden nicht gepoolt");
+    hint.textContent = teile.join("   ·   ");
+  }
+  verteileGlossar();
+}
+
+function loadBenchmarks() {
+  return get("/api/benchmarks").then(function (d) {
+    zeigeMarke(d);
+    renderBench(d);
+    var n = el("nav-runden");
+    if (n) n.textContent = d.runden;
+    return d;
+  }).catch(function (e) { el("status").textContent = "fehler: " + e.message; });
+}
+
+function zaehleNavigation() {
+  var a = el("nav-runs");
+  if (a) a.textContent = state.runs.length;
+  var c = el("nav-cps");
+  if (c) c.textContent = (state.cps || []).length;
+  var r = el("nav-run");
+  if (r) { var cur = currentRun(); r.textContent = cur ? cur.name : ""; }
+}
+
 syncButtons();
 connectStream();
 
 // Der Vergleich (cmp.runs) traegt die Kurvenpunkte; draw und drawGrid lesen
 // sie. `state.series` liefert die exakten Werte fuer den Tooltip - beides
 // kommt aus demselben Server, nur unterschiedlich ausgeduennt.
+//
+// Start: Glossar und Route zuerst, damit die Seite schon steht, wenn die
+// erste Meldung des Servers kommt.
+//
+// Achtung, hier stand zuerst `zeige(zerlege(location.hash))` - das gibt der
+// Funktion das GANZE Objekt statt Name und Argument, und dann passt kein
+// einziger Name: die Seite blieb leer, ohne dass ein Test anschlug. Der
+// Wechsel-Handler unten macht es richtig, und die Anzeigepruefung hat den
+// Unterschied am 10.10.2026 gefunden.
+renderGlossar();
+var start = zerlege(location.hash);
+zeige(start.name, start.arg);
 </script>
 </body>
 </html>

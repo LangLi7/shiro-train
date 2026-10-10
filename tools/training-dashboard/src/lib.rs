@@ -1,5 +1,6 @@
 //! Testbarer Kern des Dashboards.
 
+pub mod benchmark;
 pub mod html;
 pub mod jsonout;
 pub mod jsonread;
