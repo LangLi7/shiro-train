@@ -3821,3 +3821,102 @@ der antwortenden Suchquellen wird nirgends sichtbar; Kollisionspruefung
 dokumentiert (strenges Muster `O-U[0-9]` 0 Treffer, case-sensitive Teilstring 0
 Treffer, case-insensitive 2 Fehltreffer `o-Urteil`/`o-Unterbefehle`). **Register:**
 D-073.
+## 8.7 Neunter Teil - Phase 4 gemessen: die Kombination wirkt, das Zahlenende fehlt (10.10.2026)
+
+**Auftrag.** Nutzerauflage vom 09.10.2026: Mathematik nicht als Einzelfamilie,
+sondern in KOMBINATION mit dem logisch/analytischen Denken; Antwortlaenge und
+Zahlenende als eigene Pflichtachse; Dauerbetrieb des Loops. Umgesetzt als
+Phase 4 des Loop-Programms (D-071), dokumentiert als D-074.
+
+**Ausgangslage, VOR dem Lauf belegt.** offen-01 (D-069) hatte fuer die
+Additionsfamilie gemessen: **0 von 3 080** Treffern in beiden Armen, beide Arme
+auf allen vier Stellenbaendern schlechter als das untrainierte Modell, und als
+Mechanismus eine fehlende Terminierung (78,7-fache Ueberlaenge, 46,0 Prozent ein
+einziges Byte, erwartete Zahl in 0 von 13 Funden an der Antwortposition). Das
+Kriterium fuer diese Runde wurde deshalb VOR dem Lauf im Kopf von
+`configs/train.kombi-add.toml` festgeschrieben (Klauseln a bis d).
+
+**GENAU EINE geaenderte Groesse.** `data.dir` zeigt auf
+`data/kombi-add/train` statt `data/kombi-mathe/train`: derselbe Familienmix
+(`seq`, `quant`, `logic-large`, `algebra`) plus zwei Shards Grundrechenarten
+(`data/add/train-1d` 100 Datensaetze, `data/add/train-2d` 8 100) - 6 statt 4
+Shards, 228 920 statt 220 720 Datensaetze, 60 927 858 statt 60 338 908 B.
+Modell, Dosis (2000 Schritte), Rate (1e-4 konstant), Seed 1337, Batch
+16 x 512, Antwortform delta und Elternstand `kombi-delta-step021200.state`
+unveraendert. Erzeugt mit `shiro data combine --antwortform delta`.
+
+**Ressourcen und Stand.** GPU `Device<Cube(Cuda(Cuda(0)))>`, 676,485 s,
+340,74 GFLOPS, Verlust 5,7269-artiger Startwert auf 0,0928 -> 0,1623 (beste
+0,0442), 12 196 Bytes/s; Stand `checkpoints/kombi-add-step23200.safetensors`
+plus `.state` (53,3 MB), Zwischenstaende bei Schritt 22 000 und 23 000. Kein
+Modellwechsel, kein Eingriff in fremde Arbeit.
+
+**Messung.** `/home/changchi/phase4/messung2.sh` (Fassung 2) mit
+GPU-Waechter: fehlt die GPU oder waehlt der Starter die CPU, bricht das Skript
+mit exit 4 bzw. 5 ab, statt still auf der CPU zu rechnen. Alle elf Aufrufe
+melden `Backend: cuda`. Ergebnis in `/home/changchi/phase4/messung2.log`.
+
+**Verluststufe, neun Baender, Baseline im selben Lauf.** `seq/val` 5,7449 ->
+0,5072; `quant/val` 5,6590 -> 0,4537; `logic-large/val` 5,7055 -> 0,9388;
+`algebra/val` 5,8643 -> 1,7967; `formel/val` 5,8471 -> 3,4631 (in keinem der
+beiden Korpora, daher nicht gegen Arm A vergleichbar); `add/train-1d`
+5,9904 -> 1,0744; `add/train-2d` 5,9116 -> 0,3237; `add/eval-3d`
+5,8605 -> 1,1676; `add/eval-4d` 5,8143 -> 1,5953. Die vier Additionsbaender
+sind damit besser als Arm A **und** besser als die untrainierte Basislinie.
+
+**Trefferstufe, byte-genau, greedy.** `train-1d` 65 von 100 (65,0 %),
+`train-2d` 478 von 480 (99,6 %), `eval-3d` 172 von 480 (35,8 %), `eval-4d`
+1 von 480 (0,2 %) - zusammen **716 von 1 540** gegen **0 von 3 080** vorher.
+Determinismus-Probe bestanden: `eval-4d` ein zweites Mal vollstaendig gemessen,
+`cmp` byte-identisch, sha256
+`56eed35d98fe581ded1a2081c556788ebf07d1b7d12e1d8b226897296e964e78`.
+
+**Laengsachse (Pflichtachse, D-071).** Ausgewertet ueber die 26 gedruckten
+Abweichungsbeispiele (`/home/changchi/laengsachse-phase4.py`), Methode wie in
+offen-01: Ueberlaenge **78,7x -> 0,98x** (Median 0,83x, 0,67 bis 1,33x) - die
+fehlende Terminierung ist WEG; Byte-Konzentration **46,0 % -> 42,6 %**, das
+haeufigste Byte ist jetzt das Leerzeichen und keine wiederholte Ziffer;
+gemeinsamer Praefix **1,0 bis 1,4 -> 2,92 Byte**. Das dritte Unterkriterium ist
+jedoch NICHT erfuellt: die erwartete Zahl steht in **0 von 26** Beispielen an
+der Antwortposition.
+
+**Der neue, praezisere Restfehler: das ZAHLENENDE.** Das Modell erzeugt die
+fuehrenden Ziffern richtig und bricht dann ab - `eval-3d` 1378 -> 138,
+1837 -> 183, 969 -> 96; `eval-4d` 9791 -> 97, 12018 -> 120. Auf den
+einstelligen Baendern verdoppelt es stattdessen (5 -> 55), was die beiden
+Fehlerarten trennt. Genau der Nutzersatz "es verliert systematisch das
+Zahlenende", jetzt mit Belegstelle statt als Vermutung.
+
+**Kriterium (a) bis (d).** (a) **ERFUELLT** - vier von vier Baendern besser als
+Arm A, auf Verlust UND Trefferquote. (b) **UEBERWIEGEND** - `seq` unveraendert
+(0,5071 -> 0,5072), `quant` schlechter (0,3862 -> 0,4537, +17,5 Prozent
+relativ), `logic-large` leicht schlechter (0,9196 -> 0,9388, +2,1 Prozent),
+`algebra` schlechter (1,6734 -> 1,7967, +7,4 Prozent), aber kein Einbruch: alle
+Werte bleiben weit unter der Basislinie. (c) **TEILWEISE** - zwei von drei
+Unterkriterien erfuellt. (d) **Probe ERFUELLT, Panels offen** - die
+2x480-Panels wurden in diesem Lauf nicht gemessen.
+
+**Urteil.** Die Kombination wirkt auf der Zielfamilie, und der in offen-01
+gemessene Formatdefekt ist beseitigt. Die Runde wird trotzdem NICHT als
+abgeschlossen verbucht: Klausel (c) ist im entscheidenden Unterkriterium offen
+und (d) hat die Panels nicht gesehen. Die naechste EINE Variable ist die
+Antwortlaenge selbst, nicht die Dosis.
+
+**Gates.** `scripts/check-table-pipes.py` exit 0, `scripts/check-doc-links.py`
+exit 0 (Summe tote Links 0), `scripts/lernstufen-check.sh` exit 0,
+`scripts/programmiersprachen-check.sh` exit 0.
+
+**Eigener Fehler, offen gelegt.** Beim Eintragen der Registerzeile hat ein
+zweiter Skriptlauf die Registerdatei ab der Zeile D-074 ABGESCHNITTEN und damit
+alles nach der D-073-Zeile verloren (19 518 B, 221 Zeilen). Die Datei wurde aus
+der HEAD-Fassung plus der fremden uncommitteten D-068-Zeile und der eigenen
+D-074-Zeile exakt wiederhergestellt; der Beweis ist die Byte- und Zeilenzahl des
+gemessenen Standes vor dem Schaeden (279 004 B, 406 Zeilen) - byte-genau
+getroffen, die fremde Zeile ist erhalten. Lehre fuer das Werkzeug: ein
+EINFUEGE-Schritt darf nie bis zum Dateiende abschneiden; das Abschneiden am
+eigenen Marker ist nur fuer ANHAENGE richtig.
+
+**Nicht getan.** Kein Modellwechsel, keine Aenderung an `data/`, `configs/`,
+`deploy/` oder fremden Arbeitsstaenden; offen-02 (Delta-Antwortform) und
+offen-03 (Kapazitaet S) unveraendert an ihrer Stelle; kein fremder Prozess
+gestoert.

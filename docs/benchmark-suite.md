@@ -359,3 +359,137 @@ jede Zahl nachpruefbar bleibt.
 | Coding: LeetCode-Lizenzurteil | **entschieden: nicht nutzbar** (Abschnitt 4.4); externe Ergaenzung waere CruxEval (MIT), erst nach der Kontaminationspruefung |
 | Logik/Spiele: Panels je Spieltyp | Instrument vorhanden (`benchmark-logik.py`), Lauf offen |
 | Durchbruch-Benchmark | Instrument vorhanden, laeuft in Phase 4 des Loop-Programms |
+## 8. Mathematik, Phase 4: die Kombinationsrunde mit den Grundrechenarten (10.10.2026)
+
+Erweitert Abschnitt 4.1 (Stellenachse). Anlass ist die Nutzerauflage vom
+09.10.2026: Mathematik nicht als Einzelfamilie, sondern in KOMBINATION -
+"basic math danach algebra und in kombination von logisches und Analytisches
+denken mit trainieren". Der Lauf aendert gegenueber Arm A (D-060) GENAU EINE
+Groesse: `data.dir` zeigt auf `data/kombi-add/train` statt
+`data/kombi-mathe/train`. Modell, Dosis (2000 Schritte), Rate (1e-4 konstant),
+Seed (1337), Batch (16 x 512), Antwortform (delta) und Elternstand
+(`checkpoints/kombi-delta-step021200.state`) sind unveraendert.
+
+| Arm | Korpus | Shards | Datensaetze | Nutzbytes |
+| --- | --- | --- | --- | --- |
+| A (Runde 36, D-060) | `data/kombi-mathe/train` | 4 | 220 720 | 60 338 908 |
+| C (diese Runde) | `data/kombi-add/train` | 6 | 228 920 | 60 927 858 |
+
+Die zwei zusaetzlichen Shards sind die Grundrechenarten: `data/add/train-1d`
+(100 Datensaetze) und `data/add/train-2d` (8 100). Training auf der GPU
+(`Device<Cube(Cuda(Cuda(0)))>`), 676,485 s, 340,74 GFLOPS, Verlust
+0,0928 -> 0,1623 (beste 0,0442), 12 196 Bytes/s; Stand
+`checkpoints/kombi-add-step23200.safetensors`. Messung in
+`/home/changchi/phase4/messung2.log`, alle Aufrufe mit `Backend: cuda`; die
+Fassung 2 hat einen GPU-Waechter, der bei fehlender GPU ABBRICHT (exit 4/5)
+statt still auf die CPU zu fallen.
+
+### 8.1 Verluststufe (9 Baender, Baseline im selben Lauf)
+
+| Band | Baseline | Trainiert | Differenz | Arm A (D-060) |
+| --- | --- | --- | --- | --- |
+| `seq/val` | 5,7449 | **0,5072** | -5,2377 | 0,5071 |
+| `quant/val` | 5,6590 | **0,4537** | -5,2053 | 0,3862 |
+| `logic-large/val` | 5,7055 | **0,9388** | -4,7666 | 0,9196 |
+| `algebra/val` | 5,8643 | **1,7967** | -4,0676 | 1,6734 |
+| `formel/val` | 5,8471 | 3,4631 | -2,3840 | kein formel-Shard |
+| `add/train-1d` | 5,9904 | **1,0744** | -4,9160 | 6,3843 |
+| `add/train-2d` | 5,9116 | **0,3237** | -5,5879 | 5,9743 |
+| `add/eval-3d` | 5,8605 | **1,1676** | -4,6929 | 5,9089 |
+| `add/eval-4d` | 5,8143 | **1,5953** | -4,2190 | 5,8216 |
+
+`formel` ist in keinem der beiden Korpora enthalten, der Wert ist deshalb nicht
+gegen Arm A vergleichbar (Arm B mit formel-Shard stand bei 0,2835). Alle neun
+Laeufe melden `exit=0` und sichtbare GPU.
+
+### 8.2 Trefferstufe (byte-genau, greedy)
+
+| Band | Fragen | richtig | Quote | offen-01 (beide Arme) |
+| --- | --- | --- | --- | --- |
+| `add/train-1d` | 100 | **65** | 65,0 % | 0 von 100 |
+| `add/train-2d` | 480 | **478** | 99,6 % | 0 von 480 |
+| `add/eval-3d` | 480 | **172** | 35,8 % | 0 von 480 |
+| `add/eval-4d` | 480 | **1** | 0,2 % | 0 von 480 |
+| Summe | 1 540 | **716** | 46,5 % | 0 von 3 080 |
+
+Determinismus-Probe: `eval-4d` ein zweites Mal vollstaendig gemessen, `cmp`
+byte-identisch, sha256
+`56eed35d98fe581ded1a2081c556788ebf07d1b7d12e1d8b226897296e964e78`.
+
+### 8.3 Laengsachse (Pflichtachse nach D-071 und Loop-Programm 4.1)
+
+Methode wie in offen-01: ausgewertet werden die GEDRUCKTEN
+Abweichungsbeispiele der vier Trefferlaeufe, hier 26 Stueck
+(`/home/changchi/laengsachse-phase4.py`).
+
+| Merkmal | offen-01 | diese Runde | Kriterium | Ergebnis |
+| --- | --- | --- | --- | --- |
+| Ueberlaenge | 78,7x (27,9 bis 110x) | **0,98x** (Median 0,83x) | unter 78,7x | erfuellt |
+| Byte-Konzentration | 46,0 % | **42,6 %** | unter 46,0 % | erfuellt |
+| Zahl an der Antwortposition | 0 von 13 | **0 von 26** | mindestens 1 | **nicht erfuellt** |
+| erwartete Zahl als Teilkette | 13 von 64 | 8 von 26 | - | - |
+| gemeinsamer Praefix | 1,0 bis 1,4 Byte | 2,92 Byte (2 bis 4) | - | - |
+
+**Der Mechanismus hat sich gedreht.** Die fehlende Terminierung ist weg: keine
+Wiederholung, keine 78,7-fache Ueberlaenge, und das haeufigste Byte der Antwort
+ist jetzt das Leerzeichen statt einer wiederholten Ziffer. An ihre Stelle tritt
+der VERLUST DES ZAHLENENDES - das Modell erzeugt die fuehrenden Ziffern richtig
+und bricht dann ab:
+
+| Band | erwartet | erzeugt |
+| --- | --- | --- |
+| `eval-3d` | 1378 | 138 |
+| `eval-3d` | 1837 | 183 |
+| `eval-3d` | 969 | 96 |
+| `eval-4d` | 9791 | 97 |
+| `eval-4d` | 12018 | 120 |
+| `train-1d` | 5 | 55 |
+
+Das ist der Nutzersatz "es verliert systematisch das Zahlenende", jetzt mit
+Belegstelle. Auf den einstelligen Baendern ist das Fehlerbild ein anderes
+(Verdopplung statt Abbruch), was die beiden Fehlerarten trennt.
+
+### 8.4 Kriterium (a) bis (d), vorab festgelegt im Kopf von `configs/train.kombi-add.toml`
+
+| Klausel | Inhalt | Ergebnis |
+| --- | --- | --- |
+| (a) | Additionsbaender besser als Arm A, auf Verlust UND Trefferquote | **ERFUELLT** (4 von 4 Baendern) |
+| (b) | `seq`, `quant`, `logic-large` brechen nicht ein | **UEBERWIEGEND** (siehe 8.5) |
+| (c) | Laengsachse bewegt sich | **TEILWEISE** (2 von 3 Unterkriterien) |
+| (d) | Form kaputt 0 von 0 auf beiden Panels, Determinismus-Probe byte-identisch | **Probe ERFUELLT**, Panels NICHT gemessen |
+
+### 8.5 Preis der Runde, offen benannt
+
+| Familie | Arm A | diese Runde | relativ |
+| --- | --- | --- | --- |
+| `seq/val` | 0,5071 | 0,5072 | unveraendert |
+| `quant/val` | 0,3862 | 0,4537 | +17,5 % |
+| `logic-large/val` | 0,9196 | 0,9388 | +2,1 % |
+| `algebra/val` | 1,6734 | 1,7967 | +7,4 % |
+
+Kein Einbruch: alle vier Werte liegen weiterhin weit unter der untrainierten
+Baseline (312,6 / 286,9 / 300,5 / 352,2 Perplexitaet gegen 1,7 / 1,6 / 2,6 /
+6,0). Die Zunahme bei `quant` ist der deutlichste Nebeneffekt.
+
+### 8.6 Urteil
+
+Die Kombination WIRKT auf der Zielfamilie. Die Additionsfamilie ist von
+**0 von 3 080** auf **716 von 1 540** Fragen gekommen, und der in offen-01
+gemessene Formatdefekt ist verschwunden. Der Restfehler ist weder die Rechnung
+noch die Terminierung, sondern das ZAHLENENDE. Die Runde wird deshalb NICHT als
+abgeschlossen verbucht: Klausel (c) ist im entscheidenden Unterkriterium offen,
+und (d) hat die 2x480-Panels noch nicht gesehen. Die naechste EINE Variable ist
+damit die Antwortlaenge selbst, nicht die Dosis.
+
+### 8.7 Grenzen der Auswertung
+
+1. Die Laengsachse stuetzt sich auf **26 gedruckte Beispiele**, nicht auf alle
+   1 540 Fragen; die Rohgenerierungen werden vom Messpfad nicht gespeichert.
+2. Die Trefferquote der **untrainierten** Basislinie ist weiterhin nicht
+   messbar: `shiro eval --answers` bricht ohne `--checkpoint` ab
+   (`src/main.rs` Z. 2931).
+3. Die Vergleichbarkeit gegen Arm A ist sauber (gleicher Elternstand, gleiche
+   Dosis, eine geaenderte Groesse), aber der Korpus waechst mit der Runde um
+   8 200 Datensaetze (+3,7 %). Fuer die Additionsbaender ist das der Zweck der
+   Runde, fuer die kleinen Nebenkosten bei `quant` und `logic-large` bleibt es
+   ein nicht getrennter Anteil.
