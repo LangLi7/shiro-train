@@ -3529,3 +3529,73 @@ nur ihre Protokolle nach `/home/changchi/bm-mathe/`. Der Commit enthaelt nur die
 eigenen Zeilen dieser Runde (Index-Blob-Technik), keine fremden Aenderungen aus
 dem Arbeitsbaum.
 
+## 8.7 Siebter Teil - Doku-Index und Ordnung (09.10.2026)
+
+**Auftrag:** die Dokumentation uebersichtlich machen - Ordnerstruktur, ein Index als
+Lesezeichen in `docs/`, Protokoll, Registerzeile. Reine Doku-Arbeit, kein Training,
+kein Code, keine Daten.
+
+**Ausgangslage.** HEAD bei Beginn `41bf61b` (eigener bm3-Abschluss). Waehrend der
+Arbeit hat die Parallelsitzung `95ffd5b` committet ("Messprotokoll (Fassung 6)");
+der Index nennt den Stand, zu dem er erzeugt wurde.
+
+**Bestandsaufnahme (gemessen, nicht geschaetzt).** 143 Dokumentationsdateien unter
+`docs/` und in der Repo-Wurzel, zusammen **3 720 395 B**; davon **80 versioniert**
+und **63 unversioniert** (kein Git-Eintrag, keine Historie). Zeilenenden sind
+ueberwiegend LF; die Ausnahmen sind `docs/verifikation.md` (CRLF-only, 3 929/3 929)
+sowie vorbestehend gemischt `docs/byte-model-gpu-analyse.md` (389 CRLF) und
+`docs/standard-benchmarks-katalog-anhang.md` (2 CRLF) - beide **nicht angefasst**.
+
+**Ergebnis: kein Umzug, und zwar aus gemessenem Grund.** Vierzehn thematisch klar
+getrennte Kandidaten wurden geprueft. Fuer jeden wurde gezaehlt, wer im Repo auf ihn
+verweist - getrennt nach fremd geaenderten/unversionierten Dokumenten, sauberen
+Dokumenten und Quellcode/Konfiguration:
+
+| Kandidat | vorgesehener Ordner | fremde/unversionierte Verweise | saubere Verweise | Quellcode/Config |
+| --- | --- | --- | --- | --- |
+| `docs/byte-model-gpu-analyse.md` | hardware-und-kosten/ | 13 | 4 | `configs/model.small.toml`, `deploy/runpod.toml`, `src/config.rs`, `src/logging.rs`, `src/main.rs` |
+| `docs/gpu-manuelle-einrichtung.md` | hardware-und-kosten/ | 6 | 1 | `src/backend.rs` |
+| `docs/runpod.md` | hardware-und-kosten/ | 4 | 2 | - |
+| `docs/algebra-korpus.md` | korpus/ | 3 | 1 | - |
+| `docs/algebra-eintritt-in-den-korpus.md` | korpus/ | 4 | 2 | `src/data/algebra.rs`, `src/data/formel.rs` |
+| `docs/formel-korpus.md` | korpus/ | 4 | 1 | - |
+| `docs/kombi-korpus.md` | korpus/ | 8 | 3 | - |
+| `docs/autonomer-loop-plan.md` | loop-und-betrieb/ | 4 | 0 | - |
+| `docs/trainingsloop-logik-plan.md` | loop-und-betrieb/ | 6 | 3 | - |
+| `docs/experiment-log.md` | protokolle/ | 16 | 6 | `src/agent.rs` |
+| `docs/ursachen-abschluss.md` | projektstand/ | 6 | 1 | - |
+| `docs/ZUSAMMENFASSUNG.md` | projektstand/ | 6 | 2 | - |
+| `docs/STACK-BEWERTUNG.md` | projektstand/ | 4 | 0 | - |
+| `docs/stack.md` | projektstand/ | 3 | 7 | - |
+
+**Befund:** Jeder Kandidat wird aus Dokumenten genannt, die fremde, noch nicht
+committete Aenderungen tragen, und neun der vierzehn zusaetzlich aus Quellcode,
+Konfiguration oder Deploy-Dateien. Ein Verschieben ohne Linkbruch haette Eingriffe in
+`src/`, `configs/`, `deploy/` und in fremde Arbeitsstaende erfordert. **Deshalb wurde
+KEINE Datei verschoben, keine umbenannt und kein Link umgeschrieben.** Die Ordnung
+lebt stattdessen im Index und in den Pflege-Regeln; `lernstufen/` und
+`programmiersprachen/` sind ohnehin tabu, weil `scripts/lernstufen-check.sh` (Z. 23)
+und `scripts/programmiersprachen-check.sh` (Z. 28) fest an diesen Baeumen haengen.
+
+**Neu: `docs/index.md`** (33 902 B, 358 Zeilen, LF, ohne BOM, abschliessendes LF).
+Er nennt **jede** der 143 Dateien mit Kategorie, Groesse, Zeilen, Git-Status,
+Selbstbeschreibung und den darin vorkommenden D-IDs. Die Eintraege sind **echte
+Links** (relativ zu `docs/`), damit das Link-Gate sie prueft: **143 Links geprueft,
+0 tot**. Dazu die Abschnitte "Wo ist was" (Protokoll, Register, Roadmap,
+Loop-Programm, Benchmarks, Pruefwerkzeuge), "Pflege-Regeln" (wohin ein neues
+Dokument gehoert, Zeilenenden, Pipe-Escaping, Gates), "vorgesehene Ordnung",
+"gemessene Umzugs-Blockade" und die benannte Luecke der 63 unversionierten Dateien.
+
+**Gates (WSL2, Exit-Code und Zahl):**
+`scripts/check-table-pipes.py docs/index.md` exit 0 (1 Datei, 0 zerbrochene
+Tabellenzeilen); `scripts/check-doc-links.py docs/index.md` exit 0 (143 Links
+geprueft, 0 tot); `scripts/lernstufen-check.sh` exit 0 (0 Warnungen);
+`scripts/programmiersprachen-check.sh` exit 0 (0 Warnungen).
+
+**Registerzeile D-070** (Layout-Konvention und Index) im Entscheidungsregister;
+hoechste ID vorher live geprueft: D-069, D-070 war frei.
+
+**Nicht getan:** kein Verschieben, kein Umbenennen, kein Umschreiben von Links; keine
+Aenderung an `src/`, `data/`, `configs/`, `deploy/`, `checkpoints/`, `logs/`; kein
+Training, keine Prozesse gestartet (pgrep-Gegenprobe leer).
+
