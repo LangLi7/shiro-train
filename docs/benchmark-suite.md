@@ -94,8 +94,12 @@ seq, quant, logic-large, algebra und formel). Alle vier Baender sind fuer beide
 Arme damit **fremder Stoff**; die Baender `train-1d`/`train-2d` sind Bezug fuer
 die Familie selbst.
 
-**Erstes Ergebnis (gemessen 09.10.2026, Arm A `kombi-mathe-step23200`
-SHA `e6428567`, Arm B `kombi-mathe2-step23200` SHA `d5386d9b`, Kontext 512 Byte):**
+**Ergebnis, beide Stufen vollstaendig (gemessen 09.10.2026, Arm A
+`kombi-mathe-step23200` SHA `e6428567`, Arm B `kombi-mathe2-step23200`
+SHA `d5386d9b`, Kontext 512 Byte, CUDA-Binary
+`/home/changchi/.cache/shiro-target-cuda/release/shiro`):**
+
+Verluststufe (je Band Baseline gegen beide Arme):
 
 | Band | n | untrainiert | Arm A | Arm B |
 | --- | --- | --- | --- | --- |
@@ -104,19 +108,86 @@ SHA `e6428567`, Arm B `kombi-mathe2-step23200` SHA `d5386d9b`, Kontext 512 Byte)
 | 3-stellig | 2 000 | **5,8605** (350,9) | 5,9089 (368,3) | 5,9271 (375,1) |
 | 4-stellig | 2 000 | **5,8143** (335,0) | 5,8216 (337,5) | 5,8665 (353,0) |
 
-**Befund.** Beide trainierten Arme sind auf **allen vier** Baendern **schlechter
-als das untrainierte Modell**, und die byte-genaue Antwortquote liegt auf den
-bisher gemessenen Baendern bei **0 von 100** (1-stellig). Der Schaden ist
-gleichmaessig ueber die Stellenzahl - er ist also **kein** Stellenproblem,
-sondern ein Formatproblem: die Arme sind auf den Mustern ihrer eigenen Korpora
-spezialisiert und verlieren die allgemeine Byte-Verteilung, die fuer den
-Additionskorpus gebraucht wird. Das ist die Verscharfung des in **O-D21**
-notierten negativen Transfers: er ist nicht auf 3 und 4 Stellen beschraenkt,
-sondern gilt auch fuer 1 und 2 Stellen.
+Die Differenz zur untrainierten Basislinie (positiv = schlechter) ist das Mass
+fuer den Schaden - und sie **faellt** mit der Stellenzahl:
 
-**Kriterium (vorab fuer die naechste Messung).** Ein Stand "verallgemeinert
-ueber die Stellenlaenge", wenn die Antwortquote auf `eval-3d` und `eval-4d`
-jeweils **ueber** der untrainierten Basislinie liegt. Heute: nicht erfuellt.
+| Band | Arm A | Arm B |
+| --- | --- | --- |
+| 1-stellig | +0,3939 | +0,5032 |
+| 2-stellig | +0,0627 | +0,1070 |
+| 3-stellig | +0,0484 | +0,0666 |
+| 4-stellig | +0,0073 | +0,0522 |
+
+Trefferstufe, byte-genau und greedy, dieselben zwei Arme und dieselben vier
+Baender (Auswahl ueber den Shard, Antwort aus dem Feld im Datensatz):
+
+| Band | Fragen | Auswahl | Arm A richtig | Arm B richtig |
+| --- | --- | --- | --- | --- |
+| 1-stellig | 100 | jeder 1. | **0** (0,0 %) | **0** (0,0 %) |
+| 2-stellig | 480 von 8 100 | jeder 16. | **0** (0,0 %) | **0** (0,0 %) |
+| 3-stellig | 480 von 2 000 | jeder 4. | **0** (0,0 %) | **0** (0,0 %) |
+| 4-stellig | 480 von 2 000 | jeder 4. | **0** (0,0 %) | **0** (0,0 %) |
+
+**8 von 8 Zeilen sind null: 0 von 3 080 gestellten Fragen.** Rohdaten:
+`/home/changchi/bm-mathe/stellen.log` Zeilen 8-15 (Verlust) und 18-27 (Treffer),
+Protokolle `answers-A-<band>.log` und `answers-B-<band>.log`.
+
+**Determinismus-Probe (Pflichtklausel).** `eval-4d` Arm A ein zweites Mal
+vollstaendig gemessen: beide Laeufe sind **byte-identisch** (`cmp` ohne
+Unterschied, je 5 368 B, sha256
+`1d7f41a78bd2cf877dd20a553916b589cd567e1c3eae79a35f5acac29e86157f`). Der
+Messpfad ist damit auch auf dieser Familie reproduzierbar (D-050).
+
+**Abweichungsanalyse (eigene Auswertung, nur aus den Protokollen gelesen).**
+Die Logs drucken je Band 8 Abweichungsbeispiele (jeder stride-te Fehler),
+zusammen 64. Daran gemessen:
+
+| Merkmal | Messwert | Was es ausschliesst |
+| --- | --- | --- |
+| erzeugte Antwort zu lang | **78,7x** der erwarteten (27,9x bis 110x) | ein Stellenwertfehler erzeugt Ziffern richtiger Laenge |
+| haeufigstes Byte der Antwort | **46,0 %** aller erzeugten Bytes | eine Rechnung wiederholt nicht ein einzelnes Byte |
+| erwartete Zahl als Teilkette | 13 von 64 (20,3 %), davon **0 von 13 an der Antwortposition**, gemeinsamer Praefix 1,0-1,4 Byte | die Fundstellen liegen mitten in der Ziffernsuppe (bis 16 Vorkommen derselben Zahl) und sind damit Zufallstreffer der Wiederholung, kein Beweis fuer richtiges Rechnen |
+
+Grenze dieser Auswertung: sie stuetzt sich auf die 64 **gedruckten** Beispiele,
+nicht auf alle 3 080 Fragen; die Rohgenerierungen werden nicht gespeichert.
+
+**Befund.** Der Befund traegt - und er wird dabei **genauer** als vorher
+formuliert:
+
+1. **Kein Ziffernproblem.** Waere die Stellenzahl die Ursache, muesste der
+   Schaden mit der Stellenzahl **wachsen**. Gemessen ist das Gegenteil: am
+   groessten bei 1 Stelle (+0,3939 / +0,5032), am kleinsten bei 4 Stellen
+   (+0,0073 / +0,0522). Und die Antwort scheitert nicht an den Ziffern, sondern
+   **an der Antwortposition**: der gemeinsame Praefix mit der erwarteten Antwort
+   betraegt im Mittel 1 Byte (nur das fuehrende Leerzeichen), und die erwartete
+   Zahl steht in **keinem** Beispiel dort, wo sie hingehoert.
+2. **Formatproblem, mit benanntem Mechanismus.** Der Fehler ist die **fehlende
+   Terminierung**: das Modell schliesst das Antwortfeld nicht ab (`ENDE` fehlt),
+   sondern laeuft in eine Wiederholung (78,7-fache Laenge, 46 % ein einziges
+   Byte). Der byte-genaue Vergleich mit Budget `soll.len()+2` zaehlt das als
+   Fehler - zu Recht, denn die Antwort ist nicht die Antwort.
+3. **Familienproblem.** Die Additionsfamilie ist in **keinem** Korpus der Arme
+   (`kombi-mathe` und `kombi-mathe2` bestehen aus seq, quant, logic-large,
+   algebra, formel), und beide Arme sind auf **allen vier** Baendern schlechter
+   als ein **untrainiertes** Modell. Das ist der in **O-D21** notierte negative
+   Transfer - hier erstmals auch fuer die 1- und 2-stelligen Baender belegt.
+
+**Kriterium (vorab festgelegt, jetzt entschieden).** Ein Stand
+"verallgemeinert ueber die Stellenlaenge", wenn die Antwortquote auf `eval-3d`
+und `eval-4d` jeweils **ueber** der untrainierten Basislinie liegt. Ergebnis:
+**nicht erfuellt** - und zwar entscheidbar, **ohne** die Basislinie messen zu
+muessen: eine Quote ist per Definition **groesser oder gleich null**, `0 von
+480` liegt also unter keinen Umstaenden darueber. Auf der Verlustachse ist das
+Kriterium ebenfalls nicht erfuellt (beide Arme schlechter, alle vier Baender).
+
+**Luecke, die dabei aufgefallen ist (neu).** Die Trefferquote der
+**untrainierten** Basislinie ist mit dem heutigen Messpfad **nicht messbar**:
+`shiro eval --answers` bricht ohne `--checkpoint` ab (`--answers braucht
+--checkpoint`, `src/main.rs` Z. 2931). Die Antwortmessung ist damit fest an
+eine Checkpoint-Datei gebunden, und fuer den untrainierten Stand existiert
+keine. Der Vergleichsmassstab fehlt also genau auf der Stufe, die als
+Durchbruch zaehlt; das Kriterium oben ist deshalb ueber die Nichtnegativitaet
+entschieden und **nicht** durch eine Messung der Basislinie.
 
 ### 4.2 Logik und analytisches Denken - Puzzles und Spiele
 

@@ -3447,3 +3447,85 @@ unberuehrt. `data/` wurde nur durch die Messung selbst beruehrt (`--dry-run`-Pan
 Rundenkorpus unter `data/agent/`, Regel R12 des Loop-Programms). Der laufende Messjob wurde nicht
 gestoert.
 
+## 8.7 Sechster Teil - die Stellenachse ist abgeschlossen (09.10.2026)
+
+**Auftrag:** den in der Pause abgebrochenen Stellen-Benchmark (bm3) zu Ende
+fahren - die zwei fehlenden Trefferlaeufe und die versaeumte
+Determinismus-Probe -, die Tabelle vervollstaendigen, ein Urteil schreiben,
+Registerzeile, Protokollblock, Doku-Gates, ein Commit.
+
+**Ausgangslage beim Wiederaufnehmen:** sechs von acht Trefferzeilen lagen vor und
+standen alle bei null (train-1d A/B, train-2d A/B, eval-3d A, eval-3d B). Offen
+waren `eval-4d` Arm A, `eval-4d` Arm B und die Determinismus-Probe. Die Laeufe
+wurden mit `/home/changchi/bm3-rest2.sh` nachgefahren - eine bewusste Abweichung
+von `/home/changchi/bm3-rest.sh`: dessen Zeile 31 faehrt `eval-3d` Arm B erneut,
+obwohl diese Zeile seit dem 09.10.2026 fertig ist (0 von 480). Das haette eine
+Doppelzeile und rund 13 Minuten GPU ohne neue Information gekostet. Aufrufe,
+Umgebung (LD_LIBRARY_PATH=/usr/lib/wsl/lib, CUDA-Binary) und Logformat sind sonst
+identisch; der Runner haengt an `stellen.log` an und ueberschreibt nichts.
+
+**Ergebnis (gemessen, kein Training):**
+
+- Trefferstufe vollstaendig, 8 von 8 Zeilen null: `train-1d` 0 von 100 (beide
+  Arme, Auswahl jeder 1.), `train-2d` 0 von 480 (jeder 16.), `eval-3d` 0 von 480
+  (jeder 4.), `eval-4d` 0 von 480 (jeder 4.) - zusammen **0 von 3 080** Fragen,
+  byte-genau und greedy.
+- Verluststufe: beide Arme auf allen vier Baendern schlechter als das
+  untrainierte Modell; die Differenz **faellt** mit der Stellenzahl
+  (Arm A +0,3939 / +0,0627 / +0,0484 / +0,0073, Arm B +0,5032 / +0,1070 /
+  +0,0666 / +0,0522).
+- Determinismus-Probe bestanden: `eval-4d` Arm A ein zweites Mal vollstaendig
+  gemessen, beide Laeufe `cmp`-gleich, je 5 368 B, sha256
+  `1d7f41a78bd2cf877dd20a553916b589cd567e1c3eae79a35f5acac29e86157f`.
+
+**Eigene Zusatzmessung (unabhaengig, nur aus den Protokollen gelesen):** die 64
+gedruckten Abweichungsbeispiele ergeben eine **78,7-fache Ueberlaenge** der
+erzeugten Antwort (27,9x bis 110x), einen Anteil von **46,0 Prozent** des
+haeufigsten Bytes und 13 von 64 Faellen mit der erwarteten Zahl als Teilkette -
+davon **0 von 13 an der Antwortposition** (gemeinsamer Praefix 1,0 bis 1,4 Byte,
+also nur das fuehrende Leerzeichen; bis zu 16 Vorkommen derselben Zahl mitten in
+der Ziffernsuppe). Die Zahlfunde sind damit Zufallstreffer der Wiederholung. Der
+Mechanismus ist die **fehlende Terminierung**: das Antwortfeld wird nicht
+abgeschlossen, das Modell laeuft in eine Wiederholung. Grenze der Auswertung: sie
+stuetzt sich auf die 64 gedruckten Beispiele, nicht auf alle 3 080 Fragen.
+
+**Urteil.** Der Befund "Format-/Familienproblem, keine Ziffernfrage" traegt und
+wird praeziser: (1) **kein Ziffernproblem** - der Schaden faellt mit der
+Stellenzahl statt zu wachsen, und die Antwort scheitert an der Antwortposition,
+nicht an den Ziffern; (2) **Formatproblem mit benanntem Mechanismus** - fehlende
+Terminierung und Wiederholung; (3) **Familienproblem** - die Additionsfamilie ist
+in keinem Korpus der Arme (`kombi-mathe`, `kombi-mathe2`), beide Arme sind
+schlechter als ein untrainiertes Modell (O-D21, jetzt auch fuer 1 und 2 Stellen
+belegt).
+
+**Das vorab festgelegte Kriterium ist entschieden und negativ.** "Antwortquote auf
+`eval-3d` und `eval-4d` ueber der untrainierten Basislinie": eine Quote ist per
+Definition groesser oder gleich null, `0 von 480` liegt also unter keinen
+Umstaenden darueber. Auf der Verlustachse ist es ebenfalls nicht erfuellt.
+
+**Neue Luecke, offen benannt.** Die Trefferquote der **untrainierten** Basislinie
+ist mit dem heutigen Messpfad nicht messbar: `shiro eval --answers` bricht ohne
+`--checkpoint` ab ("--answers braucht --checkpoint", `src/main.rs` Z. 2931). Die
+Antwortmessung ist fest an eine Checkpoint-Datei gebunden, und fuer den
+untrainierten Stand existiert keine. Der Vergleichsmassstab fehlt damit genau auf
+der Stufe, die als Durchbruch zaehlt; das Kriterium ist deshalb ueber die
+Nichtnegativitaet entschieden und nicht ueber eine Messung.
+
+**Korrektur eines eigenen Teilstands.** Die Registerzeile D-067 nennt "byte-genaue
+Antwortquote 0 von 100 auf dem 1-stelligen Band" - das war der Stand vor der
+Pause. Richtig ist **0 von 3 080** ueber alle vier Baender und beide Arme; die
+Korrektur steht als D-069 im Register.
+
+**Gates (in WSL2 ausgefuehrt, exit-Code und Verdikt):**
+`scripts/check-table-pipes.py` exit 0 (141 Dateien, 0 zerbrochene Tabellenzeilen),
+`scripts/check-doc-links.py` exit 0 (benchmark-suite.md 0 Links geprueft,
+abschluss-vorbereitungsphase.md 8 Links geprueft, verifikation.md 2 Links
+geprueft, Summe tote Links 0), `scripts/lernstufen-check.sh` exit 0 (0
+Warnungen), `scripts/programmiersprachen-check.sh` exit 0 (0 Warnungen).
+
+**Nicht getan:** kein Training, kein Modellwechsel, keine Aenderung an `src/`,
+`data/`, `configs/`, `deploy/`, `checkpoints/`; die Messlaeufe selbst schreiben
+nur ihre Protokolle nach `/home/changchi/bm-mathe/`. Der Commit enthaelt nur die
+eigenen Zeilen dieser Runde (Index-Blob-Technik), keine fremden Aenderungen aus
+dem Arbeitsbaum.
+
