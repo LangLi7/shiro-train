@@ -3920,3 +3920,77 @@ eigenen Marker ist nur fuer ANHAENGE richtig.
 `deploy/` oder fremden Arbeitsstaenden; offen-02 (Delta-Antwortform) und
 offen-03 (Kapazitaet S) unveraendert an ihrer Stelle; kein fremder Prozess
 gestoert.
+## 8.7 Zehnter Teil - Klausel (d) der Phase-4-Runde geschlossen: die Antwortform entscheidet (10.10.2026)
+
+**Auftrag (Nutzerentscheidung).** Erst die offene Verifikationsklausel
+dokumentieren, dann die naechste Runde: *"erst (a), dann (b). Keine neue
+Trainingsrunde, bevor die offene Verifikationsklausel dokumentiert ist."* Der
+Grund ist methodisch und wird hier eingehalten: ein starker Befund zur Addition
+(D-074) bei gleichzeitig offener Klausel (d) laesst eine offene
+Verifikationspflicht im vorigen Experiment zurueck.
+
+**Was gemessen wurde.** Die in D-074 fehlenden **2x480-Panels** auf dem
+eingefrorenen Stand `checkpoints/kombi-add-step23200.safetensors`
+(Commit `ce771e4`), **ohne Training und ohne neuen Checkpoint**: Panel A 480
+Datensaetze (jeder 10. aus `data/seq/val`), Panel B 480 (jeder 10., Versatz 5),
+disjunkt. Drei Laeufe `agent capability run sequence_reasoning --dry-run` -
+absolute Form, Delta-Form (`--pack reparatur-delta`), und Lauf 1 ein zweites Mal
+als Determinismus-Probe. Alle drei `exit=0`, alle auf der GPU
+(`Backend: cuda`), GPU-Waechter bestanden.
+
+**Determinismus-Probe bestanden.** Lauf 1 ein zweites Mal vollstaendig
+gemessen, `cmp` byte-identisch, sha256
+`55ac6e8ae84bbbcb123ea173ef80bc6a27ff2411af5358ba52e7ad5326f81870`.
+
+**Das Ergebnis ist ein einziges, sehr klares Bild.** Die je-Typ-Zahlen beider
+Antwortformen sind **identisch** - bis auf `reparatur`, den einzigen Typ, den
+das Delta-Paket umschreibt (A 63 Faelle, B 60):
+
+| Kennzahl | absolute Form A / B | Delta-Form A / B |
+| --- | --- | --- |
+| inhaltlich | 83,0 % (341/411) / 84,1 % (359/427) | **92,0 % (378/411) / 93,0 % (397/427)** |
+| Score | 0,516 / 0,520 | **0,548 / 0,552** |
+| `reparatur` | 23/63 / 20/60 | **60/63 / 58/60** |
+| **Form kaputt** | **34 / 34** | **0 / 0** |
+
+`Form kaputt` heisst im Code woertlich *"die erzeugte Antwort ist gar nicht
+zweiteilig"* (`src/agent.rs`, `FormBefund::form_kaputt`).
+
+**Klausel (d) im Ganzen.** In der **Delta-Form erfuellt**: die Runde traegt die
+Delta-Konvention (Kopf von `configs/train.kombi-add.toml`, Korpus mit
+`--antwortform delta`), dort steht `Form kaputt` bei **0 von 0 auf beiden
+Panels**, und der Lauf meldet *"Schwellen auf beiden Panels erfuellt - keine
+weitere Runde noetig"* (`capability_pass`): inhaltlich 92,0 % und 93,0 %,
+Kurzantwort 100 %, kein Typ unter 75 % (schwaechster `regel` 88,1 % bzw.
+86,5 %). **Damit ist D-047 erstmals in der Delta-Form auf BEIDEN Panels
+erfuellt.** In der **absoluten Form ist sie NICHT erfuellt** (34/34, inhaltlich
+83,0 % und 84,1 %).
+
+**Der Befund, der traegt.** Ein Stand antwortet zuverlaessig nur in der
+**Antwortform seines Trainingskorpus**. Dieselben 480 Fragen, derselbe Stand,
+nur die Frageform geaendert: `reparatur` 36,5 % -> 95,2 % (Panel A) und
+33,3 % -> 96,7 % (Panel B). Das ist der in D-049/O-D34 beschriebene Effekt,
+jetzt erstmals auf den Panels gemessen.
+
+**Der Restfehler, von zwei Seiten.** Auf den Additionsbaendern steht die
+erwartete Zahl in **0 von 26** Faellen an der Antwortposition (Ziffernende
+fehlt: 1378 -> 138, 9791 -> 97); auf den Panels in der absoluten Form sind
+**34 von 63** Antworten nicht einmal zweiteilig. Beides ist derselbe
+Mechanismus: wird die Antwort in einer Form verlangt, die der Korpus nicht
+traegt, bricht sie ab. **Naechste EINE Variable ist damit die Behandlung des
+Zahlenendes in Korpus und Messung - nicht die Dosis.**
+
+**Verfahrensbefund (Regel R12, unveraendert).** `agent capability run` ist
+nicht schreibfrei: er hat `data/agent/sequence_reasoning-i1/train` neu gebaut
+(19 200 Datensaetze / 4 770 079 B) und eine Zeile in
+`registry/experiments.jsonl` eingetragen (`parent_checkpoint
+kombi-add-step23200`, `urteil KEINE_RUNDE`, `exact_match 0,93125`). Die
+Registry-Zeile ist Teil dieses Commits, der Messkorpus ist ignoriert.
+
+**Gates.** `scripts/check-table-pipes.py` exit 0, `scripts/check-doc-links.py`
+exit 0 (Summe tote Links 0), `scripts/lernstufen-check.sh` exit 0,
+`scripts/programmiersprachen-check.sh` exit 0.
+
+**Nicht getan.** Kein Training, kein Modellwechsel, kein neuer Checkpoint;
+`checkpoints/`, `configs/`, `deploy/` und fremde Arbeitsstaende unberuehrt;
+offen-02 und offen-03 unveraendert an ihrer Stelle.

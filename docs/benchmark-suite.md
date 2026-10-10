@@ -493,3 +493,110 @@ damit die Antwortlaenge selbst, nicht die Dosis.
    8 200 Datensaetze (+3,7 %). Fuer die Additionsbaender ist das der Zweck der
    Runde, fuer die kleinen Nebenkosten bei `quant` und `logic-large` bleibt es
    ein nicht getrennter Anteil.
+## 9. Phase 4, Klausel (d): die 2x480-Panels sind gemessen (10.10.2026)
+
+Schliesst die in Abschnitt 8.4 offen gelassene Klausel (d) der Phase-4-Runde
+(D-074). **Kein Training, kein neuer Checkpoint** - nur Auswertung des
+eingefrorenen Standes `checkpoints/kombi-add-step23200.safetensors`
+(Commit `ce771e4`). Drei Laeufe, alle mit `exit=0` und bestandenem GPU-Waechter
+(`Backend: cuda`):
+
+| Lauf | Aufruf | Ergebnis |
+| --- | --- | --- |
+| 1 | `agent capability run sequence_reasoning --weights kombi-add-step23200 --dry-run` | absolute Form |
+| 2 | derselbe mit `--pack reparatur-delta` | Delta-Form (D-049) |
+| 3 | Lauf 1 ein zweites Mal | Determinismus-Probe |
+
+Panel-Definition unveraendert: **Panel A** 480 Datensaetze (jeder 10. aus
+`data/seq/val`), **Panel B** 480 (jeder 10., Versatz 5) - disjunkt; Wertung
+getrennt je Familie und je Antwortform, Kurzantwort-Typ `vergleich` getrennt.
+
+### 9.1 Kopfzahlen beider Antwortformen
+
+| Kennzahl | absolute Form A / B | Delta-Form A / B |
+| --- | --- | --- |
+| inhaltlich | 341/411 = **83,0 %** / 359/427 = **84,1 %** | 378/411 = **92,0 %** / 397/427 = **93,0 %** |
+| Kurzantwort (`vergleich`) | 69/69 = 100 % / 53/53 = 100 % | unveraendert |
+| gesamt | 85,4 % / 85,8 % | **93,1 % / 93,8 %** |
+| Antwortform-Quote | 94,4 % / — | **97,1 % / —** |
+| Score | 0,516 / 0,520 | **0,548 / 0,552** |
+| **Form kaputt** | **34 / 34** | **0 / 0** |
+
+**Determinismus-Probe bestanden:** Lauf 1 ein zweites Mal vollstaendig
+gemessen, `cmp` byte-identisch, sha256
+`55ac6e8ae84bbbcb123ea173ef80bc6a27ff2411af5358ba52e7ad5326f81870`.
+
+### 9.2 Der Unterschied liegt in GENAU einem Aufgabentyp
+
+Die je-Typ-Zahlen sind zwischen beiden Formen **identisch** - mit einer
+Ausnahme: das Delta-Paket schreibt nur die `reparatur`-Faelle um (A 63, B 60).
+Genau dort sitzt der ganze Unterschied.
+
+| Typ | absolute Form A / B | Delta-Form A / B |
+| --- | --- | --- |
+| `reparatur` | 23/63 = 36,5 % / 20/60 = 33,3 % | **60/63 = 95,2 % / 58/60 = 96,7 %** |
+| `luecke` | 48/51 / 56/58 | unveraendert |
+| `naechste` | 55/59 / 57/62 | unveraendert |
+| `offen` | 58/62 / 48/52 | unveraendert |
+| `regel` | 52/59 / 64/74 | unveraendert |
+| `reparatur1` | 45/55 / 64/67 | unveraendert |
+| `stelle` | 60/62 / 50/54 | unveraendert |
+| `vergleich` | 69/69 / 53/53 | unveraendert |
+
+Der **zweiteilige** Befund derselben Laeufe:
+
+| Antwortform | zweiteilig | beide richtig | Stelle richtig/Wert falsch | Stelle falsch | **Form kaputt** |
+| --- | --- | --- | --- | --- | --- |
+| absolut, Panel A | 63 | 23 | 5 | 1 | **34** |
+| absolut, Panel B | 60 | 20 | 5 | 1 | **34** |
+| Delta, Panel A | 63 | 60 | 1 | 2 | **0** |
+| Delta, Panel B | 60 | 58 | 0 | 2 | **0** |
+
+### 9.3 Urteil zu Klausel (d)
+
+**In der Delta-Form erfuellt, in der absoluten Form messbar nicht erfuellt.**
+`Form kaputt` heisst im Code woertlich: *die erzeugte Antwort ist gar nicht
+zweiteilig* (`src/agent.rs`, `FormBefund::form_kaputt`).
+
+1. **Determinismus-Probe: bestanden** (byte-identisch) - unbedingt.
+2. **`Form kaputt` 0 von 0 auf beiden Panels: erfuellt in der Delta-Form.**
+   Die Phase-4-Runde traegt die Delta-Konvention (Kopf von
+   `configs/train.kombi-add.toml`, Korpus mit `--antwortform delta`), also ist
+   die Delta-Form die Form des Korpus - und in ihr steht der Wert bei 0/0.
+3. **In der absoluten Form steht er bei 34/34.** Das ist der in D-049/O-D34
+   gemessene Effekt, jetzt erstmals auf den Panels: **ein Stand antwortet
+   zuverlaessig nur in der Antwortform seines Trainingskorpus.** Dieselben 480
+   Fragen, derselbe Stand, nur die Frageform geaendert: `reparatur` 36,5 % ->
+   95,2 % (Panel A) und 33,3 % -> 96,7 % (Panel B).
+4. **Nebenbei erreicht:** in der Delta-Form meldet der Lauf
+   *"Schwellen auf beiden Panels erfuellt - keine weitere Runde noetig"*
+   (`capability_pass`) - inhaltlich 92,0 % und 93,0 % bei keinem Typ unter
+   75 % (schwaechster Typ `regel` 52/59 = 88,1 % bzw. 64/74 = 86,5 %). Damit
+   ist die Marke **D-047 in der Delta-Form auf BEIDEN Panels erfuellt**.
+
+### 9.4 Was das fuer die naechste Runde bedeutet
+
+Der Restfehler der Runde ist nicht die Rechnung und nicht die Terminierung,
+sondern **die Antwortform bzw. das Zahlenende** - und die beiden Messungen
+zeigen ihn von zwei Seiten:
+
+| Ort | Befund |
+| --- | --- |
+| Additionsbaender (absolute Form des Korpus) | Zahl in **0 von 26** Faellen an der Antwortposition; Ziffernende fehlt (1378 -> 138) |
+| Panels (absolute Form gefragt, Delta trainiert) | **34 von 63** Antworten sind nicht einmal zweiteilig |
+| Panels (Delta-Form, wie trainiert) | 0 von 63; `reparatur` 95,2 % |
+
+Die naechste Runde aendert deshalb **genau eine** Groesse: die Behandlung des
+Zahlenendes in Trainingskorpus und Messung - nicht die Dosis.
+
+### 9.5 Grenzen
+
+1. Die Panels messen die Faehigkeit `sequence_reasoning` auf `data/seq/val`; die
+   Additionsbaender sind eine eigene Messachse (Abschnitt 8).
+2. `agent capability run` ist **nicht schreibfrei** (Regel R12): er baut seinen
+   Messkorpus unter `data/agent/sequence_reasoning-i1/train` neu (heute
+   19 200 Datensaetze / 4 770 079 B) und traegt eine Zeile in
+   `registry/experiments.jsonl` ein (`parent_checkpoint`
+   `kombi-add-step23200`, `urteil KEINE_RUNDE`, `exact_match 0,93125`).
+3. Der Vergleich absolute/Delta-Form ist ein Vergleich zweier **Frageformen**
+   auf denselben Fragen, kein Vergleich zweier Staende.
