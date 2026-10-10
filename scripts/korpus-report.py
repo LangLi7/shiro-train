@@ -131,6 +131,14 @@ SOLWERTE = {
     "data/kombi-delta/train": (130000, 43863176),
     "data/kombi-mathe/train": (220720, 60338908),
     "data/kombi-mathe2/train": (320720, 89905697),
+    # Phase 4 (D-071, 09.10.2026): Kombinationskorpus MIT den Grundrechenarten.
+    # Gebaut mit: data combine --src data/seq/train --src data/quant/train
+    #   --src data/logic-large/train --src data/algebra/train
+    #   --src data/add/train-1d --src data/add/train-2d
+    #   --out data/kombi-add/train --antwortform delta
+    # Gegenueber data/kombi-mathe/train sind GENAU die beiden add-Shards neu
+    # (8.200 Datensaetze, 588.950 B) - das ist die eine geaenderte Groesse.
+    "data/kombi-add/train": (228920, 60927858),
 }
 
 # Erwartete Pruefsumme fuer die eingefrorenen Arme: wer diese Korpora neu baut,

@@ -1,0 +1,89 @@
+# Trainingslauf auf dem KOMBINIERTEN Korpus MIT den GRUNDRECHENARTEN
+# (Phase 4 der neuen Phasenfolge, Registerzeile D-071, Nutzerauflage 09.10.2026).
+#
+# WAS DIESER LAUF BEANTWORTET. Der Nutzer will Mathematik nicht als Einzelfamilie,
+# sondern in KOMBINATION: "basic math danach algebra und in kombination von
+# logisches und Analytisches denken mit trainieren". Die Analyse (offen-01, D-069)
+# hat gemessen, warum das noetig ist: die Additionsfamilie ist in KEINEM der
+# bisherigen Arme enthalten, die Trefferquote steht bei 0 von 3 080, und beide
+# Arme sind auf allen vier Stellenbaendern schlechter als das untrainierte Modell.
+#
+# GENAU EINE GEAENDERTE GROESSE gegenueber Arm A (D-060, `train.kombi-mathe.toml`):
+# `data.dir` zeigt auf `data/kombi-add/train` - derselbe Korpus wie
+# `data/kombi-mathe/train`, aber mit ZWEI zusaetzlichen Shards fuer die
+# Grundrechenarten (`data/add/train-1d` 100 Datensaetze, `data/add/train-2d`
+# 8 100). Modell, Dosis (2000 Schritte), Rate (1e-4 konstant), Seed (1337),
+# Batch (16 x 512), Antwortform (delta) und Elternstand sind UNVERAENDERT.
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data combine --src data/seq/train --src data/quant/train \
+#                      --src data/logic-large/train --src data/algebra/train \
+#                      --src data/add/train-1d --src data/add/train-2d \
+#                      --out data/kombi-add/train --antwortform delta
+#
+# ELTERNSTAND wie bei Arm A: `checkpoints/kombi-delta-step021200.state`
+# (eingefrorener Phasenstand, SHA 7a18da50525c64fc...). Damit ist der Vergleich
+# Arm A gegen diese Runde sauber: gleicher Elternstand, gleiche Dosis, EINE
+# geaenderte Groesse.
+#
+# VORAB FESTGELEGTES KRITERIUM (steht VOR dem Lauf fest, Regel R7/R12):
+#   (a) Die Additionsbaender muessen besser werden als bei Arm A - auf dem
+#       Verlust UND auf der Trefferquote. Vergleichswerte Arm A gegen
+#       untrainiert: train-1d 6,3843 gegen 5,9904; train-2d 5,9743 gegen 5,9116;
+#       eval-3d 5,9089 gegen 5,8605; eval-4d 5,8216 gegen 5,8143; Trefferquote
+#       0 von 3 080.
+#   (b) Die drei Familien, die in D-060 gehalten haben, duerfen nicht einbrechen
+#       (seq/val 0,5071, quant/val 0,3862, logic-large/val 0,9196 als
+#       Vergleichswerte des Kindes aus Arm A).
+#   (c) Die LAENGSACHSE (Loop-Programm Abschnitt 4.1) muss sich bewegen:
+#       Ueberlaenge unter 78,7x, Byte-Konzentration unter 46,0 Prozent,
+#       mindestens eine erwartete Zahl AN DER ANTWORTPOSITION.
+#   (d) Form kaputt 0/0 auf beiden Panels (Klausel d), Determinismus-Probe
+#       byte-identisch.
+# Deutung, ebenfalls vorab: bewegt sich (a)+(c), wirkt die Kombination; bewegt
+# sich nur (a), ist es ein Dosis-/Fensterartefakt; bewegt sich nichts, ist die
+# Additionsfamilie mit 8 200 Datensaetzen zu schwach dosiert und die Dosis wird
+# zur naechsten EINEN Variable.
+#
+# Vorbehalt (D-023/O-T3): bitgenaues Fortsetzen ist nur INNERHALB eines Backends
+# belegt. Dieser Lauf laeuft auf der GPU wie die Runden 28, 30 und 36.
+
+[run]
+name = "kombi-add"
+seed = 1337
+steps = 2000
+log_every = 10
+checkpoint_every = 1000
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/kombi-add/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
