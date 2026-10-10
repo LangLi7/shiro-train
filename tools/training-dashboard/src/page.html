@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shiro - Trainings-Dashboard</title>
+<style>
+/* =====================================================================
+   Shiro - Trainings-Dashboard, Fassung 3 (wissenschaftlich lesbar)
+
+   Gestaltungsregeln, die hier erzwungen werden:
+
+   1. JEDE ZAHL HAT EINE RICHTUNG. Ein Verlust ohne Bewertung ist eine
+      Behauptung. Wo ein Verlust steht, steht daneben, ob er besser oder
+      schlechter geworden ist - als Wort, als Pfeil und als Farbe.
+   2. FARBE ALLEIN TRAEGT NICHTS. Gruen heisst "besser", Rot "schlechter",
+      Grau "keine Aussage". Weil beim Verlust "runter" das Gute ist, steht
+      das Wort immer daneben; Farbe und Pfeil sind Zusatz, nie Beweis.
+   3. EIN BEZUGSWERT STATT EINER NACKTEN ZAHL. Der Verlust eines
+      untrainierten Modells ueber 256 Klassen ist ln(256) = 5,5452. Diese
+      Linie steht im Diagramm, und jeder Wert wird als Faktor dagegen
+      genannt. "0,0887" allein sagt nichts; "62x besser als Zufall" sagt alles.
+   4. LOGARITHMISCHE Y-ACHSE ALS STANDARD. Ein Verlust fällt ueber
+      Groessenordnungen (5,7 -> 0,09). Linear gezeichnet ist der ganze
+      interessante Teil eine Linie am unteren Rand. Die Achse ist daher
+      umschaltbar, und die Beschriftung nennt die aktuelle Skala.
+   5. KEINE EXTERNE RESSOURCE. Kein CDN, kein npm, keine Schriftdatei,
+      kein Bild. Systemschriften, eingebettetes CSS/JS, Diagramm von Hand.
+   6. KEINE DEKORATION OHNE AUSSAGE. Jede Linie im Diagramm ist erklaert:
+      Referenzlinie = untrainiert, gestrichelte Linie = Startwert des Laufs,
+      Punkt = bester Stand, Marke am Rand = Checkpoint.
+   ===================================================================== */
+
+:root {
+  --bg: #0d0f12;
+  --panel: #16191e;
+  --panel2: #1d2127;
+  --line: #2a2f37;
+  --line2: #3a414b;
+  --text: #e7eaef;
+  --dim: #98a1ae;
+  --dim2: #6f7885;
+  --accent: #a8d94a;
+  --accent2: #d6f56b;
+  --good: #4fb477;
+  --warn: #e0a63c;
+  --bad: #d9534f;
+  --neutral: #7d8794;
+  --ref: #d98cb3;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 13.5px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+header {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 16px; border-bottom: 1px solid var(--line);
+  background: var(--panel); position: sticky; top: 0; z-index: 9;
+}
+header .brand {
+  font: 600 14px/1 var(--mono); text-transform: lowercase; letter-spacing: .3px;
+  color: var(--accent);
+}
+header .sub { color: var(--dim2); font: 11px var(--mono); }
+header .spacer { flex: 1; }
+select, button {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line2);
+  border-radius: 5px; padding: 5px 9px; font: 12.5px var(--mono);
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.on { border-color: var(--accent); color: var(--accent); background: #1b2016; }
+main { padding: 16px; max-width: 1680px; margin: 0 auto; }
+.panel {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 7px; padding: 13px 15px; margin-top: 12px;
+}
+.panel h2 {
+  font: 600 12.5px var(--mono); text-transform: lowercase; letter-spacing: .4px;
+  color: var(--accent); margin: 0 0 10px;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.panel h2 .sub { color: var(--dim2); font-weight: 400; font-size: 11px; text-transform: none; }
+.panel h3 {
+  font: 600 11.5px var(--mono); color: var(--dim); text-transform: lowercase;
+  margin: 14px 0 6px;
+}
+
+/* ---- Das Antwortband: die eine Frage, beantwortet ------------------- */
+.verdict {
+  display: grid; grid-template-columns: 232px 1fr; gap: 0;
+  border: 1px solid var(--line2); border-radius: 7px; overflow: hidden;
+  background: var(--panel);
+}
+@media (max-width: 780px) { .verdict { grid-template-columns: 1fr; } }
+.verdict .mark {
+  padding: 14px 16px; display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid var(--line2);
+}
+@media (max-width: 780px) { .verdict .mark { border-right: 0; border-bottom: 1px solid var(--line2); } }
+.verdict .mark .q {
+  font: 10.5px var(--mono); text-transform: lowercase; color: var(--dim2);
+  letter-spacing: .5px;
+}
+.verdict .mark .a { font: 700 22px/1.15 var(--mono); margin-top: 5px; }
+.verdict .mark .why { color: var(--dim); font-size: 11.5px; margin-top: 5px; }
+.verdict.besser .mark { background: #14201a; }
+.verdict.besser .mark .a { color: var(--good); }
+.verdict.stabil .mark { background: #1f1c14; }
+.verdict.stabil .mark .a { color: var(--warn); }
+.verdict.schlechter .mark { background: #201414; }
+.verdict.schlechter .mark .a { color: var(--bad); }
+.verdict.unklar .mark { background: var(--panel2); }
+.verdict.unklar .mark .a { color: var(--neutral); }
+.facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 1px; background: var(--line);
+}
+.fact { background: var(--panel); padding: 11px 13px; }
+.fact .k {
+  font: 10.5px var(--mono); color: var(--dim2); text-transform: lowercase;
+  letter-spacing: .4px;
+}
+.fact .v {
+  font: 650 17px/1.25 var(--mono); margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.fact .v.good { color: var(--good); }
+.fact .v.warn { color: var(--warn); }
+.fact .v.bad { color: var(--bad); }
+.fact .v.neutral { color: var(--neutral); }
+.fact .n { color: var(--dim); font-size: 11px; margin-top: 2px; }
+
+/* ---- Diagramm ------------------------------------------------------- */
+.chart-wrap { position: relative; }
+canvas { width: 100%; display: block; }
+#chart { height: 420px; }
+.ctrls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.chart-legend {
+  display: flex; gap: 16px; flex-wrap: wrap; color: var(--dim);
+  font-size: 11px; margin-top: 9px; font-family: var(--mono);
+}
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { display: inline-block; width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; }
+.chart-legend i.dash { border-top-style: dashed; }
+.chart-legend i.dot { width: 9px; height: 9px; border: 0; border-radius: 50%; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 4; display: none;
+  background: #0a0c0f; border: 1px solid var(--line2); border-radius: 6px;
+  padding: 8px 10px; font: 11.5px/1.6 var(--mono); color: var(--text);
+  box-shadow: 0 6px 22px rgba(0,0,0,.55); min-width: 196px;
+}
+.tip .h { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 14px; }
+.tip .r .k { color: var(--dim2); }
+.hint { color: var(--dim2); font: 11px var(--mono); margin-top: 7px; }
+
+/* ---- Raster kleiner Kurven ----------------------------------------- */
+.mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 1060px) { .mini-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .mini-grid { grid-template-columns: 1fr; } }
+.mini {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 9px 10px; cursor: pointer; border-left: 3px solid var(--line);
+}
+.mini:hover { border-color: var(--line2); }
+.mini.selected { border-color: var(--accent); }
+.mini.besser { border-left-color: var(--good); }
+.mini.stabil { border-left-color: var(--warn); }
+.mini.schlechter { border-left-color: var(--bad); }
+.mini .cap {
+  font: 600 11.5px var(--mono); color: var(--text); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mini .hyp {
+  color: var(--dim2); font: 10.5px var(--mono); text-align: center;
+  margin: 3px 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mini .verdictline {
+  text-align: center; font: 11.5px var(--mono); margin-bottom: 4px;
+}
+.mini .verdictline.besser { color: var(--good); }
+.mini .verdictline.stabil { color: var(--warn); }
+.mini .verdictline.schlechter { color: var(--bad); }
+.mini canvas { height: 132px; }
+
+/* ---- Tabellen ------------------------------------------------------- */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; padding: 6px 7px; border-bottom: 1px solid var(--line); }
+th {
+  color: var(--dim2); font: 10.5px var(--mono); text-transform: lowercase;
+  letter-spacing: .4px; white-space: nowrap;
+}
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--panel2); }
+tbody tr.selected { background: #1b2016; }
+td.besser { color: var(--good); }
+td.schlechter { color: var(--bad); }
+td.stabil { color: var(--warn); }
+
+/* ---- Ereignis-Feed -------------------------------------------------- */
+.feed { max-height: 460px; overflow: auto; }
+.ev {
+  display: grid; grid-template-columns: 84px 1fr; gap: 10px;
+  padding: 7px 9px; border-radius: 5px; margin-bottom: 5px;
+  background: var(--panel2); border-left: 3px solid var(--line2);
+}
+.ev .badge {
+  font: 10px var(--mono); text-transform: lowercase; letter-spacing: .4px;
+  color: var(--dim2); padding-top: 2px;
+}
+.ev .txt { font-size: 12.5px; }
+.ev .meta { color: var(--dim2); font: 11px var(--mono); margin-top: 2px; }
+.ev.record { border-left-color: var(--good); }
+.ev.record .badge { color: var(--good); font-weight: 700; }
+.ev.end { border-left-color: var(--accent); }
+.ev.start { border-left-color: var(--neutral); }
+.ev.checkpoint { border-left-color: var(--line2); }
+.ev.nan { border-left-color: var(--bad); }
+.ev.nan .badge { color: var(--bad); font-weight: 700; }
+.ev.stagnation { border-left-color: var(--warn); }
+.ev.stagnation .badge { color: var(--warn); }
+.ev.resume { border-left-color: var(--accent2); }
+
+.empty { color: var(--dim2); padding: 14px 4px; }
+.pill {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font: 11px var(--mono); border: 1px solid var(--line2); color: var(--dim);
+}
+.pill.live { color: var(--good); border-color: var(--good); }
+.pill.done { color: var(--accent); border-color: var(--accent); }
+.pill.good { color: var(--good); border-color: var(--good); }
+.pill.warn { color: var(--warn); border-color: var(--warn); }
+
+/* ---- Messprotokoll (logs/messungen.jsonl) ---------------------------
+   Eine Zeile je Messlauf, nicht je Protokollzeile: der Stand ist der
+   LETZTE Eintrag zu einem Namen. Das Protokoll traegt keinen Zeitstempel,
+   deshalb steht die Zeilenzahl daneben - sie ist der einzige Beleg dafuer,
+   dass der Stand aus mehr als einer Zeile entstanden ist. */
+.mess-status {
+  display: inline-block; min-width: 84px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--line2); color: var(--dim);
+  font: 10.5px var(--mono); text-align: center; white-space: nowrap;
+}
+.mess-status.laeuft { color: var(--accent); border-color: var(--accent); }
+.mess-status.fertig { color: var(--good); border-color: var(--good); }
+.mess-status.fehler { color: var(--bad); border-color: var(--bad); }
+.mess-status.zeile { color: var(--warn); border-color: var(--warn); }
+.mess-datei { font: 11px var(--mono); color: var(--text); word-break: break-all; }
+.mess-ergebnis { font: 11px var(--mono); color: var(--accent2); }
+.mess-leer { font: 10.5px var(--mono); color: var(--dim2); }
+.mess-roh { max-height: 300px; overflow: auto; }
+.cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
+@media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } }
+.kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; font-size: 11.5px; }
+.kv .k { color: var(--dim2); font: 10.5px var(--mono); padding-top: 1px; }
+.kv .v { word-break: break-word; }
+.kv .v.bad { color: var(--bad); }
+.kv .v .src { display: block; color: var(--dim2); font: 10.5px var(--mono); }
+.cmd {
+  background: #0a0c0f; border: 1px solid var(--line); border-radius: 5px;
+  padding: 8px 10px; font: 11.5px/1.5 var(--mono); color: var(--accent2);
+  word-break: break-all; margin: 8px 0 4px;
+}
+details { margin-top: 9px; }
+summary { cursor: pointer; color: var(--dim2); font: 11px var(--mono); }
+pre {
+  background: #0a0c0f; border: 1px solid var(--line); border-radius: 5px;
+  padding: 10px; overflow: auto; max-height: 260px;
+  font: 11px/1.5 var(--mono); color: var(--text);
+}
+ul.gaps { margin: 0; padding-left: 18px; color: var(--dim); font-size: 12px; }
+ul.gaps li { margin-bottom: 5px; }
+.smart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(262px, 1fr)); gap: 10px; }
+/* Der Lauf-Fingerabdruck: einmal ueber der Kartenreihe, vollstaendig lesbar.
+   Vorher stand der Dateiname in jeder siebten Belegzeile. */
+.smart-id {
+  grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 6px; padding: 7px 10px; margin-bottom: 2px;
+}
+.smart-id .id {
+  font: 11.5px var(--mono); color: var(--text);
+  overflow-wrap: anywhere; word-break: break-all;
+}
+.smart-id .nm { font: 11px var(--mono); color: var(--dim2); }
+.smart {
+  background: var(--panel2); border: 1px solid var(--line);
+  border-left: 3px solid var(--line2); border-radius: 6px; padding: 10px 12px;
+}
+.smart.erfuellt { border-left-color: var(--good); }
+.smart.teilweise { border-left-color: var(--warn); }
+.smart.laeuft { border-left-color: var(--accent); }
+.smart.offen { border-left-color: var(--bad); }
+.smart .head { display: flex; align-items: baseline; gap: 8px; }
+.smart .key { font: 700 18px var(--mono); color: var(--accent); }
+.smart .title { font: 600 12.5px var(--mono); }
+.smart .status { margin-left: auto; font: 10.5px var(--mono); color: var(--dim2); }
+.smart.erfuellt .status { color: var(--good); }
+.smart.teilweise .status { color: var(--warn); }
+.smart.laeuft .status { color: var(--accent); }
+.smart.offen .status { color: var(--bad); }
+.smart .value { font-size: 12.5px; margin: 6px 0 8px; }
+.smart ul { list-style: none; margin: 0; padding: 0; }
+.smart li { border-top: 1px dashed var(--line); padding: 5px 0 3px; font-size: 11.5px; }
+.smart li .lbl { color: var(--dim2); font: 10.5px var(--mono); }
+.smart li .src { color: var(--dim2); font: 10.5px var(--mono); display: block; margin-top: 1px; }
+.smart li.bad .val { color: var(--bad); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1px solid var(--line2); border-radius: 999px; padding: 3px 9px;
+  font: 11px var(--mono); color: var(--dim2); background: var(--panel2);
+  user-select: none;
+}
+.chip.on { color: var(--text); }
+.chip.selected { border-color: var(--accent); color: var(--accent); }
+
+/* ---- Inhalt (Registry) ---------------------------------------------
+   Der Abschnitt zeigt, WAS trainiert wurde: Faehigkeit, Aufgabentypen je
+   Panel und das Urteil gegen die Projektmarke D-047.
+
+   Gestaltungsregeln hier:
+   1. JE PANEL EINE EIGENE TABELLE. Panel A und Panel B messen auf
+      disjunkten Fragesaetzen; ein gemeinsames Blatt waere ein stilles
+      Zusammenlegen und wuerde eine Genauigkeit vortaeuschen, die keine
+      der beiden Messungen hat.
+   2. DIE AMPEL SPRICHT UEBER EINEN EINTRAG. Der Text darunter sagt das,
+      weil eine gruene Lampe sonst wie ein Projekturteil aussieht.
+   3. KEINE ZAHL OHNE HERKUNFT. Fehlt eine Messung, steht dort ein Wort
+      (nicht gestellt / keine Zahl), nie eine 0 und nie ein leeres Feld. */
+.reg-bar {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.reg-bar label {
+  color: var(--dim2); font: 10.5px var(--mono); text-transform: lowercase;
+  letter-spacing: .4px;
+}
+.reg-bar select { max-width: min(560px, 92vw); }
+.reg-meta { color: var(--dim2); font: 11px var(--mono); margin-left: auto; }
+.card-reg {
+  background: var(--panel2); border: 1px solid var(--line);
+  border-left: 3px solid var(--line2); border-radius: 6px;
+  padding: 10px 12px; margin-top: 10px;
+}
+.card-reg.ja { border-left-color: var(--good); }
+.card-reg.nein { border-left-color: var(--bad); }
+.card-reg.keine { border-left-color: var(--neutral); }
+.card-reg .reg-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.card-reg .cap { font: 650 13px var(--mono); color: var(--accent); }
+.card-reg .pill { font-size: 10.5px; }
+.ampel {
+  margin-left: auto; padding: 3px 10px; border-radius: 999px;
+  font: 600 11px var(--mono); border: 1px solid var(--line2); color: var(--dim);
+  white-space: nowrap;
+}
+.ampel.ja { color: var(--good); border-color: var(--good); background: #14201a; }
+.ampel.nein { color: var(--bad); border-color: var(--bad); background: #201414; }
+.ampel.keine { color: var(--neutral); }
+.reg-kontext { color: var(--dim); font-size: 12px; margin: 6px 0 8px; word-break: break-word; }
+.reg-kopf {
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+  background: var(--panel); font-size: 12px;
+}
+.reg-kopf .kriterium { margin-top: 6px; }
+.reg-kopf .kriterium .b { color: var(--dim2); font: 10.5px var(--mono); }
+.reg-kopf .kriterium .ok { color: var(--good); }
+.reg-kopf .kriterium .nok { color: var(--bad); }
+.reg-kopf .reisser { color: var(--bad); margin-top: 6px; }
+.reg-kopf .reisser b { font-family: var(--mono); }
+.reg-kopf .quelle { color: var(--dim2); font: 10.5px var(--mono); margin-top: 6px; }
+.reg-kopf .geltung { color: var(--warn); font-size: 11.5px; margin-top: 6px; }
+.reg-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 10px; margin-top: 10px; }
+.pbox { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; }
+.pbox h4 {
+  font: 650 12px var(--mono); color: var(--text); margin: 0 0 2px;
+  text-transform: lowercase; letter-spacing: .3px;
+}
+.pbox .ph { color: var(--dim2); font: 10.5px var(--mono); margin-bottom: 7px; }
+.pbox .summe {
+  color: var(--dim); font: 11px var(--mono); margin-top: 7px;
+  border-top: 1px dashed var(--line); padding-top: 6px;
+}
+.pbox td.none { color: var(--dim2); font-style: italic; }
+.pbox td.unter { color: var(--bad); font-weight: 650; }
+.pbox td.ueber { color: var(--good); }
+.pbox tr.gesamt td { border-top: 1px solid var(--line2); color: var(--dim); }
+.reg-kv { display: grid; grid-template-columns: 132px 1fr; gap: 3px 10px; font-size: 11.5px; margin-top: 9px; }
+.reg-kv .k { color: var(--dim2); font: 10.5px var(--mono); }
+.reg-kv .v { word-break: break-word; }
+.reg-details { margin-top: 8px; }
+footer { color: var(--dim2); font-size: 11px; padding: 20px; text-align: center; }
+code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">shiro · messstand</span>
+  <span class="sub" id="paths"></span>
+  <span class="spacer"></span>
+  <select id="run" title="Lauf auswaehlen"></select>
+  <button id="refresh" title="Sofort neu laden">neu laden</button>
+  <span class="pill" id="stream" title="Live-Verbindung zum Server: der Server meldet nur echte Aenderungen">verbinde …</span>
+  <span class="pill" id="status">-</span>
+</header>
+
+<main>
+  <!-- DIE FRAGE. Ein Diagramm, das man erst deuten muss, beantwortet sie nicht.
+       Hier steht die Antwort als Wort, daneben die Zahlen, die sie tragen. -->
+  <section class="panel" style="margin-top:0">
+    <h2>wird es besser? <span class="sub" id="verdict-sub">die eine Frage, die ein Trainingslauf beantworten muss</span></h2>
+    <div id="verdict"><div class="empty">Lauf auswaehlen.</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>verlust &amp; perplexitaet <span class="sub" id="curve-sub"></span></h2>
+    <div class="ctrls">
+      <span class="sub" style="color:var(--dim2);font:11px var(--mono)">y-achse:</span>
+      <button id="yscale-log" title="Logarithmisch: zeigt den ganzen Abstieg lesbar">log</button>
+      <button id="yscale-lin" title="Linear: der echte Abstand, oben gequetscht">linear</button>
+      <span class="sub" style="color:var(--dim2);font:11px var(--mono);margin-left:8px">groesse:</span>
+      <button id="metric-loss" title="Kreuzentropie je Byte - die Groesse, die optimiert wird">verlust</button>
+      <button id="metric-ppl" title="Perplexitaet = e^Verlust, die lesbare Einheit">perplexitaet</button>
+      <span class="sub" style="color:var(--dim2);font:11px var(--mono);margin-left:8px">kurven:</span>
+      <button id="only-selected" title="Nur den gewaehlten Lauf zeigen - dann erscheinen exakte Werte beim Ueberfahren">nur auswahl</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chart" width="1680" height="420"></canvas>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="chart-legend" id="chart-legend"></div>
+    <div class="hint" id="chart-hint"></div>
+    <!-- Laeufe einzeln ein- und ausblenden: bei 124 Laeufen ist die Kurve sonst
+         ein Knäuel. Klick auf einen Chip blendet den Lauf um. -->
+    <div class="chart-legend" id="cmp-legend" style="margin-top:6px"></div>
+  </section>
+
+  <section class="panel">
+    <h2>raster <span class="sub">ein bild je lauf, mit bewertung - anklicken waehlt aus</span></h2>
+    <div class="mini-grid" id="grid"><div class="empty">Keine Laeufe gefunden.</div></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>messlaeufe <span class="sub">alle Laeufe, neueste zuerst, mit Tendenz</span></h2>
+      <table id="meas-table">
+        <thead><tr>
+          <th>lauf</th><th class="num">schritte</th>
+          <th class="num">verlust start</th><th class="num">verlust jetzt</th><th class="num">bester</th>
+          <th class="num">gegen untrainiert</th><th class="num">ppl</th>
+          <th>tendenz</th><th class="num">ms/schritt</th><th class="num">gflops</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="panel">
+      <h2>ereignisse <span class="sub" id="feed-sub"></span></h2>
+      <div class="feed" id="feed"><div class="empty">Noch keine Ereignisse.</div></div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>belege <span class="sub" id="prov-sub">wofuer die Zahlen stehen</span></h2>
+      <div id="prov"><div class="empty">Noch keine Belege.</div></div>
+      <div id="prov-recipe"></div>
+      <details id="prov-cfg"><summary>Konfigurationsdatei anzeigen (das Rezept)</summary><pre id="prov-cfg-text"></pre></details>
+    </section>
+    <section class="panel">
+      <h2>checkpoints <span class="sub" id="cp-sub"></span></h2>
+      <div class="feed" id="cps"><div class="empty">Keine Checkpoints gefunden.</div></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>smart <span class="sub">spezifisch · messbar · akzeptiert · realistisch · terminiert - je Lauf, mit Beleg</span></h2>
+    <div class="smart-grid" id="smart">
+      <div class="empty">Lauf auswaehlen, dann erscheint die Karte.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>inhalt (registry) <span class="sub">welche faehigkeit, welche aufgabentypen, wie weit bis zur marke D-047 - je Eintrag, nicht fuer den Projektstand</span></h2>
+    <div class="reg-bar">
+      <label for="reg-pick">runde</label>
+      <select id="reg-pick" title="Runde auswaehlen: eine Zeile aus registry/experiments.jsonl"></select>
+      <span class="reg-meta" id="reg-meta">registry …</span>
+    </div>
+    <div id="reg-body"><div class="empty">Registry wird geladen.</div></div>
+    <div class="hint" id="reg-hint"></div>
+  </section>
+
+  <!-- Nicht der Trainingslauf, sondern die Messung: ein anderer Agent oder ein
+       Skript schreibt je Messlauf eine Zeile in das Protokoll. Diese Anzeige
+       liest es nur. Fehlt eine Angabe, steht das hier - statt einer leeren
+       Behauptung. -->
+  <section class="panel">
+    <h2>messprotokoll <span class="sub">je Messlauf der letzte Stand - aus der fortgeschriebenen Datei, die Agenten und Skripte schreiben, nicht aus dem Trainingslauf</span></h2>
+    <div class="reg-bar">
+      <span class="reg-meta" id="mess-meta">protokoll &hellip;</span>
+    </div>
+    <div id="mess-body"><div class="empty">Protokoll wird geladen.</div></div>
+    <div class="hint" id="mess-hint"></div>
+  </section>
+
+  <!-- Die Grenzen gehoeren auf die Seite, nicht ins Kleingedruckte: eine
+       Anzeige, die ihre Luecken verschweigt, ist keine Nachvollziehbarkeit. -->
+  <section class="panel">
+    <h2>was hier nicht steht <span class="sub">Grenzen dieses Werkzeugs</span></h2>
+    <ul class="gaps" id="gaps"><li>Noch keine Angaben.</li></ul>
+  </section>
+</main>
+
+<footer>
+  <span>Liest nur <code>logs/*.jsonl</code> (Trainingslauf und Messprotokoll),
+  <code>checkpoints/</code>, <code>configs/</code>,
+  <code>data/*/manifest.json</code> und <code>.git/HEAD</code> - schreibt nichts, aendert kein Training.
+  Zeitangaben sind aus den gemessenen Schrittzeiten rueckwaerts gerechnet.
+  Referenzlinie: __UNTR_REF__</span>
+</footer>
+
+<script>
+"use strict";
+// Kein Framework, keine externe Datei. Zwei Abrufe pro Takt, Zeichnen von Hand.
+
+// Der Bezugswert kommt aus dem Server (src/state.rs::UNTRAINED_LOSS), nicht
+// aus dieser Datei: eine im Browser hart kodierte Referenz waere eine zweite
+// Wahrheit, die auseinanderlaufen kann.
+var REF = null;
+
+var state = {
+  runs: [], runId: null, series: null, feed: [], cps: [],
+  yscale: "log",      // log zeigt den ganzen Abstieg; linear zeigt den echten Abstand
+  metric: "loss",     // loss = Kreuzentropie, ppl = e^loss
+  onlySelected: false,
+  seriesCache: {},
+  // Live-Verbindung: `fingerprint` ist der zuletzt gesehene Stand des Servers,
+  // `runCount` die Zahl der Laeufe darin. Beides zusammen entscheidet, was bei
+  // einer Meldung neu geladen werden muss.
+  fingerprint: undefined, runCount: null, letzteMeldung: null
+};
+
+// Rauschschwelle: 0,2 % Aenderung ist keine Richtung, sondern Streuung.
+var NOISE = 0.002;
+
+function el(id) { return document.getElementById(id); }
+
+function fmtNum(n, digits) {
+  if (n === null || n === undefined || !isFinite(n)) return "-";
+  return Number(n).toFixed(digits === undefined ? 3 : digits);
+}
+function fmtInt(n) {
+  if (n === null || n === undefined || !isFinite(n)) return "-";
+  return Math.round(n).toLocaleString("de-DE");
+}
+function fmtBytes(b) {
+  if (!isFinite(b) || b <= 0) return "-";
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return (b / 1024).toFixed(1) + " KiB";
+  if (b < 1073741824) return (b / 1048576).toFixed(2) + " MiB";
+  return (b / 1073741824).toFixed(2) + " GiB";
+}
+function fmtDur(s) {
+  if (!isFinite(s) || s < 0) return "-";
+  if (s < 60) return s.toFixed(1) + " s";
+  if (s < 3600) return (s / 60).toFixed(1) + " min";
+  var h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h + " h " + m + " min";
+}
+function fmtTime(t) {
+  if (!isFinite(t) || t <= 0) return "-";
+  return new Date(t * 1000).toLocaleString("de-DE");
+}
+// Perplexitaet kompakt: unter 10 mit Nachkommastelle, darueber ganzzahlig.
+function fmtPpl(v) {
+  if (!isFinite(v) || v <= 0) return "-";
+  if (v < 10) return v.toFixed(2);
+  if (v < 1000) return v.toFixed(1);
+  return fmtInt(v);
+}
+function fmtLr(v) {
+  if (!isFinite(v) || v <= 0) return "-";
+  if (v >= 0.0001) return String(v);
+  return v.toExponential(1);
+}
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function get(url) {
+  return fetch(url, { cache: "no-store" }).then(function (r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  });
+}
+
+// =====================================================================
+// Bewertung - hier entsteht die Antwort auf "ist das gut?"
+//
+// Drei Funktionen, jede mit einer einzigen Aufgabe. Sie sind bewusst klein
+// und ohne Seiteneffekt: dieselbe Bewertung traegt das Antwortband, das
+// Raster und die Tabelle, damit drei Anzeigen nicht drei Meinungen zeigen.
+// =====================================================================
+
+// Richtung zweier Verluste. Rueckgabe: {dir, rel, arrow, word}.
+// dir ist "besser" | "stabil" | "schlechter" | "unklar".
+function judge(from, to) {
+  var rel = (isFinite(from) && isFinite(to) && from > 0) ? (to - from) / from : null;
+  var dir = "unklar";
+  if (rel !== null) {
+    if (rel <= -NOISE) dir = "besser";
+    else if (rel >= NOISE) dir = "schlechter";
+    else dir = "stabil";
+  }
+  var arrow = dir === "besser" ? "↓" : (dir === "schlechter" ? "↑" : (dir === "stabil" ? "→" : "·"));
+  return { dir: dir, rel: rel, arrow: arrow, word: dir };
+}
+
+// Faktor gegen den untrainierten Bezugswert (ln 256). Das ist die einzige
+// Zahl, die "0,09" eine Bedeutung gibt.
+function factorVsReference(loss) {
+  if (!REF || !isFinite(loss) || loss <= 0) return null;
+  return REF.loss / loss;
+}
+
+// Steht der Wert noch auf Zufallsniveau? Toleranz 1 %, wie in Rust.
+function nearUntrained(loss) {
+  if (!REF || !isFinite(loss)) return false;
+  return loss > REF.loss / 1.01;
+}
+
+// Die Gesamtnote eines Laufs - dieselbe Logik fuer Band, Raster und Tabelle.
+//
+// ACHTUNG, hier lag ein echter Fehler: die beiden Endpunkte nennen dieselben
+// Werte verschieden. `/api/compare` liefert `first` / `last`, `/api/runs`
+// liefert `first_loss` / `last_loss`. Wer nur eine Schreibweise liest, bekommt
+// beim anderen Endpunkt `undefined` - und die Anzeige meldet dann "keine
+// Aussage", obwohl der Verlust klar gefallen ist. `wert()` liest beide.
+function wert(run, a, b) {
+  if (!run) return null;
+  if (run[a] !== null && run[a] !== undefined) return run[a];
+  if (run[b] !== null && run[b] !== undefined) return run[b];
+  return null;
+}
+
+// Fortschritt eines Laufs. `progress` rechnet die GLOBAL gezählte
+// Schrittnummer gegen das Ziel DIESES Laufs - nach einem Resume ergibt das
+// mehrere hundert Prozent, die auf 100 gekappt werden, und ein Lauf mit 10 %
+// sah damit fertig aus. Der Server liefert mit `progress_run` die richtige
+// Zahl; dieser Zusatz greift nur, wenn sie fehlt.
+function fortschritt(run) {
+  if (!run) return null;
+  var ziel = run.step_target || run.target || 0;
+  if (!ziel) return null;
+  var pct = run.progress_run;
+  if (pct === null || pct === undefined) pct = run.progress;
+  var punkte = run.points;
+  var letzter = run.last_step;
+  if (!letzter && punkte && punkte.length) letzter = punkte[punkte.length - 1][0];
+  // Laeuft der Zaehler global, ist die Zahl der Messpunkte die belastbare
+  // Angabe fuer "wie viele Schritte hat dieser Lauf".
+  var getan = (letzter && letzter > ziel) ? (punkte && punkte.length ? punkte.length : null) : letzter;
+  if (pct === null || pct === undefined) pct = getan ? Math.min(100, 100 * getan / ziel) : null;
+  return { getan: getan, ziel: ziel, pct: pct };
+}
+
+function evaluate(run) {
+  var start = wert(run, "first", "first_loss");
+  var now = wert(run, "last", "last_loss");
+  var j = judge(start, now);
+  var f = factorVsReference(now);
+  var untrained = nearUntrained(now);
+  // Zufallsniveau schlaegt jede andere Aussage: ein Lauf, der nichts gelernt
+  // hat, ist nicht "stabil", sondern untrainiert.
+  var dir = untrained ? "unklar" : j.dir;
+  var note = {
+    dir: dir,
+    arrow: untrained ? "·" : j.arrow,
+    word: untrained ? "untrainiert" : j.word,
+    rel: j.rel,
+    factor: f,
+    untrained: untrained,
+    best: wert(run, "best", "best_loss"),
+    bestStep: wert(run, "best_step", "best_step"),
+    ppl: run ? run.ppl : null,
+    start: start,
+    now: now
+  };
+  note.headline = dir === "besser" ? "wird besser"
+    : (dir === "schlechter" ? "wird schlechter"
+      : (dir === "stabil" ? "steht still" : "keine Aussage"));
+  note.why = reasonOf(note);
+  return note;
+}
+
+function reasonOf(note) {
+  if (note.untrained) {
+    return "Verlust " + fmtNum(note.now, 3) + " liegt auf dem Niveau eines untrainierten Modells"
+      + (REF ? " (" + fmtNum(REF.loss, 3) + ")" : "") + ".";
+  }
+  if (note.dir === "unklar") {
+    return "Kein Verlustwert im Log - zu wenige oder ungueltige Messpunkte.";
+  }
+  var pct = (Math.abs(note.rel) * 100).toFixed(1);
+  if (note.dir === "besser") return "Verlust " + fmtNum(note.start, 4) + " → " + fmtNum(note.now, 4) + ", also " + pct + " % gefallen.";
+  if (note.dir === "schlechter") return "Verlust " + fmtNum(note.start, 4) + " → " + fmtNum(note.now, 4) + ", also " + pct + " % gestiegen.";
+  return "Verlust " + fmtNum(note.start, 4) + " → " + fmtNum(note.now, 4) + ": Aenderung unter " + (NOISE * 100).toFixed(1) + " %, also Streuung.";
+}
+
+// =====================================================================
+// Laden
+// =====================================================================
+function loadReference() {
+  return get("/api/reference").then(function (d) { REF = d; });
+}
+
+function loadRuns() {
+  return get("/api/runs").then(function (data) {
+    state.runs = data.runs || [];
+    // Fuer die Live-Verbindung: aendert sich diese Zahl, ist ein Lauf
+    // hinzugekommen - dann muss auch der Vergleich neu geladen werden.
+    state.runCount = state.runs.length;
+    // Neueste zuerst: der laufende Lauf gehoert nach oben, nicht der
+    // alphabetisch erste (das war ein alter Smoke-Test mit 16 Schritten).
+    state.runs.sort(function (a, b) { return (b.mtime || 0) - (a.mtime || 0); });
+    var sel = el("run");
+    var keep = state.runId || sel.value;
+    sel.innerHTML = "";
+    state.runs.forEach(function (r) {
+      var o = document.createElement("option");
+      o.value = r.id;
+      o.textContent = r.name + "  (" + r.steps + (r.step_target ? "/" + r.step_target : "") + " Schritte)"
+        + (r.finished ? "" : " - laeuft");
+      sel.appendChild(o);
+    });
+    if (!state.runs.length) {
+      sel.innerHTML = "<option>keine Laeufe</option>";
+      state.runId = null;
+      return;
+    }
+    var ids = state.runs.map(function (r) { return r.id; });
+    // Beim ersten Laden den Lauf mit den meisten Messpunkten waehlen - das ist
+    // der aussagekraeftigste, nicht der zufaellig erste.
+    if (ids.indexOf(keep) < 0) {
+      var best = state.runs.slice().sort(function (a, b) { return (b.steps || 0) - (a.steps || 0); })[0];
+      state.runId = best ? best.id : ids[0];
+    } else {
+      state.runId = keep;
+    }
+    sel.value = state.runId;
+    el("paths").textContent = "logs: " + data.log_dir + "   ·   checkpoints: " + data.checkpoint_dir;
+    renderVerdict();
+    return loadDetail();
+  });
+}
+
+function loadDetail() {
+  if (!state.runId) {
+    state.series = null; state.feed = [];
+    draw(); renderFeed(); renderVerdict();
+    return Promise.resolve();
+  }
+  var id = encodeURIComponent(state.runId);
+  return Promise.all([
+    get("/api/series?run=" + id),
+    get("/api/events?run=" + id),
+    get("/api/checkpoints")
+  ]).then(function (res) {
+    state.series = res[0];
+    state.seriesCache[state.runId] = res[0];
+    state.feed = (res[1].events || []);
+    state.cps = (res[2].files || []);
+    renderCurveSub();
+    draw();
+    renderFeed();
+    renderCheckpoints();
+    renderVerdict();
+    var cur = currentRun();
+    var st = el("status");
+    if (cur && !cur.finished && cur.steps > 0) { st.textContent = "laeuft"; st.className = "pill live"; }
+    else if (cur && cur.finished) { st.textContent = "abgeschlossen"; st.className = "pill done"; }
+    else { st.textContent = "keine daten"; st.className = "pill"; }
+  });
+}
+
+function currentRun() {
+  return state.runs.filter(function (r) { return r.id === state.runId; })[0] || null;
+}
+
+// =====================================================================
+// Das Antwortband
+// =====================================================================
+function fact(k, v, note, cls) {
+  var d = document.createElement("div");
+  d.className = "fact";
+  var a = document.createElement("div"); a.className = "k"; a.textContent = k;
+  var b = document.createElement("div"); b.className = "v" + (cls ? " " + cls : ""); b.textContent = v;
+  d.appendChild(a); d.appendChild(b);
+  if (note) { var c = document.createElement("div"); c.className = "n"; c.textContent = note; d.appendChild(c); }
+  return d;
+}
+
+function renderVerdict() {
+  var box = el("verdict");
+  box.innerHTML = "";
+  var r = currentRun();
+  if (!r) { box.innerHTML = '<div class="empty">Kein Lauf mit Messpunkten gefunden.</div>'; return; }
+
+  var note = evaluate(r);
+  var cls = note.dir === "besser" ? "besser" : (note.dir === "schlechter" ? "schlechter" : (note.dir === "stabil" ? "stabil" : "unklar"));
+
+  var wrap = document.createElement("div");
+  wrap.className = "verdict " + cls;
+
+  var mark = document.createElement("div"); mark.className = "mark";
+  var q = document.createElement("div"); q.className = "q"; q.textContent = "wird es besser?";
+  var a = document.createElement("div"); a.className = "a"; a.textContent = note.headline;
+  var why = document.createElement("div"); why.className = "why"; why.textContent = note.why;
+  mark.appendChild(q); mark.appendChild(a); mark.appendChild(why);
+
+  // Startwert und Perplexitaet kommen aus /api/runs (dort heissen sie anders).
+  var startLoss = note.start;
+  var pplNow = r.last_perplexity !== null && r.last_perplexity !== undefined
+    ? r.last_perplexity : (note.now !== null ? Math.exp(note.now) : null);
+  var pplStart = startLoss !== null && startLoss !== undefined ? Math.exp(startLoss) : null;
+  var best = note.best !== null && note.best !== undefined ? note.best : r.best_loss;
+  var fs = fortschritt(r);
+
+  var facts = document.createElement("div"); facts.className = "facts";
+  facts.appendChild(fact("verlust jetzt", fmtNum(note.now, 4),
+    "Start " + fmtNum(startLoss, 4) + "   ·   " + note.arrow + " " + note.word, cls));
+  facts.appendChild(fact("bester verlust", fmtNum(best, 4),
+    note.bestStep !== null && note.bestStep !== undefined ? "in Schritt " + fmtInt(note.bestStep) : "kein Bestwert",
+    "good"));
+  facts.appendChild(fact("gegen untrainiert",
+    note.factor ? fmtNum(note.factor, 1) + "× besser" : "-",
+    REF ? "Zufall waere " + fmtNum(REF.loss, 4) : "Bezugswert fehlt",
+    note.untrained ? "bad" : (note.factor && note.factor > 2 ? "good" : "warn")));
+  facts.appendChild(fact("perplexitaet", fmtPpl(pplNow),
+    "Start " + fmtPpl(pplStart) + "   ·   e^Verlust", ""));
+  facts.appendChild(fact("ziel", fs ? fmtNum(fs.pct, 1) + " %" : "-",
+    fs ? fmtInt(fs.getan) + " von " + fmtInt(fs.ziel) + " Schritten dieses Laufs" : "kein Ziel im Log", ""));
+
+  wrap.appendChild(mark);
+  wrap.appendChild(facts);
+  box.appendChild(wrap);
+
+  var sub = el("verdict-sub");
+  sub.textContent = (r.finished ? "abgeschlossen" : "laeuft") + "   ·   "
+    + (REF ? "Bezugswert " + fmtNum(REF.loss, 4) + " = ln(256) (untrainiert)" : "Bezugswert fehlt");
+}
+
+// =====================================================================
+// Diagramm
+//
+// Aufbau von unten nach oben: Gitter, Referenzlinien, fremde Laeufe,
+// gewaehlter Lauf, Bestwert-Punkt, Checkpoint-Marken, Achsenbeschriftung.
+// Die Zeichenreihenfolge ist die Rangfolge der Wichtigkeit.
+// =====================================================================
+function niceTicks(min, max, count) {
+  if (!isFinite(min) || !isFinite(max) || min === max) return [min];
+  var span = max - min;
+  var step = Math.pow(10, Math.floor(Math.log10(span / count)));
+  var err = (span / count) / step;
+  if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+  var out = [], v = Math.ceil(min / step) * step;
+  for (; v <= max + step * 0.001; v += step) out.push(v);
+  return out;
+}
+
+// Zehnerpotenzen fuer die Logarithmus-Achse: 0,001 … 100.
+function decadeTicks(min, max) {
+  var out = [], e = Math.floor(Math.log10(min));
+  for (; e <= Math.ceil(Math.log10(max)); e++) {
+    var v = Math.pow(10, e);
+    if (v >= min * 0.999 && v <= max * 1.001) out.push(v);
+  }
+  return out;
+}
+
+function fmtTick(v) {
+  if (!isFinite(v)) return "-";
+  if (v === 0) return "0";
+  var a = Math.abs(v);
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 10) return v.toFixed(0);
+  if (a >= 1) return v.toFixed(1);
+  if (a >= 0.1) return v.toFixed(2);
+  if (a >= 0.01) return v.toFixed(3);
+  return v.toFixed(4);
+}
+
+// Der Wert, der gezeichnet wird: Verlust oder Perplexitaet.
+function valueOf(p) { return state.metric === "ppl" ? p[1] : p[0]; }
+function refValue() { return REF ? (state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : null; }
+
+function axes(ctx, w, h, pts, padL, padR, padT, padB) {
+  var xMin = 0, xMax = 1;
+  pts.forEach(function (p) { if (p[0] > xMax) xMax = p[0]; });
+  var vals = pts.map(valueOf).filter(function (v) { return isFinite(v) && v > 0; });
+  if (!vals.length) return null;
+  var yMin = Math.min.apply(null, vals), yMax = Math.max.apply(null, vals);
+
+  // Log-Skala nur, wenn alle Werte positiv sind und die Spanne das rechtfertigt.
+  // Perplexitaet 1,0 ist die untere Grenze und wuerde log10(1) = 0 ergeben -
+  // deshalb die harte Untergrenze.
+  var useLog = state.yscale === "log" && yMin > 0 && (yMax / yMin) > 8;
+
+  if (useLog) {
+    yMin = Math.pow(10, Math.floor(Math.log10(yMin)));
+    yMax = Math.pow(10, Math.ceil(Math.log10(yMax)));
+  } else {
+    var padY = (yMax - yMin) * 0.08 || 0.5;
+    yMin -= padY; yMax += padY;
+    if (yMin < 0) yMin = 0;
+  }
+  var plotW = w - padL - padR, plotH = h - padT - padB;
+  var ySpan = (yMax - yMin) || 1;
+
+  function toY(v) {
+    if (useLog) return padT + (Math.log10(yMax) - Math.log10(Math.max(v, yMin))) / (Math.log10(yMax) - Math.log10(yMin)) * plotH;
+    return padT + (yMax - v) / ySpan * plotH;
+  }
+  function toX(s) { return padL + (s - xMin) / ((xMax - xMin) || 1) * plotW; }
+
+  // Gitter + y-Beschriftung
+  ctx.strokeStyle = "#22262c"; ctx.lineWidth = 1;
+  ctx.fillStyle = "#6f7885"; ctx.font = "10.5px " + MONO;
+  var yTicks = useLog ? decadeTicks(yMin, yMax) : niceTicks(yMin, yMax, 6);
+  if (!yTicks.length) yTicks = [yMin, yMax];
+  yTicks.forEach(function (v) {
+    var y = toY(v);
+    if (y < padT - 1 || y > padT + plotH + 1) return;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(fmtTick(v), padL - 8, y + 3.5);
+  });
+  ctx.textAlign = "center";
+  niceTicks(xMin, xMax, 6).forEach(function (v) {
+    var x = toX(v);
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
+    ctx.fillText(fmtInt(v), x, padT + plotH + 16);
+  });
+
+  // Achsenrahmen
+  ctx.strokeStyle = "#3a414b";
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH); ctx.stroke();
+
+  return {
+    xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax, useLog: useLog,
+    padL: padL, padR: padR, padT: padT, padB: padB, plotW: plotW, plotH: plotH,
+    toX: toX, toY: toY
+  };
+}
+
+var MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+function drawCurveOn(ctx, pts, ax, color, width, dim) {
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = dim ? 0.3 : 1;
+  ctx.lineWidth = width;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  var pen = false;
+  pts.forEach(function (p) {
+    var v = valueOf(p);
+    // Waechter: eine Zahl, die nicht endlich ist, wird NICHT gezeichnet. Sie
+    // ist keine Messung, sondern ein Abbruchgrund (`nan`-Ereignis im Feed);
+    // als Punkt in die Kurve gesetzt, wuerde sie den Verlauf still
+    // verfaelschen - die Linie springt dann von selbst weiter, und die
+    // Ereignisliste nennt den Grund als Text.
+    if (typeof v !== "number" || !isFinite(v) || (v <= 0 && ax.useLog)) { pen = false; return; }
+    var x = ax.toX(p[0]), y = ax.toY(v);
+    if (!pen) { ctx.moveTo(x, y); pen = true; } else { ctx.lineTo(x, y); }
+  });
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// Wie viele Messpunkte des gewaehlten Laufs sind keine endlichen Zahlen?
+// Sie werden nicht gezeichnet, aber gezaehlt und als Text genannt.
+function countNonFinite(points) {
+  var n = 0;
+  (points || []).forEach(function (p) {
+    var v = valueOf(p);
+    if (typeof v !== "number" || !isFinite(v)) n++;
+  });
+  return n;
+}
+
+function draw() {
+  var cv = el("chart");
+  if (!cv) return;
+  var ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  var visible = cmp.runs.filter(function (r) {
+    if (cmp.hidden[r.id]) return false;
+    if (state.onlySelected && r.id !== state.runId) return false;
+    return r.points && r.points.length;
+  });
+  if (!visible.length) {
+    ctx.fillStyle = "#6f7885"; ctx.font = "13px " + MONO;
+    ctx.fillText("Keine Messpunkte - es wurde noch nichts trainiert.", 16, 30);
+    drawLegend(); return;
+  }
+
+  var all = [];
+  visible.forEach(function (r) { all = all.concat(r.points); });
+  var ax = axes(ctx, cv.width, cv.height, all, 62, 20, 16, 34);
+  if (!ax) { drawLegend(); return; }
+
+  // 1. Referenzlinie "untrainiert". Sie ist der Grund, warum ein Verlust
+  //    ueberhaupt bewertbar ist - deshalb steht sie VOR allen Kurven und
+  //    wird beschriftet, nicht nur gezeichnet.
+  var rv = refValue();
+  if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
+    var yr = ax.toY(rv);
+    ctx.save();
+    ctx.strokeStyle = "#d98cb3"; ctx.lineWidth = 1.3; ctx.setLineDash([7, 4]);
+    ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#d98cb3"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+    ctx.fillText("untrainiert " + fmtTick(rv) + (state.metric === "ppl" ? " (e^ln256)" : " = ln(256)"), ax.padL + 6, yr - 5);
+  }
+
+  // 2. Startwert des gewaehlten Laufs - der Abstand dazu ist der Fortschritt.
+  var cur = visible.filter(function (r) { return r.id === state.runId; })[0];
+  if (cur && cur.first !== null && cur.first !== undefined) {
+    var sv = state.metric === "ppl" ? Math.exp(cur.first) : cur.first;
+    if (isFinite(sv) && sv >= ax.yMin && sv <= ax.yMax) {
+      var ys = ax.toY(sv);
+      ctx.save();
+      ctx.strokeStyle = "#5a626e"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(ax.padL, ys); ctx.lineTo(ax.padL + ax.plotW, ys); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = "#7d8794"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+      ctx.fillText("start " + fmtTick(sv), ax.padL + 6, ys + 12);
+    }
+  }
+
+  // 3. Fremde Laeufe blass, 4. gewaehlter Lauf kraeftig darueber.
+  visible.forEach(function (r) {
+    if (r.id === state.runId) return;
+    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 1.2, true);
+  });
+  visible.forEach(function (r) {
+    if (r.id !== state.runId) return;
+    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 2.3, false);
+  });
+
+  // 5. Checkpoint-Marken am unteren Rand - wer weitertrainieren will,
+  //    braucht diese Stellen.
+  if (cur) {
+    ctx.fillStyle = "#4fb477"; ctx.globalAlpha = 0.85;
+    cur.points.forEach(function (p) {
+      if (!p[2]) return;
+      var x = ax.toX(p[0]);
+      ctx.beginPath();
+      ctx.moveTo(x, ax.padT + ax.plotH + 3);
+      ctx.lineTo(x - 4, ax.padT + ax.plotH + 9);
+      ctx.lineTo(x + 4, ax.padT + ax.plotH + 9);
+      ctx.closePath(); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // 6. Bester Stand - der Punkt, der zaehlt, wenn jemand einen Checkpoint
+  //    auswaehlen will. Nur zeichnen, wenn der Wert wirklich eine endliche
+  //    Zahl ist: ein `Infinity` im Bestwert wuerde sonst eine Koordinate
+  //    ausserhalb des Bildes ergeben.
+  if (cur && typeof cur.best === "number" && isFinite(cur.best)) {
+    var bv = state.metric === "ppl" ? Math.exp(cur.best) : cur.best;
+    if (isFinite(bv)) {
+      var bx = ax.toX(cur.best_step), by = ax.toY(bv);
+      ctx.fillStyle = "#a8d94a";
+      ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#0d0f12"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = "#a8d94a"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+      var label = "bester " + fmtTick(bv);
+      var tw = ctx.measureText(label).width;
+      var lx = bx + 8;
+      if (lx + tw > ax.padL + ax.plotW) lx = bx - 8 - tw;
+      ctx.fillText(label, lx, by - 6);
+    }
+  }
+
+  // 7. Achsenbeschriftung. Ohne Einheit ist die Achse nicht lesbar.
+  ctx.fillStyle = "#98a1ae"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  var yLabel = state.metric === "ppl" ? "Perplexitaet (e^Verlust)" : "Verlust (Cross-Entropy, je Byte)";
+  ctx.fillText(yLabel + "  ·  " + (ax.useLog ? "log" : "linear"), 8, 12);
+  ctx.textAlign = "right";
+  ctx.fillText("Schritt →", ax.padL + ax.plotW, 12);
+
+  state.ax = ax;
+  drawLegend();
+}
+
+function drawLegend() {
+  var box = el("chart-legend");
+  if (!box) return;
+  box.innerHTML = "";
+  function item(color, text, style) {
+    var s = document.createElement("span");
+    var i = document.createElement("i");
+    i.style.borderTopColor = color;
+    if (color && color.indexOf("#") === 0 && style === "dot") { i.style.background = color; i.style.borderTopColor = color; }
+    i.className = style || "";
+    s.appendChild(i);
+    var t = document.createElement("span"); t.textContent = text;
+    s.appendChild(t);
+    box.appendChild(s);
+  }
+  item("#d98cb3", "untrainiertes Modell " + (REF ? fmtTick(state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : "-"), "dash");
+  item("#5a626e", "Startwert dieses Laufs", "dash");
+  item("#a8d94a", "bester Stand", "dot");
+  item("#4fb477", "Checkpoint");
+  var cur = currentRun();
+  if (cur) item(colorOf(cur.id), "gewaehlter Lauf: " + cur.name);
+  var hint = el("chart-hint");
+  if (hint) {
+    var n = cmp.runs.filter(function (r) { return !cmp.hidden[r.id]; }).length;
+    var grund = n > 1
+      ? "Exakte Werte beim Ueberfahren erscheinen, wenn nur ein Lauf sichtbar ist - auf „nur auswahl“ klicken."
+      : "Maus ueber das Diagramm: Schritt, Verlust, Perplexitaet, Lernrate, Tempo.";
+    // Nicht-endliche Zahlen werden nicht gezeichnet, aber nicht verschwiegen.
+    var kaputt = countNonFinite(state.series && state.series.points);
+    hint.textContent = kaputt
+      ? grund + "   ·   " + kaputt + " Messpunkt(e) mit ungueltiger Zahl (NaN/Inf) sind NICHT "
+        + "gezeichnet - sie stehen als Text in der Ereignisliste (Art 'nan')."
+      : grund;
+  }
+}
+
+function renderCurveSub() {
+  var s = state.series;
+  var n = s && s.points ? s.points.length : 0;
+  var kaputt = countNonFinite(s && s.points);
+  el("curve-sub").textContent = n
+    ? (n + " Messpunkte   ·   " + (state.metric === "ppl" ? "Perplexitaet" : "Verlust")
+      + (kaputt ? "   ·   " + kaputt + " ohne gueltige Zahl (nicht gezeichnet)" : ""))
+    : "";
+}
+
+// ---- Tooltip: die exakten Werte -------------------------------------
+function nearestPoint(px) {
+  var s = state.series, ax = state.ax;
+  if (!s || !s.points || !s.points.length || !ax) return null;
+  var best = null, bestD = Infinity;
+  s.points.forEach(function (p) {
+    var d = Math.abs(ax.toX(p[0]) - px);
+    if (d < bestD) { bestD = d; best = p; }
+  });
+  return bestD < 40 ? best : null;
+}
+
+function showTip(ev) {
+  var cv = el("chart"), tip = el("tip");
+  if (!cv || !tip) return;
+  var rect = cv.getBoundingClientRect();
+  var scale = cv.width / rect.width;
+  var px = (ev.clientX - rect.left) * scale;
+  var p = nearestPoint(px);
+  if (!p) { tip.style.display = "none"; return; }
+  tip.innerHTML =
+    '<div class="h">Schritt ' + fmtInt(p[0]) + '</div>' +
+    row("Verlust", fmtNum(p[1], 4)) +
+    row("Perplexitaet", fmtPpl(Math.exp(p[1]))) +
+    row("gegen untrainiert", (function () { var f = factorVsReference(p[1]); return f ? fmtNum(f, 1) + "× besser" : "-"; })()) +
+    row("Lernrate", fmtLr(p[4])) +
+    row("ms je Schritt", fmtNum(p[5], 0)) +
+    row("Bytes/s", fmtInt(p[6])) +
+    (p[2] ? row("Checkpoint", "ja") : "");
+  tip.style.display = "block";
+  var left = ev.clientX - rect.left + 14;
+  if (left > rect.width - 210) left = ev.clientX - rect.left - 208;
+  tip.style.left = left + "px";
+  tip.style.top = Math.max(4, ev.clientY - rect.top - 40) + "px";
+  draw();
+  var ax = state.ax;
+  // Nur zeichnen, wenn die Werte endlich sind: ein NaN ergaebe hier eine
+  // Koordinate NaN und damit keinen sichtbaren Punkt - der Nutzer wuerde einen
+  // Messfehler fuer "nichts passiert" halten.
+  if (ax && state.series && isFinite(p[0]) && isFinite(valueOf(p))) {
+    var ctx = cv.getContext("2d");
+    var x = ax.toX(p[0]), y = ax.toY(valueOf(p));
+    ctx.strokeStyle = "#e7eaef"; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, ax.padT); ctx.lineTo(x, ax.padT + ax.plotH); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#e7eaef";
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function row(k, v) {
+  return '<div class="r"><span class="k">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
+}
+
+// =====================================================================
+// Raster, Tabelle, Feed, Checkpoints
+// =====================================================================
+var PAL = ["#a8d94a", "#8ab4f8", "#e0a63c", "#c792ea", "#7fd1b9", "#ffb86c",
+           "#82aaff", "#e06c75", "#56b6c2", "#d6f56b", "#b0bec5", "#f0c674"];
+var cmp = { runs: [], hidden: {}, loaded: false };
+
+function colorOf(id) {
+  for (var i = 0; i < cmp.runs.length; i++) { if (cmp.runs[i].id === id) return PAL[i % PAL.length]; }
+  return "#7d8794";
+}
+
+function hypOf(r) {
+  var p = [];
+  if (r.lr) p.push("lr" + fmtLr(r.lr));
+  if (r.batch) p.push("bs" + r.batch);
+  if (r.seq) p.push("seq" + r.seq);
+  if (r.layers) p.push("l" + r.layers + "d" + r.d_model);
+  if (r.seed) p.push("seed" + r.seed);
+  return p.join("_");
+}
+
+function loadCompare() {
+  return get("/api/compare").then(function (d) {
+    cmp.runs = d.runs || [];
+    // Neueste zuerst - dieselbe Ordnung wie in der Auswahlliste.
+    cmp.runs.sort(function (a, b) { return (b.mtime || 0) - (a.mtime || 0); });
+    cmp.loaded = true;
+    drawGrid();
+    draw();
+    renderMeas();
+    renderChips();
+  });
+}
+
+function drawGrid() {
+  var box = el("grid");
+  if (!cmp.runs.length) { box.innerHTML = '<div class="empty">Keine Laeufe gefunden.</div>'; return; }
+  box.innerHTML = "";
+  cmp.runs.forEach(function (r) {
+    var note = evaluate(r);
+    var cls = note.dir === "besser" ? "besser" : (note.dir === "schlechter" ? "schlechter" : (note.dir === "stabil" ? "stabil" : ""));
+    var d = document.createElement("div");
+    d.className = "mini " + cls + (r.id === state.runId ? " selected" : "");
+    d.title = note.why;
+
+    var cap = document.createElement("div"); cap.className = "cap"; cap.textContent = r.name;
+    // Der Name wird im Raster per CSS gekuerzt - der Tooltip haelt den vollen
+    // Namen. Kuerzen ist erlaubt, verschweigen nicht.
+    cap.title = r.name;
+    cap.style.color = colorOf(r.id);
+    var hyp = document.createElement("div"); hyp.className = "hyp";
+    hyp.textContent = hypOf(r) + " · " + r.steps + (r.target ? "/" + r.target : "") + " Schritte"
+      + (r.finished ? "" : " · laeuft");
+    hyp.title = hyp.textContent;
+    var vl = document.createElement("div"); vl.className = "verdictline " + cls;
+    vl.textContent = note.arrow + " " + note.headline
+      + (note.best !== null && note.best !== undefined ? "   ·   bester " + fmtNum(note.best, 4) : "")
+      + (note.factor ? "   ·   " + fmtNum(note.factor, 0) + "× vs. Zufall" : "");
+    d.appendChild(cap); d.appendChild(hyp); d.appendChild(vl);
+
+    var cv = document.createElement("canvas");
+    cv.width = 640; cv.height = 264;
+    d.appendChild(cv);
+    d.onclick = function () {
+      state.runId = r.id;
+      el("run").value = r.id;
+      loadDetail(); refreshSmart(); drawGrid(); loadCompare();
+    };
+    box.appendChild(d);
+
+    var ctx = cv.getContext("2d");
+    if (!r.points || !r.points.length) {
+      ctx.fillStyle = "#6f7885"; ctx.font = "11px " + MONO;
+      ctx.fillText("keine Messpunkte", 10, 24);
+      return;
+    }
+    var ax = axes(ctx, cv.width, cv.height, r.points, 52, 14, 10, 26);
+    if (!ax) return;
+    // Referenzlinie auch im kleinen Bild: sonst fehlt dort der Bezug.
+    var rv = refValue();
+    if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
+      ctx.save();
+      ctx.strokeStyle = "#d98cb3"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+      var yr = ax.toY(rv);
+      ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
+      ctx.restore();
+    }
+    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 1.7, false);
+    if (r.best !== null && r.best !== undefined) {
+      var bv = state.metric === "ppl" ? Math.exp(r.best) : r.best;
+      ctx.fillStyle = "#a8d94a";
+      ctx.beginPath(); ctx.arc(ax.toX(r.best_step), ax.toY(bv), 3, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+}
+
+function renderMeas() {
+  var tb = el("meas-table").querySelector("tbody");
+  tb.innerHTML = "";
+  cmp.runs.forEach(function (r) {
+    var note = evaluate(r);
+    var cls = note.dir === "besser" ? "besser" : (note.dir === "schlechter" ? "schlechter" : (note.dir === "stabil" ? "stabil" : ""));
+    var tr = document.createElement("tr");
+    if (r.id === state.runId) tr.className = "selected";
+    function td(text, c) {
+      var x = document.createElement("td");
+      x.textContent = text; if (c) x.className = c;
+      tr.appendChild(x);
+      return x;
+    }
+    td(r.name);
+    td(fmtInt(r.steps), "num");
+    td(fmtNum(r.first, 3), "num");
+    td(fmtNum(r.last, 3), "num");
+    td(fmtNum(r.best, 3) + (r.best_step !== null && r.best_step !== undefined ? " @" + fmtInt(r.best_step) : ""), "num");
+    td(note.factor ? fmtNum(note.factor, 1) + "×" : "-", "num " + (note.untrained ? "schlechter" : "besser"));
+    td(fmtPpl(r.ppl), "num");
+    td(note.arrow + " " + note.headline, cls);
+    td(r.ms_per_step ? fmtNum(r.ms_per_step, 0) : "-", "num");
+    td(r.gflops ? fmtNum(r.gflops, 1) : "-", "num");
+    tr.title = note.why;
+    tr.onclick = function () {
+      state.runId = r.id;
+      el("run").value = r.id;
+      loadDetail(); refreshSmart(); drawGrid(); loadCompare();
+    };
+    tb.appendChild(tr);
+  });
+}
+
+function renderFeed() {
+  var box = el("feed");
+  var recs = state.feed.filter(function (f) { return f.kind === "record"; }).length;
+  el("feed-sub").textContent = state.feed.length
+    ? state.feed.length + " Ereignisse, davon " + recs + " Durchbrueche" : "";
+  if (!state.feed.length) { box.innerHTML = '<div class="empty">Noch keine Ereignisse.</div>'; return; }
+  box.innerHTML = "";
+  state.feed.forEach(function (f) {
+    var d = document.createElement("div");
+    d.className = "ev " + f.kind;
+    var b = document.createElement("div"); b.className = "badge"; b.textContent = f.label || f.kind;
+    var t = document.createElement("div");
+    var txt = document.createElement("div"); txt.className = "txt"; txt.textContent = f.text;
+    var meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = "Schritt " + fmtInt(f.step) + "   ·   " + fmtTime(f.t);
+    t.appendChild(txt); t.appendChild(meta);
+    d.appendChild(b); d.appendChild(t);
+    box.appendChild(d);
+  });
+}
+
+function renderCheckpoints() {
+  var box = el("cps");
+  var total = state.cps.reduce(function (a, c) { return a + c.bytes; }, 0);
+  el("cp-sub").textContent = state.cps.length ? state.cps.length + " Dateien, " + fmtBytes(total) : "";
+  if (!state.cps.length) { box.innerHTML = '<div class="empty">Keine Checkpoints gefunden.</div>'; return; }
+  box.innerHTML = "";
+  state.cps.forEach(function (c) {
+    var d = document.createElement("div");
+    d.className = "ev checkpoint";
+    var b = document.createElement("div"); b.className = "badge";
+    // Endung benennen: .state traegt den AdamW-Zustand (B6), .safetensors nur Gewichte.
+    b.textContent = c.name.endsWith(".state") ? "zustand"
+      : (c.name.endsWith(".safetensors") ? "gewichte" : "checkpoint");
+    var t = document.createElement("div");
+    var txt = document.createElement("div"); txt.className = "txt"; txt.textContent = c.name;
+    var meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = fmtBytes(c.bytes) + "   ·   " + fmtTime(c.modified)
+      + (c.name.endsWith(".state") ? "   ·   zum Weitertrainieren" : "   ·   nur Gewichte");
+    t.appendChild(txt); t.appendChild(meta);
+    d.appendChild(b); d.appendChild(t);
+    box.appendChild(d);
+  });
+}
+
+// ------------------------------------------------------------------ SMART
+// Der Laufname steht EINMAL oben in der Karte, nicht in jeder Belegzeile.
+//
+// Gemessen am 08.10.2026 an echten Daten: eine Karte hat 18-19 Belegzeilen, und
+// in 7 davon stand derselbe Dateiname ("logs/agent-sequence_reasoning-i3-
+// 1791412922.jsonl", 44 Zeichen). Zusammen mit den absoluten Pfaden im
+// Quellenfeld entstanden Zeilen von 165 Zeichen, die in der Karte umbrechen
+// mussten. Der Dateiname ist die Herkunft, nicht der Inhalt: er gehoert in den
+// Kopf, die Belegzeile nennt nur noch das FELD ("Feld step.loss").
+function shortSource(text, runId) {
+  var t = String(text == null ? "" : text);
+  // Absoluten Projektpfad kuerzen: der Kopf der Seite nennt ihn ohnehin.
+  var marker = "/AI Models/";
+  if (t.indexOf(marker) !== -1) {
+    var rest = t.slice(t.indexOf(marker) + marker.length);
+    t = rest.slice(rest.indexOf("/") + 1);
+  }
+  if (runId) {
+    t = t.split("logs/" + runId).join("Log");
+    t = t.split(runId).join("dieser Lauf");
+  }
+  return t;
+}
+
+function factList(items, runId) {
+  var ul = document.createElement("ul");
+  (items || []).forEach(function (f) {
+    var li = document.createElement("li");
+    if (!f.ok) li.className = "bad";
+    var lbl = document.createElement("span"); lbl.className = "lbl"; lbl.textContent = f.label;
+    // Jeder Text bekommt den vollen Inhalt als Tooltip: kuerzen ist erlaubt,
+    // verschweigen nicht.
+    var val = document.createElement("div"); val.className = "val"; val.textContent = f.value;
+    val.title = f.label + ": " + f.value;
+    var kurz = shortSource(f.source, runId);
+    var src = document.createElement("span"); src.className = "src"; src.textContent = kurz;
+    if (kurz !== f.source) src.title = f.source;
+    li.appendChild(lbl); li.appendChild(val); li.appendChild(src);
+    ul.appendChild(li);
+  });
+  return ul;
+}
+
+function renderSmart(d) {
+  var box = el("smart");
+  box.innerHTML = "";
+  if (!d || !d.criteria) {
+    box.innerHTML = '<div class="empty">Keine SMART-Angaben fuer diesen Lauf.</div>';
+    return;
+  }
+  // Der Fingerabdruck des Laufs: einmal, oben, vollstaendig.
+  var kopf = document.createElement("div");
+  kopf.className = "smart-id";
+  var kid = document.createElement("span");
+  kid.className = "id";
+  kid.textContent = d.id;
+  kid.title = d.id;
+  var kn = document.createElement("span");
+  kn.className = "nm";
+  kn.textContent = d.name && d.name !== d.id ? d.name : "";
+  kopf.appendChild(kid);
+  if (kn.textContent) kopf.appendChild(kn);
+  box.appendChild(kopf);
+
+  d.criteria.forEach(function (c) {
+    var card = document.createElement("div");
+    card.className = "smart " + c.status;
+    var head = document.createElement("div"); head.className = "head";
+    var key = document.createElement("span"); key.className = "key"; key.textContent = c.key;
+    var title = document.createElement("span"); title.className = "title"; title.textContent = c.title;
+    var st = document.createElement("span"); st.className = "status"; st.textContent = c.status;
+    head.appendChild(key); head.appendChild(title); head.appendChild(st);
+    var val = document.createElement("div"); val.className = "value"; val.textContent = c.value;
+    val.title = c.title + " (" + c.status + "): " + c.value;
+    card.appendChild(head); card.appendChild(val);
+    card.appendChild(factList(c.evidence, d.id));
+    box.appendChild(card);
+  });
+}
+
+function renderProv(d) {
+  var box = el("prov");
+  box.innerHTML = "";
+  if (!d || !d.facts) { box.innerHTML = '<div class="empty">Keine Belege.</div>'; return; }
+  var kv = document.createElement("div"); kv.className = "kv";
+  d.facts.forEach(function (f) {
+    var k = document.createElement("div"); k.className = "k"; k.textContent = f.label;
+    var v = document.createElement("div"); v.className = "v" + (f.ok ? "" : " bad");
+    v.textContent = f.value;
+    var s = document.createElement("span"); s.className = "src"; s.textContent = f.source;
+    v.appendChild(s);
+    kv.appendChild(k); kv.appendChild(v);
+  });
+  box.appendChild(kv);
+
+  var rec = el("prov-recipe");
+  rec.innerHTML = "";
+  var h = document.createElement("h3"); h.textContent = "rezept";
+  rec.appendChild(h);
+  var cmd = document.createElement("div"); cmd.className = "cmd";
+  cmd.textContent = d.command || "-";
+  rec.appendChild(cmd);
+  var note = document.createElement("div");
+  note.style.color = "#6f7885"; note.style.fontSize = "11px";
+  note.textContent = d.command_note || "";
+  rec.appendChild(note);
+  if (d.config_keys && d.config_keys.length) {
+    var k2 = document.createElement("div"); k2.className = "kv";
+    k2.style.marginTop = "8px";
+    d.config_keys.forEach(function (pair) {
+      var a = document.createElement("div"); a.className = "k"; a.textContent = pair[0];
+      var b = document.createElement("div"); b.className = "v"; b.textContent = pair[1];
+      k2.appendChild(a); k2.appendChild(b);
+    });
+    rec.appendChild(k2);
+  }
+  var cfgText = el("prov-cfg-text");
+  if (d.config_text) { cfgText.textContent = d.config_text; el("prov-cfg").style.display = ""; }
+  else { cfgText.textContent = "keine Konfigurationsdatei gefunden"; }
+  el("prov-sub").textContent = d.config_path ? d.config_path : "keine Konfiguration gefunden";
+
+  var gaps = el("gaps");
+  gaps.innerHTML = "";
+  (d.gaps || []).forEach(function (g) {
+    var li = document.createElement("li"); li.textContent = g; gaps.appendChild(li);
+  });
+}
+
+function refreshSmart() {
+  if (!state.runId) return Promise.resolve();
+  return get("/api/smart?run=" + encodeURIComponent(state.runId)).then(function (d) {
+    if (d.error) return;
+    renderSmart(d);
+    renderProv(d);
+  });
+}
+
+// =====================================================================
+// INHALT (REGISTRY) - was wurde trainiert, und wie weit bis zur Marke
+//
+// Die Trainingslogs tragen KEINE Inhaltsdaten: gemessen ueber alle Logdateien
+// gibt es nur step, checkpoint_written, run_start, data_loaded und run_end -
+// und 0 Treffer fuer per_category, exact_match oder kategorie. Die Zahlen
+// stehen deshalb in registry/experiments.jsonl (eine JSON-Zeile je Runde).
+//
+// Zwei Regeln, die hier gelten:
+//   1. JE PANEL EINE EIGENE TABELLE. Panel A und Panel B messen auf
+//      disjunkten Fragesaetzen. Ein gemeinsames Blatt waere ein stilles
+//      Zusammenlegen - die Anzeige wuerde eine Genauigkeit zeigen, die keine
+//      der beiden Messungen hat.
+//   2. DIE AMPEL GILT FUER EINEN EINTRAG. Sie steht an einer Zeile der
+//      Registry, nicht fuer das Projekt. Deshalb steht der Satz dabei.
+// =====================================================================
+var reg = { entries: [], index: 0, kriterium: [] };
+
+function pct(v) {
+  if (!isFinite(v)) return "keine Zahl";
+  return (v * 100).toFixed(1) + " %";
+}
+// Exakte Zahl fuer die Zelle - so lesbar wie moeglich, ohne die Zahl zu
+// veraendern: eine Quote mit vier Nachkommastellen ist keine genauere Aussage
+// als eine mit drei.
+function exact(v) {
+  if (typeof v !== "number" || !isFinite(v)) return "keine Zahl";
+  if (Number.isInteger(v)) return String(v);
+  var a = Math.abs(v);
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 1) return v.toFixed(2);
+  if (a >= 0.01) return v.toFixed(4);
+  return v.toExponential(3);
+}
+// Anteil gegen die Marke: unter 75 % ist ein Durchfall, nicht eine Nuance.
+function quoteZelle(p, typ) {
+  var z = p.typ;
+  if (z.gestellt === null || z.gestellt === undefined) {
+    return '<td class="none" title="' + esc(z.hinweis || "") + '">nicht gestellt</td>';
+  }
+  var q = z.prozent;
+  if (typeof q !== "number" || !isFinite(q)) {
+    return '<td class="none" title="' + esc(z.hinweis || "") + '">keine Zahl</td>';
+  }
+  var cls = z.marke_gehalten ? "ueber" : "unter";
+  return "<td class=\"" + cls + "\">" + pct(q) + "</td>";
+}
+// Ein Zahlenfeld, das keine Zahl ist, wird als TEXT gezeigt - nie als Zahl.
+// NaN und Infinity wuerden sonst als leerer Wert erscheinen (JSON kennt sie
+// nicht) und eine Luecke wie eine Null aussehen lassen.
+function zellZahl(v) {
+  if (v === null || v === undefined) return "<td class=\"none\">nicht gemessen</td>";
+  if (typeof v !== "number" || !isFinite(v)) return "<td class=\"none\">keine Zahl</td>";
+  return "<td class=\"num\">" + fmtInt(v) + "</td>";
+}
+function zellQuote(v, extra) {
+  if (v === null || v === undefined) return "<td class=\"none\">nicht gemessen</td>";
+  if (typeof v !== "number" || !isFinite(v)) return "<td class=\"none\">keine Zahl</td>";
+  return "<td class=\"num\">" + pct(v) + (extra ? " " + extra : "") + "</td>";
+}
+
+function renderRegistry() {
+  var box = el("reg-body");
+  if (!box) return;
+  var meta = el("reg-meta");
+  var d = reg.entries[reg.index];
+  if (!d) {
+    box.innerHTML = '<div class="empty">Keine Registry-Eintraege gefunden.</div>';
+    return;
+  }
+
+  // ---- Kopf der Karte: Faehigkeit, Runde, Phase, Schritt, Urteil ----------
+  var art = d.d047.erreicht ? "ja" : (d.d047.aussage_moeglich ? "nein" : "keine");
+  var ampelText = d.d047.erreicht
+    ? "D-047 erfuellt: beide Bedingungen halten"
+    : (d.d047.aussage_moeglich
+      ? "D-047 NICHT erfuellt"
+      : "keine Aussage: kein Panel in dieser Runde");
+  var h = [];
+  h.push('<div class="card-reg ' + art + '">');
+  h.push('<div class="reg-head">');
+  h.push('<span class="cap">' + esc(d.capability || "n/a") + "</span>");
+  h.push('<span class="pill">' + esc(d.experiment_id) + "</span>");
+  h.push('<span class="pill">' + (d.accepted ? "angenommen" : "nicht angenommen") + "</span>");
+  h.push('<span class="ampel ' + art + '" title="' + esc(d.d047.begruendung) + '">' + esc(ampelText) + "</span>");
+  h.push("</div>");
+  h.push('<div class="reg-kontext">' + esc(d.kontext) + "</div>");
+
+  // ---- Die Marke: Kriterientext sichtbar, mit dem Stand dieser Runde ------
+  h.push('<div class="reg-kopf">');
+  h.push('<div><b>Marke D-047</b> - beide Bedingungen muessen fuer diesen Eintrag halten:</div>');
+  (reg.kriterium || []).forEach(function (k, i) {
+    var ok = i === 0 ? d.d047.kopf_erfuellt : (d.d047.typen_unter_marke.length === 0);
+    h.push('<div class="kriterium"><span class="b">' + esc(k.bedingung) + "</span> "
+      + "<span class=\"" + (ok ? "ok" : "nok") + "\">" + (ok ? "haelt" : "reisst") + "</span></div>");
+  });
+  h.push('<div class="kriterium"><span class="b">Kopfzahl dieser Runde (Mittel der Panels'
+    + (d.d047.kopf_aus.length ? ": " + esc(d.d047.kopf_aus.join(", ")) : "")
+    + ')</span> ' + (typeof d.d047.kopf_quote === "number" && isFinite(d.d047.kopf_quote)
+      ? pct(d.d047.kopf_quote) : "keine Zahl")
+    + "   ·   Marke " + pct(d.d047.marke_exact_match)
+    + "   ·   Typmarke " + pct(d.d047.marke_typ) + "</div>");
+  h.push('<div class="kriterium"><span class="b">Kopfzahl der Zeile (Feld exact_match)</span> '
+    + (typeof d.exact_match === "number" && isFinite(d.exact_match) ? pct(d.exact_match) : "keine Zahl")
+    + "</div>");
+  if (d.d047.typen_unter_marke.length) {
+    h.push('<div class="reisser"><b>reisst die Typmarke:</b> ');
+    h.push(d.d047.typen_unter_marke.map(function (t) {
+      return esc(t.typ) + " " + pct(t.prozent) + " (" + fmtInt(t.richtig) + " von "
+        + fmtInt(t.gestellt) + ", fehlt " + fmtNum(t.fehlt_pp, 1) + " Pp)";
+    }).join("   ·   "));
+    h.push("</div>");
+  } else if (d.d047.gemessene_typen) {
+    h.push('<div class="kriterium">kein gemessener Typ unter der Marke ('
+      + fmtInt(d.d047.gemessene_typen) + " Typen gemessen)</div>");
+  }
+  if (d.d047.typen_ohne_zahl.length) {
+    h.push('<div class="kriterium"><span class="b">ohne Zahl (Luecke, kein Durchfall)</span> '
+      + esc(d.d047.typen_ohne_zahl.map(function (t) { return t.typ; }).join(", ")) + "</div>");
+  }
+  h.push('<div class="kriterium"><span class="b">Begruendung</span> ' + esc(d.d047.begruendung) + "</div>");
+  h.push('<div class="reisser">' + esc(d.d047.geltung) + "</div>");
+  h.push('<div class="quelle">Quelle der Marke: ' + esc(d.d047.quelle) + "</div>");
+  h.push('<div class="quelle">' + esc(d.d047.pool_hinweis) + "</div>");
+  h.push("</div>");
+
+  // ---- Je Panel eine EIGENE Tabelle --------------------------------------
+  if (!d.panels || !d.panels.length) {
+    h.push('<div class="reg-panels"><div class="pbox"><h4>'
+      + esc(d.ohne_panel_text || "kein Panel in dieser Runde") + "</h4>"
+      + '<div class="ph">Diese Runde traegt keine Typenzahlen. Es wird nichts '
+      + "geschlossen und nichts gepoolt.</div></div></div>");
+  } else {
+    h.push('<div class="reg-panels">');
+    d.panels.forEach(function (p) {
+      h.push('<div class="pbox">');
+      h.push("<h4>" + esc(p.name) + "</h4>");
+      h.push('<div class="ph">' + esc(p.hinweis) + "</div>");
+      h.push("<table><thead><tr><th>typ</th><th class=\"num\">gestellt</th>"
+        + "<th class=\"num\">richtig</th><th class=\"num\">prozent</th></tr></thead><tbody>");
+      (p.zeilen || []).forEach(function (z) {
+        h.push("<tr><td>" + esc(z.typ) + "</td>"
+          + zellZahl(z.gestellt) + zellZahl(z.richtig) + quoteZelle(z) + "</tr>");
+      });
+      h.push('<tr class="gesamt"><td>Summe der Typen</td><td class="num">'
+        + fmtInt(p.typ_summe) + "</td><td class=\"num\">-</td><td class=\"num\">-</td></tr>");
+      h.push("</tbody></table>");
+      h.push('<div class="summe">Kopfzahl dieses Panels: '
+        + (p.em_nachher === null ? "nicht gemessen" : pct(p.em_nachher))
+        + (p.em_vorher === null || p.em_vorher === undefined ? "" : " (vorher " + pct(p.em_vorher) + ")")
+        + "   ·   inhaltlich " + (p.inhalt_nachher === null ? "nicht gemessen" : pct(p.inhalt_nachher))
+        + (p.inhalt_gestellt ? " (" + fmtInt(p.inhalt_richtig) + " von " + fmtInt(p.inhalt_gestellt) + ")" : "")
+        + (p.gefragt ? "   ·   " + fmtInt(p.gefragt) + " Messpunkte" : "")
+        + (p.offset === null || p.offset === undefined ? "" : "   ·   Versatz " + fmtInt(p.offset))
+        + (p.schwaechster_typ ? "   ·   schwach: " + esc(p.schwaechster_typ)
+          + (p.schwaechster_quote === null ? "" : " " + pct(p.schwaechster_quote)) : "")
+        + "</div>");
+      h.push("</div>");
+    });
+    h.push("</div>");
+  }
+
+  // ---- Herkunft: der Rest der Zeile, nichts erfunden ---------------------
+  var rest = [
+    ["Schritt (steps)", d.steps === null || d.steps === undefined ? "n/a" : fmtInt(d.steps)],
+    ["Elternstand", d.parent_checkpoint || "n/a"],
+    ["Stand danach", d.checkpoint || "n/a"],
+    ["Lernrate", d.learning_rate === null || d.learning_rate === undefined ? "n/a" : fmtLr(d.learning_rate)],
+    ["Replay-Anteil", d.replay_share === null || d.replay_share === undefined ? "n/a" : String(d.replay_share)],
+    ["Paket", d.pack === null || d.pack === undefined ? "n/a" : d.pack],
+    ["Leiterstufe", d.leiterstufe === null || d.leiterstufe === undefined ? "n/a (nicht gesetzt)" : String(d.leiterstufe)],
+    ["Seed", d.seed === null || d.seed === undefined ? "n/a" : fmtInt(d.seed)],
+    ["Verlust", d.loss === null ? "n/a" : fmtNum(d.loss, 6)],
+    ["Perplexitaet", d.perplexity === null ? "n/a" : fmtPpl(d.perplexity)],
+    ["Urteil der Runde", d.urteil || "n/a"],
+    ["Determinismus-Probe", d.deterministisch ? "ja" : "nein/nicht angegeben"],
+    ["Score vorher -> nachher", (d.score_before === null ? "n/a" : fmtNum(d.score_before, 4))
+      + " -> " + (d.score === null ? "n/a" : fmtNum(d.score, 4))],
+    ["Regression", d.regression_results || "n/a"],
+    ["Naechste Aktion", d.selected_next_action || "n/a"],
+    ["Begruendung der Aktion", d.reason_for_action || "n/a"],
+    ["Trainingsrezept", d.training_config || "n/a"],
+    ["Auswertung", d.evaluation_config || "n/a"],
+    ["Korpus-Version", d.dataset_version || "n/a"],
+    ["Generator/Verifier", (d.generator_version || "n/a") + " / " + (d.verifier_version || "n/a")]
+  ];
+  h.push('<details class="reg-details"><summary>Herkunft dieser Zeile anzeigen</summary>');
+  h.push('<div class="reg-kv">');
+  rest.forEach(function (kv) {
+    h.push('<div class="k">' + esc(kv[0]) + '</div><div class="v">' + esc(String(kv[1])) + "</div>");
+  });
+  h.push("</div>");
+  if (d.failure_distribution && d.failure_distribution.length) {
+    h.push('<div class="reg-kv"><div class="k">Fehlerverteilung</div><div class="v">'
+      + esc(d.failure_distribution.map(function (f) { return f.grund + " " + fmtInt(f.anzahl); }).join("   ·   "))
+      + "</div></div>");
+  }
+  h.push("</details>");
+  h.push("</div>");
+
+  box.innerHTML = h.join("");
+
+  if (meta) {
+    meta.textContent = "Zeile " + (reg.index + 1) + " von " + reg.entries.length
+      + " gelesenen Runden   ·   " + (d.panels ? d.panels.length : 0) + " Panel(s)"
+      + (reg.uebersprungen ? "   ·   " + reg.uebersprungen + " Zeile(n) uebersprungen" : "");
+  }
+}
+
+function regFillSelect() {
+  var sel = el("reg-pick");
+  if (!sel) return;
+  sel.innerHTML = "";
+  reg.entries.forEach(function (e, i) {
+    var o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = e.kurzname || (e.experiment_id + " #" + (i + 1));
+    sel.appendChild(o);
+  });
+  if (!reg.entries.length) {
+    sel.innerHTML = "<option>keine Runden</option>";
+    return;
+  }
+  // Beim ersten Laden die NEUESTE Runde zeigen - die ist die interessanteste.
+  if (reg.index < 0 || reg.index >= reg.entries.length) reg.index = reg.entries.length - 1;
+  sel.value = String(reg.index);
+}
+
+function loadRegistry() {
+  return get("/api/registry").then(function (d) {
+    reg.entries = d.eintraege || [];
+    reg.kriterium = d.kriterium || [];
+    reg.uebersprungen = d.uebersprungen;
+    reg.vollstaendig = d.vollstaendig;
+    // Die neueste Runde vorauswaehlen; sonst die Auswahl des Nutzers behalten.
+    if (reg.index === undefined || reg.index === null || !reg.entries[reg.index]) {
+      reg.index = Math.max(0, reg.entries.length - 1);
+    }
+    regFillSelect();
+    renderRegistry();
+    var hinweis = el("reg-hint");
+    if (hinweis) {
+      var teile = [];
+      teile.push("aus " + d.registry + " (limit " + d.limit + ")");
+      teile.push(d.runden + " Runde(n) gelesen, davon " + d.runden_mit_panels + " mit panels");
+      if (!state.initial) {
+        var neu = (d.eintraege || []).length - (reg.anzahlVorher === undefined ? 0 : reg.anzahlVorher);
+        if (neu > 0) teile.push(neu + " neue Runde(n) seit dem letzten Laden");
+      }
+      reg.anzahlVorher = (d.eintraege || []).length;
+      if (d.hinweis) teile.push(d.hinweis);
+      if (d.hinweis_umfang) teile.push(d.hinweis_umfang);
+      teile.push("gelesen " + d.gelesen + " Zeile(n), uebersprungen " + d.uebersprungen);
+      teile.push("Faehigkeitsdateien: configs/capabilities/ enthaelt genau eine Datei (sequence_reasoning.toml)");
+      hinweis.textContent = teile.join("   ·   ");
+    }
+  }).catch(function (e) {
+    var box = el("reg-body");
+    if (box) box.innerHTML = '<div class="empty">Registry nicht lesbar: ' + esc(e.message) + "</div>";
+  });
+}
+
+// =====================================================================
+// Messprotokoll (logs/messungen.jsonl)
+//
+// Eine Zeile je Messlauf, nicht je Protokollzeile: der Stand ist der LETZTE
+// Eintrag zu einem Namen. Das Protokoll traegt bewusst keinen Zeitstempel -
+// die Reihenfolge in der Datei ist die Zeitachse. Deshalb steht die Zahl der
+// gelesenen Zeilen daneben: sie ist der Beleg dafuer, dass ein Stand aus mehr
+// als einer Zeile entstanden ist und nicht nur aus einer Behauptung.
+//
+// Diese Anzeige liest nur. Schreibt ein Agent oder Skript eine Zeile, steht
+// sie nach der naechsten Meldung hier - ohne Neuladen der Seite.
+// =====================================================================
+var MESS_STATUS = {
+  start:  { cls: "laeuft", text: "laeuft" },
+  zeile:  { cls: "zeile",  text: "Zwischenstand" },
+  fertig: { cls: "fertig", text: "fertig" },
+  fehler: { cls: "fehler", text: "gescheitert" }
+};
+function messStatus(s) {
+  return MESS_STATUS[s] || { cls: "", text: String(s === null || s === undefined ? "?" : s) };
+}
+
+function renderMessungen(d) {
+  var box = el("mess-body");
+  if (!box) return;
+  var eintraege = d.eintraege || [];
+  if (!eintraege.length) {
+    box.innerHTML = '<div class="empty">Kein Messlauf protokolliert.</div>';
+    return;
+  }
+  var h = [];
+  h.push("<table><thead><tr><th>Status</th><th>Name</th><th>Datei</th>"
+    + '<th>Ergebnis</th><th class="num">Zeilen</th></tr></thead><tbody>');
+  eintraege.forEach(function (m) {
+    var s = messStatus(m.status);
+    // Luecken stehen in der Zeile, nicht im Kleingedruckten: "fertig" ohne
+    // gemeldeten Start ist eine duennere Aussage als "fertig" mit Start.
+    var luecken = [];
+    if (!m.gestartet && m.status !== "start") luecken.push("kein start gemeldet");
+    if (m.fehler_gesehen && m.status !== "fehler") luecken.push("zwischendurch gescheitert");
+    h.push("<tr>");
+    h.push('<td><span class="mess-status ' + s.cls + '">' + esc(s.text) + "</span></td>");
+    h.push("<td>" + esc(m.name)
+      + (luecken.length ? ' <span class="mess-leer">(' + esc(luecken.join(", ")) + ")</span>" : "")
+      + "</td>");
+    h.push('<td class="mess-datei">' + esc(m.datei) + "</td>");
+    h.push('<td class="mess-ergebnis">'
+      + (m.ergebnis ? esc(m.ergebnis) : '<span class="mess-leer">kein Ergebnis</span>')
+      + "</td>");
+    h.push('<td class="num">' + fmtInt(m.zaehler) + "</td>");
+    h.push("</tr>");
+  });
+  h.push("</tbody></table>");
+
+  var ev = d.ereignisse || [];
+  if (ev.length) {
+    h.push('<details class="mess-roh"><summary>Protokollzeilen anzeigen ('
+      + fmtInt(ev.length) + ", aelteste zuerst)</summary>");
+    ev.forEach(function (e) {
+      h.push('<div class="ev"><span class="badge">' + esc(messStatus(e.status).text) + "</span>"
+        + '<span class="txt">' + esc(e.name) + " &rarr; " + esc(e.datei)
+        + (e.ergebnis ? ' <span class="mess-ergebnis">' + esc(e.ergebnis) + "</span>" : "")
+        + "</span></div>");
+    });
+    h.push("</details>");
+  }
+  box.innerHTML = h.join("");
+}
+
+function loadMessungen() {
+  return get("/api/messungen").then(function (d) {
+    renderMessungen(d);
+    var meta = el("mess-meta");
+    if (meta) {
+      meta.textContent = fmtInt(d.messlaeufe) + " Messlauf/Messlaeufe   ·   "
+        + d.start + " laeuft   ·   " + d.zeile + " Zwischenstand   ·   "
+        + d.fertig + " fertig   ·   " + d.fehler + " gescheitert";
+    }
+    var hinweis = el("mess-hint");
+    if (hinweis) {
+      var teile = [];
+      teile.push("aus " + d.datei);
+      teile.push(fmtInt(d.zeilen) + " Zeile(n) gelesen, " + fmtInt(d.uebersprungen) + " uebersprungen");
+      var gruende = d.gruende || {};
+      var g = Object.keys(gruende).map(function (k) { return k + " (" + gruende[k] + ")"; });
+      if (g.length) teile.push("uebersprungene Zeilen: " + g.join(", "));
+      if (d.zeilen > d.limit) {
+        teile.push("nur die letzten " + fmtInt(d.limit) + " Zeilen gezaehlt");
+      }
+      if (d.datei && !d.vollstaendig) teile.push("Datei groesser als die Lesegrenze: der Anfang fehlt");
+      if (d.hinweis) teile.push(d.hinweis);
+      teile.push("kein Zeitstempel - die Reihenfolge in der Datei ist die Zeitachse");
+      teile.push("Zeile schreiben: scripts/messung-log.sh");
+      hinweis.textContent = teile.join("   ·   ");
+    }
+  }).catch(function (e) {
+    var box = el("mess-body");
+    if (box) box.innerHTML = '<div class="empty">Messprotokoll nicht lesbar: ' + esc(e.message) + "</div>";
+  });
+}
+
+// =====================================================================
+// Bedienung
+// =====================================================================
+function setPressed(id, on) { var b = el(id); if (b) b.className = on ? "on" : ""; }
+
+function syncButtons() {
+  setPressed("yscale-log", state.yscale === "log");
+  setPressed("yscale-lin", state.yscale === "linear");
+  setPressed("metric-loss", state.metric === "loss");
+  setPressed("metric-ppl", state.metric === "ppl");
+  setPressed("only-selected", state.onlySelected);
+}
+
+function redrawAll() {
+  syncButtons();
+  renderCurveSub();
+  draw();
+  drawGrid();
+  renderMeas();
+  renderChips();
+}
+
+// Lauf-Chips: ein Klick blendet den Lauf im Diagramm ein oder aus.
+// Bei 124 Laeufen ist das der einzige Weg, eine einzelne Kurve zu erkennen.
+function renderChips() {
+  var box = el("cmp-legend");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!cmp.runs.length) return;
+  var titel = document.createElement("span");
+  titel.textContent = "läufe:";
+  titel.style.alignSelf = "center";
+  box.appendChild(titel);
+  cmp.runs.forEach(function (r) {
+    var note = evaluate(r);
+    var c = document.createElement("span");
+    c.className = "chip" + (cmp.hidden[r.id] ? "" : " on") + (r.id === state.runId ? " selected" : "");
+    c.innerHTML = '<i style="background:' + colorOf(r.id) + ';width:9px;height:9px;border-radius:2px;display:inline-block"></i>'
+      + '<b style="color:' + colorOf(r.id) + '">' + esc(r.name) + "</b>"
+      + "<span>" + note.arrow + " " + esc(note.word) + "</span>";
+    c.title = (cmp.hidden[r.id] ? "einblenden" : "ausblenden") + ": " + note.why;
+    c.onclick = function () {
+      cmp.hidden[r.id] = !cmp.hidden[r.id];
+      renderChips(); draw(); drawGrid();
+    };
+    box.appendChild(c);
+  });
+}
+
+el("run").addEventListener("change", function () {
+  state.runId = el("run").value;
+  loadDetail(); refreshSmart(); drawGrid(); loadCompare(); renderVerdict();
+});
+el("refresh").addEventListener("click", tickAll);
+el("yscale-log").addEventListener("click", function () { state.yscale = "log"; redrawAll(); });
+el("yscale-lin").addEventListener("click", function () { state.yscale = "linear"; redrawAll(); });
+el("metric-loss").addEventListener("click", function () { state.metric = "loss"; redrawAll(); });
+el("metric-ppl").addEventListener("click", function () { state.metric = "ppl"; redrawAll(); });
+el("only-selected").addEventListener("click", function () {
+  state.onlySelected = !state.onlySelected;
+  redrawAll();
+});
+el("chart").addEventListener("mousemove", showTip);
+el("chart").addEventListener("mouseleave", function () {
+  el("tip").style.display = "none";
+  draw();
+});
+el("reg-pick").addEventListener("change", function () {
+  var i = parseInt(el("reg-pick").value, 10);
+  if (isFinite(i) && reg.entries[i]) { reg.index = i; renderRegistry(); }
+});
+window.addEventListener("resize", function () { draw(); drawGrid(); });
+
+function tickAll() {
+  loadReference()
+    .then(loadRuns)
+    .then(loadCompare)
+    .then(function () { return refreshSmart(); })
+    .then(loadRegistry)
+    .then(loadMessungen)
+    .catch(function (e) { el("status").textContent = "fehler: " + e.message; });
+}
+
+// ------------------------------------------------------------------ LIVE
+// Der Server meldet, WENN sich etwas geaendert hat - der Browser fragt nicht
+// mehr alle zwei Sekunden nach.
+//
+// Vorher: `setInterval(tickAll, 2000)` holte alle zwei Sekunden /api/runs,
+// /api/compare und die SMART-Karte, zusammen rund 340 KB. Das war der Grund
+// fuer den Zwischenspeicher im Server und fuer diesen Umbau.
+//
+// Jetzt: EINE Verbindung (`/api/stream`, Server-Sent Events). Der Server
+// vergleicht im Sekundentakt nur Dateigroessen und Aenderungszeiten; nur bei
+// einer echten Aenderung schickt er ein Ereignis. Der Browser rendert
+// ausschliesslich dann - und laedt nur das neu, was sich geaendert haben kann.
+//
+// Der Zustand des leeren Anfangs: `state.ersteMeldung`, damit die volle Ladung
+// genau einmal passiert.
+function streamStatus(text, cls) {
+  var p = el("stream");
+  p.textContent = text;
+  p.className = "pill" + (cls ? " " + cls : "");
+}
+
+function streamEvent(d) {
+  var daten = {};
+  try { daten = JSON.parse(d); } catch (e) { daten = {}; }
+  if (daten.id === state.fingerprint) return;      // derselbe Stand: nichts tun
+  var vorher = state.fingerprint;
+  state.fingerprint = daten.id || null;
+  state.letzteMeldung = new Date();
+
+  if (vorher === null || vorher === undefined) {
+    // Erste Meldung: alles laden.
+    state.initial = true;
+    tickAll();
+    return;
+  }
+  // Danach nur das, was sich geaendert haben kann: der gewaehlte Lauf, die
+  // Kopfzahlen und die Karte. Die Vergleichsdaten (251 KB) nur, wenn ein Lauf
+  // hinzugekommen ist.
+  //
+  // Wichtig: die Zahl der Laeufe VOR `loadRuns` merken - `loadRuns` setzt
+  // `state.runCount` selbst, danach waere der Vergleich immer gleich.
+  var neueLaeufe = daten.runs && daten.runs !== state.runCount;
+  loadRuns()
+    .then(loadReference)
+    .then(function () { return refreshSmart(); })
+    .then(function () { if (neueLaeufe) return loadCompare(); })
+    // Die Registry waechst mit dem Projekt: nur bei einer Meldung neu lesen,
+    // nicht bei jedem Takt. Die Antwort ist klein (nur die letzten N Zeilen).
+    .then(loadRegistry)
+    // Das Messprotokoll gehoert hierher und nicht in den Sekundentakt: der
+    // Server meldet nur bei echter Aenderung, und ein Messlauf schreibt
+    // selten - eine neue Zeile ist genau so eine Aenderung.
+    .then(loadMessungen)
+    .catch(function (e) { el("status").textContent = "fehler: " + e.message; });
+}
+
+function connectStream() {
+  if (!window.EventSource) {
+    // Kein EventSource (sehr alter Browser): dann wenigstens von Hand.
+    streamStatus("kein live", "warn");
+    tickAll();
+    return;
+  }
+  var es = new EventSource("/api/stream");
+  es.addEventListener("open", function () { streamStatus("live", "good"); });
+  es.addEventListener("stand", function (e) { streamStatus("live", "good"); streamEvent(e.data); });
+  es.addEventListener("aenderung", function (e) { streamEvent(e.data); });
+  es.addEventListener("error", function () {
+    // EventSource verbindet sich selbst neu - der Hinweis sagt nur, dass es
+    // gerade nicht steht.
+    streamStatus("getrennt", "warn");
+  });
+}
+
+syncButtons();
+connectStream();
+
+// Der Vergleich (cmp.runs) traegt die Kurvenpunkte; draw und drawGrid lesen
+// sie. `state.series` liefert die exakten Werte fuer den Tooltip - beides
+// kommt aus demselben Server, nur unterschiedlich ausgeduennt.
+</script>
+</body>
+</html>
