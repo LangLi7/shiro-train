@@ -111,7 +111,11 @@ header.top .brand {
   color: var(--on-dark); display: inline-flex; align-items: center; gap: 9px;
 }
 header.top .brand i { width: 14px; height: 14px; border-radius: 4px; background: var(--primary); display: inline-block; }
-header.top .sub { color: var(--muted-soft); font: 400 13px var(--mono); }
+header.top .sub {
+  color: var(--muted-soft); font: 400 13px var(--mono);
+  /* Der Pfadhinweis darf den Kopf nicht schieben: er kuerzt sich selbst. */
+  max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 header.top .spacer { flex: 1; }
 
 nav.nav { display: flex; align-items: center; gap: 4px; }
@@ -122,7 +126,14 @@ nav.nav a {
 }
 nav.nav a:hover { color: var(--on-dark); background: var(--surface-soft); }
 nav.nav a.active { color: var(--on-dark); background: var(--surface-card); font-weight: 600; }
-nav.nav a .n { color: var(--muted-soft); font: 400 12px var(--mono); }
+/* Das Kuerzel im Navigationspunkt MUSS gekuerzt werden: vorher stand hier der
+   volle Laufname (68 Zeichen), damit wuchs der Punkt "lauf" und schob die
+   ganze Kopfleiste - derselbe Befund wie beim Auswahlfeld. */
+nav.nav a .n {
+  color: var(--muted-soft); font: 400 12px var(--mono);
+  display: inline-block; max-width: 150px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+}
 nav.nav a.active .n { color: var(--muted); }
 
 /* ---- Brotkrumen (caption-uppercase der Vorlage: 12px/600/+1.5px) ----- */
@@ -232,7 +243,29 @@ button.on:hover { background: #2c2c2c; color: var(--primary); }
 /* ---- Diagramm -------------------------------------------------------- */
 .chart-wrap { position: relative; }
 canvas { width: 100%; display: block; }
-#chart { height: 400px; }
+canvas.hoch { height: 330px; }
+canvas.flach { height: 180px; }
+canvas.sehr-flach { height: 150px; }
+/* Ein Block je Frage. Der Kopf nennt die Frage, der Hinweis sagt, wie man
+   das Bild liest - ohne den Hinweis ist ein Diagramm nur eine Zeichnung. */
+.chart-block { margin-top: 22px; }
+.chart-block:first-of-type { margin-top: 0; }
+.chart-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.chart-head b { color: var(--on-dark); font: 600 14px/1.4 var(--sans); }
+.chart-head span { color: var(--muted); font: 400 12px/1.4 var(--mono); }
+/* Die Messwertanzeige: alle sichtbaren Laeufe an der Mausposition. */
+.readout {
+  margin-top: 16px; background: var(--surface-soft); border: 1px solid var(--hairline);
+  border-radius: var(--r-md); padding: 10px 12px; overflow-x: auto;
+  font: 400 12.5px/1.6 var(--mono); color: var(--body);
+}
+.readout table { width: 100%; }
+.readout .h { color: var(--primary); font-weight: 600; margin-bottom: 6px; }
+.readout .r { display: flex; justify-content: space-between; gap: 16px; }
+.readout .r .k { color: var(--muted); }
 .chart-legend {
   display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted);
   font: 400 13px var(--sans); margin-top: 12px;
@@ -241,15 +274,6 @@ canvas { width: 100%; display: block; }
 .chart-legend i { display: inline-block; width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; }
 .chart-legend i.dash { border-top-style: dashed; }
 .chart-legend i.dot { width: 9px; height: 9px; border: 0; border-radius: 50%; }
-.tip {
-  position: absolute; pointer-events: none; z-index: 40; display: none;
-  background: var(--surface-elevated); border: 1px solid var(--hairline-strong);
-  border-radius: var(--r-md); padding: 10px 12px;
-  font: 400 13px/1.55 var(--mono); color: var(--body-strong); min-width: 200px;
-}
-.tip .h { color: var(--primary); font-weight: 600; margin-bottom: 5px; }
-.tip .r { display: flex; justify-content: space-between; gap: 16px; }
-.tip .r .k { color: var(--muted); }
 .hint { color: var(--muted); font: 400 13px/1.55 var(--sans); margin-top: 10px; }
 
 /* Schwebende Hilfe: Bedienoberflaeche, kein Inhalt. */
@@ -344,10 +368,41 @@ td.stabil { color: var(--warn); }
 .ampel.keine { color: var(--muted); }
 .tag { background: transparent; color: var(--muted); }
 .mess-status { min-width: 96px; text-align: center; font: 600 12px/1.4 var(--sans); text-transform: uppercase; letter-spacing: 1.5px; }
-.mess-datei { font: 400 13px var(--mono); color: var(--body-strong); word-break: break-all; }
+.mess-datei { font: 400 13px var(--mono); color: var(--body-strong); }
 .mess-ergebnis { font: 700 13px var(--mono); color: var(--primary); }
 .mess-leer { font: 400 12px var(--sans); color: var(--muted-soft); }
 .mess-roh { max-height: 340px; overflow: auto; }
+
+/* ---- Messprotokoll: schmal wird gestapelt, nichts wird gequetscht ----
+   Die Tabelle traegt lange Werte (Dateinamen bis 40 Zeichen). Nebeneinander
+   bleibt sie lesbar, solange genug Breite da ist; darunter quetscht eine
+   Tabelle ihre Spalten zusammen, bis die Werte ueberlappen und Zahlen ueber
+   den Dateinamen rutschen. Deshalb zwei Regeln:
+   1. Lange Werte duerfen umbrechen (anywhere, damit auch ein 40-Zeichen-Name
+      ohne Trennstelle nicht aus der Zelle laeuft).
+   2. Unter 720 px wird aus jeder Zeile ein Block mit Beschriftung - kein
+      Nebeneinander, kein waagerechtes Scrollen, keine Ueberlappung. */
+.mess-datei, .mess-ergebnis, .mess-name { overflow-wrap: anywhere; word-break: break-word; }
+.mess-ergebnis { white-space: normal; }
+#mess-body { min-width: 0; }
+.cols > * { min-width: 0; }
+@media (max-width: 1180px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .mess-tabelle thead { display: none; }
+  .mess-tabelle, .mess-tabelle tbody, .mess-tabelle tr, .mess-tabelle td { display: block; width: auto; }
+  .mess-tabelle tr {
+    border: 1px solid var(--hairline); border-radius: var(--r-md);
+    background: var(--surface-soft); padding: 10px 12px; margin-bottom: 10px;
+    cursor: default;
+  }
+  .mess-tabelle td { border: 0; padding: 3px 0; text-align: left; }
+  .mess-tabelle td::before {
+    content: attr(data-label); display: block; color: var(--muted);
+    font: 600 11px/1.5 var(--sans); text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .mess-tabelle td.num { text-align: left; }
+  .mess-status { min-width: 0; }
+}
 
 /* ---- Belege, Glossar, Code ------------------------------------------ */
 .cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--sp); }
@@ -422,6 +477,68 @@ a:hover { color: var(--primary-active); }
 .chip:hover { border-color: var(--hairline-strong); color: var(--body-strong); }
 .chip.on { color: var(--body-strong); border-color: var(--hairline-strong); background: var(--surface-elevated); }
 .chip.selected { border-color: var(--primary); color: var(--primary); }
+
+/* ---- Laufwahl (ersetzt das native Auswahlfeld) ----------------------
+   Drei Fehler des Vorgaengers, jeder mit einer Regel beantwortet:
+   1. Der Kopf verschob sich, weil die Breite des Feldes vom laengsten
+      Dateinamen abhing -> der Knopf hat eine FESTE Breite, der Name wird
+      abgeschnitten (voller Name im Tooltip).
+   2. Die Liste wurde bei jedem Server-Ereignis neu gebaut und klappte
+      dabei zu -> die Liste wird beim Oeffnen EINGEFROREN und erst wieder
+      gebaut, wenn das Menue zu ist.
+   3. 130 rohe Dateinamen sind keine Auswahl -> gruppiert (laeuft jetzt /
+      zuletzt / weitere), mit Suche und Kurzzeile je Lauf. */
+.pick { position: relative; flex: 0 0 auto; }
+.picker {
+  display: inline-flex; align-items: center; gap: 9px;
+  width: 320px; padding: 8px 12px; text-align: left;
+  background: var(--surface-card); border: 1px solid var(--line);
+  border-radius: var(--r-md); color: var(--on-dark); cursor: pointer;
+  font: 600 13px/1.2 var(--sans); min-height: 40px;
+}
+.picker:hover { border-color: var(--hairline-strong); background: #2c2c2c; color: var(--on-dark); }
+.picker .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-soft); flex: 0 0 auto; }
+.picker .dot.live { background: var(--primary); }
+.picker .dot.done { background: var(--emerald); }
+.picker .dot.stale { background: var(--warn); }
+.picker .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker .meta { color: var(--muted); font: 400 11.5px var(--mono); flex: 0 0 auto; }
+.picker .car { color: var(--muted); font-size: 11px; }
+.picker[aria-expanded="true"] { border-color: var(--primary); }
+.menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  width: 420px; max-width: 92vw;
+  background: var(--surface-elevated); border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md); overflow: hidden;
+}
+.menu .msuche { padding: 10px; border-bottom: 1px solid var(--hairline); }
+.menu .msuche input { width: 100%; min-width: 0; }
+.menu .list { max-height: 340px; overflow: auto; padding: 6px; }
+.menu .grp {
+  color: var(--muted); font: 600 10.5px/1.4 var(--sans); text-transform: uppercase;
+  letter-spacing: 1.5px; padding: 9px 10px 4px;
+}
+.menu .row {
+  display: grid; grid-template-columns: 10px 1fr auto; gap: 9px; align-items: center;
+  padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer;
+}
+.menu .row:hover, .menu .row.aktiv { background: #2c2c2c; }
+.menu .row.gewaehlt { box-shadow: inset 2px 0 0 var(--primary); }
+.menu .row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-soft); }
+.menu .row .dot.live { background: var(--primary); }
+.menu .row .dot.done { background: var(--emerald); }
+.menu .row .dot.stale { background: var(--warn); }
+.menu .row .t { overflow: hidden; }
+.menu .row .t b { display: block; font: 600 13px/1.35 var(--sans); color: var(--on-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu .row .t span { display: block; color: var(--muted); font: 400 11.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu .row .r { color: var(--muted); font: 400 11.5px var(--mono); white-space: nowrap; }
+.menu .leer { color: var(--muted); padding: 14px 12px; font-size: 13px; }
+.menu .foot {
+  border-top: 1px solid var(--hairline); padding: 9px 10px;
+  color: var(--muted); font: 400 11.5px var(--mono);
+  display: flex; justify-content: space-between; gap: 10px; align-items: center;
+}
+.menu .foot button { min-height: 0; padding: 5px 10px; font-size: 12px; }
 
 /* ---- Inhalt (Registry) und Faehigkeitsseite ------------------------- */
 .reg-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -504,7 +621,25 @@ footer {
   </nav>
   <span class="spacer"></span>
   <span class="sub" id="paths"></span>
-  <select id="run" title="Lauf auswaehlen - die Auswahl gilt fuer die Seite 'lauf' und den Kopf"></select>
+  <!-- Laufwahl. Vorher stand hier ein natives <select> mit 130 Eintraegen: es
+       wurde bei JEDEM Server-Ereignis neu aufgebaut (also bei jedem
+       Trainingsschritt), war nach Dateizeit sortiert und so breit wie der
+       laengste Dateiname - der Kopf hat bei jeder Benutzung gependelt.
+       Jetzt: fester Knopf, Popover mit Suche, eingefrorene Liste. -->
+  <div class="pick" id="pick">
+    <button id="run-pick" class="picker" aria-haspopup="listbox" aria-expanded="false"
+            title="Lauf waehlen - die Auswahl gilt fuer die Seite 'lauf' und den Kopf">
+      <span class="dot" id="run-dot"></span>
+      <span class="nm" id="run-name">Laeufe werden geladen …</span>
+      <span class="meta" id="run-meta"></span>
+      <span class="car" aria-hidden="true">▾</span>
+    </button>
+    <div class="menu" id="run-menu" hidden role="listbox" aria-label="Lauf waehlen">
+      <div class="msuche"><input type="search" id="run-search" placeholder="suchen: Name, Schritt, Datei …" autocomplete="off" spellcheck="false"></div>
+      <div class="list" id="run-list"></div>
+      <div class="foot" id="run-foot"></div>
+    </div>
+  </div>
   <button id="refresh" class="primary" title="Sofort neu laden (die Seite laedt sonst nur bei einer echten Aenderung nach)">neu laden</button>
   <span class="pill" id="stream" title="Live-Verbindung zum Server: er meldet nur echte Aenderungen auf der Platte">verbinde …</span>
   <span class="pill" id="status">-</span>
@@ -558,7 +693,7 @@ footer {
   <!-- ============================== LAUF =============================== -->
   <section class="view" id="v-lauf" data-titel="lauf">
     <section class="panel">
-      <h2>verlust &amp; perplexität <span class="sub" id="curve-sub"></span></h2>
+      <h2>verlauf in fünf bildern <span class="sub" id="curve-sub"></span></h2>
       <div class="ctrls">
         <span class="lbl">y-achse</span>
         <button id="yscale-log" title="Logarithmisch: zeigt den ganzen Abstieg lesbar (Standard)">log</button>
@@ -568,6 +703,16 @@ footer {
         <button id="metric-loss" title="Kreuzentropie je Byte - die Größe, die optimiert wird">verlust</button>
         <button id="metric-ppl" title="Perplexität = e^Verlust, die lesbare Einheit">perplexität</button>
         <span class="sep"></span>
+        <span class="lbl">tempo</span>
+        <button id="tempo-ms" title="Millisekunden je Schritt - die Dauer einer Messung">ms/schritt</button>
+        <button id="tempo-bps" title="Gelesene Bytes je Sekunde - wie viel Stoff durchläuft">bytes/s</button>
+        <button id="tempo-gflops" title="Effektive Rechenleistung, gerechnet 6·N·D/t aus dem Log">gflops</button>
+        <span class="sep"></span>
+        <span class="lbl">fenster</span>
+        <button id="fenster-10" title="Gleitendes Fenster über 10 Schritte">10</button>
+        <button id="fenster-50" title="Gleitendes Fenster über 50 Schritte">50</button>
+        <button id="fenster-200" title="Gleitendes Fenster über 200 Schritte">200</button>
+        <span class="sep"></span>
         <span class="lbl">kurven</span>
         <button id="chips-auswahl" title="Nur den gewählten Lauf zeigen">nur auswahl</button>
         <button id="chips-beste" title="Die fünf Läufe mit dem besten Verlust zeigen">beste 5</button>
@@ -575,13 +720,62 @@ footer {
         <button id="chips-laufend" title="Nur Läufe ohne run_end zeigen">laufende</button>
         <button id="chips-alle" title="Alle Kurven einblenden - bei über hundert Läufen ein Knäuel">alle</button>
         <button id="chips-keine" title="Alle Kurven ausblenden">keine</button>
+        <span class="sep"></span>
+        <span class="lbl">zoom</span>
+        <button id="zoom-alles" title="Alle Schritte zeigen (Doppelklick in ein Bild tut dasselbe)">alles</button>
+        <button id="zoom-letzte" title="Nur das letzte Fünftel der Schritte zeigen">letzte 20 %</button>
       </div>
-      <div class="chart-wrap">
-        <canvas id="chart" width="1680" height="400"></canvas>
-        <div class="tip" id="tip"></div>
+
+      <!-- Fuenf Bilder ueber EINE Zeitachse. Sie beantworten fuenf
+           verschiedene Fragen, und keine davon beantwortet der Verlust allein:
+           lernt es noch (Fenster), wie schnell (Tempo), nach welchem Rezept
+           (Lernrate), und was hat sich geaendert (Aenderung). -->
+      <div class="chart-block">
+        <div class="chart-head"><b>1 · verlust &amp; perplexität</b><span id="kopf-verlauf"></span></div>
+        <div class="chart-wrap">
+          <canvas id="chart" class="hoch" width="1680" height="330"></canvas>
+        </div>
+        <div class="chart-legend" id="chart-legend"></div>
+        <div class="hint" id="hint-verlauf"></div>
       </div>
-      <div class="chart-legend" id="chart-legend"></div>
-      <div class="hint" id="chart-hint"></div>
+
+      <div class="chart-block">
+        <div class="chart-head"><b>2 · fenster</b><span id="kopf-fenster"></span></div>
+        <div class="chart-wrap">
+          <canvas id="chart-fenster" class="flach" width="1680" height="180"></canvas>
+        </div>
+        <div class="hint" id="hint-fenster">So liest man das: das Band ist der Bereich zwischen kleinstem und groesstem Verlust der letzten Schritte, die Linie der Mittelwert. Wandert das Band nach unten, geht es voran. Bleibt es stehen, ist es ein Plateau - unabhaengig davon, wie der letzte Einzelwert aussieht. Genau das kann ein einzelner Punkt nicht sagen.</div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head"><b>3 · änderung je schritt</b><span id="kopf-delta"></span></div>
+        <div class="chart-wrap">
+          <canvas id="chart-delta" class="flach" width="1680" height="180"></canvas>
+        </div>
+        <div class="hint" id="hint-delta">So liest man das: Balken unterhalb der Nulllinie heissen, dieser Schritt war besser als der vorige. Viele Balken oben und unten um die Null heissen: es steht. Ein einzelner grosser Ausschlag nach oben ist ein Rezeptwechsel (Fortsetzen oder neue Daten). Bei dichten Reihen zeigt eine Bildspalte den kleinsten und groessten Wert dieser Spalte.</div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head"><b>4 · lernrate</b><span id="kopf-lr"></span></div>
+        <div class="chart-wrap">
+          <canvas id="chart-lr" class="sehr-flach" width="1680" height="150"></canvas>
+        </div>
+        <div class="hint" id="hint-lr">So liest man das: die Lernrate kommt aus dem Plan, nicht aus der Messung. Flach heisst konstante Rate, fallend eine Cosinus-Kurve, am Anfang ein Warmup. Eine Linie auf 0 heisst: es wird nicht mehr trainiert - das ist ein gemessener Fehlerfall, kein ruhiger Verlauf.</div>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head"><b>5 · tempo</b><span id="kopf-tempo"></span></div>
+        <div class="chart-wrap">
+          <canvas id="chart-tempo" class="sehr-flach" width="1680" height="150"></canvas>
+        </div>
+        <div class="hint" id="hint-tempo">So liest man das: Millisekunden je Schritt, Bytes je Sekunde oder GFLOPS - dieselbe Rechnung in drei Ansichten. Ein Sprung bei ms nach unten (oder bei Bytes/s nach oben) heisst: es wird schneller gerechnet (anderes Geraet, anderes Fenster). Zacken heissen: etwas anderes belegt die Maschine.</div>
+      </div>
+
+      <!-- Die Messwertanzeige. Sie steht UNTER den Bildern und nicht als
+           schwebendes Kaestchen: sie zeigt die genauen Werte ALLER sichtbaren
+           Laeufe an der Mausposition, und das sind mehr Zeilen, als neben
+           einen Mauszeiger passen. -->
+      <div class="readout" id="tip"></div>
       <h3>kurvenauswahl je lauf</h3>
       <div class="hint" id="chips-count" style="margin:0 0 6px"></div>
       <div class="chart-legend" id="cmp-legend"></div>
@@ -703,10 +897,21 @@ footer {
 var REF = null;
 
 var state = {
-  runs: [], runId: null, series: null, feed: [], cps: [],
+  runs: [], runId: null, feed: [], cps: [],
   yscale: "log",      // log zeigt den ganzen Abstieg; linear zeigt den echten Abstand
   metric: "loss",     // loss = Kreuzentropie, ppl = e^loss
-  seriesCache: {},
+  tempo: "ms",        // ms je Schritt, Bytes je Sekunde oder GFLOPS
+  fenster: 50,        // Groesse des gleitenden Fensters, in Schritten (Server rechnet)
+  // Die Vollkurven der sichtbaren Laeufe, je Lauf EINE Wahrheit:
+  // `punkte` im gemeinsamen Punktformat, `fenster` die Groesse, fuer die die
+  // Fensterwerte gerechnet wurden. Eine zweite Ablage (`series`) gab es
+  // frueher - sie war die Quelle eines echten Fehlers (siehe unten).
+  serien: {},
+  // Gemeinsame x-Achse aller fuenf Bilder: null = alles zeigen.
+  xDom: { min: null, max: null },
+  kursor: null,       // Schritt unter der Maus
+  ziehen: null,       // laufende Ziehbewegung (Schieben)
+  axen: {},           // die Achsen der fuenf Bilder, fuer Mauszeiger und Ziehen
   // Live-Verbindung: `fingerprint` ist der zuletzt gesehene Stand des Servers,
   // `runCount` die Zahl der Laeufe darin. Beides zusammen entscheidet, was bei
   // einer Meldung neu geladen werden muss.
@@ -894,34 +1099,29 @@ function loadRuns() {
     // Fuer die Live-Verbindung: aendert sich diese Zahl, ist ein Lauf
     // hinzugekommen - dann muss auch der Vergleich neu geladen werden.
     state.runCount = state.runs.length;
-    // Neueste zuerst: der laufende Lauf gehoert nach oben, nicht der
-    // alphabetisch erste (das war ein alter Smoke-Test mit 16 Schritten).
+    // Neueste zuerst - dieselbe Ordnung wie im Auswahlmenue.
     state.runs.sort(function (a, b) { return (b.mtime || 0) - (a.mtime || 0); });
-    var sel = el("run");
-    var keep = state.runId || sel.value;
-    sel.innerHTML = "";
-    state.runs.forEach(function (r) {
-      var o = document.createElement("option");
-      o.value = r.id;
-      o.textContent = r.name + "  (" + r.steps + (r.step_target ? "/" + r.step_target : "") + " Schritte)"
-        + (r.finished ? "" : " - laeuft");
-      sel.appendChild(o);
-    });
+    var keep = state.runId;
     if (!state.runs.length) {
-      sel.innerHTML = "<option>keine Laeufe</option>";
       state.runId = null;
+      renderPicker();
+      el("paths").textContent = "logs: " + data.log_dir + "   ·   checkpoints: " + data.checkpoint_dir;
       return;
     }
     var ids = state.runs.map(function (r) { return r.id; });
-    // Beim ersten Laden den Lauf mit den meisten Messpunkten waehlen - das ist
-    // der aussagekraeftigste, nicht der zufaellig erste.
+    // Vorauswahl, wenn noch keine getroffen wurde: ZUERST der WIRKLICH
+    // laufende Lauf - das Wichtigste zuerst. Sonst der Lauf mit den meisten
+    // Messpunkten (das ist der aussagekraeftigste, nicht der zufaellig erste).
     if (ids.indexOf(keep) < 0) {
+      var laufend = state.runs.filter(function (r) { return laeuftJetzt(r); })[0];
       var best = state.runs.slice().sort(function (a, b) { return (b.steps || 0) - (a.steps || 0); })[0];
-      state.runId = best ? best.id : ids[0];
+      state.runId = (laufend || best || state.runs[0]).id;
     } else {
       state.runId = keep;
     }
-    sel.value = state.runId;
+    // Nur der KNOPF wird neu beschriftet. Das offene Menue bleibt stehen -
+    // genau das war der Fehler des alten Auswahlfeldes.
+    renderPicker();
     el("paths").textContent = "logs: " + data.log_dir + "   ·   checkpoints: " + data.checkpoint_dir;
     renderVerdict();
     return loadDetail();
@@ -930,22 +1130,29 @@ function loadRuns() {
 
 function loadDetail() {
   if (!state.runId) {
-    state.series = null; state.feed = [];
-    draw(); renderFeed(); renderVerdict();
+    state.feed = [];
+    zeichneAlle(); renderFeed(); renderVerdict();
     return Promise.resolve();
   }
   var id = encodeURIComponent(state.runId);
   return Promise.all([
-    get("/api/series?run=" + id),
+    // Die Fensterwerte (Mittel, Minimum, Maximum) und die Aenderung je Schritt
+    // rechnet der Server ueber `fenster` - hier wird nur gezeichnet.
+    get("/api/series?run=" + id + "&fenster=" + state.fenster),
     get("/api/events?run=" + id),
     get("/api/checkpoints")
   ]).then(function (res) {
-    state.series = res[0];
-    state.seriesCache[state.runId] = res[0];
+    if (res[0] && !res[0].error) {
+      state.serien[state.runId] = {
+        punkte: (res[0].points || []).map(ausSerie),
+        fenster: state.fenster,
+        ungueltig: res[0].punkte_ungueltig
+      };
+    }
     state.feed = (res[1].events || []);
     state.cps = (res[2].files || []);
     renderCurveSub();
-    draw();
+    zeichneAlle();
     renderFeed();
     renderCheckpoints();
     renderVerdict();
@@ -953,9 +1160,12 @@ function loadDetail() {
     zaehleNavigation();
     zeigeKrumen(state.ansicht || "uebersicht");
     var st = el("status");
-    if (cur && !cur.finished && cur.steps > 0) { st.textContent = "laeuft"; st.className = "pill live"; }
-    else if (cur && cur.finished) { st.textContent = "abgeschlossen"; st.className = "pill done"; }
-    else { st.textContent = "keine daten"; st.className = "pill"; }
+    // Drei Zustaende, nicht zwei: ein Lauf ohne `run_end`, dessen Datei seit
+    // Tagen nicht geschrieben wurde, ist ABGEBROCHEN - nicht "laeuft".
+    if (cur && laeuftJetzt(cur)) { st.textContent = "lauf: laeuft"; st.className = "pill live"; }
+    else if (cur && laufZustand(cur) === "done") { st.textContent = "lauf: fertig"; st.className = "pill done"; }
+    else if (cur) { st.textContent = "lauf: abgebrochen"; st.className = "pill warn"; }
+    else { st.textContent = "lauf: keine daten"; st.className = "pill"; }
   });
 }
 
@@ -1022,17 +1232,68 @@ function renderVerdict() {
   box.appendChild(wrap);
 
   var sub = el("verdict-sub");
-  sub.textContent = (r.finished ? "abgeschlossen" : "laeuft") + "   ·   "
+  sub.textContent = laufWort(r) + "   ·   "
     + (REF ? "Bezugswert " + fmtNum(REF.loss, 4) + " = ln(256) (untrainiert)" : "Bezugswert fehlt");
 }
 
 // =====================================================================
-// Diagramm
+// Diagramme - fuenf Bilder ueber EINE Zeitachse
 //
-// Aufbau von unten nach oben: Gitter, Referenzlinien, fremde Laeufe,
-// gewaehlter Lauf, Bestwert-Punkt, Checkpoint-Marken, Achsenbeschriftung.
-// Die Zeichenreihenfolge ist die Rangfolge der Wichtigkeit.
+// Ein Verlustbild allein beantwortet zu wenig: es zeigt, DASS die Kurve
+// faellt, aber nicht, ob der letzte Abschnitt noch faellt (Fenster), wie
+// schnell gerechnet wurde (Tempo), nach welchem Rezept (Lernrate) und wo
+// ein Sprung sitzt (Aenderung). Deshalb fuenf Bilder, die sich eine
+// x-Achse teilen: Zoomen und der Mauszeiger wirken in allen gleichzeitig.
+//
+// Aufbau von unten nach oben in jedem Bild: Gitter, Referenzlinien, fremde
+// Laeufe, gewaehlter Lauf, Marken, Mauszeiger.
 // =====================================================================
+
+var MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+// ---- Ein Punktformat fuer alle Reihen --------------------------------
+//
+// `/api/series` liefert Objekte ({"step":…,"loss":…}), `/api/compare`
+// liefert Tripel [Schritt, Verlust, Checkpoint]. Beide werden EINMAL auf
+// dasselbe Feldformat gebracht, damit fuenf Bilder dieselbe Leseroutine
+// benutzen.
+//
+// Genau hier lag ein echter Fehler: das Skript las die Objekte als Array
+// (`p[0]`, `p[1]` -> `undefined`). Jeder Punkt galt damit als ungueltige
+// Zahl, die Seite meldete "200 Messpunkte, 200 ohne gueltige Zahl" -
+// obwohl alle 200 gueltig waren - und der Mauszeiger zeigte nie Werte.
+var P_STEP = 0, P_LOSS = 1, P_PPL = 2, P_LR = 3, P_MS = 4, P_BPS = 5,
+    P_GFLOPS = 6, P_CP = 7, P_MITTEL = 8, P_FMIN = 9, P_FMAX = 10, P_DELTA = 11;
+
+/// Ein Punkt aus `/api/series`.
+function ausSerie(o) {
+  return [o.step, o.loss, o.ppl, o.lr, o.ms, o.bps, o.gflops,
+          o.checkpoint ? 1 : 0, o.mittel, o.fmin, o.fmax, o.delta];
+}
+
+/// Ein Punkt aus `/api/compare`. Dort stehen nur Schritt, Verlust und die
+/// Checkpoint-Marke; alles andere bleibt leer (null) - ein fehlender Wert
+/// wird nicht als Zahl gelesen.
+function ausVergleich(t) {
+  var loss = t[1];
+  var ppl = (typeof loss === "number" && isFinite(loss)) ? Math.exp(loss) : null;
+  return [t[0], loss, ppl, null, null, null, null, t[2] ? 1 : 0, null, null, null, null];
+}
+
+/// Die Vollkurve eines Laufs, falls sie geladen ist.
+function punkteVon(id) {
+  var s = state.serien[id];
+  return s ? s.punkte : null;
+}
+function sichtbarMitVollkurve() {
+  return cmp.runs.filter(function (r) { return !cmp.hidden[r.id] && punkteVon(r.id); });
+}
+function sichtbarVergleich() {
+  return cmp.runs.filter(function (r) { return !cmp.hidden[r.id] && r.points && r.points.length; });
+}
+function imBereich(p, b) { return p[P_STEP] >= b.min && p[P_STEP] <= b.max; }
+
+// ---- Achsen ----------------------------------------------------------
 function niceTicks(min, max, count) {
   if (!isFinite(min) || !isFinite(max) || min === max) return [min];
   var span = max - min;
@@ -1044,7 +1305,7 @@ function niceTicks(min, max, count) {
   return out;
 }
 
-// Zehnerpotenzen fuer die Logarithmus-Achse: 0,001 … 100.
+// Zehnerpotenzen fuer die Logarithmus-Achse.
 function decadeTicks(min, max) {
   var out = [], e = Math.floor(Math.log10(min));
   for (; e <= Math.ceil(Math.log10(max)); e++) {
@@ -1063,216 +1324,473 @@ function fmtTick(v) {
   if (a >= 1) return v.toFixed(1);
   if (a >= 0.1) return v.toFixed(2);
   if (a >= 0.01) return v.toFixed(3);
-  return v.toFixed(4);
+  return v.toFixed(5);
 }
 
-// Der Wert, der gezeichnet wird: Verlust oder Perplexitaet.
-function valueOf(p) { return state.metric === "ppl" ? p[1] : p[0]; }
+// Der Wert, der im ersten Bild gezeichnet wird: Verlust oder Perplexitaet.
+function valueOf(p) { return state.metric === "ppl" ? p[P_PPL] : p[P_LOSS]; }
 function refValue() { return REF ? (state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : null; }
 
-function axes(ctx, w, h, pts, padL, padR, padT, padB) {
-  var xMin = 0, xMax = 1;
-  pts.forEach(function (p) { if (p[0] > xMax) xMax = p[0]; });
-  var vals = pts.map(valueOf).filter(function (v) { return isFinite(v) && v > 0; });
+/// Die gemeinsame x-Achse: alle sichtbaren Laeufe, beschnitten auf den Zoom.
+function xBereich() {
+  var min = Infinity, max = -Infinity;
+  sichtbarVergleich().forEach(function (r) {
+    r.points.forEach(function (p) {
+      if (p[0] < min) min = p[0];
+      if (p[0] > max) max = p[0];
+    });
+  });
+  if (!isFinite(min) || !isFinite(max) || max <= min) return null;
+  var voll = { min: min, max: max };
+  if (state.xDom && state.xDom.min !== null && state.xDom.max > state.xDom.min) {
+    var a = Math.max(min, state.xDom.min), b = Math.min(max, state.xDom.max);
+    if (b - a >= 1) return { min: a, max: b, voll: voll, beschnitten: true };
+  }
+  return { min: min, max: max, voll: voll, beschnitten: false };
+}
+
+/// Eine Achse fuer ein Bild. `werte` sind die Zahlen, die WIRKLICH gezeichnet
+/// werden - die Skala folgt also dem Zoom: ein hineingezoomter Ausschnitt wird
+/// gross, statt in der Gesamtskala zu verschwinden.
+function achse(ctx, w, h, pads, xMin, xMax, werte, opts) {
+  opts = opts || {};
+  var vals = werte.filter(function (v) { return typeof v === "number" && isFinite(v); });
   if (!vals.length) return null;
   var yMin = Math.min.apply(null, vals), yMax = Math.max.apply(null, vals);
-
-  // Log-Skala nur, wenn alle Werte positiv sind und die Spanne das rechtfertigt.
-  // Perplexitaet 1,0 ist die untere Grenze und wuerde log10(1) = 0 ergeben -
-  // deshalb die harte Untergrenze.
-  var useLog = state.yscale === "log" && yMin > 0 && (yMax / yMin) > 8;
-
+  if (opts.mitteNull) { var m = Math.max(Math.abs(yMin), Math.abs(yMax)) || 1; yMin = -m; yMax = m; }
+  var useLog = !!opts.log && yMin > 0 && (yMax / yMin) > 8;
   if (useLog) {
     yMin = Math.pow(10, Math.floor(Math.log10(yMin)));
     yMax = Math.pow(10, Math.ceil(Math.log10(yMax)));
   } else {
-    var padY = (yMax - yMin) * 0.08 || 0.5;
+    var padY = (yMax - yMin) * 0.1 || (Math.abs(yMax) * 0.1) || 0.5;
     yMin -= padY; yMax += padY;
-    if (yMin < 0) yMin = 0;
+    if (opts.nichtNegativ && yMin < 0) yMin = 0;
   }
-  var plotW = w - padL - padR, plotH = h - padT - padB;
+  var plotW = w - pads.l - pads.r, plotH = h - pads.t - pads.b;
   var ySpan = (yMax - yMin) || 1;
-
   function toY(v) {
-    if (useLog) return padT + (Math.log10(yMax) - Math.log10(Math.max(v, yMin))) / (Math.log10(yMax) - Math.log10(yMin)) * plotH;
-    return padT + (yMax - v) / ySpan * plotH;
+    if (useLog) return pads.t + (Math.log10(yMax) - Math.log10(Math.max(v, yMin))) / (Math.log10(yMax) - Math.log10(yMin)) * plotH;
+    return pads.t + (yMax - v) / ySpan * plotH;
   }
-  function toX(s) { return padL + (s - xMin) / ((xMax - xMin) || 1) * plotW; }
+  function toX(s) { return pads.l + (s - xMin) / ((xMax - xMin) || 1) * plotW; }
 
-  // Gitter + y-Beschriftung
   ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 1;
   ctx.fillStyle = "#888888"; ctx.font = "10.5px " + MONO;
-  var yTicks = useLog ? decadeTicks(yMin, yMax) : niceTicks(yMin, yMax, 6);
+  var yTicks = useLog ? decadeTicks(yMin, yMax) : niceTicks(yMin, yMax, opts.ticks || 4);
   if (!yTicks.length) yTicks = [yMin, yMax];
   yTicks.forEach(function (v) {
     var y = toY(v);
-    if (y < padT - 1 || y > padT + plotH + 1) return;
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
-    ctx.textAlign = "right"; ctx.fillText(fmtTick(v), padL - 8, y + 3.5);
+    if (y < pads.t - 1 || y > pads.t + plotH + 1) return;
+    ctx.beginPath(); ctx.moveTo(pads.l, y); ctx.lineTo(pads.l + plotW, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(fmtTick(v), pads.l - 8, y + 3.5);
   });
   ctx.textAlign = "center";
   niceTicks(xMin, xMax, 6).forEach(function (v) {
     var x = toX(v);
-    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
-    ctx.fillText(fmtInt(v), x, padT + plotH + 16);
+    ctx.beginPath(); ctx.moveTo(x, pads.t); ctx.lineTo(x, pads.t + plotH); ctx.stroke();
+    if (opts.xLabels) ctx.fillText(fmtInt(v), x, pads.t + plotH + 16);
   });
 
-  // Achsenrahmen
+  if (opts.mitteNull) {
+    var y0 = toY(0);
+    ctx.strokeStyle = "#3a3a3a";
+    ctx.beginPath(); ctx.moveTo(pads.l, y0); ctx.lineTo(pads.l + plotW, y0); ctx.stroke();
+  }
   ctx.strokeStyle = "#3a3a3a";
-  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pads.l, pads.t); ctx.lineTo(pads.l, pads.t + plotH); ctx.lineTo(pads.l + plotW, pads.t + plotH); ctx.stroke();
 
   return {
     xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax, useLog: useLog,
-    padL: padL, padR: padR, padT: padT, padB: padB, plotW: plotW, plotH: plotH,
-    toX: toX, toY: toY
+    padL: pads.l, padT: pads.t, plotW: plotW, plotH: plotH, toX: toX, toY: toY
   };
 }
 
-var MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-
-function drawCurveOn(ctx, pts, ax, color, width, dim) {
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = dim ? 0.3 : 1;
-  ctx.lineWidth = width;
+/// Eine Linie ueber ein Feld des Punktformats.
+///
+/// Waechter: eine Zahl, die nicht endlich ist, wird NICHT gezeichnet. Sie ist
+/// keine Messung, sondern ein Abbruchgrund (`nan`-Ereignis im Feed); als Punkt
+/// in die Kurve gesetzt, wuerde sie den Verlauf still verfaelschen - die Linie
+/// springt dann von selbst weiter, und die Ereignisliste nennt den Grund.
+function linie(ctx, punkte, ax, idx, farbe, breite, blass) {
+  ctx.strokeStyle = farbe;
+  ctx.globalAlpha = blass ? 0.32 : 1;
+  ctx.lineWidth = breite;
   ctx.lineJoin = "round";
   ctx.beginPath();
   var pen = false;
-  pts.forEach(function (p) {
-    var v = valueOf(p);
-    // Waechter: eine Zahl, die nicht endlich ist, wird NICHT gezeichnet. Sie
-    // ist keine Messung, sondern ein Abbruchgrund (`nan`-Ereignis im Feed);
-    // als Punkt in die Kurve gesetzt, wuerde sie den Verlauf still
-    // verfaelschen - die Linie springt dann von selbst weiter, und die
-    // Ereignisliste nennt den Grund als Text.
-    if (typeof v !== "number" || !isFinite(v) || (v <= 0 && ax.useLog)) { pen = false; return; }
-    var x = ax.toX(p[0]), y = ax.toY(v);
+  punkte.forEach(function (p) {
+    var v = p[idx];
+    if (typeof v !== "number" || !isFinite(v) || (ax.useLog && v <= 0)
+        || p[P_STEP] < ax.xMin || p[P_STEP] > ax.xMax) { pen = false; return; }
+    var x = ax.toX(p[P_STEP]), y = ax.toY(v);
     if (!pen) { ctx.moveTo(x, y); pen = true; } else { ctx.lineTo(x, y); }
   });
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
 
-// Wie viele Messpunkte des gewaehlten Laufs sind keine endlichen Zahlen?
-// Sie werden nicht gezeichnet, aber gezaehlt und als Text genannt.
-function countNonFinite(points) {
-  var n = 0;
-  (points || []).forEach(function (p) {
-    var v = valueOf(p);
-    if (typeof v !== "number" || !isFinite(v)) n++;
-  });
-  return n;
+/// Eine gestrichelte waagerechte Linie mit Beschriftung (Bezugswerte).
+function bezugslinie(ctx, ax, wert, farbe, text) {
+  if (typeof wert !== "number" || !isFinite(wert)) return;
+  var y = ax.toY(wert);
+  if (y < ax.padT - 1 || y > ax.padT + ax.plotH + 1) return;
+  ctx.save();
+  ctx.strokeStyle = farbe; ctx.lineWidth = 1.2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(ax.padL, y); ctx.lineTo(ax.padL + ax.plotW, y); ctx.stroke();
+  ctx.restore();
+  if (!text) return;
+  ctx.fillStyle = farbe; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
+  ctx.fillText(text, ax.padL + 6, y - 5);
 }
 
-function draw() {
-  var cv = el("chart");
-  if (!cv) return;
+/// Der Mauszeiger: eine senkrechte Linie durch ALLE Bilder.
+function kreuzlinie(ctx, ax) {
+  if (state.kursor === null || state.kursor < ax.xMin || state.kursor > ax.xMax) return;
+  var x = ax.toX(state.kursor);
+  ctx.save();
+  ctx.strokeStyle = "#ffffff"; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, ax.padT); ctx.lineTo(x, ax.padT + ax.plotH); ctx.stroke();
+  ctx.restore();
+}
+
+function leererHinweis(ctx, cv, text) {
+  ctx.fillStyle = "#888888"; ctx.font = "13px " + MONO;
+  ctx.fillText(text, 16, 30);
+}
+
+// Die Farbe eines Ereignisses. Sie sind aus den Ereignisarten des Servers
+// abgeleitet (`/api/events`), nicht erfunden: Rekord, Checkpoint, Stillstand,
+// Fortsetzen, Abbruch.
+function ereignisFarbe(kind) {
+  if (kind === "record") return "#faff69";
+  if (kind === "checkpoint") return "#22c55e";
+  if (kind === "stagnation") return "#f59e0b";
+  if (kind === "resume") return "#3b82f6";
+  if (kind === "nan") return "#ef4444";
+  if (kind === "end") return "#cccccc";
+  return "#5a5a5a";
+}
+
+/// Marken am unteren Rand: Checkpoints (gruen) und Ereignisse des gewaehlten
+/// Laufs. Ohne sie sieht man nicht, wo ein Stand liegt, von dem aus
+/// weitertrainiert werden kann.
+function marken(ctx, ax, punkte, markenListe) {
+  var y = ax.padT + ax.plotH;
+  ctx.globalAlpha = 0.9;
+  punkte.forEach(function (p) {
+    if (!p[P_CP] || p[P_STEP] < ax.xMin || p[P_STEP] > ax.xMax) return;
+    var x = ax.toX(p[P_STEP]);
+    ctx.fillStyle = "#22c55e";
+    ctx.beginPath();
+    ctx.moveTo(x, y + 2); ctx.lineTo(x - 3.5, y + 8); ctx.lineTo(x + 3.5, y + 8);
+    ctx.closePath(); ctx.fill();
+  });
+  (markenListe || []).forEach(function (f) {
+    if (f.step < ax.xMin || f.step > ax.xMax) return;
+    var x = ax.toX(f.step);
+    ctx.fillStyle = ereignisFarbe(f.kind);
+    ctx.beginPath();
+    ctx.moveTo(x, y + 2); ctx.lineTo(x - 3.5, y + 8); ctx.lineTo(x + 3.5, y + 8);
+    ctx.closePath(); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ---- Die fuenf Bilder ------------------------------------------------
+
+function malVerlauf() {
+  var cv = el("chart"); if (!cv) return null;
   var ctx = cv.getContext("2d");
   ctx.clearRect(0, 0, cv.width, cv.height);
-
-  var visible = cmp.runs.filter(function (r) {
-    // `cmp.hidden` ist der EINZIGE Schalter fuer die Sichtbarkeit: die
-    // Sammelschalter oben setzen ihn, und was nicht sichtbar ist, steht als
-    // Zahl daneben. Ein zweiter Schalter ("nur Auswahl") tat dasselbe auf
-    // einem anderen Weg - zwei Wege, eine Regel, und irgendwann zwei
-    // Wahrheiten.
-    if (cmp.hidden[r.id]) return false;
-    return r.points && r.points.length;
-  });
-  if (!visible.length) {
-    ctx.fillStyle = "#888888"; ctx.font = "13px " + MONO;
-    ctx.fillText("Keine Messpunkte - es wurde noch nichts trainiert.", 16, 30);
-    drawLegend(); return;
-  }
-
-  var all = [];
-  visible.forEach(function (r) { all = all.concat(r.points); });
-  var ax = axes(ctx, cv.width, cv.height, all, 62, 20, 16, 34);
-  if (!ax) { drawLegend(); return; }
-
-  // 1. Referenzlinie "untrainiert". Sie ist der Grund, warum ein Verlust
-  //    ueberhaupt bewertbar ist - deshalb steht sie VOR allen Kurven und
-  //    wird beschriftet, nicht nur gezeichnet.
-  var rv = refValue();
-  if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
-    var yr = ax.toY(rv);
-    ctx.save();
-    ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 1.3; ctx.setLineDash([7, 4]);
-    ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle = "#3b82f6"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
-    ctx.fillText("untrainiert " + fmtTick(rv) + (state.metric === "ppl" ? " (e^ln256)" : " = ln(256)"), ax.padL + 6, yr - 5);
-  }
-
-  // 2. Startwert des gewaehlten Laufs - der Abstand dazu ist der Fortschritt.
-  var cur = visible.filter(function (r) { return r.id === state.runId; })[0];
-  if (cur && cur.first !== null && cur.first !== undefined) {
-    var sv = state.metric === "ppl" ? Math.exp(cur.first) : cur.first;
-    if (isFinite(sv) && sv >= ax.yMin && sv <= ax.yMax) {
-      var ys = ax.toY(sv);
-      ctx.save();
-      ctx.strokeStyle = "#5a5a5a"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-      ctx.beginPath(); ctx.moveTo(ax.padL, ys); ctx.lineTo(ax.padL + ax.plotW, ys); ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = "#cccccc"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
-      ctx.fillText("start " + fmtTick(sv), ax.padL + 6, ys + 12);
-    }
-  }
-
-  // 3. Fremde Laeufe blass, 4. gewaehlter Lauf kraeftig darueber.
-  visible.forEach(function (r) {
-    if (r.id === state.runId) return;
-    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 1.2, true);
-  });
-  visible.forEach(function (r) {
-    if (r.id !== state.runId) return;
-    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 2.3, false);
-  });
-
-  // 5. Checkpoint-Marken am unteren Rand - wer weitertrainieren will,
-  //    braucht diese Stellen.
-  if (cur) {
-    ctx.fillStyle = "#22c55e"; ctx.globalAlpha = 0.85;
-    cur.points.forEach(function (p) {
-      if (!p[2]) return;
-      var x = ax.toX(p[0]);
-      ctx.beginPath();
-      ctx.moveTo(x, ax.padT + ax.plotH + 3);
-      ctx.lineTo(x - 4, ax.padT + ax.plotH + 9);
-      ctx.lineTo(x + 4, ax.padT + ax.plotH + 9);
-      ctx.closePath(); ctx.fill();
+  var b = xBereich();
+  if (!b) { leererHinweis(ctx, cv, "Keine Messpunkte - es wurde noch nichts trainiert."); return null; }
+  var sichtbar = sichtbarVergleich();
+  var werte = [];
+  sichtbar.forEach(function (r) {
+    r.points.forEach(function (p) {
+      if (!imBereich(ausVergleich(p), b)) return;
+      var v = valueOf(ausVergleich(p));
+      if (typeof v === "number" && isFinite(v)) werte.push(v);
     });
-    ctx.globalAlpha = 1;
+  });
+  var ax = achse(ctx, cv.width, cv.height, { l: 62, r: 20, t: 16, b: 34 }, b.min, b.max, werte,
+                 { log: state.yscale === "log", ticks: 6 });
+  if (!ax) { leererHinweis(ctx, cv, "Keine gueltigen Zahlen im sichtbaren Bereich."); return null; }
+
+  bezugslinie(ctx, ax, refValue(), "#3b82f6",
+    "untrainiert " + fmtTick(refValue()) + (state.metric === "ppl" ? " (e^ln256)" : " = ln(256)"));
+
+  var cur = sichtbar.filter(function (r) { return r.id === state.runId; })[0];
+  if (cur && typeof cur.first === "number") {
+    var sv = state.metric === "ppl" ? Math.exp(cur.first) : cur.first;
+    bezugslinie(ctx, ax, sv, "#5a5a5a", "start " + fmtTick(sv));
   }
 
-  // 6. Bester Stand - der Punkt, der zaehlt, wenn jemand einen Checkpoint
-  //    auswaehlen will. Nur zeichnen, wenn der Wert wirklich eine endliche
-  //    Zahl ist: ein `Infinity` im Bestwert wuerde sonst eine Koordinate
-  //    ausserhalb des Bildes ergeben.
+  // Fremde Laeufe blass, der gewaehlte kraeftig darueber.
+  sichtbar.forEach(function (r) {
+    if (r.id === state.runId) return;
+    linie(ctx, r.points.map(ausVergleich), ax, state.metric === "ppl" ? P_PPL : P_LOSS,
+          colorOf(r.id), 1.2, true);
+  });
+  sichtbar.forEach(function (r) {
+    if (r.id !== state.runId) return;
+    linie(ctx, r.points.map(ausVergleich), ax, state.metric === "ppl" ? P_PPL : P_LOSS,
+          colorOf(r.id), 2.3, false);
+  });
+
+  // Der gleitende Mittelwert des gewaehlten Laufs - die ruhige Linie im
+  // Zickzack. Sie kommt aus dem Server (`fenster`), nicht aus einer zweiten
+  // Rechnung im Browser.
+  if (cur) {
+    var voll = punkteVon(cur.id);
+    if (voll) linie(ctx, voll, ax, P_MITTEL, "#ffffff", 1.6, false);
+    marken(ctx, ax, voll || [], state.feed);
+  }
+
+  // Bester Stand des gewaehlten Laufs.
   if (cur && typeof cur.best === "number" && isFinite(cur.best)) {
     var bv = state.metric === "ppl" ? Math.exp(cur.best) : cur.best;
-    if (isFinite(bv)) {
-      var bx = ax.toX(cur.best_step), by = ax.toY(bv);
+    var bx = ax.toX(cur.best_step), by = ax.toY(bv);
+    if (bx >= ax.padL && bx <= ax.padL + ax.plotW) {
       ctx.fillStyle = "#faff69";
       ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#0a0a0a"; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.fillStyle = "#faff69"; ctx.font = "10.5px " + MONO; ctx.textAlign = "left";
       var label = "bester " + fmtTick(bv);
       var tw = ctx.measureText(label).width;
-      var lx = bx + 8;
-      if (lx + tw > ax.padL + ax.plotW) lx = bx - 8 - tw;
+      var lx = (bx + 8 + tw > ax.padL + ax.plotW) ? bx - 8 - tw : bx + 8;
       ctx.fillText(label, lx, by - 6);
     }
   }
 
-  // 7. Achsenbeschriftung. Ohne Einheit ist die Achse nicht lesbar.
-  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
-  var yLabel = state.metric === "ppl" ? "Perplexitaet (e^Verlust)" : "Verlust (Cross-Entropy, je Byte)";
-  ctx.fillText(yLabel + "  ·  " + (ax.useLog ? "log" : "linear"), 8, 12);
-  ctx.textAlign = "right";
-  ctx.fillText("Schritt →", ax.padL + ax.plotW, 12);
+  kreuzlinie(ctx, ax);
 
-  state.ax = ax;
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillText((state.metric === "ppl" ? "Perplexitaet (e^Verlust)" : "Verlust (Cross-Entropy je Byte)")
+    + "  ·  " + (ax.useLog ? "log" : "linear") + "  ·  Schritt →", 8, 12);
+  return ax;
+}
+
+function malFenster() {
+  var cv = el("chart-fenster"); if (!cv) return null;
+  var ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  var b = xBereich();
+  var laeufe = sichtbarMitVollkurve();
+  if (!b || !laeufe.length) {
+    leererHinweis(ctx, cv, "Keine Vollkurve geladen - Fensterwerte liefert der Server nur auf Anforderung.");
+    return null;
+  }
+  var werte = [];
+  laeufe.forEach(function (r) {
+    punkteVon(r.id).forEach(function (p) {
+      if (p[P_STEP] < b.min || p[P_STEP] > b.max) return;
+      [p[P_FMIN], p[P_FMAX], p[P_MITTEL]].forEach(function (v) {
+        if (typeof v === "number" && isFinite(v)) werte.push(v);
+      });
+    });
+  });
+  var ax = achse(ctx, cv.width, cv.height, { l: 62, r: 20, t: 10, b: 20 }, b.min, b.max, werte,
+                 { log: false, ticks: 4 });
+  if (!ax) { leererHinweis(ctx, cv, "Keine Fensterwerte im sichtbaren Bereich."); return null; }
+
+  bezugslinie(ctx, ax, REF ? REF.loss : null, "#3b82f6", "");
+  laeufe.forEach(function (r) {
+    var punkte = punkteVon(r.id).filter(function (p) { return p[P_STEP] >= b.min && p[P_STEP] <= b.max; });
+    if (!punkte.length) return;
+    var farbe = colorOf(r.id);
+    // Das Band zwischen kleinstem und groesstem Wert des Fensters.
+    ctx.globalAlpha = r.id === state.runId ? 0.22 : 0.1;
+    ctx.fillStyle = farbe;
+    ctx.beginPath();
+    var offen = false, ersteX = 0;
+    punkte.forEach(function (p) {
+      if (typeof p[P_FMAX] !== "number" || !isFinite(p[P_FMAX])) return;
+      var x = ax.toX(p[P_STEP]), y = ax.toY(p[P_FMAX]);
+      if (!offen) { ctx.moveTo(x, y); ersteX = x; offen = true; } else { ctx.lineTo(x, y); }
+    });
+    var letzteX = 0;
+    for (var i = punkte.length - 1; i >= 0; i--) {
+      var p2 = punkte[i];
+      if (typeof p2[P_FMIN] !== "number" || !isFinite(p2[P_FMIN])) continue;
+      var x2 = ax.toX(p2[P_STEP]);
+      if (!letzteX) letzteX = x2;
+      ctx.lineTo(x2, ax.toY(p2[P_FMIN]));
+    }
+    if (offen) { ctx.lineTo(letzteX || ersteX, ax.toY(punkte[punkte.length - 1][P_FMIN] || 0)); ctx.closePath(); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    // Und die ruhige Linie: der Mittelwert des Fensters.
+    linie(ctx, punkte, ax, P_MITTEL, farbe, r.id === state.runId ? 2 : 1.2, r.id !== state.runId);
+  });
+
+  kreuzlinie(ctx, ax);
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillText("Verlust im gleitenden Fenster von " + state.fenster + " Schritten"
+    + "  ·  Band = kleinster bis groesster Wert, Linie = Mittel  ·  Schritt →", 8, 12);
+  return ax;
+}
+
+function malDelta() {
+  var cv = el("chart-delta"); if (!cv) return null;
+  var ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  var b = xBereich();
+  var laeufe = sichtbarMitVollkurve();
+  if (!b || !laeufe.length) {
+    leererHinweis(ctx, cv, "Keine Vollkurve geladen - die Aenderung je Schritt braucht die ganze Reihe.");
+    return null;
+  }
+  var werte = [];
+  laeufe.forEach(function (r) {
+    punkteVon(r.id).forEach(function (p) {
+      if (p[P_STEP] < b.min || p[P_STEP] > b.max) return;
+      if (typeof p[P_DELTA] === "number" && isFinite(p[P_DELTA])) werte.push(p[P_DELTA]);
+    });
+  });
+  var ax = achse(ctx, cv.width, cv.height, { l: 62, r: 20, t: 10, b: 20 }, b.min, b.max, werte,
+                 { log: false, mitteNull: true, ticks: 3 });
+  if (!ax) { leererHinweis(ctx, cv, "Keine Aenderung messbar (eine ungueltige Zahl hat keinen Vorgaenger)."); return null; }
+
+  // Bei dichten Reihen je Bildspalte der kleinste und groesste Wert: 4800
+  // Einzelbalken waeren weder lesbar noch schnell gezeichnet, und die Spalte
+  // sagt dasselbe - nur ehrlich als Spanne statt als ein willkuerlicher Wert.
+  var spalten = {};
+  laeufe.forEach(function (r) {
+    if (r.id !== state.runId && laeufe.length > 1) return;
+    punkteVon(r.id).forEach(function (p) {
+      if (p[P_STEP] < b.min || p[P_STEP] > b.max) return;
+      var v = p[P_DELTA];
+      if (typeof v !== "number" || !isFinite(v)) return;
+      var sp = Math.round(ax.toX(p[P_STEP]));
+      var s = spalten[sp];
+      if (!s) { spalten[sp] = { min: v, max: v, farbe: colorOf(r.id) }; return; }
+      if (v < s.min) s.min = v;
+      if (v > s.max) s.max = v;
+    });
+  });
+  var y0 = ax.toY(0);
+  Object.keys(spalten).forEach(function (k) {
+    var sp = spalten[k];
+    ctx.strokeStyle = sp.farbe;
+    ctx.globalAlpha = 0.75; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Number(k) + 0.5, ax.toY(sp.max));
+    ctx.lineTo(Number(k) + 0.5, ax.toY(sp.min));
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ax.padL, y0); ctx.lineTo(ax.padL + ax.plotW, y0); ctx.stroke();
+
+  kreuzlinie(ctx, ax);
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillText("Aenderung je Schritt (Verlust minus Verlust des vorigen Schritts)"
+    + "  ·  unter der Nulllinie = besser  ·  Schritt →", 8, 12);
+  return ax;
+}
+
+function malLernrate() {
+  var cv = el("chart-lr"); if (!cv) return null;
+  var ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  var b = xBereich();
+  var laeufe = sichtbarMitVollkurve();
+  if (!b || !laeufe.length) {
+    leererHinweis(ctx, cv, "Keine Vollkurve geladen - die Lernrate steht in jeder Schrittzeile.");
+    return null;
+  }
+  var werte = [];
+  laeufe.forEach(function (r) {
+    punkteVon(r.id).forEach(function (p) {
+      if (p[P_STEP] >= b.min && p[P_STEP] <= b.max && typeof p[P_LR] === "number" && isFinite(p[P_LR])) werte.push(p[P_LR]);
+    });
+  });
+  var ax = achse(ctx, cv.width, cv.height, { l: 62, r: 20, t: 10, b: 20 }, b.min, b.max, werte,
+                 { log: false, nichtNegativ: true, ticks: 3 });
+  if (!ax) { leererHinweis(ctx, cv, "Keine Lernrate im sichtbaren Bereich."); return null; }
+
+  laeufe.forEach(function (r) {
+    linie(ctx, punkteVon(r.id).filter(function (p) { return p[P_STEP] >= b.min && p[P_STEP] <= b.max; }),
+          ax, P_LR, colorOf(r.id), r.id === state.runId ? 2 : 1.2, r.id !== state.runId);
+  });
+
+  kreuzlinie(ctx, ax);
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillText("Lernrate je Schritt  ·  flach = konstante Rate, fallend = Cosinus-Plan,"
+    + " 0 = es wird nicht mehr trainiert  ·  Schritt →", 8, 12);
+  return ax;
+}
+
+function malTempo() {
+  var cv = el("chart-tempo"); if (!cv) return null;
+  var ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  var b = xBereich();
+  var laeufe = sichtbarMitVollkurve();
+  if (!b || !laeufe.length) {
+    leererHinweis(ctx, cv, "Keine Vollkurve geladen - Tempo und Rechenleistung stehen je Schritt im Log.");
+    return null;
+  }
+  var feld = state.tempo === "bps" ? P_BPS : (state.tempo === "gflops" ? P_GFLOPS : P_MS);
+  var einheit = state.tempo === "bps" ? "Bytes je Sekunde"
+    : (state.tempo === "gflops" ? "GFLOPS (6 x N x D / t aus dem Log)"
+      : "Millisekunden je Schritt");
+  var werte = [];
+  laeufe.forEach(function (r) {
+    punkteVon(r.id).forEach(function (p) {
+      if (p[P_STEP] >= b.min && p[P_STEP] <= b.max && typeof p[feld] === "number" && isFinite(p[feld])) werte.push(p[feld]);
+    });
+  });
+  var ax = achse(ctx, cv.width, cv.height, { l: 62, r: 20, t: 10, b: 20 }, b.min, b.max, werte,
+                 { log: false, nichtNegativ: true, ticks: 3 });
+  if (!ax) { leererHinweis(ctx, cv, "Keine Messung im sichtbaren Bereich."); return null; }
+
+  laeufe.forEach(function (r) {
+    linie(ctx, punkteVon(r.id).filter(function (p) { return p[P_STEP] >= b.min && p[P_STEP] <= b.max; }),
+          ax, feld, colorOf(r.id), r.id === state.runId ? 2 : 1.2, r.id !== state.runId);
+  });
+
+  kreuzlinie(ctx, ax);
+  ctx.fillStyle = "#cccccc"; ctx.font = "11px " + MONO; ctx.textAlign = "left";
+  ctx.fillText(einheit + "  ·  stetig = gleichmaessig gerechnet, Zacken = etwas anderes belegt die Maschine"
+    + "  ·  Schritt →", 8, 12);
+  return ax;
+}
+
+/// Alle fuenf Bilder. Sie teilen x-Achse, Zoom und Mauszeiger.
+function zeichneAlle() {
+  state.axen = {};
+  state.axen.verlauf = malVerlauf();
+  state.axen.fenster = malFenster();
+  state.axen.delta = malDelta();
+  state.axen.lr = malLernrate();
+  state.axen.tempo = malTempo();
+  state.ax = state.axen.verlauf || state.ax;
+  schreibeKoepfe();
   drawLegend();
+}
+
+/// Die Kopfzeile je Bild: was ist zu sehen, und wie viel davon.
+function schreibeKoepfe() {
+  var b = xBereich();
+  var voll = sichtbarMitVollkurve().length;
+  var sicht = sichtbarVergleich().length;
+  function setz(id, text) { var e = el(id); if (e) e.textContent = text; }
+  var zoom = "";
+  if (b) {
+    zoom = b.beschnitten
+      ? "Ausschnitt " + fmtInt(Math.round(b.min)) + "–" + fmtInt(Math.round(b.max)) + " von "
+        + fmtInt(Math.round(b.voll.min)) + "–" + fmtInt(Math.round(b.voll.max)) + " Schritten"
+      : "alle Schritte " + fmtInt(Math.round(b.voll.min)) + "–" + fmtInt(Math.round(b.voll.max));
+  }
+  var kurven = sicht + " Kurve(n) sichtbar, davon " + voll + " mit Vollkurve";
+  setz("kopf-verlauf", (state.metric === "ppl" ? "Perplexitaet" : "Verlust") + "  ·  " + zoom + "  ·  " + kurven);
+  setz("kopf-fenster", "Fenster " + state.fenster + " Schritte  ·  " + zoom + "  ·  " + voll + " Vollkurve(n)");
+  setz("kopf-delta", "Verlust[i] minus Verlust[i-1]  ·  " + zoom + "  ·  " + voll + " Vollkurve(n)");
+  setz("kopf-lr", "Lernrate  ·  " + zoom);
+  setz("kopf-tempo", (state.tempo === "bps" ? "Bytes/s" : (state.tempo === "gflops" ? "GFLOPS" : "ms/Schritt"))
+    + "  ·  " + zoom);
 }
 
 function drawLegend() {
@@ -1292,87 +1810,222 @@ function drawLegend() {
   }
   item("#3b82f6", "untrainiertes Modell " + (REF ? fmtTick(state.metric === "ppl" ? Math.exp(REF.loss) : REF.loss) : "-"), "dash");
   item("#5a5a5a", "Startwert dieses Laufs", "dash");
+  item("#ffffff", "gleitender Mittelwert (Fenster " + state.fenster + ")");
   item("#faff69", "bester Stand", "dot");
   item("#22c55e", "Checkpoint");
+  item("#f59e0b", "Stillstand");
+  item("#ef4444", "ungueltige Zahl");
   var cur = currentRun();
   if (cur) item(colorOf(cur.id), "gewaehlter Lauf: " + cur.name);
-  var hint = el("chart-hint");
+  var hint = el("hint-verlauf");
   if (hint) {
     var n = cmp.runs.filter(function (r) { return !cmp.hidden[r.id]; }).length;
-    var grund = n > 1
-      ? "Exakte Werte beim Ueberfahren erscheinen, wenn nur ein Lauf sichtbar ist - auf „nur auswahl“ klicken."
-      : "Maus ueber das Diagramm: Schritt, Verlust, Perplexitaet, Lernrate, Tempo.";
-    // Nicht-endliche Zahlen werden nicht gezeichnet, aber nicht verschwiegen.
-    var kaputt = countNonFinite(state.series && state.series.points);
-    hint.textContent = kaputt
-      ? grund + "   ·   " + kaputt + " Messpunkt(e) mit ungueltiger Zahl (NaN/Inf) sind NICHT "
-        + "gezeichnet - sie stehen als Text in der Ereignisliste (Art 'nan')."
-      : grund;
+    var kaputt = zaehleUngueltig();
+    hint.textContent = "So liest man das: faellt die Kurve, lernt das Modell. Jeder Sprung nach oben ist ein"
+      + " Rezeptwechsel (Fortsetzen oder neue Daten), die blasse Linie ist der gleitende Mittelwert."
+      + " Ziehen schiebt, Mausrad zoomt, Doppelklick setzt zurueck."
+      + (n > 1 ? "  ·  " + n + " Kurven sichtbar; genaue Werte nennt die Messwertanzeige unter den Bildern."
+               : "  ·  Maus ueber ein Bild: die Messwertanzeige unter den Bildern nennt die genauen Werte.")
+      + (kaputt ? "  ·  " + kaputt + " Messpunkt(e) mit ungueltiger Zahl (NaN/Inf) sind NICHT gezeichnet -"
+        + " sie stehen als Text in der Ereignisliste (Art 'nan')." : "");
   }
+}
+
+/// Wie viele Messpunkte des gewaehlten Laufs sind keine endlichen Zahlen?
+function zaehleUngueltig() {
+  var punkte = punkteVon(state.runId);
+  if (!punkte) return 0;
+  var n = 0;
+  punkte.forEach(function (p) {
+    if (typeof p[P_LOSS] !== "number" || !isFinite(p[P_LOSS])) n++;
+  });
+  return n;
 }
 
 function renderCurveSub() {
-  var s = state.series;
-  var n = s && s.points ? s.points.length : 0;
-  var kaputt = countNonFinite(s && s.points);
-  el("curve-sub").textContent = n
-    ? (n + " Messpunkte   ·   " + (state.metric === "ppl" ? "Perplexitaet" : "Verlust")
-      + (kaputt ? "   ·   " + kaputt + " ohne gueltige Zahl (nicht gezeichnet)" : ""))
-    : "";
-}
-
-// ---- Tooltip: die exakten Werte -------------------------------------
-function nearestPoint(px) {
-  var s = state.series, ax = state.ax;
-  if (!s || !s.points || !s.points.length || !ax) return null;
-  var best = null, bestD = Infinity;
-  s.points.forEach(function (p) {
-    var d = Math.abs(ax.toX(p[0]) - px);
-    if (d < bestD) { bestD = d; best = p; }
-  });
-  return bestD < 40 ? best : null;
-}
-
-function showTip(ev) {
-  var cv = el("chart"), tip = el("tip");
-  if (!cv || !tip) return;
-  var rect = cv.getBoundingClientRect();
-  var scale = cv.width / rect.width;
-  var px = (ev.clientX - rect.left) * scale;
-  var p = nearestPoint(px);
-  if (!p) { tip.style.display = "none"; return; }
-  tip.innerHTML =
-    '<div class="h">Schritt ' + fmtInt(p[0]) + '</div>' +
-    row("Verlust", fmtNum(p[1], 4)) +
-    row("Perplexitaet", fmtPpl(Math.exp(p[1]))) +
-    row("gegen untrainiert", (function () { var f = factorVsReference(p[1]); return f ? fmtNum(f, 1) + "× besser" : "-"; })()) +
-    row("Lernrate", fmtLr(p[4])) +
-    row("ms je Schritt", fmtNum(p[5], 0)) +
-    row("Bytes/s", fmtInt(p[6])) +
-    (p[2] ? row("Checkpoint", "ja") : "");
-  tip.style.display = "block";
-  var left = ev.clientX - rect.left + 14;
-  if (left > rect.width - 210) left = ev.clientX - rect.left - 208;
-  tip.style.left = left + "px";
-  tip.style.top = Math.max(4, ev.clientY - rect.top - 40) + "px";
-  draw();
-  var ax = state.ax;
-  // Nur zeichnen, wenn die Werte endlich sind: ein NaN ergaebe hier eine
-  // Koordinate NaN und damit keinen sichtbaren Punkt - der Nutzer wuerde einen
-  // Messfehler fuer "nichts passiert" halten.
-  if (ax && state.series && isFinite(p[0]) && isFinite(valueOf(p))) {
-    var ctx = cv.getContext("2d");
-    var x = ax.toX(p[0]), y = ax.toY(valueOf(p));
-    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
-    ctx.beginPath(); ctx.moveTo(x, ax.padT); ctx.lineTo(x, ax.padT + ax.plotH); ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+  var punkte = punkteVon(state.runId);
+  var n = punkte ? punkte.length : 0;
+  var kaputt = zaehleUngueltig();
+  var teil = [];
+  if (n) {
+    teil.push(n + " Messpunkte");
+    teil.push(state.metric === "ppl" ? "Perplexitaet" : "Verlust");
+    if (kaputt) teil.push(kaputt + " ohne gueltige Zahl (nicht gezeichnet)");
   }
+  var s = state.serien[state.runId];
+  if (s && s.fenster) teil.push("Fenster " + s.fenster + " Schritte");
+  var e = el("curve-sub");
+  if (e) e.textContent = teil.join("   ·   ");
 }
-function row(k, v) {
-  return '<div class="r"><span class="k">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
+
+// ---- Mauszeiger, Zoom, Schieben --------------------------------------
+
+/// Der naechste Punkt einer Reihe zum Zeigerschritt.
+function naechsterPunkt(punkte, schritt) {
+  if (!punkte || !punkte.length) return null;
+  var best = null, bestD = Infinity;
+  for (var i = 0; i < punkte.length; i++) {
+    var d = Math.abs(punkte[i][P_STEP] - schritt);
+    if (d < bestD) { bestD = d; best = punkte[i]; }
+  }
+  return best;
 }
+
+function schrittAusX(ax, px) {
+  if (!ax) return null;
+  return ax.xMin + (px - ax.padL) / (ax.plotW || 1) * (ax.xMax - ax.xMin);
+}
+
+/// Die Messwertanzeige: die genauen Werte ALLER sichtbaren Laeufe an der
+/// Mausposition - nicht nur des gewaehlten. Zeilen aus Laeufen, deren
+/// Vollkurve nicht geladen ist, kommen aus der Verlustkurve und sagen das.
+var MAX_ZEILEN = 12;
+function lesungZeigen() {
+  var box = el("tip");
+  if (!box) return;
+  if (state.kursor === null) { box.innerHTML = ""; return; }
+  var zeilen = [];
+  sichtbarVergleich().forEach(function (r) {
+    var voll = punkteVon(r.id);
+    var p = naechsterPunkt(voll, state.kursor) || naechsterPunkt(r.points.map(ausVergleich), state.kursor);
+    if (!p) return;
+    zeilen.push({ r: r, p: p, voll: !!voll });
+  });
+  if (!zeilen.length) { box.innerHTML = ""; return; }
+  zeilen.sort(function (a, b) {
+    var x = (typeof a.p[P_LOSS] === "number" && isFinite(a.p[P_LOSS])) ? a.p[P_LOSS] : 9e9;
+    var y = (typeof b.p[P_LOSS] === "number" && isFinite(b.p[P_LOSS])) ? b.p[P_LOSS] : 9e9;
+    return x - y;
+  });
+  var gezeigt = zeilen.slice(0, MAX_ZEILEN);
+  var h = '<div class="h">Mausposition: Schritt ' + fmtInt(Math.round(state.kursor))
+    + "   ·   " + zeilen.length + " Lauf/Laeufe sichtbar";
+  if (zeilen.length > gezeigt.length) h += ", die besten " + gezeigt.length + " gezeigt";
+  h += "</div>";
+  h += '<table><thead><tr><th>lauf</th><th class="num">schritt</th><th class="num">verlust</th>'
+    + '<th class="num">ppl</th><th class="num">lernrate</th><th class="num">ms</th><th class="num">bytes/s</th>'
+    + '<th class="num">gflops</th><th class="num">fenster min/mittel/max</th><th class="num">änderung</th>'
+    + "</tr></thead><tbody>";
+  gezeigt.forEach(function (z) {
+    var p = z.p;
+    var fenster = (typeof p[P_FMIN] === "number" && isFinite(p[P_FMIN]))
+      ? fmtNum(p[P_FMIN], 4) + " / " + fmtNum(p[P_MITTEL], 4) + " / " + fmtNum(p[P_FMAX], 4) : "-";
+    h += "<tr><td><i style=\"background:" + colorOf(z.r.id) + ";width:9px;height:9px;border-radius:2px;display:inline-block\"></i> "
+      + esc(z.r.name) + (z.voll ? "" : ' <span style="color:#888888">(nur Verlustkurve)</span>') + "</td>"
+      + '<td class="num">' + fmtInt(p[P_STEP]) + "</td>"
+      + '<td class="num">' + fmtNum(p[P_LOSS], 4) + "</td>"
+      + '<td class="num">' + fmtPpl(typeof p[P_PPL] === "number" ? p[P_PPL] : Math.exp(p[P_LOSS])) + "</td>"
+      + '<td class="num">' + (typeof p[P_LR] === "number" ? fmtLr(p[P_LR]) : "-") + "</td>"
+      + '<td class="num">' + (typeof p[P_MS] === "number" ? fmtNum(p[P_MS], 0) : "-") + "</td>"
+      + '<td class="num">' + (typeof p[P_BPS] === "number" ? fmtInt(p[P_BPS]) : "-") + "</td>"
+      + '<td class="num">' + (typeof p[P_GFLOPS] === "number" ? fmtNum(p[P_GFLOPS], 1) : "-") + "</td>"
+      + '<td class="num">' + fenster + "</td>"
+      + '<td class="num">' + (typeof p[P_DELTA] === "number" ? fmtNum(p[P_DELTA], 5) : "-") + "</td></tr>";
+  });
+  h += "</tbody></table>";
+  box.innerHTML = h;
+}
+
+/// Mausbewegung ueber einem der fuenf Bilder.
+function zeigerBewegt(ev) {
+  var treffer = null;
+  for (var i = 0; i < BILDER.length; i++) {
+    var ax = state.axen[BILDER[i]];
+    if (ax) { treffer = ax; break; }
+  }
+  if (!treffer || !ev || !ev.currentTarget || !ev.currentTarget.getBoundingClientRect) return;
+  var cv = ev.currentTarget;
+  var rect = cv.getBoundingClientRect();
+  if (!rect.width) return;
+  var px = (ev.clientX - rect.left) * (cv.width / rect.width);
+  var s = schrittAusX(treffer, px);
+  if (s === null) return;
+  state.kursor = s;
+  zeichneAlle();
+  lesungZeigen();
+}
+
+var BILDER = ["chart", "chart-fenster", "chart-delta", "chart-lr", "chart-tempo"];
+
+function zoome(faktor, umSchritt) {
+  var b = xBereich();
+  if (!b) return;
+  var voll = b.voll, spanne = b.max - b.min;
+  var neu = spanne * faktor;
+  var minSpanne = Math.max(2, (voll.max - voll.min) / 500);
+  if (neu < minSpanne) neu = minSpanne;
+  if (neu >= (voll.max - voll.min)) { state.xDom = { min: null, max: null }; zeichneAlle(); return; }
+  var anteil = (umSchritt - b.min) / (spanne || 1);
+  anteil = Math.min(1, Math.max(0, anteil));
+  var a = umSchritt - neu * anteil, c = a + neu;
+  if (a < voll.min) { a = voll.min; c = a + neu; }
+  if (c > voll.max) { c = voll.max; a = c - neu; }
+  state.xDom = { min: a, max: c };
+  zeichneAlle();
+}
+
+function schiebeUm(dSchritt) {
+  var b = xBereich();
+  if (!b) return;
+  var voll = b.voll, spanne = b.max - b.min;
+  var a = b.min + dSchritt, c = b.max + dSchritt;
+  if (a < voll.min) { c += voll.min - a; a = voll.min; }
+  if (c > voll.max) { a -= c - voll.max; c = voll.max; }
+  state.xDom = { min: a, max: c };
+  zeichneAlle();
+}
+
+function zoomAlles() { state.xDom = { min: null, max: null }; zeichneAlle(); }
+
+function zoomLetzte(anteil) {
+  var b = xBereich();
+  if (!b) return;
+  var spanne = b.voll.max - b.voll.min;
+  state.xDom = { min: b.voll.max - spanne * anteil, max: b.voll.max };
+  zeichneAlle();
+}
+
+/// Rad und Ziehen auf einem Bild. Beide wirken auf die gemeinsame x-Achse,
+/// also auf alle fuenf Bilder.
+function haengeZeigerAn(id) {
+  var cv = el(id);
+  if (!cv || !cv.addEventListener || !cv.getContext) return;
+  cv.addEventListener("mousemove", function (ev) {
+    if (state.ziehen) {
+      var rect = cv.getBoundingClientRect();
+      if (rect.width) {
+        var ax = state.axen[id] || state.ax;
+        if (ax) {
+          var dPx = ev.clientX - state.ziehen.x;
+          schiebeUm(-dPx * (cv.width / rect.width) / (ax.plotW || 1) * (ax.xMax - ax.xMin));
+          state.ziehen.x = ev.clientX;
+        }
+      }
+    }
+    zeigerBewegt(ev);
+  });
+  cv.addEventListener("mouseleave", function () {
+    state.kursor = null; state.ziehen = null;
+    zeichneAlle();
+    lesungZeigen();
+  });
+  cv.addEventListener("mousedown", function (ev) {
+    state.ziehen = { x: ev.clientX };
+  });
+  cv.addEventListener("mouseup", function () { state.ziehen = null; });
+  cv.addEventListener("dblclick", function () { zoomAlles(); });
+  cv.addEventListener("wheel", function (ev) {
+    var ax = state.axen[id] || state.ax;
+    if (!ax) return;
+    if (ev.preventDefault) ev.preventDefault();
+    var rect = cv.getBoundingClientRect();
+    var px = rect.width ? (ev.clientX - rect.left) * (cv.width / rect.width) : ax.padL;
+    var s = schrittAusX(ax, px);
+    var richtung = (ev.deltaY > 0) ? 1.2 : (1 / 1.2);
+    zoome(richtung, s === null ? (ax.xMin + ax.xMax) / 2 : s);
+  }, { passive: false });
+}
+
 
 // =====================================================================
 // Raster, Tabelle, Feed, Checkpoints
@@ -1404,12 +2057,50 @@ function loadCompare() {
     cmp.loaded = true;
     chipsErststart();
     drawGrid();
-    draw();
+    zeichneAlle();
+    ladeVollkurven();
     renderMeas();
     renderChips();
     chipsZaehlen();
     verteileGlossar();
   });
+}
+
+// Wie viele Laeufe gleichzeitig eine Vollkurve bekommen.
+//
+// Die Verlustkurve zeichnet ALLE sichtbaren Laeufe (aus `/api/compare`, drei
+// Zahlen je Punkt). Die vier anderen Bilder brauchen je Punkt Lernrate, Tempo,
+// Fensterwerte und Aenderung - das kommt aus `/api/series`, und dafuer wird je
+// Lauf die ganze Reihe geladen. Bei ueber hundert sichtbaren Laeufen waere das
+// ein Datenberg ohne Bild; deshalb eine feste Obergrenze, und die Anzeige nennt
+// die Zahl daneben, statt stillschweigend zu kuerzen.
+var MAX_VOLLKURVEN = 8;
+
+function ladeVollkurven() {
+  var ids = sichtbarVergleich().map(function (r) { return r.id; });
+  // Der gewaehlte Lauf steht vorn: er ist der, den man ansieht.
+  ids.sort(function (a, b) {
+    var x = (a === state.runId) ? 0 : 1, y = (b === state.runId) ? 0 : 1;
+    return x - y;
+  });
+  var fehlend = ids.filter(function (id) {
+    var s = state.serien[id];
+    return !s || s.fenster !== state.fenster;
+  }).slice(0, MAX_VOLLKURVEN);
+  if (!fehlend.length) return Promise.resolve();
+  return Promise.all(fehlend.map(function (id) {
+    return get("/api/series?run=" + encodeURIComponent(id) + "&fenster=" + state.fenster)
+      .then(function (d) {
+        if (!d || d.error) return null;
+        state.serien[id] = {
+          punkte: (d.points || []).map(ausSerie),
+          fenster: state.fenster,
+          ungueltig: d.punkte_ungueltig
+        };
+        return null;
+      })
+      .catch(function () { return null; });
+  })).then(function () { zeichneAlle(); renderCurveSub(); });
 }
 
 function drawGrid() {
@@ -1452,9 +2143,7 @@ function drawGrid() {
     cv.width = 640; cv.height = 264;
     d.appendChild(cv);
     d.onclick = function () {
-      state.runId = r.id;
-      el("run").value = r.id;
-      loadDetail(); refreshSmart(); drawGrid(); loadCompare();
+      waehleLauf(r.id);
     };
     box.appendChild(d);
 
@@ -1464,18 +2153,15 @@ function drawGrid() {
       ctx.fillText("keine Messpunkte", 10, 24);
       return;
     }
-    var ax = axes(ctx, cv.width, cv.height, r.points, 52, 14, 10, 26);
+    var ax = achse(ctx, cv.width, cv.height, { l: 52, r: 14, t: 10, b: 26 },
+                   r.points[0][0], r.points[r.points.length - 1][0],
+                   r.points.map(function (t) { return valueOf(ausVergleich(t)); }),
+                   { log: state.yscale === "log", ticks: 3, xLabels: true });
     if (!ax) return;
     // Referenzlinie auch im kleinen Bild: sonst fehlt dort der Bezug.
-    var rv = refValue();
-    if (rv !== null && isFinite(rv) && rv >= ax.yMin && rv <= ax.yMax) {
-      ctx.save();
-      ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
-      var yr = ax.toY(rv);
-      ctx.beginPath(); ctx.moveTo(ax.padL, yr); ctx.lineTo(ax.padL + ax.plotW, yr); ctx.stroke();
-      ctx.restore();
-    }
-    drawCurveOn(ctx, r.points, ax, colorOf(r.id), 1.7, false);
+    bezugslinie(ctx, ax, refValue(), "#3b82f6", "");
+    linie(ctx, r.points.map(ausVergleich), ax, state.metric === "ppl" ? P_PPL : P_LOSS,
+          colorOf(r.id), 1.7, false);
     if (r.best !== null && r.best !== undefined) {
       var bv = state.metric === "ppl" ? Math.exp(r.best) : r.best;
       ctx.fillStyle = "#faff69";
@@ -1515,9 +2201,7 @@ function renderMeas() {
     td(r.gflops ? fmtNum(r.gflops, 1) : "-", "num");
     tr.title = note.why;
     tr.onclick = function () {
-      state.runId = r.id;
-      el("run").value = r.id;
-      loadDetail(); refreshSmart(); drawGrid(); loadCompare();
+      waehleLauf(r.id);
     };
     tb.appendChild(tr);
   });
@@ -2000,7 +2684,10 @@ function renderMessungen(d) {
     return;
   }
   var h = [];
-  h.push("<table><thead><tr><th>Status</th><th>Name</th><th>Datei</th>"
+  // `data-label` traegt die Spaltenbeschriftung in die Zelle: im schmalen
+  // Fenster wird die Tabelle gestapelt (CSS), und dann braucht jeder Wert
+  // seine Beschriftung - sonst steht dort eine nackte Zahl ohne Bedeutung.
+  h.push('<table class="mess-tabelle"><thead><tr><th>Status</th><th>Name</th><th>Datei</th>'
     + '<th>Ergebnis</th><th class="num">Zeilen</th></tr></thead><tbody>');
   eintraege.forEach(function (m) {
     var s = messStatus(m.status);
@@ -2010,22 +2697,26 @@ function renderMessungen(d) {
     if (!m.gestartet && m.status !== "start") luecken.push("kein start gemeldet");
     if (m.fehler_gesehen && m.status !== "fehler") luecken.push("zwischendurch gescheitert");
     h.push("<tr>");
-    h.push('<td><span class="mess-status ' + s.cls + '">' + esc(s.text) + "</span></td>");
-    h.push("<td>" + esc(m.name)
+    h.push('<td data-label="Status"><span class="mess-status ' + s.cls + '">' + esc(s.text) + "</span></td>");
+    h.push('<td data-label="Name" class="mess-name">' + esc(m.name)
       + (luecken.length ? ' <span class="mess-leer">(' + esc(luecken.join(", ")) + ")</span>" : "")
       + "</td>");
-    h.push('<td class="mess-datei">' + esc(m.datei) + "</td>");
-    h.push('<td class="mess-ergebnis">'
+    h.push('<td data-label="Datei" class="mess-datei">' + esc(m.datei) + "</td>");
+    h.push('<td data-label="Ergebnis" class="mess-ergebnis">'
       + (m.ergebnis ? esc(m.ergebnis) : '<span class="mess-leer">kein Ergebnis</span>')
       + "</td>");
-    h.push('<td class="num">' + fmtInt(m.zaehler) + "</td>");
+    h.push('<td data-label="Zeilen" class="num">' + fmtInt(m.zaehler) + "</td>");
     h.push("</tr>");
   });
   h.push("</tbody></table>");
 
   var ev = d.ereignisse || [];
   if (ev.length) {
-    h.push('<details class="mess-roh"><summary>Protokollzeilen anzeigen ('
+    // OFFEN als Standard: die Protokollzeilen sind der Beleg zur Tabelle
+    // darueber. Wer sie erst aufklappen muss, sieht die Messung nicht - und
+    // genau das war der Nutzerbefund ("nicht aufklappen und zuklappen
+    // muessen"). Zuklappen bleibt moeglich, ist aber keine Pflicht.
+    h.push('<details class="mess-roh" open><summary>Protokollzeilen ('
       + fmtInt(ev.length) + ", aelteste zuerst)</summary>");
     ev.forEach(function (e) {
       h.push('<div class="ev"><span class="badge">' + esc(messStatus(e.status).text) + "</span>"
@@ -2085,7 +2776,7 @@ function syncButtons() {
 function redrawAll() {
   syncButtons();
   renderCurveSub();
-  draw();
+  zeichneAlle();
   drawGrid();
   renderMeas();
   renderChips();
@@ -2113,31 +2804,45 @@ function renderChips() {
     c.title = (cmp.hidden[r.id] ? "einblenden" : "ausblenden") + ": " + note.why;
     c.onclick = function () {
       cmp.hidden[r.id] = !cmp.hidden[r.id];
-      renderChips(); draw(); drawGrid();
+      renderChips(); zeichneAlle(); drawGrid();
     };
     box.appendChild(c);
   });
 }
 
-el("run").addEventListener("change", function () {
-  state.runId = el("run").value;
-  loadDetail(); refreshSmart(); drawGrid(); loadCompare(); renderVerdict();
-});
+// Der Wechsel des Laufs laeuft ueber `waehleLauf` (Knopf, Menue, Raster, Tabelle
+// und Tastenkuerzel). Das alte `change`-Ereignis eines <select> gibt es nicht
+// mehr - ein zweiter Weg waere ein zweiter Zustand.
 el("refresh").addEventListener("click", tickAll);
 el("yscale-log").addEventListener("click", function () { state.yscale = "log"; redrawAll(); });
 el("yscale-lin").addEventListener("click", function () { state.yscale = "linear"; redrawAll(); });
 el("metric-loss").addEventListener("click", function () { state.metric = "loss"; redrawAll(); });
 el("metric-ppl").addEventListener("click", function () { state.metric = "ppl"; redrawAll(); });
-el("chart").addEventListener("mousemove", showTip);
-el("chart").addEventListener("mouseleave", function () {
-  el("tip").style.display = "none";
-  draw();
+// Tempo: dieselbe Messreihe, drei Ansichten. Alle drei Felder stehen in jeder
+// Schrittzeile des Logs.
+el("tempo-ms").addEventListener("click", function () { state.tempo = "ms"; redrawAll(); });
+el("tempo-bps").addEventListener("click", function () { state.tempo = "bps"; redrawAll(); });
+el("tempo-gflops").addEventListener("click", function () { state.tempo = "gflops"; redrawAll(); });
+// Fenstergroesse: der Server rechnet die Fensterwerte, also wird neu geladen.
+[10, 50, 200].forEach(function (n) {
+  var b = el("fenster-" + n);
+  if (b) b.addEventListener("click", function () {
+    state.fenster = n;
+    syncButtons();
+    ladeVollkurven();
+    if (state.runId) loadDetail();
+    redrawAll();
+  });
 });
+el("zoom-alles").addEventListener("click", function () { zoomAlles(); });
+el("zoom-letzte").addEventListener("click", function () { zoomLetzte(0.2); });
+// Mauszeiger, Rad und Ziehen auf allen fuenf Bildern.
+BILDER.forEach(haengeZeigerAn);
 el("reg-pick").addEventListener("change", function () {
   var i = parseInt(el("reg-pick").value, 10);
   if (isFinite(i) && reg.entries[i]) { reg.index = i; renderRegistry(); }
 });
-window.addEventListener("resize", function () { draw(); drawGrid(); });
+window.addEventListener("resize", function () { zeichneAlle(); drawGrid(); });
 
 function tickAll() {
   loadReference()
@@ -2274,15 +2979,13 @@ function zeige(name, arg) {
   // Tiefensprung: #/lauf/<id> wählt den Lauf mit aus - ein geteilter Link
   // zeigt damit dieselbe Kurve wie beim Absender.
   if (name === "lauf" && arg && arg !== state.runId) {
-    state.runId = arg;
-    var sel = el("run");
-    if (sel) sel.value = arg;
-    loadDetail(); refreshSmart(); loadCompare(); renderVerdict();
+    // Tiefensprung: der Lauf wird gewaehlt, ohne das Menue zu oeffnen.
+    waehleLauf(arg);
   }
   zeigeKrumen(name);
   // Eine Zeichenfläche, die versteckt war, hat keine Größe. Beim Wechsel auf
   // "lauf" wird deshalb neu gezeichnet.
-  if (name === "lauf") { draw(); drawGrid(); }
+  if (name === "lauf") { zeichneAlle(); drawGrid(); }
   window.scrollTo(0, 0);
 }
 
@@ -2408,6 +3111,250 @@ function renderGlossar() {
 }
 
 // =====================================================================
+// Die Laufwahl
+//
+// Was der Vorgaenger falsch machte (Nutzerbefund 10.10.2026: "wenn ich diese
+// Dropdown benutze verschiebt es immer wieder" und "was ist das fuer eine
+// Dropdown-Liste, die man da reingeklatscht hat"):
+//
+//   1. Ein natives <select> mit 130 rohen Dateinamen ist keine Auswahl.
+//   2. Es wurde bei JEDEM Server-Ereignis neu aufgebaut - also bei jedem
+//      Trainingsschritt. Ein offenes Menue klappte dabei zu und sprang.
+//   3. Seine Breite hing am laengsten Dateinamen (68 Zeichen), und damit
+//      verschob sich der ganze Kopf bei jeder Aenderung.
+//
+// Deshalb: fester Knopf (320 px, Name wird abgeschnitten), Popover mit Suche,
+// und eine Liste, die beim Oeffnen EINGEFROREN wird und erst nach dem
+// Schliessen wieder gebaut wird.
+// =====================================================================
+state.menuOffen = false;
+state.menuRuns = null;      // eingefrorene Liste, solange das Menue offen ist
+state.menuAlle = false;     // "alle anzeigen" gedrueckt
+state.menuAktiv = 0;        // mit den Pfeiltasten markierte Zeile
+state.menuZeilen = [];      // die Zeilen in Anzeigereihenfolge
+state.suche = "";
+
+/// Laeuft dieser Lauf JETZT?
+///
+/// `finished: false` allein sagt das NICHT: in den Logs liegen Dutzende
+/// abgebrochene Laeufe ohne `run_end`, die der Server folgerichtig als "nicht
+/// beendet" meldet - sie liefen vor Tagen. Genau solche Eintraege haben die
+/// alte Auswahlliste gefuellt ("0 Schritte - laeuft") und die Startseite
+/// besetzt. Ein Lauf gilt hier nur dann als laufend, wenn seine Logdatei
+/// KUERZLICH geschrieben wurde. Das Fenster ist grosszuegig (10 Minuten), weil
+/// ein Schritt je nach Modell Minuten dauern kann; die Gegenrichtung (-60 s)
+/// faengt eine Uhrzeit-Abweichung zwischen Server und Browser ab.
+var LAEUFT_FENSTER_S = 600;
+function laeuftJetzt(r) {
+  if (!r || r.finished) return false;
+  var jetzt = Date.now() / 1000;
+  if (!r.mtime) return false;
+  var alter = jetzt - r.mtime;
+  return alter < LAEUFT_FENSTER_S && alter > -60;
+}
+
+/// Drei Zustaende statt zwei: laeuft, fertig, abgebrochen.
+function laufZustand(r) {
+  if (laeuftJetzt(r)) return "live";
+  if (r.finished) return "done";
+  return "stale";
+}
+
+/// Das Wort zum Zustand - an EINER Stelle.
+///
+/// Vorher beantworteten zwei Stellen dieselbe Frage mit zwei Regeln: die
+/// Kopfmarke rechnete dreistufig (`laeuftJetzt`), das Antwortband zweistufig
+/// (`r.finished`). Fuer einen abgebrochenen Lauf stand deshalb "abgebrochen"
+/// neben "laeuft". Jetzt gibt es nur noch `laufZustand` und dieses Wort.
+function laufWort(r) {
+  var z = laufZustand(r);
+  return z === "live" ? "laeuft" : (z === "done" ? "abgeschlossen" : "abgebrochen");
+}
+
+/// Kurzname ohne Dateiendung. Der Server faellt bei Laeufen ohne `run_start`
+/// auf den Dateinamen zurueck; hier wird nichts erfunden, nur die Endung
+/// weggelassen (der volle Name steht im Tooltip).
+function laufName(r) {
+  return String(r.name || r.id || "").replace(/\.jsonl$/, "");
+}
+
+/// Zweite Zeile: die wichtigsten Zahlen des Laufs, ohne Ballast.
+function laufMeta(r) {
+  var teile = [];
+  var hyp = hypOf(r);
+  if (hyp) teile.push(hyp);
+  if (r.seed && !hyp) teile.push("seed" + r.seed);
+  if (r.finished && r.total_seconds) teile.push(fmtDur(r.total_seconds));
+  if (!teile.length) teile.push(String(r.id || ""));
+  return teile.join(" · ");
+}
+
+/// Rechte Spalte: Fortschritt und Zustand - das, was man zum Aussuchen braucht.
+function laufRechts(r) {
+  var s = r.steps + (r.step_target ? "/" + r.step_target : "");
+  return s + " · " + laufWort(r);
+}
+
+function laufKlasse(r) {
+  return laufZustand(r);
+}
+
+function renderPicker() {
+  var b = el("run-pick");
+  if (!b) return;
+  var cur = currentRun();
+  var dot = el("run-dot"), nm = el("run-name"), meta = el("run-meta");
+  if (!cur) {
+    if (dot) dot.className = "dot";
+    if (nm) nm.textContent = state.runs.length ? "kein Lauf gewählt" : "keine Läufe";
+    if (meta) meta.textContent = "";
+    b.title = "Lauf waehlen";
+    return;
+  }
+  if (dot) dot.className = "dot " + laufKlasse(cur);
+  if (nm) nm.textContent = laufName(cur);
+  if (meta) meta.textContent = cur.steps + (cur.step_target ? "/" + cur.step_target : "");
+  b.title = laufName(cur) + "\n" + laufMeta(cur) + "\n" + cur.id
+    + "\n\nKlick öffnet die Liste (suchen mit der Tastatur)";
+}
+
+/// Baut das Menue. Wird NUR beim Oeffnen, beim Tippen und beim Umschalten von
+/// "alle anzeigen" gerufen - nie aus der Live-Verbindung heraus.
+function renderMenu() {
+  var box = el("run-list");
+  if (!box) return;
+  var r = state.menuRuns || [];
+  var f = normText(state.suche);
+  var treffer = r.filter(function (x) {
+    if (!f) return true;
+    return normText(laufName(x)).indexOf(f) >= 0
+      || normText(String(x.id)).indexOf(f) >= 0
+      || normText(laufMeta(x)).indexOf(f) >= 0;
+  });
+  var h = [];
+  var zeilen = [];
+  function gruppe(titel, liste) {
+    if (!liste.length) return;
+    if (titel) h.push('<div class="grp">' + esc(titel) + "</div>");
+    liste.forEach(function (x) {
+      var idx = zeilen.length;
+      zeilen.push(x);
+      h.push('<div class="row' + (x.id === state.runId ? " gewaehlt" : "") + (idx === state.menuAktiv ? " aktiv" : "")
+        + '" data-idx="' + idx + '" role="option" title="' + esc(String(x.id)) + '">'
+        + '<span class="dot ' + laufKlasse(x) + '"></span>'
+        + '<span class="t"><b>' + esc(laufName(x)) + "</b><span>" + esc(laufMeta(x)) + "</span></span>"
+        + '<span class="r">' + esc(laufRechts(x)) + "</span></div>");
+    });
+  }
+  var laufend = treffer.filter(function (x) { return laeuftJetzt(x); });
+  var fertig = treffer.filter(function (x) { return !laeuftJetzt(x); });
+  gruppe("läuft jetzt", laufend);
+  if (f || state.menuAlle) {
+    gruppe(fertig.length ? "abgeschlossen" : "", fertig);
+  } else {
+    gruppe("zuletzt", fertig.slice(0, 8));
+  }
+  if (!zeilen.length) h.push('<div class="leer">Kein Lauf passt zu „' + esc(state.suche) + "“.</div>");
+  box.innerHTML = h.join("");
+  state.menuZeilen = zeilen;
+
+  // Klicks verdrahten (innerHTML kennt keine Handler).
+  [].forEach.call(box.querySelectorAll(".row"), function (n) {
+    n.onclick = function () {
+      var x = state.menuZeilen[parseInt(n.getAttribute("data-idx"), 10)];
+      if (x) { waehleLauf(x.id); schliesseMenu(); }
+    };
+  });
+
+  var foot = el("run-foot");
+  if (!foot) return;
+  foot.innerHTML = "<span>" + zeilen.length + " von " + r.length + " Läufen</span>";
+  if (!f && fertig.length > 8) {
+    var b = document.createElement("button");
+    b.textContent = state.menuAlle ? "nur die letzten 8" : "alle " + fertig.length + " abgeschlossenen";
+    b.onclick = function () { state.menuAlle = !state.menuAlle; state.menuAktiv = 0; renderMenu(); };
+    foot.appendChild(b);
+  } else if (!f && !state.menuAlle) {
+    foot.innerHTML += "<span>tippen zum Suchen</span>";
+  }
+}
+
+function oeffneMenu() {
+  var m = el("run-menu"), b = el("run-pick");
+  if (!m) return;
+  // EINFRIEREN: die Liste wird genau einmal kopiert. Ereignisse aus der
+  // Live-Verbindung aendern die offene Liste nicht mehr.
+  state.menuRuns = state.runs.slice();
+  state.menuOffen = true;
+  state.menuAlle = false;
+  state.suche = "";
+  state.menuAktiv = 0;
+  var s = el("run-search");
+  if (s) s.value = "";
+  m.hidden = false;
+  if (b) b.setAttribute("aria-expanded", "true");
+  renderMenu();
+  if (s) s.focus();
+}
+
+function schliesseMenu() {
+  var m = el("run-menu"), b = el("run-pick");
+  state.menuOffen = false;
+  state.menuRuns = null;
+  if (m) m.hidden = true;
+  if (b) { b.setAttribute("aria-expanded", "false"); b.focus(); }
+}
+
+function waehleLauf(id) {
+  if (!id) return;
+  if (id === state.runId) { renderPicker(); return; }
+  state.runId = id;
+  renderPicker();
+  zeigeKrumen(state.ansicht || "uebersicht");
+  loadDetail(); refreshSmart(); drawGrid(); loadCompare(); renderVerdict();
+}
+
+if (el("run-pick")) el("run-pick").addEventListener("click", function () {
+  if (state.menuOffen) schliesseMenu(); else oeffneMenu();
+});
+if (el("run-search")) el("run-search").addEventListener("input", function () {
+  state.suche = el("run-search").value;
+  state.menuAktiv = 0;
+  renderMenu();
+});
+document.addEventListener("mousedown", function (ev) {
+  if (!state.menuOffen) return;
+  var p = el("pick");
+  if (p && ev.target && p.contains(ev.target)) return;
+  schliesseMenu();
+});
+document.addEventListener("keydown", function (ev) {
+  if (!state.menuOffen) {
+    // Tastenkuerzel: "l" oeffnet die Laufwahl, wenn kein Feld den Fokus hat.
+    var t = ev.target && ev.target.tagName;
+    if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (ev.key === "l" || ev.key === "L") { oeffneMenu(); ev.preventDefault(); }
+    return;
+  }
+  var n = (state.menuZeilen || []).length;
+  if (ev.key === "Escape") { schliesseMenu(); ev.preventDefault(); }
+  else if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    if (n) {
+      state.menuAktiv = (state.menuAktiv + (ev.key === "ArrowDown" ? 1 : n - 1)) % n;
+      renderMenu();
+      var liste = el("run-list");
+      var a = liste && liste.querySelector ? liste.querySelector(".row.aktiv") : null;
+      if (a && a.scrollIntoView) a.scrollIntoView({ block: "nearest" });
+    }
+    ev.preventDefault();
+  } else if (ev.key === "Enter") {
+    var x = (state.menuZeilen || [])[state.menuAktiv];
+    if (x) { waehleLauf(x.id); schliesseMenu(); }
+    ev.preventDefault();
+  }
+});
+
+// =====================================================================
 // Kurvenauswahl: sechs Sammelschalter statt 141 Einzelklicks
 //
 // Vorher musste jeder Lauf einzeln an- und abgeschaltet werden. Jetzt gibt
@@ -2435,7 +3382,7 @@ function chipsSetze(f) {
   cmp.runs.forEach(function (r, i) { cmp.hidden[r.id] = !f(r, i); });
   renderChips();
   chipsZaehlen();
-  draw();
+  zeichneAlle();
   drawGrid();
 }
 
@@ -2477,7 +3424,8 @@ if (el("chips-keine")) el("chips-keine").addEventListener("click", function () {
 // Filter und Rastergrenze - die zwei Stellen, an denen 141 Läufe wehtun
 // =====================================================================
 function passtFilter(r) {
-  if (state.onlyLive && r.finished) return false;
+  // "nur laufende" heisst wirklich laufend - nicht "ohne run_end", davon liegen Dutzende herum.
+  if (state.onlyLive && !laeuftJetzt(r)) return false;
   var f = normText(state.filter);
   if (!f) return true;
   return normText(r.name).indexOf(f) >= 0 || normText(r.id).indexOf(f) >= 0;
@@ -2650,7 +3598,13 @@ function zaehleNavigation() {
   var c = el("nav-cps");
   if (c) c.textContent = (state.cps || []).length;
   var r = el("nav-run");
-  if (r) { var cur = currentRun(); r.textContent = cur ? cur.name : ""; }
+  // Kurzname statt vollem Dateinamen: der Navigationspunkt darf nicht wachsen
+  // (er hat den Kopf verschoben). Der volle Name steht im Knopf der Laufwahl.
+  if (r) {
+    var cur = currentRun();
+    r.textContent = cur ? laufName(cur) : "";
+    r.title = cur ? String(cur.id) : "";
+  }
 }
 
 syncButtons();

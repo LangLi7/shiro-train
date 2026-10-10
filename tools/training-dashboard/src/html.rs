@@ -337,11 +337,11 @@ mod tests {
     fn non_finite_numbers_never_reach_the_chart() {
         let page = page();
         assert!(
-            page.contains("function countNonFinite"),
+            page.contains("function zaehleUngueltig"),
             "der Waechter zaehlt nicht-endliche Messpunkte nicht"
         );
         assert!(
-            page.contains("!isFinite(v) || (v <= 0 && ax.useLog)"),
+            page.contains("typeof v !== \"number\" || !isFinite(v) || (ax.useLog && v <= 0)"),
             "die Kurve prueft den Wert nicht auf Endlichkeit"
         );
         assert!(
@@ -463,6 +463,22 @@ mod tests {
             "tip",
         ] {
             assert!(page.contains(id), "Bedienelement '{id}' fehlt");
+        }
+        // Fassung 8: Tempo-Ansicht, Fenstergroesse und Zoom sind dazugekommen.
+        for id in [
+            "tempo-ms",
+            "tempo-bps",
+            "tempo-gflops",
+            "fenster-10",
+            "fenster-50",
+            "fenster-200",
+            "zoom-alles",
+            "zoom-letzte",
+        ] {
+            assert!(
+                page.contains(&format!("id=\"{id}\"")),
+                "Bedienelement '{id}' fehlt"
+            );
         }
         // Achsenbeschriftung mit Einheit - eine Achse ohne Einheit ist nicht lesbar.
         assert!(
@@ -866,6 +882,85 @@ mod tests {
         );
     }
 
+    /// Die Laufwahl darf den Kopf nicht verschieben und die offene Liste nicht
+    /// unter dem Nutzer wegdrehen.
+    ///
+    /// Anlass (Nutzerbefund 10.10.2026, woertlich): "wenn ich diese dropdown
+    /// benutzte verschiebt es immer wieder" und "was ist das fuer ein Dropdown
+    /// liste die man da reingeklatscht hat? nicht modern professionell".
+    /// Drei Ursachen, jede mit einer Regel beantwortet - und jede hier
+    /// festgenagelt, damit sie nicht zurueckkommt:
+    ///
+    /// 1. Das native `<select>` wurde bei JEDEM Server-Ereignis neu aufgebaut
+    ///    (also bei jedem Trainingsschritt) - ein offenes Menue klappte zu und
+    ///    sprang. Deshalb gibt es kein `<select id="run">` mehr, und die Liste
+    ///    wird beim Oeffnen eingefroren.
+    /// 2. Seine Breite hing am laengsten Dateinamen (68 Zeichen) - der Kopf
+    ///    pendelte. Deshalb hat der Knopf eine feste Breite.
+    /// 3. `finished: false` galt als "laeuft" - 15 der 142 Laeufe sind aber
+    ///    abgebrochene Staende ohne `run_end`. Deshalb gibt es drei Zustaende.
+    #[test]
+    fn the_run_picker_cannot_shift_and_freezes_its_list() {
+        let page = page();
+        // 1. Kein natives Auswahlfeld mehr, dafuer Knopf und Menue.
+        assert!(
+            !page.contains("<select id=\"run\""),
+            "das native Auswahlfeld ist zurueck - es wird bei jeder Meldung neu gebaut"
+        );
+        for id in [
+            "run-pick",
+            "run-menu",
+            "run-search",
+            "run-list",
+            "run-foot",
+            "run-dot",
+            "run-name",
+            "run-meta",
+        ] {
+            assert!(
+                page.contains(&format!("id=\"{id}\"")),
+                "die Laufwahl hat kein Element {id}"
+            );
+        }
+        // Die Liste wird EINGEFROREN, und der Knopf ist das Einzige, was der
+        // Live-Pfad neu beschriftet.
+        assert!(
+            page.contains("state.menuRuns = state.runs.slice()"),
+            "die offene Liste wird nicht eingefroren"
+        );
+        assert!(
+            page.contains("renderPicker();"),
+            "der Live-Pfad beschriftet den Knopf nicht neu"
+        );
+        // 2. Feste Breite, gekuerzter Name.
+        assert!(
+            page.contains(".picker {") && page.contains("width: 320px"),
+            "der Knopf hat keine feste Breite - der Kopf kann wieder pendeln"
+        );
+        assert!(
+            page.contains("text-overflow: ellipsis"),
+            "lange Laufnamen werden nicht gekuerzt"
+        );
+        // 3. Drei Zustaende statt zwei.
+        assert!(
+            page.contains("function laeuftJetzt(") && page.contains("LAEUFT_FENSTER_S"),
+            "es gibt kein Fenster fuer 'laeuft jetzt'"
+        );
+        assert!(
+            page.contains("\"abgebrochen\""),
+            "abgebrochene Laeufe werden nicht als solche benannt"
+        );
+        // Und die Auswahl laeuft ueber EINEN Weg.
+        assert!(
+            page.contains("function waehleLauf("),
+            "es gibt keine gemeinsame Auswahlfunktion"
+        );
+        assert!(
+            page.contains("waehleLauf(r.id)"),
+            "Raster und Tabelle waehlen den Lauf nicht ueber dieselbe Funktion"
+        );
+    }
+
     // ------------------------------------------------------------------
     // Der Abschnitt fuer fremde Messlaeufe (Fassung 6).
     //
@@ -923,6 +1018,121 @@ mod tests {
         assert!(
             page.contains("scripts/messung-log.sh"),
             "die Anzeige nennt den Helfer nicht"
+        );
+    }
+
+    /// Fuenf Bilder ueber EINE Zeitachse: Verlust, Fenster, Aenderung,
+    /// Lernrate, Tempo. Ein Verlustbild allein sagt nicht, ob der letzte
+    /// Abschnitt noch faellt - und genau das ist die Frage.
+    #[test]
+    fn the_page_draws_five_charts_over_one_axis() {
+        let page = page();
+        for id in [
+            "chart",
+            "chart-fenster",
+            "chart-delta",
+            "chart-lr",
+            "chart-tempo",
+        ] {
+            assert!(
+                page.contains(&format!("id=\"{id}\"")),
+                "das Bild '{id}' fehlt"
+            );
+        }
+        // Eine gemeinsame x-Achse und eine Zeichenroutine fuer alle fuenf.
+        for f in [
+            "function xBereich",
+            "function zeichneAlle",
+            "function zoome",
+            "function schiebeUm",
+            "function haengeZeigerAn",
+            "function lesungZeigen",
+        ] {
+            assert!(page.contains(f), "{f} fehlt");
+        }
+        // Zoom und Schieben muessen an ALLEN Bildern haengen, nicht an einem.
+        assert!(
+            page.contains("BILDER.forEach(haengeZeigerAn)"),
+            "Rad und Ziehen haengen nicht an allen Bildern"
+        );
+        // Jedes Bild sagt, wie man es liest. Ein Diagramm ohne Lesehilfe ist
+        // eine Zeichnung.
+        for id in [
+            "hint-verlauf",
+            "hint-fenster",
+            "hint-delta",
+            "hint-lr",
+            "hint-tempo",
+        ] {
+            assert!(
+                page.contains(&format!("id=\"{id}\"")),
+                "die Lesehilfe {id} fehlt"
+            );
+        }
+        assert!(
+            page.matches("So liest man das").count() >= 5,
+            "es fehlen Lesehilfen"
+        );
+        // Die genauen Werte stehen fuer ALLE sichtbaren Laeufe da, nicht nur
+        // fuer den gewaehlten - das war die Auflage.
+        assert!(
+            page.contains("sichtbarVergleich().forEach"),
+            "die Messwertanzeige kennt nur einen Lauf"
+        );
+        assert!(
+            page.contains("naechsterPunkt(voll, state.kursor)"),
+            "die Messwertanzeige liest die Vollkurve nicht"
+        );
+    }
+
+    /// Das Messprotokoll darf im schmalen Fenster nicht gequetscht werden.
+    ///
+    /// Nutzerbefund 10.10.2026: bei ~1111 px Breite standen Status, Name,
+    /// Datei, Ergebnis und Zeilen nebeneinander, die rechte Spalte
+    /// (`messprotokoll`) wurde auf einen Streifen gedrueckt, und die
+    /// Protokollzeilen lagen hinter einem Aufklapp-Schalter.
+    #[test]
+    fn the_measurement_table_stacks_instead_of_squeezing() {
+        let page = page();
+        // Lange Werte brechen um, statt aus der Zelle zu laufen.
+        assert!(
+            page.contains("overflow-wrap: anywhere"),
+            "lange Dateinamen brechen nicht um"
+        );
+        // Unter 720 px stapelt die Tabelle: keine Spalten mehr nebeneinander.
+        assert!(
+            page.contains("@media (max-width: 720px)"),
+            "es gibt keinen Umbruchpunkt fuer schmale Fenster"
+        );
+        assert!(
+            page.contains(".mess-tabelle, .mess-tabelle tbody, .mess-tabelle tr, .mess-tabelle td { display: block;"),
+            "die Tabelle wird nicht gestapelt"
+        );
+        assert!(
+            page.contains("content: attr(data-label)"),
+            "gestapelte Zellen haben keine Beschriftung"
+        );
+        // Und die Zeilen tragen die Beschriftung wirklich.
+        for label in [
+            "data-label=\"Status\"",
+            "data-label=\"Datei\"",
+            "data-label=\"Ergebnis\"",
+        ] {
+            assert!(page.contains(label), "die Zelle {label} fehlt");
+        }
+        // Die rechte Spalte darf nicht mehr zusammengedrueckt werden.
+        assert!(
+            page.contains(".cols > * { min-width: 0; }"),
+            "die Spalten duerfen nicht unter ihre Inhaltsbreite schrumpfen"
+        );
+        // Die Protokollzeilen sind ohne Klick da.
+        assert!(
+            page.contains("class=\"mess-roh\" open"),
+            "die Protokollzeilen liegen hinter einem Pflicht-Klick"
+        );
+        assert!(
+            !page.contains("<details class=\"mess-roh\"><summary>Protokollzeilen anzeigen"),
+            "der alte Aufklapp-Text steht noch da"
         );
     }
 }

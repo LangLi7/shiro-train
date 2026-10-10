@@ -418,10 +418,16 @@ fn handle(stream: TcpStream, cfg: &Cfg) -> std::io::Result<()> {
         }
         "/api/series" => {
             let run = param(&query, "run").unwrap_or_default();
-            (
-                api_series(cfg, &run).into_bytes(),
-                "application/json; charset=utf-8",
-            )
+            // `fenster` ist freiwillig. Ohne den Parameter bleibt die Antwort
+            // genau wie vorher (die Verlustkurve braucht keine Zusatzfelder);
+            // mit dem Parameter kommen je Punkt Fensterwerte und Aenderung
+            // dazu - gerechnet in `verlauf.rs`, nicht im Browser, damit die
+            // Regel pruefbar bleibt.
+            let body = match fenster_wunsch(&query) {
+                Ok(n) => api_series(cfg, &run, n),
+                Err(meldung) => fehler_json(&meldung),
+            };
+            (body.into_bytes(), "application/json; charset=utf-8")
         }
         "/api/events" => {
             let run = param(&query, "run").unwrap_or_default();
@@ -448,6 +454,36 @@ fn handle(stream: TcpStream, cfg: &Cfg) -> std::io::Result<()> {
     }
 
     respond(stream, 200, body_and_type.1, &body_and_type.0)
+}
+
+/// Liest den freiwilligen Parameter `fenster` aus der Abfrage.
+///
+/// Drei Faelle, und sie werden auseinandergehalten:
+///
+/// * **nicht gesetzt** - `Ok(None)`: die Antwort bleibt wie bisher.
+/// * **gueltig** (1 bis `MAX_FENSTER`) - `Ok(Some(n))`.
+/// * **ungueltig** (0, Text, zu gross) - `Err`. Eine stillschweigend
+///   eingesetzte Ersatzgroesse waere eine erfundene Aussage: "Fenster 0" und
+///   "Fenster 50" sind verschiedene Bilder, und der Aufrufer hat eines von
+///   beiden verlangt.
+fn fenster_wunsch(query: &str) -> Result<Option<usize>, String> {
+    let Some(roh) = param(query, "fenster") else {
+        return Ok(None);
+    };
+    match roh.parse::<usize>() {
+        Ok(n) if (1..=crate::verlauf::MAX_FENSTER).contains(&n) => Ok(Some(n)),
+        _ => Err(format!(
+            "fenster muss eine ganze Zahl von 1 bis {} sein",
+            crate::verlauf::MAX_FENSTER
+        )),
+    }
+}
+
+/// Eine Fehlerantwort in derselben Form wie "Lauf nicht gefunden".
+fn fehler_json(meldung: &str) -> String {
+    let mut o = Out::new();
+    o.obj().key("error").str(meldung).end_obj();
+    o.finish()
 }
 
 /// Zerlegt `/api/series?run=x` in Pfad und Abfrageteil.
@@ -678,8 +714,14 @@ fn api_runs(cfg: &Cfg) -> String {
     o.finish()
 }
 
-/// `/api/series?run=<id>` - die Schrittfolge.
-fn api_series(cfg: &Cfg, run_id: &str) -> String {
+/// `/api/series?run=<id>[&fenster=<n>]` - die Schrittfolge.
+///
+/// Ohne `fenster` steht hier genau das, was immer hier stand. Mit `fenster`
+/// kommt je Punkt das gleitende Fenster (Mittel, Minimum, Maximum) und die
+/// Aenderung zum vorigen Schritt dazu - Grundlage der Panels "Fenster" und
+/// "Aenderung je Schritt". Die Rechnung selbst liegt in `verlauf.rs`; hier
+/// wird sie nur ausgeliefert.
+fn api_series(cfg: &Cfg, run_id: &str, fenster: Option<usize>) -> String {
     let mut o = Out::new();
     let found = cfg.run(run_id);
     match found {
@@ -687,11 +729,20 @@ fn api_series(cfg: &Cfg, run_id: &str) -> String {
             o.obj().key("error").str("Lauf nicht gefunden").end_obj();
         }
         Some(r) => {
+            // Die Fensterrechnung laeuft ueber die Verluste **dieses** Laufs,
+            // in Reihenfolge der Logzeilen. Sie wird genau einmal gerechnet.
+            let verluufe: Vec<f64> = r.steps.iter().map(|s| s.loss).collect();
+            let rechnung = fenster.map(|n| crate::verlauf::fenster(&verluufe, n));
             o.obj();
             o.key("id").str(&r.id);
             o.key("name").str(r.name());
+            // Die Fenstergroesse steht in der Antwort, damit die Anzeige sie
+            // nennen kann, ohne sie zu raten.
+            o.key("fenster").opt_num(fenster.map(|n| n as f64));
+            o.key("punkte_ungueltig")
+                .int(crate::verlauf::ungueltige(&verluufe) as u64);
             o.key("points").arr();
-            for s in &r.steps {
+            for (i, s) in r.steps.iter().enumerate() {
                 o.obj();
                 o.key("step").int(s.step);
                 o.key("loss").num(s.loss);
@@ -705,6 +756,12 @@ fn api_series(cfg: &Cfg, run_id: &str) -> String {
                 // Wird von der Kurve gebraucht: Checkpoints als Marken am
                 // unteren Rand. Fehlt das Feld, kann die GUI sie nicht setzen.
                 o.key("checkpoint").opt_str(s.checkpoint.as_deref());
+                if let Some(f) = rechnung.as_ref().and_then(|v| v.get(i)) {
+                    o.key("mittel").opt_num(f.mittel);
+                    o.key("fmin").opt_num(f.min);
+                    o.key("fmax").opt_num(f.max);
+                    o.key("delta").opt_num(f.delta);
+                }
                 o.end_obj();
             }
             o.end_arr();
@@ -1656,10 +1713,89 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let cfg = Cfg::new(dir.clone(), dir.clone(), dir.clone());
-        let s = api_series(&cfg, "gibt-es-nicht.jsonl");
+        let s = api_series(&cfg, "gibt-es-nicht.jsonl", None);
         assert!(s.contains("Lauf nicht gefunden"), "{s}");
         let e = api_events(&cfg, "gibt-es-nicht.jsonl", 0);
         assert!(e.contains("Lauf nicht gefunden"), "{e}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fenster_parameter_wird_gelesen_und_geprueft() {
+        // Nicht gesetzt: keine Fensterrechnung, die Antwort bleibt wie bisher.
+        assert_eq!(fenster_wunsch("run=a.jsonl"), Ok(None));
+        // Gueltig.
+        assert_eq!(fenster_wunsch("fenster=50"), Ok(Some(50)));
+        assert_eq!(fenster_wunsch("run=a&fenster=1"), Ok(Some(1)));
+        // Ungueltig: 0, Text, leere Angabe, zu gross. Kein stiller Ersatzwert -
+        // "Fenster 0" und "Fenster 50" sind verschiedene Bilder.
+        assert!(fenster_wunsch("fenster=0").is_err());
+        assert!(fenster_wunsch("fenster=abc").is_err());
+        assert!(fenster_wunsch("fenster=-5").is_err());
+        // Leerer Wert gilt als nicht gesetzt (`param` liefert dann None) -
+        // dieselbe Regel wie bei allen anderen Parametern.
+        assert_eq!(fenster_wunsch("fenster="), Ok(None));
+        let zu_gross = format!("fenster={}", crate::verlauf::MAX_FENSTER + 1);
+        assert!(fenster_wunsch(&zu_gross).is_err());
+    }
+
+    /// Der Kern der neuen Panels: die Fensterwerte kommen aus dem Server.
+    ///
+    /// Ohne `fenster` ist die Antwort unveraendert (die Verlustkurve soll
+    /// nicht mehr Nutzlast tragen als noetig); mit `fenster` traegt jeder
+    /// Punkt Mittel, Minimum, Maximum und Aenderung - und die Zahlen stimmen
+    /// mit der Handrechnung ueberein.
+    #[test]
+    fn series_liefert_fensterwerte_nur_auf_anforderung() {
+        let dir = std::env::temp_dir().join(format!("sdash-fenster-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let start = "{\"event\":\"run_start\",\"name\":\"f\",\"step_target\":3,\"params\":4656640}";
+        let mut zeilen = String::from(start);
+        zeilen.push('\n');
+        for (step, loss) in [(1u64, 5.0f64), (2, 4.0), (3, 4.5)] {
+            zeilen.push_str(&format!(
+                "{{\"event\":\"step\",\"step\":{step},\"loss\":{loss},\"perplexity\":1.0,\"lr\":0.0003,\"bytes_per_second\":10.0,\"ms\":5.0,\"bytes\":8}}\n"
+            ));
+        }
+        std::fs::write(dir.join("f.jsonl"), zeilen).unwrap();
+        let cfg = Cfg::new(dir.clone(), dir.clone(), dir.clone());
+
+        // Ohne Parameter: keine Fensterfelder.
+        let ohne = api_series(&cfg, "f.jsonl", None);
+        assert!(!ohne.contains("mittel"), "{ohne}");
+        assert!(!ohne.contains("delta"), "{ohne}");
+        assert!(ohne.contains("\"fenster\":null"), "{ohne}");
+
+        // Mit Fenster 2: erster Punkt Mittel 5; zweiter Mittel 4,5 (5 und 4),
+        // Minimum 4; dritter Mittel 4,25 (4 und 4,5), Maximum 4,5.
+        let mit = api_series(&cfg, "f.jsonl", Some(2));
+        assert!(mit.contains("\"fenster\":2"), "{mit}");
+        assert!(mit.contains("\"mittel\":4.5"), "{mit}");
+        assert!(mit.contains("\"fmin\":4"), "{mit}");
+        assert!(mit.contains("\"fmax\":4.5"), "{mit}");
+        assert!(mit.contains("\"delta\":-1"), "{mit}");
+        assert!(mit.contains("\"delta\":0.5"), "{mit}");
+        // Genau eine ungueltige Zahl gibt es hier nicht.
+        assert!(mit.contains("\"punkte_ungueltig\":0"), "{mit}");
+        assert!(
+            crate::jsonread::parse_line(&mit).is_some(),
+            "gueltiges JSON: {mit}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ungueltiges_fenster_gibt_eine_fehlerantwort_statt_einer_zahl() {
+        // Ein ungueltiges Fenster wird abgewiesen, nicht still ersetzt: die
+        // Antwort nennt die erlaubte Spanne.
+        match fenster_wunsch("fenster=0") {
+            Ok(n) => panic!("0 ist kein Fenster, war aber Ok({n:?})"),
+            Err(m) => assert!(m.contains("1 bis"), "{m}"),
+        }
+        // Und die Fehlerantwort ist JSON in derselben Form wie ueberall.
+        let text = fehler_json("kaputt");
+        assert_eq!(text, "{\"error\":\"kaputt\"}");
+        assert!(crate::jsonread::parse_line(&text).is_some());
     }
 }

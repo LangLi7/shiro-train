@@ -1426,3 +1426,111 @@ Runde steht bei Kopfzahl **91,25 %** (+1,25 Pp über der Marke) ohne Typ unter
    nicht den Plan.
 
 
+
+---
+
+## 14. Fassung 8: fünf Bilder, adaptive Tabellen
+
+Zwei Anlässe, ein Stand: der Nutzer konnte aus einem Verlustbild nicht
+ablesen, *was* der Verlauf bedeutet, und das Panel „Messprotokoll" quetschte
+bei mittlerer Fensterbreite seine Spalten zusammen, bis Werte überlappten.
+
+### 14.1 Fünf Bilder über **eine** Zeitachse
+
+| # | Bild | Frage, die es beantwortet | Quelle |
+|---|---|---|---|
+| 1 | Verlust & Perplexität | Fällt die Kurve? Wo sitzt ein Sprung nach oben? | `/api/compare` (alle sichtbaren Läufe) + `/api/series` (gewählter Lauf) |
+| 2 | Fenster (min/Mittel/max) | Lernt es **noch**? Ein fallendes Fenster-Minimum heißt: es gibt neue Bestwerte. Ein stehendes heißt Plateau. | `/api/series?fenster=n` (Feld `fmin`, `mittel`, `fmax`) |
+| 3 | Änderung je Schritt | Balken unter der Nulllinie = besser als der vorige Schritt. Streuung um die Null = stehen. | `/api/series?fenster=n` (Feld `delta`) |
+| 4 | Lernrate | Nach welchem Rezept wurde trainiert? Flach = konstant, fallend = Cosinus-Plan, **0 = es wird nicht mehr trainiert** (gemessener Fehlerfall O-T3). | `/api/series` (Feld `lr`) |
+| 5 | Tempo | ms je Schritt, Bytes/s oder GFLOPS. Sprung = anderes Gerät/Fenster, Zacken = die Maschine ist belegt. | `/api/series` (Felder `ms`, `bps`, `gflops`) |
+
+Jedes Bild trägt unter sich eine Lesehilfe, die mit „So liest man das" beginnt.
+Ein Diagramm ohne Lesehilfe ist eine Zeichnung.
+
+**Interaktion.** Rad zoomt die x-Achse um den Mauszeiger, Ziehen schiebt,
+Doppelklick und „alles" setzen zurück, „letzte 20 %" zeigt das Laufende. Alle
+fünf Bilder teilen dieselbe x-Achse, also wirkt jede Bewegung in allen
+gleichzeitig. Die y-Achse folgt dem sichtbaren Ausschnitt: ein hineingezoomter
+Abschnitt wird groß, statt in der Gesamtskala zu verschwinden.
+
+**Mauszeiger.** Ein senkrechter Strich läuft durch **alle** Bilder, und die
+Messwertanzeige unter den Bildern nennt die genauen Werte **aller sichtbaren
+Läufe** an dieser Stelle: Schritt, Verlust, Perplexität, Lernrate, ms,
+Bytes/s, GFLOPS, Fensterwert (min/Mittel/max) und Änderung. Zeilen aus
+Läufen, deren Vollkurve nicht geladen ist, kommen aus der Verlustkurve und
+sind als „(nur Verlustkurve)" gekennzeichnet. Angezeigt werden höchstens
+zwölf Zeilen (die besten); die Zahl der übrigen steht in der Kopfzeile — eine
+Anzeige, die 140 Zeilen verschweigt, wäre eine andere Lüge als eine, die sie
+zeigt, aber unlesbar macht.
+
+**Neuer Endpunkt-Parameter** (einzige API-Änderung, additiv und freiwillig):
+`/api/series?run=<id>&fenster=<n>`. Ohne den Parameter ist die Antwort
+**unverändert** (die Verlustkurve soll nicht mehr Nutzlast tragen als nötig).
+Mit dem Parameter trägt jeder Punkt zusätzlich `mittel`, `fmin`, `fmax`,
+`delta`, und der Kopf nennt `fenster` sowie `punkte_ungueltig`. Die Rechnung
+liegt in `src/verlauf.rs` und ist dort getestet — nicht im Seitenskript, weil
+sie eine prüfbare Regel ist und keine Anzeigefrage. Ein ungültiges Fenster
+(`0`, Text, zu groß) ergibt eine Fehlerantwort statt eines stillen
+Ersatzwerts: „Fenster 0" und „Fenster 50" sind verschiedene Bilder.
+
+**Ungültige Zahlen.** `NaN`/`Inf` werden nicht gezeichnet (sie sind ein
+Abbruchgrund, keine Messung), gehen nicht in Mittel/Minimum/Maximum ein und
+erzeugen keine Änderung. Ein Fenster ohne gültigen Wert hat gar keine
+Statistik; `0` wäre dort eine erfundene Messung.
+
+### 14.2 Zwei echte Fehler, die dabei gefunden wurden
+
+1. **Die Messwertanzeige war tot und die Zahl daneben falsch.**
+   `/api/series` liefert Objekte (`{"step":…,"loss":…}`), das Seitenskript las
+   sie aber als Array (`p[0]`, `p[1]` → `undefined`). Folge: jeder Punkt galt
+   als „ungültige Zahl" (die Seite meldete „200 Messpunkte · 200 ohne gültige
+   Zahl", obwohl alle 200 gültig waren), und der Mauszeiger zeigte nie Werte.
+   Jetzt gibt es **ein** Punktformat (`ausSerie`/`ausVergleich`) für beide
+   Endpunkte.
+2. **Zwei Regeln für eine Frage.** Ob ein Lauf „läuft", beantwortete die
+   Kopfmarke dreistufig (`laeuftJetzt`), das Antwortband zweistufig
+   (`r.finished`). Für einen abgebrochenen Lauf stand deshalb „abgebrochen"
+   neben „läuft". Jetzt entscheidet nur noch `laufZustand()`, und `laufWort()`
+   ist die einzige Stelle, die das Wort bildet. Zusätzlich sind die beiden
+   Pillen im Kopf beschriftet („lauf: …" gegenüber der Verbindungsanzeige),
+   damit zwei gleich aussehende Marken nicht zwei verschiedene Fragen
+   verschleiern.
+
+### 14.3 Messprotokoll: gestapelt statt gequetscht
+
+Nutzerbefund: bei ~1111 px Breite standen Status, Name, Datei, Ergebnis und
+Zeilen nebeneinander, die rechte Spalte („messprotokoll") wurde auf einen
+Streifen gedrückt, und die Protokollzeilen lagen hinter einem
+Aufklapp-Schalter.
+
+| Änderung | Wirkung |
+|---|---|
+| `overflow-wrap: anywhere` für Datei, Ergebnis, Name | ein 40-Zeichen-Dateiname läuft nicht mehr aus der Zelle |
+| `.cols > * { min-width: 0; }` | die Spalten dürfen unter ihre Inhaltsbreite schrumpfen, statt sich gegenseitig zu quetschen |
+| Umbruchpunkt 1180 px statt 1100 px | bei ~1111 px wird gestapelt statt gequetscht |
+| `@media (max-width: 720px)`: Tabelle wird Block je Messlauf, `td::before` zeigt `data-label` | kein Nebeneinander, **kein** waagerechtes Scrollen, keine Überlappung — jeder Wert behält seine Beschriftung |
+| `<details class="mess-roh" open>` | die Protokollzeilen sind ohne Klick sichtbar; Zuklappen bleibt möglich, ist aber keine Pflicht |
+
+### 14.4 Qualitätssicherung dieser Fassung
+
+| Prüfung | Ergebnis |
+|---|---|
+| `cargo fmt --check` | 0 Abweichungen |
+| `cargo clippy --all-targets -- -D warnings` | exit 0 |
+| `cargo test` | 179 Tests, 0 Fehler (144 lib + 9 bin + 26 Integration) |
+| `cargo build --release` | 0 Fehler |
+| Anzeigeprüfung (fake DOM gegen echte Logs, Port 8788) | 24 von 24 bestanden: 9 Messläufe und 9 Protokollzeilen vollständig, `data-label` vorhanden, Protokollzeilen offen, 12-Feld-Punktformat, Fensterwerte vom Server, Wächter meldet 0 ungültige Punkte (vorher: alle), Zoom halbiert den Ausschnitt (23 199 → 11 600 Schritte), Ziehen verschiebt, „alles" setzt zurück, fünf Achsen, ein Wort für den Laufzustand in Antwortband und Kopfmarke |
+| `/api/series?fenster=0` | `{"error":"fenster muss eine ganze Zahl von 1 bis 100000 sein"}` |
+
+Port 8787 wurde **nicht** benutzt (dort läuft das Dashboard einer
+Parallelsitzung); die Prüfung lief auf einem eigenen Prozess mit Port 8788.
+Kein Trainings-, Mess- oder Benchmarkprozess wurde gestartet oder beendet.
+
+### 14.5 Belege
+
+* Die Fenster- und Änderungsrechnung samt Tests: [verlauf.rs](../tools/training-dashboard/src/verlauf.rs)
+* Der Endpunkt: [server.rs](../tools/training-dashboard/src/server.rs)
+* Die Oberfläche (Skript und Gestaltung): [page.html](../tools/training-dashboard/src/page.html)
+* Warum die Lernrate 0 ein gemessener Fehlerfall ist: [training-loop.md](training-loop.md) §8
+* Der Loop und seine Hebel (Kontext für Bild 4 und 5): [agentic-loop.md](agentic-loop.md)
