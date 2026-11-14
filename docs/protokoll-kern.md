@@ -292,3 +292,62 @@ frueheren Zahl enthalten und ist jetzt gemessen.
 
 **Stichprobe:** 6 und 10 Aufgaben, ein Seed. Die Richtung ist deutlich (0 gegen 18), die genauen
 Prozente sind es nicht.
+
+## Runde 152 — Train-EM gegen Held-out-EM: kein Auswendiglernen, aber auch kein Spielraum
+
+**Was das Ziel als erstes verlangt und was noch fehlte:** die Messung auf **gesehenen** Daten
+gegen die reservierten. Nur so laesst sich Auswendiglernen von Koennen trennen.
+
+**Derselbe Checkpoint (`mix19`), je 16 bis 20 Aufgaben:**
+
+| Familie | Train (gesehen) | reserviert | Differenz |
+|---|---|---|---|
+| Gleichungen | 100 / 100 / 100 | 90 / 90 / 100 | 10 Punkte |
+| Multiplikation | 100 / 100 / 100 | 95 / 95 / 100 | 5 Punkte |
+| **Ketten** | **68,8 / 68,8 / 100** | **75 / 75 / 100** | **-6 Punkte** |
+
+**Die Ketten sind auf den Trainingsdaten schlechter als auf den reservierten.** Das ist kein
+Messfehler, sondern der Beweis, dass dort **nicht** auswendig gelernt wird: das Modell passt
+sich nicht einmal an seine eigenen Beispiele an. Die 6 Punkte sind Rauschen bei 16 Aufgaben.
+
+**Damit ist Regel 6 des Ziels beantwortet:** Train-EM liegt nicht ueber Held-out-EM, es gibt
+keinen Auswendig-Lern-Signal. Was das Modell kann, kann es auch auf neuen Aufgaben derselben
+Form — die Grenze ist die Faehigkeit, nicht die Anpassung.
+
+**Aber die Differenz ist klein, und das ist die eigentliche Aussage:** zwischen 90 und 100
+liegen bei Gleichungen 10 Punkte, also zwei Aufgaben von 20. Das Modell sitzt am Limit, nicht
+auf einem Polster. Jede Verschiebung der Datenverteilung kostet sofort Punkte — genau das ist
+in Runde 151 bei der Paraphrase passiert (90 auf 50 auf 0).
+
+---
+
+## Runde 153 — Namensschema korrigiert: MoE ist eine Architektur
+
+**Einwand des Nutzers, berechtigt:** ich hatte geschrieben "MoE ist Projektname, keine
+Architektur". Das ist falsch — MoE **ist** eine Architektur. Und ein Name, der nur "25M"
+traegt, verschweigt sowohl die Architektur als auch die Rolle: ob ein Experte oder ein Verbund,
+ob ein Router existiert.
+
+**Neues Schema, im Namen selbst:**
+
+```
+shiro-<architektur>-<groesse>-<rolle>-<stand>
+
+  architektur : dense | moe
+  groesse     : Parameterzahl (24m, 84m, 500m)
+  rolle       : all (mehrere Faehigkeiten) | expert-<fach> (eine)
+  stand       : Korpus-/Trainingsstand (mix19)
+```
+
+**Angewendet:**
+
+| vorher | jetzt |
+|---|---|
+| `ChangChi7/shiro-25m` | `ChangChi7/shiro-dense-24m` (privat) |
+| `shiro-25m-mix19.safetensors` | `shiro-dense-24m-all-mix19.safetensors` |
+
+Alte Namen geloescht, Repo geprueft: 4 Dateien, privat, 97,6 MB.
+
+**Warum das mehr als Kosmetik ist:** drei Modelle mit 24,4M Parametern koennen drei
+verschiedene Dinge sein — ein Experte, ein Verbund, oder ein MoE mit Router. Der Name muss das
+sagen, sonst muss man es nachschlagen, und in einem halben Jahr weiss es niemand mehr.
