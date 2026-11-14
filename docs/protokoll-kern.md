@@ -463,3 +463,29 @@ und meine eigene Vermutung, jetzt mit einer Messung statt einer Annahme.
 
 **Einschraenkung:** 6 bis 8 Aufgaben je Zelle, ein Seed. Die 0-Prozent-Werte sind eindeutig
 (8 von 8 auf 0 ist kein Rauschen); 83 gegen 33 ist die Richtung, nicht der Betrag.
+
+## Runde 157 — Grosses Modell: nicht VRAM, sondern Durchsatz bei voller Karte
+
+**Drei Anlaeufe, drei Messungen:**
+
+| Konfiguration | VRAM | Tempo | Ergebnis |
+|---|---|---|---|
+| 71M, 10 Layer, Batch 16 x 512 | 11,9 GB | **>18 s/Schritt** | nach 1 h keine 200 Schritte, abgebrochen |
+| 43M, 6 Layer, Batch 8 x 1024 | 11,9 GB | dasselbe | abgebrochen |
+| **43M, 6 Layer, Batch 4 x 512** | **3,4 GB** | **719 ms/Schritt** | laeuft, Loss 0,290 bei Schritt 600 |
+
+**Der Nutzer hatte recht, und meine erste Diagnose war falsch.** Ich hatte geschrieben, die
+Attention-Matrix sei schuld und Batch 16 x 512 sei die Loesung — das war ebenfalls 11,9 GB und
+genauso langsam. Die Ursache ist nicht die Speichermenge an sich, sondern dass der Durchsatz
+einbricht, sobald die Karte am Limit arbeitet. Bei 3,4 GB laeuft dasselbe Modell mit 719 ms je
+Schritt.
+
+**Was das fuer die Modellgroesse heisst:** 43M und 71M sind auf dieser Karte trainierbar, nur
+nicht mit grossem Batch. Die Rechnung: 4000 Schritte x 4 x 512 Bytes = 8,2 MB Trainingsdaten,
+in 48 Minuten. Dieselbe Datenmenge beim 24M dauerte 2000 Schritte x 8 x 1024 = 16,4 MB in
+etwa 35 Minuten.
+
+**Nebenbefund:** der Trainer kennt keine Gradient Accumulation. Das waere der eigentliche
+Hebel — Batch 4 x 512 rechnen, vier Mikrobatches sammeln, dann einmal updaten. Gleicher
+Speicher, viermal so viel Daten pro Update und eine besser ausgelastete Karte. Steht als
+Umbau an, ist aber ein Eingriff in den Trainingsschritt.
