@@ -107,3 +107,126 @@ Aufräumregel: `docs/betrieb-und-aufraeumen.md` — wertbasiert, nicht nach Rund
 
 **Lehre aus der Aufräumaktion:** vor jedem `Remove-Item` prüfen, was im Zielordner liegt.
 Ein `Get-ChildItem | Remove-Item` hat das Protokoll gelöscht.
+
+## Runde 146 — Bruchrechnung, Versuch 2: 5 Prozent (Versuch 1 war 5 mit Kuerzen)
+
+**Versuch 1** (mit Kuerzen): Weg 0, Antwort 5, Klasse 0 (Klassenmessung war fehlerhaft).
+**Versuch 2** (ohne Kuerzen, Wertvergleich): Weg 0, **Antwort 5**, Klasse 100.
+
+Beide Male derselbe Wert — das Kuerzen war **nicht** die Ursache. Meine Hypothese aus Runde 145
+ist damit widerlegt.
+
+**Was tatsaechlich falsch ist** (an drei Aufgaben geprueft):
+
+| Aufgabe | erzeugt | richtig |
+|---|---|---|
+| `2/4 + 2/5` | `Nenner 20; 10/20 + 12/20 = 17/10` | `10/20 + 8/20 = 18/20` |
+| `3/5 + 3/5` | `Nenner 25; 15/25 + 15/25 = 23/25` | `Nenner 5; 6/5` |
+| `2/7 + 4/8` | `Nenner 56; 16/56 + 36/56 = 51/56` | `16/56 + 28/56 = 44/56` |
+
+Die Form stimmt (gemeinsamer Nenner, Erweitern, Addieren), aber **jede der drei Rechnungen
+daneben**: der zweite erweiterte Zaehler, die Summe, und beim dritten sogar der Nenner.
+
+**Versuch 3 (naechste Runde):** nur **gleicher Nenner** (`3/8 + 2/8 = 5/8`). Damit faellt das
+Erweitern weg und nur die Addition der Zaehler bleibt. Wenn das haelt, ist das Erweitern die
+Huerde; wenn nicht, ist es die Bruchdarstellung selbst.
+
+**Regel des Nutzers angewandt:** drei Versuche je Familie, nicht einer. Bruchrechnung hat
+jetzt zwei verbraucht.
+
+## Runde 147 — HuggingFace privat eingerichtet, Bruch-Versuch 3 gestartet
+
+**HuggingFace:** Konto `ChangChi7`, Repository **`ChangChi7/shiro-25m` (privat)**.
+Enthalten und ueber die API geprueft:
+
+| Datei | Groesse |
+|---|---|
+| `shiro-25m-mix19.safetensors` | 93 MB |
+| `README.md` (Modellkarte mit Referenztabelle und Grenzen) | 4 KB |
+| `eval-25m.toml` (Konfiguration) | 1 KB |
+
+Gesamtspeicher laut Hub: 97,56 MB. Commit `5331f64`. Der Schluessel liegt in
+`~/.cache/huggingface/token`, nicht im Projekt und nicht im Git.
+
+**Sicherheitshinweis, der bleibt:** der zuerst im Chat genannte Schluessel ist verbrannt und
+wurde ersetzt. Ein Token gehoert nie in eine Konversation und nie in eine Datei im Repository.
+
+**Bruchrechnung, Versuch 3:** nur **gleicher Nenner**, Nenner 2-19, Zaehler kleiner als der
+Nenner, kein Erweitern, kein Kuerzen.
+
+```
+Aufgabe:  12/15 + 14/15 = ?
+Weg    :  Nenner 15; 12/15 + 14/15 = 26/15.
+```
+
+Damit bleibt von der Aufgabe nur die Addition zweier Zahlen mit gleichem Nenner — die Stelle,
+die in den Fehlbeispielen aus Runde 146 jedes Mal daneben lag. 1500 Aufgaben, 40 reserviert.
+
+**Hypothese:** ueber 80 Prozent. Wenn auch das scheitert, ist nicht das Erweitern die Huerde,
+sondern die Bruchdarstellung selbst — und dann ist die Familie mit den bisherigen Mitteln nicht
+zu halten.
+
+## Runde 148 — Benennung nach Expertise, Pfad-Konvention nach O:
+
+**Benennung (Auftrag des Nutzers): der Parameterzahl sagt nichts ueber die Faehigkeit.**
+
+| Name | Bedeutung |
+|---|---|
+| **Shiro MoE** | der Verbund: sechs Expertisen in einem Checkpoint |
+| `shiro-expert-<fach>` | ein Modell mit einer Faehigkeit (die frueheren Spezialisten) |
+| `shiro-moe-<stand>` | ein Zwischenstand des Verbunds |
+
+**„MoE" ist Projektname, keine Architektur** — das Modell ist dicht, ohne Router. Das steht so
+auch in der Modellkarte, damit der Name niemanden taeuscht.
+
+**HuggingFace:** Repository umbenannt auf **`ChangChi7/shiro-moe`** (privat), Datei heisst jetzt
+`shiro-moe-mix19.safetensors`, die alte Bezeichnung ist geloescht. Commit `0f343d6`.
+
+**Der Pfad-Fehler, den der Nutzer gesehen hat:** `mix25` und `mix26` lagen wieder physisch auf
+`C:` — nicht als Junction. Ursache: die Config-Vorlage (`mix19/train.toml`) traegt
+`C:/Users/Chang/AppData/Local/pmh/...`, und ein **neu erzeugter** Ordner an diesem Pfad ist ein
+echter Ordner, keine Verknuepfung. Die bestehenden Ordner sind Junctions, deshalb fiel es
+vorher nicht auf.
+
+**Behoben:**
+1. `mix25` ist nach `O:\shiro\pmh\mix25` verschoben und verlinkt (geprueft: LinkType Junction).
+2. Neue Vorlage `O:\shiro\werkzeug\train-vorlage.toml` — alle Pfade zeigen nach
+   `O:/shiro/pmh/...`. Kuenftige Laeufe entstehen direkt auf O:.
+3. `mix26` wird nach dem laufenden Training ebenfalls verschoben.
+
+**Regel:** neue Daten immer unter `O:\shiro\pmh`, neue Konfigurationen aus der Vorlage. Der
+Pfad `C:\...\pmh` bleibt nur fuer die Verknuepfungen und fuer Harness-Dateien.
+
+## Runde 149 — Bruchrechnung, Versuch 3: 40 Prozent (von 5)
+
+**Nur gleicher Nenner, kein Erweitern, kein Kuerzen. Nenner 2-19, 1500 Aufgaben.**
+
+| Versuch | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 1 mit Kuerzen | 0 % | 5 % | Messfehler |
+| 2 ohne Kuerzen | 0 % | 5 % | 100 % |
+| **3 gleicher Nenner** | **40 %** | **40 %** | **100 %** |
+
+**Das Erweitern war eine Huerde, aber nicht die einzige.** Der Sprung von 5 auf 40 zeigt, dass
+der Weg dahin richtig war; die restlichen 60 Prozent scheitern an etwas anderem.
+
+**Von Hand geprueft:**
+
+| Aufgabe | erzeugt | richtig |
+|---|---|---|
+| `3/5 + 4/5` | `7/5` | `7/5` ✓ |
+| `2/17 + 3/17` | `5/17` | `5/17` ✓ |
+| `12/15 + 14/15` | `22/15` | `26/15` ✗ |
+
+**Der Fehler ist die zweistellige Addition im Bruch:** `12 + 14` ergibt 22 statt 26. Die
+Additionsfamilie steht bei 100 Prozent — aber dort wird **spaltig** gerechnet (Einer, Zehner,
+Uebertrag). Im Bruch greift das Modell nicht auf dieses Verfahren zurueck, sondern schaetzt.
+
+**Damit ist die Regel aus Runde 141 bestaetigt und verschaerft:** der Bezug muss nicht nur
+sichtbar sein, er muss **aufgerufbar** sein. Der Bruch-Weg nennt `12/15 + 14/15`, aber er
+enthaelt keinen Spaltenalgorithmus — das Modell hat das Verfahren, wendet es hier aber nicht an.
+
+**Drei Versuche sind verbraucht (Regel des Nutzers).** Ergebnis: 40 Prozent, nicht Ziel.
+Die Familie bleibt als gemessene Teilfaehigkeit, nicht als erreicht. Ein vierter Versuch waere
+erst sinnvoll, wenn der Bruch-Weg den Spaltenalgorithmus ausdruecklich enthaelt — das ist eine
+Hypothese fuer spaeter, kein naechster Schritt.
