@@ -266,3 +266,29 @@ Protokoll.
 **Naechster Schritt:** die Grenze ausloten — ein kuerzerer Vorsatz (`Aufgabe:`) und ein
 Vorsatz, der die Zahlen unberuehrt laesst (z. B. `[Gleichung]`), um zu sehen, ob es an der
 Laenge oder an jeder Abweichung liegt.
+
+## Runde 151 — Die Paraphrase-Grenze: kurzer Vorsatz 50, Anweisung 0
+
+**Derselbe Checkpoint, dieselben Gleichungen, nur der Vorsatz geaendert:**
+
+| Vorsatz | Laenge | richtig |
+|---|---|---|
+| keiner (trainierte Form) | — | 90 % (18/20) |
+| `Aufgabe:` | 9 Zeichen | **50 %** (3/6) |
+| `Bitte loese:` | 13 Zeichen | **0 %** (0/10) |
+
+**Die Grenze ist der Wortlaut, nicht die Aufgabe.** Die Zahlen sind in allen drei Faellen
+identisch; nur der Text davor unterscheidet sich. Ein kurzes neutrales Etikett kostet die
+Haelfte, eine Anweisung alles.
+
+**Das passt zu allem bisherigen:** das Modell erkennt die Form am Muster und setzt sie fort.
+Ein bekanntes Zeichen (`Aufgabe:`, `LOGIK-POSITIV`, `Kette:`) ordnet — deshalb half das Etikett
+bei der Logik. Ein unbekannter Satz verschiebt das Muster, und die Operanden werden aus der
+falschen Position gelesen.
+
+**Fuer die Bewertung heisst das:** die 93,3 Prozent der Referenz gelten fuer die trainierte
+Form. Mit einem Wort davor sind es 50, mit einem Satz 0. Diese Einschraenkung war in keiner
+frueheren Zahl enthalten und ist jetzt gemessen.
+
+**Stichprobe:** 6 und 10 Aufgaben, ein Seed. Die Richtung ist deutlich (0 gegen 18), die genauen
+Prozente sind es nicht.
