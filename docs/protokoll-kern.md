@@ -489,3 +489,30 @@ etwa 35 Minuten.
 Hebel — Batch 4 x 512 rechnen, vier Mikrobatches sammeln, dann einmal updaten. Gleicher
 Speicher, viermal so viel Daten pro Update und eine besser ausgelastete Karte. Steht als
 Umbau an, ist aber ein Eingriff in den Trainingsschritt.
+
+## Runde 158 — 43M mit halber Datenmenge: 44/50/56 — kein Kapazitaets-Urteil
+
+**Ergebnis des ersten 43M-Laufs** (6 Layer, `d_model` 768, 4000 Schritte, Batch 4 x 512,
+also **8,2 MB** Trainingsdaten):
+
+| Familie | 43M (8,2 MB) | 24M Referenz (16,4 MB) |
+|---|---|---|
+| Gleichungen | 43,8 % | 90 % |
+| Ketten | 50,0 % | 75 % |
+| Multiplikation | 56,2 % | 95 % |
+| Klasse | 100 % | 100 % |
+
+**Das ist kein Beweis gegen Kapazitaet, sondern gegen Datenmenge.** Das 43M-Modell hat exakt
+die Haelfte der Bytes gesehen. Ein Modell mit 1,8-facher Kapazitaet bei halben Daten
+schlechter abschneiden zu lassen, sagt nichts ueber die Kapazitaet.
+
+**Fairer Lauf gestartet:** Batch 8 x 512, 4000 Schritte = **16,4 MB**, dieselbe Datenmenge wie
+beim 24M. Laeuft als `m43-stufe1b`.
+
+**Nebenbefund zur Auslastung:** bei Batch 4 x 512 zog die Karte 67 Watt von 170 und lief auf
+11 Prozent; bei Batch 8 x 512 sind es 99 Watt und 16 Prozent, 5,1 GB. Immer noch weit unter
+dem, was moeglich waere — aber doppelt so viel Arbeit pro Schritt. Der Nutzer hatte recht: die
+Grenze ist der Durchsatz, nicht der Speicher.
+
+**Was ich beim naechsten Mal anders mache:** Datenmenge vor Modellgroesse festlegen, nicht
+danach. Der Vergleich war von Anfang an schief gebaut.
