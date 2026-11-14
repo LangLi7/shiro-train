@@ -575,3 +575,41 @@ ueberschneiden sich bei weniger als 10 Punkten Abstand.
 Warmup sind zwischen 24M und 43M gleich, obwohl groessere Modelle oft eine kleinere Lernrate
 brauchen. Bleibt das 43M zurueck, ist damit **nicht** bewiesen, dass es an der Kapazitaet
 liegt — nur, dass es mit diesen Einstellungen nicht besser ist.
+
+## Runde 160 — 43M mit gleicher Datenmenge: 48,5 statt 72 Prozent — Regel greift
+
+**Der faire Lauf ist durch:** 43M (6 Layer, `d_model` 768), 4000 Schritte, Batch 8 x 512 =
+**16,4 MB**, exakt dieselbe Datenmenge wie das 24M-Referenzmodell.
+
+**Ketten, 200 frische Aufgaben, dieselbe Pruefmenge wie beim 24M:**
+
+| Modell | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 24M (`mix19`) | 67,5 % | **72,0 %** | 100 % |
+| **43M (`m43-stufe1b`)** | 37,5 % | **48,5 %** | 100 % |
+
+**Das groessere Modell ist 23,5 Punkte schlechter**, nicht besser.
+
+**Die vorab festgelegte Regel (Runde 159):**
+
+> Kapazitaet gilt als wirksam, wenn das 43M mindestens **10 Punkte ueber** dem 24M liegt und
+> ein zweiter Seed das bestaetigt. Sonst gilt: die Form ist der Engpass.
+
+**Die Bedingung ist nicht erfuellt — das Gegenteil ist eingetreten.** Damit ist der
+Kapazitaetshypothese fuer dieses Budget die Grundlage entzogen.
+
+**Was ich dabei NICHT behaupte:** dass mehr Parameter grundsaetzlich nicht helfen. Drei
+Confounds sind unkontrolliert und stehen so im Protokoll:
+1. **Sequenzlaenge:** 512 beim 43M gegen 1024 beim 24M. Bei gleicher Bytemenge ist der Kontext
+   halbiert — und die Kettenaufgaben sind lang.
+2. **Lernrate und Warmup:** gleich eingestellt, obwohl groessere Modelle oft weniger brauchen.
+3. **Ein Seed.** Die Streuung ist unbekannt.
+
+**Die ehrliche Aussage ist deshalb:** mit diesen Einstellungen und diesem Budget ist ein
+43M-Modell schlechter als das 24M. Ob es mit angepasster Lernrate und vollem Kontext besser
+waere, ist offen — aber es ist nicht der naechste Schritt, weil der billigere Hebel
+„Form" noch nicht ausgeschoepft ist.
+
+**Was der Befund stuetzt:** die Ablation aus Runde 156 (die Mitte traegt die mehrstufige
+Rechnung, frueh und spaet sind unentbehrlich) und die Form-Hypothese. Ein groesseres Modell mit
+schlechterer Optimierung hilft nicht; ein besserer Weg fuer dieselben Parameter schon.
