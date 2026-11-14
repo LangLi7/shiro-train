@@ -230,3 +230,39 @@ enthaelt keinen Spaltenalgorithmus — das Modell hat das Verfahren, wendet es h
 Die Familie bleibt als gemessene Teilfaehigkeit, nicht als erreicht. Ein vierter Versuch waere
 erst sinnvoll, wenn der Bruch-Weg den Spaltenalgorithmus ausdruecklich enthaelt — das ist eine
 Hypothese fuer spaeter, kein naechster Schritt.
+
+## Runde 150 — Paraphrase-Transfer: 0 von 10, und der Grund ist sichtbar
+
+**Was das Ziel verlangt und was nie gemessen wurde:** dieselbe Aufgabe in anderer Formulierung.
+Bisher wurde immer in der trainierten Form geprueft.
+
+**Aufbau:** derselbe Checkpoint (`mix19`), dieselben 10 Gleichungsaufgaben — aber nach
+`<AUFGABE>` steht zusaetzlich `Bitte loese:`. Sonst ist nichts geaendert, die Aufgabe ist
+zeichengleich.
+
+**Ergebnis: 0 von 10.**
+
+| Aufgabe (mit Vorsatz) | erzeugt | richtig |
+|---|---|---|
+| `Bitte loese: 9(x + 7) = 153` | `1. 7(x + 7) = 153 …` → 12 | 10 |
+| `Bitte loese: 30 + 3x = 57` | `1. 30*3x + 3) = 45 …` → 21 | 9 |
+| `Bitte loese: 7x + 17 = 45` | `1. 4x + 17 = 45 …` → 1 | 4 |
+
+**Der Mechanismus ist nicht "versteht die Frage nicht", sondern schlimmer:** das Modell
+**kopiert die Operanden falsch**. Aus `9(x+7)` wird `7(x+7)`, aus `7x+17` wird `4x+17` — und
+dann rechnet es die falsche Aufgabe **konsequent und fehlerfrei zu Ende**. Der Weg ist in sich
+stimmig, die Aufgabe ist eine andere.
+
+**Damit ist die Grenze scharf benannt:** das Modell erkennt die Form am Muster und setzt sie
+fort; der Vorsatz verschiebt das Muster, und die Zahlen werden aus der falschen Position
+gelesen. Es ist derselbe Mechanismus wie bei der Etikett-Wirkung (Runde 124/125) — nur mit
+umgekehrtem Vorzeichen: ein bekannte Zeichen ordnet, ein unbekanntes verschiebt.
+
+**Folge fuer die Bewertung:** die 93,3 Prozent der Referenz gelten **nur fuer die trainierte
+Form**. Paraphrase-Transfer ist 0 und war in keiner bisherigen Zahl enthalten. Das ist die
+groesste Einschraenkung des gesamten Ergebnisses, und sie stand bisher nur als Vermutung im
+Protokoll.
+
+**Naechster Schritt:** die Grenze ausloten — ein kuerzerer Vorsatz (`Aufgabe:`) und ein
+Vorsatz, der die Zahlen unberuehrt laesst (z. B. `[Gleichung]`), um zu sehen, ob es an der
+Laenge oder an jeder Abweichung liegt.
