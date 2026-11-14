@@ -421,3 +421,45 @@ andere Stellenzahlen uebertraegt — das tut er nicht.
 
 **Laufendes Modell:** die 71M-Stufe 1 trainiert noch (Stand 22 Minuten, erster Checkpoint bei
 Schritt 500). Ergebnis in der naechsten Runde.
+
+## Runde 156 — Layer-Ablation: frueh und spaet sind unentbehrlich, die Mitte traegt die Kette
+
+**Frage des Nutzers:** welche Layer braucht das Modell ueberhaupt? Antwort ohne Training, durch
+Neutralisieren einzelner Layer.
+
+**Werkzeug gebaut:** `SHIRO_SKIP_LAYERS=4` in `O:\shiro\moe-shiro\src\model\lm.rs`. Der Layer
+rechnet weiter (sonst bricht der KV-Cache), sein Beitrag wird verworfen — er wirkt als Identitaet.
+
+**Ergebnis am Referenzmodell `mix19` (8 Layer), CPU, je 6-8 Aufgaben:**
+
+| Familie | ohne Ablation | Layer 0 weg | Layer 4 weg | Layer 7 weg |
+|---|---|---|---|---|
+| Addition | 100 % | **0 %** | **100 %** | **0 %** |
+| Ketten | 83,3 % | **0 %** | **33,3 %** | **0 %** |
+
+**Drei Aussagen, die daraus folgen:**
+
+1. **Layer 0 und Layer 7 sind fuer alles unentbehrlich.** Ohne den ersten bricht jede Familie
+   auf 0 ein — dort entstehen aus Bytes die Zahlen. Ohne den letzten ebenso — dort wird das
+   naechste Byte festgelegt.
+
+2. **Die Mitte ist aufgabenspezifisch.** Fuer Addition ist Layer 4 **folgenlos** (100 Prozent
+   ohne ihn). Fuer Ketten kostet er zwei Drittel (83 auf 33). Genau die Vorhersage: die Mitte
+   traegt die mehrstufige Rechnung, und eine einstufige Aufgabe braucht sie nicht.
+
+3. **Damit ist die Frage "zu viele Layer?" beantwortet:** nein, aber die Mitte ist bei
+   einfachen Familien ungenutzt. Ein Modell, das nur addiert, kaeme mit 6 Layern aus; eines fuer
+   Ketten nicht.
+
+**Folge fuer MoE:** Experten in den FFN-Bloecken der **mittleren** Layer lohnen nur fuer die
+Familien, die die Mitte tatsaechlich benutzen — Ketten, Gleichungen, Division. Fuer Addition
+waeren sie toter Speicher. Die Ablation sagt, wo sie hingehoeren; sie sagt nicht, dass sie
+etwas bringen.
+
+**Folge fuer die Form-Hypothese:** wenn die Mitte die mehrstufige Rechnung traegt und dort
+redundant ist, ist der billigere Hebel tatsaechlich die **Form** — Zwischenschritte in den Weg
+schreiben, damit jede Stelle nur einen kleinen Schritt verlangt. Das stuetzt Claude's Einwand
+und meine eigene Vermutung, jetzt mit einer Messung statt einer Annahme.
+
+**Einschraenkung:** 6 bis 8 Aufgaben je Zelle, ein Seed. Die 0-Prozent-Werte sind eindeutig
+(8 von 8 auf 0 ist kein Rauschen); 83 gegen 33 ist die Richtung, nicht der Betrag.
