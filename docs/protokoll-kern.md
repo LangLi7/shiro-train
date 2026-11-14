@@ -682,3 +682,55 @@ Vergleich, nicht beim Aufbau des Weges.
 Fuenf von sechs unveraendert; Multiplikation verliert eine Aufgabe von 16 — bei n=16 ist das
 eine Stichprobenstreuung, kein Befund. **`mix28` wird nicht als Referenz uebernommen**, weil es
 nichts erreicht, was `mix19` nicht hat.
+
+## Runde 163 — Material gegen Ziel geprueft: es passt nicht, und die 10 Dollar sind nicht der Engpass
+
+**Frage des Nutzers:** hat das Projekt das richtige Trainingsmaterial fuer das Ziel?
+
+**Gemessen (aus allen Manifesten, 475 MB Shards, rund 300 000 Saetze):**
+
+| Ziel | Material |
+|---|---|
+| Mathematik (Grundrechenarten) | 118 162 Saetze |
+| Logik | rund 45 000 |
+| Ketten, Rechenwege | rund 49 000 |
+| **Coding (Rust, Go, SQL, Assembly)** | **0** |
+| **Physik** | **0** |
+| **Sprache (EN, DE, Mandarin)** | **0** |
+
+**Antwort: nein.** Das Material deckt elementare Arithmetik und Logik ab, etwa ein Drittel der
+genannten Ziele. Coding, Physik und Sprache kommen nicht vor.
+
+**Die Datenmenge gegen die Modellgroesse:** bei einem Byte-Modell ist ein Byte ein Token,
+also 475 Millionen Tokens.
+
+| Modell | Chinchilla-Bedarf | vorhanden | Urteil |
+|---|---|---|---|
+| 24M | 480 M | 475 M | **passt** |
+| 43M | 860 M | 475 M | halb |
+| 71M | 1,42 Mrd. | 475 M | ein Drittel |
+| 500M | 10 Mrd. | 475 M | nicht annaehernd |
+
+**Das erklaert die Messungen nachtraeglich:** das 24M-Modell ist datenmaessig am Optimum und
+liefert 90-100 Prozent; das 43M-Modell war **unterernaehrt**, nicht zu klein.
+
+**Budget-Rechnung (Katalogpreise 14.11.2026, Community):**
+
+| GPU | Dollar/Stunde | Stunden fuer 10 $ |
+|---|---|---|
+| RTX A5000 24 GB | 0,16 | 62 |
+| RTX 4090 24 GB | 0,34 | **29** |
+| A40 48 GB | 0,35 | 28 |
+| A100 80 GB | 1,19 | 8,4 |
+
+**29 Stunden auf einer 4090 bei etwa 18 000 Tokens/s sind rund 1,9 Milliarden Tokens** — genug
+fuer ein 71M-Modell auf Chinchilla-Niveau. **Der Engpass ist nicht die GPU und nicht das
+Budget, sondern das Material.** Fuer den geplanten Lauf fehlt die vierfache Datenmenge.
+
+**Vorbereitung RunPod:** HF-Upload ist fertig (andere Sitzung), Test-Repo vorhanden. **Offen
+und kritisch: der Linux-Build des Trainers** — gebaut wurde nur unter Windows. Dazu Docker-
+Image, Datenuebertragung und die PowerShell-Pruefskripte (muessten auf Bash). Bei der Abfrage
+standen fast alle GPUs auf `NONE`, nur eine MIG mit 24 GB auf `LOW`.
+
+**Empfehlung:** eine weitere Domaene sauber aufbauen (SQL) und mit demselben Verfahren messen —
+nicht sechs. Und vor jedem Pod-Start den Linux-Build nachweisen.
