@@ -734,3 +734,49 @@ standen fast alle GPUs auf `NONE`, nur eine MIG mit 24 GB auf `LOW`.
 
 **Empfehlung:** eine weitere Domaene sauber aufbauen (SQL) und mit demselben Verfahren messen —
 nicht sechs. Und vor jedem Pod-Start den Linux-Build nachweisen.
+
+## Runde 164 — Linux-Build hergestellt: der Blocker ist weg
+
+**Der kritische Punkt aus Runde 163 war der Linux-Build.** Er ist geloest, und zwar mit Beweis.
+
+**Weg dahin, mit zwei Sackgassen:**
+
+| Versuch | Ergebnis |
+|---|---|
+| `rust:1.83-slim`, Quellen per Mount von `O:` | **Fehler:** `edition2024` verlangt neueres Cargo |
+| `rust:1.90-slim` | **Fehler:** `burn 0.22` verlangt rustc **1.95** |
+| `rust:slim` (aktuell), Build im **Container-Volume** | **Erfolg in 2 min 39 s** |
+
+**Wichtig dabei:** der erste Build lief zwar, aber auf dem Windows-Mount — WSL meldete
+"E/A-intensiver Vorgang auf Windows-Laufwerken". Deshalb Quelle in ein Docker-Volume kopiert
+(640 MB) und dort gebaut: schnell.
+
+**CUDA-Build:**
+
+```
+nvidia/cuda:12.9.1-devel-ubuntu24.04
+apt: curl build-essential pkg-config libssl-dev
+rustup stable
+cargo build --release --features cuda   ->  Finished in 3 min 48 s
+```
+
+**Auch ohne GPU im Container** — der Build braucht nur den CUDA-Toolkit, nicht die Karte.
+
+**Linux-Binary geprueft:** `./target/release/shiro --help` und `eval --help` laufen und geben
+die erwartete Ausgabe.
+
+**Damit ist die Voraussetzung fuer RunPod erfuellt.** Image-Rezept liegt als
+`O:\shiro\moe-shiro\Dockerfile.runpod` (CUDA-Basis, Rust stable, Korpora bewusst **nicht** im
+Image, sondern als Volume).
+
+**Was noch fehlt bis zum ersten Pod:**
+
+| Punkt | Stand |
+|---|---|
+| Linux-Build mit CUDA | **fertig, geprueft** |
+| Dockerfile | **geschrieben, nicht gebaut** |
+| Pruefskripte (PowerShell -> Bash) | offen |
+| Daten in den Pod (475 MB) | offen |
+| GPU-Kapazitaet | bei der Abfrage fast alles `NONE` |
+
+**Was das gekostet hat:** nichts. Kein Pod, keine Credit verbraucht.
