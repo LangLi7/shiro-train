@@ -613,3 +613,72 @@ waere, ist offen — aber es ist nicht der naechste Schritt, weil der billigere 
 **Was der Befund stuetzt:** die Ablation aus Runde 156 (die Mitte traegt die mehrstufige
 Rechnung, frueh und spaet sind unentbehrlich) und die Form-Hypothese. Ein groesseres Modell mit
 schlechterer Optimierung hilft nicht; ein besserer Weg fuer dieselben Parameter schon.
+
+## Runde 161 — Division mit ausgeschriebener Quotientensuche (Form-Hypothese)
+
+**Der Befund aus Runde 136:** `21 : 10` ergibt `12*10 = 20` — das Produkt stimmt, der Quotient
+ist geraten. Es fehlt die **Pruefung**, nicht die Rechnung.
+
+**Neuer Weg (Familie `mix28`):**
+
+```
+Aufgabe:  50 : 7 = ? Rest ?
+Weg    :  7*7=49 <= 50, 7*8=56 > 50 -> q = 7; 50 - 49 = 1. Rest 1.
+Antwort:  7 Rest 1
+```
+
+**Zwei Vergleiche statt einer Suche.** Der erste Versuch schrieb alle Kandidaten aus
+(`7*1=7, 7*2=14, ...`) — bei q=8 waren das neun Multiplikationen, zu lang fuer den Kontext.
+Die kurze Form nennt nur die Entscheidung: das Produkt darunter passt, das naechste schiesst
+darueber. Jeder Schritt ist Multiplikation und Vergleich, beides trainiert.
+
+**Aenderung (genau eine):** die Wegform der Division, sonst nichts. 1500 Trainings-,
+200 reservierte Aufgaben, 2000 Schritte von `mix19`.
+
+**Hypothese, widerlegbar:** Division mit Rest steigt von 45 auf ueber 80 Prozent, wenn der Weg
+die Entscheidung ausspricht statt sie vorauszusetzen. Faellt sie wieder aus, ist die Division
+fuer dieses Modell nicht erreichbar und die Form-Hypothese fuer diesen Fall falsch.
+
+## Runde 162 — Division mit Entscheidung im Weg: 42 Prozent, Hypothese widerlegt
+
+**Ergebnis `mix28` (200 reservierte Aufgaben):**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **42 %** |
+| Antwort | **42 %** |
+| Klasse | 100 % |
+
+**Vorher (ohne Entscheidung im Weg, n=20): 45 Prozent.** Die neue Form hat nichts verbessert —
+die Hypothese „ueber 80 Prozent, wenn der Weg die Entscheidung ausspricht" ist **widerlegt**.
+
+**Was ich beim Ansehen gefunden habe — und das ist der eigentliche Befund:**
+
+| Aufgabe | erzeugt | richtig |
+|---|---|---|
+| `14 : 3` | `3*4=12 <= 14, 3*5=15 > 14 -> q = 4; 14 - 12 = 2. Rest 2.` | ✓ |
+| `29 : 4` | `4*7=28 <= 29, 4*8=32 > 29 -> q = 7; 29 - 28 = 1. Rest 1.` | ✓ |
+| `9 : 4` | `4*4=16 <= 9, 4*3=12 > 9 -> q = 1; 14 - 16 = 2.` | ✗ |
+
+**Zwei von drei Wegen sind Zeichen fuer Zeichen richtig.** Beim dritten steht `4*4=16 <= 9` —
+die **Form** ist korrekt geschrieben, die **Rechnung** darin falsch. Das Modell hat die Gestalt
+gelernt und wendet sie an; es kann die Zahlen darin nicht zuverlaessig vergleichen.
+
+**Damit ist die Form-Hypothese fuer die Division erledigt.** Sie war der billigste Hebel, sie
+ist gemessen, sie traegt nicht. Der Engpass liegt eine Ebene tiefer: bei der Arithmetik im
+Vergleich, nicht beim Aufbau des Weges.
+
+**Regression (Regel 6), `mix28` gegen `mix19`, je 16 Aufgaben:**
+
+| Familie | mix19 | mix28 |
+|---|---|---|
+| Addition | 100 | 100 |
+| Logik positiv | 100 | 100 |
+| Logik Bruch | 100 | 100 |
+| Gleichungen | 93,8 | 93,8 |
+| Multiplikation | 100 | **93,8** |
+| Ketten | 62,5 / 68,8 | 62,5 / 68,8 |
+
+Fuenf von sechs unveraendert; Multiplikation verliert eine Aufgabe von 16 — bei n=16 ist das
+eine Stichprobenstreuung, kein Befund. **`mix28` wird nicht als Referenz uebernommen**, weil es
+nichts erreicht, was `mix19` nicht hat.
