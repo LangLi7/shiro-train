@@ -780,3 +780,58 @@ Image, sondern als Volume).
 | GPU-Kapazitaet | bei der Abfrage fast alles `NONE` |
 
 **Was das gekostet hat:** nichts. Kein Pod, keine Credit verbraucht.
+
+## Runde 165 — Neue Domaene nach dem Prinzip "Ablauf, nicht Wortschatz"
+
+**Zwei Einwaende des Nutzers, beide aufgenommen:**
+
+1. **Parallelitaet:** Reicht die Erzeugung, oder muss asynchron/parallel generiert werden?
+   **Gemessen:** `--progpack` erzeugt 1700 Aufgaben in **unter einer Sekunde**. Der Generator ist
+   nicht der Engpass; die 475 MB sind in Minuten entstanden. Parallelitaet wird erst bei
+   Milliarden Tokens relevant, nicht bei diesem Volumen.
+2. **Sprache und Coding:** nicht Wortschatz trainieren, sondern **Sprachlogik** — und beim
+   Coding ist der Ansatz in jeder Programmiersprache gleich, nur der Codeaufbau unterscheidet
+   sich. SQL ist ein anderer Fall (deklarativ statt prozedural).
+
+**Also keine Wortlisten, kein Code-Text, sondern der gemeinsame Kern: der Ablauf.**
+
+**Neue Familie (`mix29`):**
+
+```
+Aufgabe:  Programm: x = 5; y = 4; z = 8. x?
+Weg    :  x = 5; y = 4; z = 8; x = 4 + 4 = 8; y = 8 * 8 = 64; z = 8 * 64 = 512.
+Antwort:  8
+```
+
+Drei Variablen, drei Anfangswerte, zwei bis drei Zuweisungen mit `+`, `-`, `*`, danach der Wert
+einer Variablen. **Das ist Ausfuehrung, nicht Syntax** — derselbe Ablauf gilt in Rust, Go, C
+oder Python.
+
+**Ein Fehler beim Bauen, den ich gefunden und behoben habe:** die erste Fassung schrieb die
+**Endwerte** in die Aufgabenzeile (`x = 9; y = 11; z = 8`), weil ich das Programm aus dem
+mutierten Zustand baute. Die Aufgabe war damit unloesbar — der Zustand stand schon in der
+Frage. Behoben durch eine Kopie des Startzustands; nachgerechnet an drei Aufgaben.
+
+**Hypothese:** Programmablauf ueber 80 Prozent — die Spur besteht nur aus kleinen Rechnungen
+mit sichtbarem Bezug, und die Familie ist der Kettenfamilie verwandt (die bei 72 steht), aber
+mit **benannten** Zuweisungen statt anonymer Kette.
+
+**Aenderung (genau eine):** neue Familie dazu, Ausgangspunkt `mix19`, 2000 Schritte.
+
+## Runde 166 — Pause vor dem Abschluss, Goal auf 200 Runden erweitert
+
+**Auftrag des Nutzers:** vor dem Abschliessen pausieren, die offenen Punkte festhalten, Goal
+auf 200 Runden erweitern.
+
+**Erledigt:**
+- Goal auf **maxGoalRounds 200** erweitert (Revision 27), Phase bleibt `active`, Runde 81.
+- Arbeitsliste geschrieben: `O:\shiro\moe-shiro\docs\offene-punkte.md` — laufender Lauf,
+  Warteschlange, technisch Vorbereitetes, was abgeschlossen ist, die acht Regeln, die ehrliche
+  Bilanz.
+
+**Laufender Stand:** `mix29` (Familie Programmablauf) trainiert noch, Schritt 20000 von 20500.
+Die Messung steht aus und ist in der Arbeitsliste als erster Punkt notiert, mit Befehl.
+
+**Was in der Pause nicht verloren geht:** jede Zahl, jede verworfene Hypothese und jeder
+offene Punkt steht entweder im Protokoll (37 KB) oder in `offene-punkte.md`. Der
+Regressionstest liegt als TSV mit Zeitstempeln.
