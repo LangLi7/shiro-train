@@ -552,3 +552,26 @@ ist noch nicht identifiziert. `--basepack` fuer Addition nimmt andere Argumente 
 | Multiplikation | 60 | ja, Parameter fehlt |
 | Logik positiv / Bruch | je 40 | ja |
 | Gleichungen | 40 | **nein, Raum erschoepft** |
+
+### Vorab festgelegte Entscheidungsregel (Runde 159, vor dem Ergebnis)
+
+**Frage:** liegt die Decke an der Kapazitaet oder an der Form?
+
+**Regel, jetzt festgelegt und nicht nachtraeglich aenderbar:**
+
+> **Kapazitaet** gilt als wirksam, wenn das 43M-Modell bei **gleicher Datenmenge** (16,4 MB)
+> auf **200 Ketten-Aufgaben** mindestens **10 Punkte** ueber dem 24M liegt (also ueber 82
+> Prozent Antwort) **und** ein zweiter Seed das bestaetigt.
+>
+> Trifft beides nicht zu, gilt: **die Form ist der Engpass.**
+
+**Warum 10 Punkte:** die Streuung bei 200 Aufgaben ist ±6,3 Punkte; zwei Messungen
+ueberschneiden sich bei weniger als 10 Punkten Abstand.
+
+**Warum 200 Ketten und nicht Gleichungen:** die Gleichungen lassen sich nicht vergroessern
+(Raum erschoepft, 40 reservierte Aufgaben), die Ketten schon (200 gemessen).
+
+**Offene Confounds, die ich NICHT kontrolliere:** Sequenzlaenge (512 gegen 1024), Lernrate und
+Warmup sind zwischen 24M und 43M gleich, obwohl groessere Modelle oft eine kleinere Lernrate
+brauchen. Bleibt das 43M zurueck, ist damit **nicht** bewiesen, dass es an der Kapazitaet
+liegt — nur, dass es mit diesen Einstellungen nicht besser ist.
