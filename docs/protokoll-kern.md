@@ -835,3 +835,44 @@ Die Messung steht aus und ist in der Arbeitsliste als erster Punkt notiert, mit 
 **Was in der Pause nicht verloren geht:** jede Zahl, jede verworfene Hypothese und jeder
 offene Punkt steht entweder im Protokoll (37 KB) oder in `offene-punkte.md`. Der
 Regressionstest liegt als TSV mit Zeitstempeln.
+
+## Runde 167 — Drei Generatorfehler in einer neuen Familie, und wie sie gefunden wurden
+
+**Claude hatte recht, und schlimmer als gedacht.** Die Familie "Programmablauf" hatte drei
+Fehler, jeder haette die Messung wertlos gemacht.
+
+**Fehler 1 (meiner, erkannt):** die Aufgabenzeile zeigte die **Endwerte** statt der Startwerte —
+die Antwort stand also schon in der Frage.
+
+**Fehler 2 (von Claude gefunden, ich hatte ihn uebersehen):** mein "Fix" machte die Aufgabe auf
+andere Weise unloesbar. Die Zeile enthielt danach **nur Startwerte, keine Anweisungen**. Das
+Modell konnte nicht wissen, was das Programm tut. Gemessen: **0 von 200** Aufgaben enthielten
+eine Anweisung.
+
+**Fehler 3 (beim Nachzaehlen gefunden):** Programm und Spur stammten aus **zwei** Quellen —
+die Zielvariable wurde mit `i % 3` gerechnet, die Spur lief mit einer anderen Reihenfolge. Die
+beiden konnten auseinanderlaufen. Und `a` und `b` durften gleich sein, was `z - z = 0` ergab:
+ein Rechenschritt, der nie rechnet.
+
+**Behoben durch Umbau:** eine einzige Liste `plan: Vec<(ziel, a, b, op)>` erzeugt **beide** —
+Aufgabenzeile und Spur. Dazu zwei Filter direkt im Generator:
+
+| Pruefung | Ergebnis auf 200 Aufgaben |
+|---|---|
+| Aufgabe enthaelt mindestens eine Anweisung | **0 ohne** |
+| keine Anweisung mit gleicher Quelle (`z - z`) | **0** |
+| Antwort ist nicht der Startwert (Kopie-Test) | **0** |
+
+**Beispiel der korrigierten Form:**
+
+```
+Aufgabe:  Programm: x = 1; y = 7; z = 9; y = x + z; z = x * z; x = y * x. x?
+Weg    :  x = 1; y = 7; z = 9; y = 1 + 9 = 10; z = 1 * 9 = 9; x = 10 * 1 = 10.
+Antwort:  10
+```
+
+**Lehre, die ich aufschreibe, weil sie zweimal gegolten hat:** ein Fehler in der Aufgabenform
+wird nicht durch Hinsehen gefunden, sondern durch eine **Pruefung im Generator**. Die drei
+Pruefungen oben laufen jetzt fuer jede erzeugte Aufgabe, nicht einmalig.
+
+**Neuer Lauf `mix31`** auf den korrigierten Daten, 2000 Schritte von `mix19`.

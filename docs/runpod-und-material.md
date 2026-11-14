@@ -114,3 +114,54 @@ kein Training.
 **Kapazität:** zum Zeitpunkt der Abfrage standen fast alle GPUs auf `NONE`; nur eine
 MIG-Instanz (24 GB, 0,69 $/h) war als `LOW` verfügbar. Das kann sich stündlich ändern, heißt
 aber: der Pod muss gesucht, nicht vorausgesetzt werden.
+
+---
+
+## 6. Nachtrag: GitHub, Pod-Zugang und Online-Generierung
+
+**Frage des Nutzers:** Trainingsmaterial in ein privates GitHub-Repo, der Pod meldet sich an?
+
+**Antwort: Code ja, Daten nein.**
+
+| Was | Wohin | Warum |
+|---|---|---|
+| Generator, Verifier, Konfigurationen | **privates GitHub-Repo** | klein, versioniert, reproduzierbar |
+| Eval-Ergebnisse (JSON/CSV, wenige KB je Lauf) | GitHub | das sind die Zahlen, die zaehlen |
+| Korpora (475 MB) | **nicht** GitHub | Git ist kein Datenspeicher; 100-MB-Grenze je Datei |
+| Gewichte (93 MB je Stand) | privates HuggingFace-Repo | dafuer gebaut, `shiro hub push` kann es |
+
+**Zugang des Pods — zwei Wege, beide ohne "Login mit GitHub":**
+
+1. **Deploy Key (empfohlen):** im Pod `ssh-keygen -t ed25519 -C "runpod"`, den oeffentlichen
+   Schluessel im Repo unter Settings -> Deploy keys eintragen, **ohne Schreibrecht**. Dann
+   `git clone git@github.com:DU/REPO.git`. Der Schluessel liegt nur auf dem Pod; Pod loeschen,
+   Key in GitHub widerrufen.
+2. **Fine-grained Token:** nur fuer dieses Repo, nur `Contents: read`, mit Ablaufdatum. Ueber
+   ein RunPod-Secret als `RUNPOD_SECRET_GH_TOKEN` einspeisen, nicht im Klartext in die URL.
+
+**Der bessere Weg fuer unsere Daten: gar nicht hochladen, sondern im Pod erzeugen.**
+
+Der Generator schafft 1700 Aufgaben in unter einer Sekunde. Damit braucht es:
+- **keinen** Upload von 475 MB,
+- **keine** gespeicherten Daten,
+- und jede Aufgabe ist frisch (weniger Auswendiglernen).
+
+Ein Producer/Consumer im Trainer: mehrere CPU-Threads erzeugen Aufgaben in eine begrenzte
+Warteschlange, der Trainingsloop zieht Batches daraus. Die GPU wartet nie, solange der
+Generator schneller ist — bei uns um Groessenordnungen.
+
+**Was dabei neu abgesichert werden muss:**
+
+| Risiko | Gegenmittel |
+|---|---|
+| Testaufgaben tauchen im Training auf | getrennte Seed-Bereiche, Testmenge eingefroren und nie gezogen |
+| Reproduzierbarkeit bei mehreren Threads | je Worker ein Seed (Basis + Nummer), geloggt |
+| Generatorfehler bleiben unbemerkt | die drei Pruefungen laufen als **harter Abbruch** im Generator |
+| eine Familie ueberflutet | Zugriffe je Familie mitzaehlen und loggen |
+
+**Adaptives Gewicht** (Familien, in denen das Modell schwach ist, haeufiger ziehen) ist moeglich
+und billig: die Eval-Zahlen aus dem laufenden Training steuern den Mix. Das ist der Punkt, an
+dem sich Messung und Training verbinden — aber es ist ein eigener Schritt, nicht der naechste.
+
+**Was ich fuer die 10 Dollar nicht mache:** das Modell im Trainingsloop Loesungen erzeugen
+lassen (Rejection Sampling, RL). Das ist teurer und braucht mehr Daten, als wir haben.
