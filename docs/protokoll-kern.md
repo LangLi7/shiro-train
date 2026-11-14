@@ -351,3 +351,73 @@ Alte Namen geloescht, Repo geprueft: 4 Dateien, privat, 97,6 MB.
 **Warum das mehr als Kosmetik ist:** drei Modelle mit 24,4M Parametern koennen drei
 verschiedene Dinge sein — ein Experte, ein Verbund, oder ein MoE mit Router. Der Name muss das
 sagen, sonst muss man es nachschlagen, und in einem halben Jahr weiss es niemand mehr.
+
+## Runde 154 — Naechste Modellstufe: 71,2M statt 24,4M (Stufe 1 von 3)
+
+**Warum jetzt:** die sechs Expertisen sind am Limit. Paraphrase 0-50, Ketten 75, Division 45 —
+alles Zeichen einer Decke, die nicht mehr durch Daten zu heben ist. Das Ziel erlaubt
+ausdruecklich ein groesseres Modell (bis etwa 1B).
+
+**Konfiguration:**
+
+| Feld | 24M (Referenz) | **71M (neu)** |
+|---|---|---|
+| `d_model` | 512 | **768** |
+| Layer | 8 | **10** |
+| Heads | 8 | **12** |
+| `d_ff` | 1280 | **2048** |
+| Parameter | 24 388 352 | **71 188 480** |
+
+**Vorgehen: nicht sechs Familien auf einmal.** Stufe 1 trainiert dieselben **drei** Familien wie
+`mix-kurz` (Gleichungen, Ketten, Multiplikation) — damit ist der Vergleich direkt: dort 90/85/75.
+
+**Ein Messfehler, den ich dabei vermieden habe:** der erste Versuch lief mit Batch 8 x 1024 und
+belegte 12 024 von 12 288 MiB. Nach 8 Minuten keine einzige Loss-Zeile. Ursache ist nicht der
+Speicher allein, sondern die Attention-Matrix, die mit dem Quadrat der Sequenzlaenge waechst.
+Umgestellt auf **Batch 16 x 512** — dieselbe Datenmenge pro Schritt (8192 Bytes), halber
+Speicherbedarf in der Attention.
+
+**Hypothese, widerlegbar:** wenn die Decke an der Kapazitaet liegt, steigt Stufe 1 deutlich ueber
+90/85/75. Wenn sie an der Form liegt (Bezug, Zerlegbarkeit, Paraphrase), aendert sich wenig —
+dann ist Groesse nicht der Hebel.
+
+**Laufzeit:** rund drei Stunden fuer 3000 Schritte. Laeuft im Hintergrund; Messung in der
+naechsten Runde.
+
+## Runde 155 — Abschlusspruefung ausserhalb des Trainings: 3x3-Multiplikation 0 von 20
+
+**Frage des Nutzers:** hat das Modell je etwas geprueft, worauf es nicht trainiert wurde? Bisher
+nur teilweise — jetzt gemessen.
+
+**Aufbau:** `mix19` wurde auf **2-stellig mal 2-stellig** trainiert. Getestet mit **3-stellig mal
+3-stellig** (derselbe Spaltenalgorithmus, nur mehr Stellen). 20 Aufgaben.
+
+**Ergebnis: 0 von 20.**
+
+| erwartet | erzeugt |
+|---|---|
+| 53179 | 5254 |
+| 178106 | 2436 |
+| 226796 | 2184 |
+| 92168 | 3058 |
+
+**Die erzeugten Zahlen sind nicht falsch gerechnet, sie haben die falsche Groessenordnung.**
+Statt sechs Stellen kommen vier. Das Modell hat kein Stellenwert-Verstaendnis, es erzeugt eine
+Ziffernfolge, die zur Form passt.
+
+**Damit ist die Frage "zero-shot auf aehnliche Konzepte" beantwortet:** nein.
+
+| Transfer | Ergebnis |
+|---|---|
+| 3x3-Multiplikation (trainiert: 2x2) | **0 %** (0/20) |
+| Paraphrase (Wort davor) | 0-50 % |
+| Komposition (unbekannte Kombination) | 0 % |
+| Regel im Prompt | 0-7 % |
+| Breite ueber 8 Bezuege | bricht ein |
+
+**Was das fuer die Bewertung heisst:** die 93,3 Prozent der Referenz sind eine Aussage ueber
+**eine** Aufgabenform, nicht ueber Rechnen. Rechnen wuerde bedeuten, dass der Algorithmus auf
+andere Stellenzahlen uebertraegt — das tut er nicht.
+
+**Laufendes Modell:** die 71M-Stufe 1 trainiert noch (Stand 22 Minuten, erster Checkpoint bei
+Schritt 500). Ergebnis in der naechsten Runde.
