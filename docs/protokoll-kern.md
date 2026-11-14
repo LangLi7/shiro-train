@@ -516,3 +516,39 @@ Grenze ist der Durchsatz, nicht der Speicher.
 
 **Was ich beim naechsten Mal anders mache:** Datenmenge vor Modellgroesse festlegen, nicht
 danach. Der Vergleich war von Anfang an schief gebaut.
+
+## Runde 159 — Pruefmenge auf 200 erhoeht: Ketten halten 72 Prozent
+
+**Einwand von Claude, berechtigt:** 16 Aufgaben sind 6,25-Prozent-Schritte; 90 gegen 85 ist
+damit kein Unterschied. Ich habe die Pruefmenge fuer die schwaechste Familie verzehnfacht.
+
+**Ketten, 200 frische Aufgaben (nie im Training, neuer Seed, gleiche Form):**
+
+| Komponente | n=20 (bisher) | **n=200 (neu)** |
+|---|---|---|
+| Weg | 62,5-68,8 % | **67,5 %** |
+| Antwort | 68,8-75 % | **72,0 %** |
+| Klasse | 100 % | 100 % |
+
+**Die kleinen Stichproben haben hier nicht getaeuscht.** Der Wert liegt bei 72 Prozent mit
+±6,3 Punkten (95 Prozent) — eindeutig unter 90, und die 20er-Messung war richtig geschaetzt.
+
+**Was sich nicht vergroessern laesst: die Gleichungen.** `--gleichpack 200` liefert **6**
+Aufgaben — der Raum ist endlich (etwa 1400 verschiedene Gleichungen) und fast vollstaendig im
+Training. Ein 200er-Blindtest ist fuer diese Familie **strukturell unmoeglich**; mehr als 40
+reservierte Aufgaben gibt es nicht. Das ist eine Eigenschaft der Aufgabe, nicht der Messung,
+und muss bei jeder Aussage ueber Gleichungen mitgesagt werden.
+
+**Was noch fehlt:** Multiplikation und Addition liessen sich vergroessern, aber `--multpack 22`
+erzeugt 4-stellig mal 2-stellig statt 2-stellig mal 2-stellig — der richtige Generatorparameter
+ist noch nicht identifiziert. `--basepack` fuer Addition nimmt andere Argumente und bricht ab.
+
+**Stand der Pruefmengen:**
+
+| Familie | reserviert | erweiterbar? |
+|---|---|---|
+| Ketten | **200** (neu) | ja |
+| Addition | 60 | ja, Parameter fehlt |
+| Multiplikation | 60 | ja, Parameter fehlt |
+| Logik positiv / Bruch | je 40 | ja |
+| Gleichungen | 40 | **nein, Raum erschoepft** |
