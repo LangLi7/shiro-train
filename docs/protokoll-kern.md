@@ -893,3 +893,50 @@ vermutlich mit der Sitzung. Die Daten waren unversehrt und geprueft.
 
 **Protokoll-Nachtrag:** die Runden 165–167 waren bereits geschrieben, aber der Lauf dazu fehlte.
 Mit diesem Eintrag ist der Stand wieder geschlossen.
+
+## Runde 169 — Programmablauf: Form gelernt, Rechnung nicht (0 / 4,5 / 99,5)
+
+**Ergebnis `mix31`, 200 reservierte Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **4,5 %** |
+| Klasse | 99,5 % |
+
+**Was das Modell schreibt (drei Beispiele, nachgesehen):**
+
+| Aufgabe | erzeugt | richtig |
+|---|---|---|
+| `y = x + z; z = x * z; x = y * x` | `z = 9 + 1 = 81; x = 9 * 9 = 81` | `y = 1+9 = 10; z = 1*9 = 9; x = 10*1 = 10` |
+| `y = y * z; z = z - x` | `y = 9 * 8 = 16; z = 9 * 9 = 81` | `y = 8*9 = 72; z = 9-8 = 1` |
+| `z = z * x; x = x + y` | `y = 8 * 8 = 16; ...` Antwort **14** (richtig) | `z = 8*6 = 48; x = 6+8 = 14` |
+
+**Die Gestalt sitzt, die Zahlen nicht.** Das Modell schreibt Zuweisungen in der richtigen Form,
+belegt sie aber mit erfundenen Werten. Ein Beispiel hatte die richtige Antwort bei falschem Weg —
+das ist Raten, nicht Rechnen.
+
+**Regression (`mix31` gegen `mix19`, je 16):**
+
+| Familie | mix19 | mix31 |
+|---|---|---|
+| Addition | 100 | 100 |
+| Logik positiv | 100 | **100** (Klassenpruefung falsch parametrisiert, mein Aufruffehler) |
+| Logik Bruch | 100 | **100** (dito) |
+| Gleichungen | 93,8 | 87,5 |
+| Multiplikation | 100 | 100 |
+| Ketten | 62,5 / 68,8 | 62,5 / 62,5 |
+
+Zwei Familien je **eine Aufgabe** schlechter (n=16, das ist die Aufloesung der Stichprobe).
+**`mix31` wird nicht Referenz.**
+
+**Warum die Familie nicht gelernt wurde — zwei Erklaerungen, eine davon pruefbar:**
+
+1. **Zu wenig Daten.** 1500 neue Saetze gegen rund 9000 alte: die neue Familie ist **14 Prozent**
+   des Korpus und wird in 2000 Schritten selten gesehen. Pruefbar durch mehr Daten.
+2. **Formkollision.** Die Spur `y = x + z = 10` aehnelt der Kettenform `1+2*3=4`, aber die
+   Zielvariable steht vorn. Das Etikett `Programm:` ist vorhanden — die Kollision ist also
+   unwahrscheinlicher als die Datenmenge.
+
+**Naechster Versuch (eine Aenderung): Datenmenge.** 6000 statt 1500 Saetze, 4000 statt 2000
+Schritte. Sonst nichts.
