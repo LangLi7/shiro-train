@@ -940,3 +940,25 @@ Zwei Familien je **eine Aufgabe** schlechter (n=16, das ist die Aufloesung der S
 
 **Naechster Versuch (eine Aenderung): Datenmenge.** 6000 statt 1500 Saetze, 4000 statt 2000
 Schritte. Sonst nichts.
+
+## Runde 170 — Hypothese und Entscheidungsregel fuer den Datenmengen-Versuch (vorab)
+
+**Lauf `mix32`:** Programmablauf mit **6000** statt 1500 Saetzen, **4000** statt 2000 Schritten.
+Sonst nichts geaendert (Ausgangspunkt `mix19`, Seed 13027, Batch 8 x 1024).
+
+**Hypothese:** die Familie wurde nicht wegen der Formschwierigkeit nicht gelernt, sondern weil
+sie mit 14 Prozent Anteil zu selten im Korpus war. Mit 36 Prozent Anteil und doppelter
+Schrittzahl soll sie **ueber 70 Prozent Antwort** erreichen.
+
+**Entscheidungsregel, jetzt festgelegt:**
+
+> **Datenmenge war der Engpass**, wenn Programmablauf-Antwort **ueber 70 Prozent** liegt und
+> die sechs Familien innerhalb von **zwei Aufgaben** je Familie bleiben (n=16).
+>
+> Bleibt die Antwort unter 70 Prozent, ist die Datenmenge **nicht** die Ursache — dann liegt es
+> an der Form (Zielvariable vorn, mehrere Variablen gleichzeitig) und die Familie wird nach
+> drei Versuchen aufgegeben.
+
+**Warum 70 und nicht 80:** der erste Versuch lag bei 4,5 Prozent. Ein Sprung auf 70 waere schon
+eine Verfuenfzehnfachung; 80 als Schwelle wuerde den Effekt der Datenmenge mit dem der Form
+verwechseln.
