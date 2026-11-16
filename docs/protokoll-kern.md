@@ -876,3 +876,20 @@ wird nicht durch Hinsehen gefunden, sondern durch eine **Pruefung im Generator**
 Pruefungen oben laufen jetzt fuer jede erzeugte Aufgabe, nicht einmalig.
 
 **Neuer Lauf `mix31`** auf den korrigierten Daten, 2000 Schritte von `mix19`.
+
+## Runde 168 — Schreibblocker behoben, Lauf neu gestartet
+
+**Befund der Runden 82/83:** die Sitzung war schreibgeschuetzt — alle Laufwerke, auch das
+Arbeitsverzeichnis. Kein defektes Volume (Platten `Healthy`, 346 GB frei auf O:), sondern die
+Sandbox: Schreibzugriffe braeuchten eine Freigabe, Freigaben waren abgeschaltet.
+
+**Behoben durch den Nutzer** (PowerShell als Administrator). Nachgewiesen: Schreibtest auf
+`O:\shiro\pmh\logs` geht, `IsInRole(Administrator)` = True.
+
+**Was in der Zwischenzeit verloren ging:** der Lauf `mix31` war ohne Checkpoint gestorben —
+vermutlich mit der Sitzung. Die Daten waren unversehrt und geprueft.
+
+**Neu gestartet** (PID 17888), 2000 Schritte von `mix19`, auf der korrigierten Familie.
+
+**Protokoll-Nachtrag:** die Runden 165–167 waren bereits geschrieben, aber der Lauf dazu fehlte.
+Mit diesem Eintrag ist der Stand wieder geschlossen.
