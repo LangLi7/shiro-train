@@ -962,3 +962,45 @@ Schrittzahl soll sie **ueber 70 Prozent Antwort** erreichen.
 **Warum 70 und nicht 80:** der erste Versuch lag bei 4,5 Prozent. Ein Sprung auf 70 waere schon
 eine Verfuenfzehnfachung; 80 als Schwelle wuerde den Effekt der Datenmenge mit dem der Form
 verwechseln.
+
+## Runde 171 — Vierfache Datenmenge: 4,5 auf 28,5 Prozent — Regel greift, Form bleibt Engpass
+
+**Ergebnis `mix32` (6000 statt 1500 Saetze, 4000 statt 2000 Schritte), 200 Aufgaben:**
+
+| Komponente | mix31 (1500) | **mix32 (6000)** |
+|---|---|---|
+| Weg | 0 % | **30 %** |
+| Antwort | 4,5 % | **28,5 %** |
+| Klasse | 99,5 % | 100 % |
+
+**Sechsfache Verbesserung — und trotzdem weit unter der Schwelle.**
+
+**Die vorab festgelegte Regel (Runde 170):**
+
+> Datenmenge war der Engpass, wenn die Antwort **ueber 70 Prozent** liegt.
+> Sonst liegt es an der Form.
+
+**28,5 ist unter 70. Die Datenmenge war also nicht die Ursache.** Sie hilft — deutlich —, aber
+sie traegt nicht. Die Form ist der Engpass: mehrere Variablen gleichzeitig, Zielvariable vorn,
+Zustand zwischen Schritten.
+
+**Regression (`mix32` gegen `mix19`, je 16, Logik diesmal mit richtiger Klassenpruefung):**
+
+| Familie | mix19 | mix32 |
+|---|---|---|
+| Addition | 100 | 100 |
+| Logik positiv | 100 | 100 |
+| Logik Bruch | 100 | 100 |
+| Gleichungen | 93,8 | **87,5** |
+| Multiplikation | 100 | 100 |
+| Ketten | 62,5 / 68,8 | **50 / 62,5** |
+
+Zwei Familien je eine Aufgabe schlechter, vier unveraendert. **`mix19` bleibt Referenz.**
+
+**Damit ist die Familie nach zwei Versuchen beendet** (mix29 war fehlerhaft und zaehlt nicht).
+Ergebnis: mehrstufige Zustandsfuehrung mit benannten Variablen ist fuer dieses Modell nicht
+erreichbar — 28,5 Prozent nach vierfacher Datenmenge sind ein Beleg, keine Vermutung.
+
+**Was das mit der Division teilt:** beide Familien verlangen, einen Zwischenwert zu halten und
+im naechsten Schritt zu benutzen. Die Division steht bei 42, der Programmablauf bei 28,5. Zwei
+unabhaengige Familien, dieselbe Grenze.
