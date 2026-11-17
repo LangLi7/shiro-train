@@ -1890,3 +1890,32 @@ Toleranz. **Referenz bleibt `mix38`.**
 
 **Was der Versuch gezeigt hat, ist trotzdem wertvoll:** die Uebertrag-Regel ist bestaetigt, und
 der Grund fuer den Einbruch ist bekannt und behebbar — die Stelligkeit braucht ein Etikett.
+
+## Runde 196 — Runde 100: die Stelligkeit bekommt ein Etikett (R1, dritte Anwendung)
+
+**Der Fehler aus Runde 195 ist behebbar und wird jetzt behoben.** Drei Additionsfamilien teilen
+sich dieselbe Spurform; ohne Marker ueberschreiben sie sich. Also bekommt die dreistellige
+Familie ein Etikett:
+
+```
+Aufgabe:  3-stellig: 268+465
+Weg    :  E 8+5=13 -> 3 u1 ; Z 6+6+1=13 -> 3 u1 ; H 2+4+1=7 -> 7 u0 ; R 733 = 733
+```
+
+Die zweistellige Familie bleibt ohne Etikett — damit ist der Unterschied markiert, ohne
+3000 bestehende Saetze neu zu erzeugen.
+
+**Korpus `mix42`:** `mix38` (Referenz, sieben Familien) plus drei Additionsvarianten mit
+Etikett: mit zwei Uebergaengen (800), ohne Uebertrag (800), mit genau einem (800).
+
+**Hypothese:** mit Etikett bleibt die zweistellige Addition bei **ueber 95** (statt 18 wie in
+`mix41`), und die dreistelligen Varianten folgen der Uebertrag-Regel:
+ohne/1 Uebertrag **ueber 85**, mit zwei Uebergaengen **unter 40**.
+
+**Entscheidungsregel:**
+
+> Beide Bedingungen zugleich = R1 wirkt auch hier, und `mix42` wird die neue Referenz
+> (acht Familien).
+>
+> Zweistellig wieder unter 50 = das Etikett reicht nicht; dann ist der Konflikt tiefer und die
+> dreistellige Familie wird dauerhaft aufgegeben.
