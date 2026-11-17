@@ -2225,3 +2225,48 @@ maskierten Bytes), kein Etikett. Umsetzbar, aber erst nach B.
 
 Fuer den Wortschatz-Ansatz reicht das: Wortart und Lemma kommen aus DWDS, das **Genus** aus dem
 Textkorpus (welcher Artikel steht vor dem Nomen).
+
+## Runde 204 — Kiwix-Korpus gefunden, und Middle-Out als Lernprinzip statt als Kompression
+
+**Der Ordner `H:\.Dokumente` enthaelt fertige Kiwix-Archive:**
+
+| Datei | Groesse |
+|---|---|
+| `wikibooks_de_all_maxi_2026-10.zim` | **3,2 GB** |
+| `freecodecamp_de_project-euler_2026-10.zim` | 10,4 MB |
+| `freecodecamp_en_project-euler_2026-11.zim` | 10,6 MB |
+| `freecodecamp_de_coding-interview-prep_2026-10.zim` | 10,0 MB |
+| `termux_en_all_maxi_2022-12.zim` | 2,2 MB |
+| drei `.crdownload` (unvollstaendig) | 3,1 / 0,8 / 6,4 GB |
+
+**Zugriff bewiesen:** `libzim` laesst sich installieren, das Archiv oeffnet, **43 602 Artikel**
+sind lesbar, Text kommt als HTML heraus. Die Saeuberung (Scripts, Navigation) fehlt noch, ist
+aber Routine.
+
+**Damit ist die Frage "woher groessere Korpora" beantwortet, ohne Download** — 3,2 GB deutsches
+Lehrbuch-Material liegen schon auf der Platte.
+
+**Middle-Out: der Nutzer meint das Prinzip, nicht die Kompression.** Ich hatte es auf die
+Kompressionstechnik verkuerzt — das war zu eng.
+
+**Was "von der Mitte nach aussen" fuer ein Lernverfahren heisst, sind drei verschiedene Dinge:**
+
+| Richtung | Was von aussen kommt | Was die Mitte ist |
+|---|---|---|
+| **Top-down** (GPT) | der Anfang | das Ende |
+| **Bottom-up** (Wortschatz) | die Bausteine | der Satz |
+| **Middle-Out** | **beide Seiten** | **der Zusammenhang** |
+
+**Daraus folgen drei umsetzbare Dinge, und keines davon ist Kompression:**
+
+1. **Text Infilling als Trainingsziel:** ein Abschnitt in der Mitte wird maskiert, das Modell
+   fuellt ihn aus **beiden** Richtungen. Das ist der echte Middle-Out-Gedanke im Training — die
+   Mitte wird aus dem Kontext rekonstruiert, nicht aus dem Anfang.
+2. **Antwort vor dem Weg:** die Entscheidung ist die Mitte, die Begruendung kommt aussen herum.
+   `... <ANTWORT> Tiger <DENKWEG> "der" ist Nominativ ...` — das Modell kann den Weg dann nicht
+   vorrechnen, es muss erst entscheiden. **Billig testbar, ohne Trainer-Eingriff.**
+3. **Struktur vor Woertern:** erst die Rollen (wer handelt, wer wird behandelt), dann die
+   Oberflaeche. Das ist genau die Information, die im Kasus-Test gefehlt hat.
+
+**Punkt 2 ist der naechste Schritt** — eine Zeile im Generator, eine Runde Training, und es
+prueft genau die Frage, ob das Modell entscheidet oder nachplappert.
