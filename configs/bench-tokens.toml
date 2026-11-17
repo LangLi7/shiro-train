@@ -1,0 +1,39 @@
+[data]
+dir = "./data/logic/val"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 1024
+shuffle = true
+
+[model]
+name = "shiro-25m"
+d_model = 512
+n_layers = 8
+n_heads = 8
+d_ff = 1280
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 20
+schedule = "constant"
+
+[run]
+name = "bench"
+seed = 13027
+steps = 300
+log_every = 50
+checkpoint_every = 100000
+output_dir = "./bench-ckpt"
+log_dir = "./bench-logs"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"
