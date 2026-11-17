@@ -2708,3 +2708,42 @@ nie gesehen) — und zwar nicht mit "weiss ich nicht", sondern mit einer **Ersat
 **Was daraus fuer die naechste Datenrunde folgt:** quadratische Gleichungen brauchen eigene
 Beispiele, **einschliesslich der Faelle ohne reelle Loesung**. Ein Modell, das nur loesbare
 Aufgaben sieht, lernt nicht, die Unloesbarkeit zu erkennen — es erfindet dann eine Antwort.
+
+## Runde 217 — Middle-Out bei Text: 12 Prozent schlechter, wie vorhergesagt
+
+**Der Vergleich, zwei Laeufe unter identischen Bedingungen (24M, derselbe 12,1-MB-Text,
+1200 Schritte, 8,55 MB gesehen, Seed 13027):**
+
+| Ordnung | erster Loss | letzter Loss | bester | **Bits pro Byte** |
+|---|---|---|---|---|
+| **normal** (links nach rechts) | 5,6769 | **1,3861** | 1,2568 | **2,000** |
+| **mitte** (Mitte nach aussen) | 5,6293 | **1,5534** | 1,4007 | **2,241** |
+
+**Mitte-nach-aussen ist 12,1 Prozent schlechter** (2,241 gegen 2,000 Bits pro Byte). Die
+Vorhersage ("gleich oder schlechter, weil Sprache eine starke Vorwaertsrichtung hat") trifft ein.
+
+**Aber der Befund ist differenzierter als "funktioniert nicht":**
+
+1. **Der Start ist identisch** (5,63 gegen 5,68) — die Permutation ist kein Hindernis an sich.
+2. **Der Abstand entsteht beim Lernen**, nicht am Anfang: das Modell kann in der Mitte-Ordnung
+   die lokale Vorwaertsabhaengigkeit nicht ausnutzen, die Text nun einmal hat.
+3. **Zwoelf Prozent sind wenig.** Ein Umbau der Architektur waere noetig gewesen, um das zu
+   erreichen — eine Umsortierung der Daten kostet fast nichts und verliert wenig.
+
+**Was daraus folgt, und was nicht:**
+
+- Fuer **Text** ist die Vorwaertsordnung die richtige. Das ist jetzt gemessen, nicht vermutet.
+- Fuer Daten mit **informativer Mitte** (Lueckentext, Header/Footer, Bilder, DNA) ist die Frage
+  **offen** — dort ist der Kontext von beiden Seiten der eigentliche Gewinn, und der ist bei Text
+  klein, weil ein Byte fast nur am linken Nachbarn haengt.
+- **Radial statt sequenziell** (ein ganzer Ring auf einmal) ist bei Text hoechstens Faktor 2 und
+  wurde nicht getestet; bei Bildern waere ein Ring 8, 16, 24 Pixel.
+
+**Nebenbefund, wichtig fuer die Skalierung:** der Durchsatz auf der lokalen RTX 3060 liegt bei
+**6 646 Bytes/s** fuer das 24M-Modell — hoeher als meine Schaetzung von 4 500. Die RunPod-Rechnung
+auf Basis der 3060 ist damit zu pessimistisch; auf einer 3090 waeren es entsprechend mehr.
+
+**Ein Werkzeugproblem:** `shiro eval` lief auf dem permutierten Korpus in eine Endlosschleife
+(keine Zeilenumbrueche mehr, nach denen der Reader sucht). Die Verluste stammen deshalb aus den
+Trainingslogs (`run_end`), die dieselbe Groesse fuehren — **das ist die belastbarere Quelle
+ohnehin**, weil sie zum Lauf gehoert.
