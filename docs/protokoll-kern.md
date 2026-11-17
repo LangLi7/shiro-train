@@ -2340,3 +2340,35 @@ liegen ueber 90, und der Korpus traegt jetzt Sprache. Es ist der erste Stand, de
 Checkpoints nicht ueberschreiben (`File already exists`) und bricht dann ab. Bei jedem Neustart
 ab demselben Schritt faellt er in dieselbe Falle. Loesung: vom vorhandenen Stand weiterlaufen,
 nicht von davor.
+
+## Runde 207 — Middle-Out, Punkt 2: Antwort VOR dem Weg. Hypothese vorab.
+
+**Die Idee des Nutzers, umgesetzt als eine Zeile im Generator:**
+
+```
+<AUFGABE> Satz: der Mann ruft den Lehrer. Wer ruft?
+<ANTWORT> Mann
+<DENKWEG> Artikel "der" ist Nominativ, "den" ist Akkusativ. Das Subjekt ist Mann.
+```
+
+Das ist Middle-Out als Lernprinzip: die **Entscheidung ist die Mitte**, die Begruendung wird
+aussen herum gelegt. Bisher stand der Weg zuerst — das Modell konnte die Antwort aus der
+eigenen Rechnung ablesen, statt zu entscheiden.
+
+**Hypothese:** wenn das Modell wirklich entscheidet, bleibt die Quote gleich (**ueber 90**). Wenn
+der Weg die Kruecke war, bricht sie ein (**unter 70**).
+
+**Entscheidungsregel:**
+
+> **Ueber 90** = das Modell entscheidet; der Weg war keine Kruecke. Dann ist die Reihenfolge
+> frei waehlbar und Middle-Out kostet nichts.
+>
+> **Unter 70** = der Weg war die Kruecke: das Modell hat ihn als Rechenhilfe benutzt und die
+> Antwort daraus abgeleitet. Dann ist "Antwort zuerst" der ehrlichere Test fuer jede kuenftige
+> Familie — und die bisherigen 97 Prozent waren zu grosszuegig gemessen.
+
+**Ein Werkzeug musste mit:** der Pruefer nahm an, dass der Weg VOR der Antwort steht
+(`$weg = alles vor <ANTWORT>`). Bei umgekehrter Reihenfolge haette er den Weg als leer gelesen
+und die Antwort als halbe Aufgabe. Er liest jetzt marker-basiert: jeder Teil bis zum naechsten
+Marker, unabhaengig von der Ordnung. **Ohne diese Aenderung waere das Ergebnis ein Messartefakt
+gewesen.**
