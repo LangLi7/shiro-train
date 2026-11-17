@@ -1774,3 +1774,42 @@ Weg    :  E 0+8=8 -> 8 u0 ; Z 2+3=5 -> 5 u0 ; H 4+5=9 -> 9 u0 ; R 958 = 958
 >
 > **Unter 50** = die Deutung haelt. Dann ist das Ablesen mehrstelliger Zahlen die Grenze, und
 > das ist kapazitiv — der Beleg fuer Skalierung.
+
+## Runde 193 — Die Gegenprobe widerlegt meine Deutung: 93 Prozent ohne Uebertrag
+
+**Ergebnis `mix40` (dreistellige Addition, jede Spalte ohne Uebertrag), 100 Aufgaben:**
+
+| Variante | Weg | Antwort |
+|---|---|---|
+| mit Uebertrag (`mix39`) | 23 | **24** |
+| **ohne Uebertrag (`mix40`)** | **94** | **93** |
+
+**Meine Deutung aus Runde 191 war falsch.** Ich hatte geschrieben: "das Modell liest
+dreistellige Zahlen falsch ab". Das ist widerlegt — **es liest sie fehlerfrei**, sobald keine
+Stelle einen Uebertrag erzeugt. `420+538` loest es zu 93 Prozent.
+
+**Die Grenze ist der Uebertrag, und zwar seine Weitergabe ueber mehr als eine Stelle.**
+
+Damit ordnen sich alle bisherigen Befunde neu:
+
+| Familie | Uebergaenge | Ergebnis |
+|---|---|---|
+| zweistellige Addition | 1 | 99 |
+| dreistellig **ohne** Uebertrag | 0 | 93 |
+| dreistellig **mit** Uebertrag | 1–3 | 24 |
+| Ketten dreistellig | mehrere | 70 |
+| Division | mehrere | 42 |
+| 5-stellig mal 2-stellig | viele | 0 |
+
+**Die Regel, die alle Zahlen erklaert: das Modell haelt EINEN Uebertrag. Bei zwei oder mehr
+bricht es ein.** Nicht die Stellenzahl, nicht die Groesse — die **Zahl der Uebergaenge**.
+
+**Was das fuer die Skalierung bedeutet — Korrektur meiner Aussage von Runde 191:** ich hatte
+dort "kapazitiv, also RunPod" gesagt. Das ist **nicht** belegt. Beide Varianten hatten dieselbe
+Datenmenge und dieselbe Modellgroesse; der einzige Unterschied war der Uebertrag. Ein groesseres
+Modell koennte helfen, aber der Versuch dazu fehlt. Was belegt ist: **2000 Beispiele haben den
+Uebertrag nicht beigebracht.**
+
+**Der Fehler in meiner Arbeitsweise, zum zweiten Mal an diesem Tag:** ich habe eine Ursache
+benannt, ohne sie mit einer Kontrollbedingung zu trennen. Das Nachsehen allein reicht nicht —
+man sieht, was falsch ist, aber nicht, warum.
