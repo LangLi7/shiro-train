@@ -1325,3 +1325,50 @@ Rechnen** — eine Einstufen-Aufgabe. Erwartung: **ueber 80 Prozent**.
 > **Unter 80** = auch Nachschlagen hilft nicht, das Modell kann die Formel nicht *anwenden*.
 > Dann ist die Rechenkette "Wert aus der Formel ablesen, einsetzen, ausrechnen" selbst zu lang,
 > und die Grenze liegt noch tiefer als gedacht.
+
+## Runde 180 — Lexikon-Test: 0 Prozent, aber der Fehler ist ein anderer als gedacht
+
+**Ergebnis `mix36` (Formel im Prompt), 150 reservierte Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **0 %** |
+| Klasse | 90,7 % |
+
+**Hypothese (ueber 80) widerlegt.** Aber das Nachsehen aendert die Deutung vollstaendig.
+
+**Fall 1, Reihe — das Modell wendet die Formel richtig an und rechnet falsch:**
+
+```
+Aufgabe:  Merke: Reihe(a,b) = (a+b)*(b-a+1)/2. Summe von 23 bis 178.
+erzeugt:  23+178=219, anzahl=142, *142=33226, /2=16113
+richtig:  23+178=201, anzahl=156, *156=31356, /2=15678
+```
+
+Struktur, Einsetzen, Reihenfolge — **alles korrekt**. Es scheitert an **23+178** (dreistellig
+mit Uebertrag) und an **178-23+1**. Das ist derselbe Befund wie bei der 3x3-Multiplikation:
+**Stellenwert ueber drei Stellen kann es nicht.**
+
+**Fall 2, Binet — Totalausfall:**
+
+```
+Aufgabe:  Merke: Fib(n) = Binet, F(n) = (phi^n - psi^n)/sqrt(5). Fibonacci F(13).
+erzeugt:  "Arik in Silo. vim Silo Rask. ... Kein BRUCH. Also Silo in Vurn." — Logiktext
+```
+
+`sqrt(5)` und `phi` sind irrational. Das Modell hat dafuer keine Operation und faellt auf die
+naechstbeste bekannte Form zurueck.
+
+**Damit ist die Lehre praeziser als vorher:** nicht "das Modell kann Formeln nicht anwenden",
+sondern **es rechnet mit grossen Zahlen falsch**. Die Formel im Prompt hilft — die Arithmetik
+dahinter traegt nicht.
+
+**Der Gegentest mit kleinen Zahlen ist vorbereitet, aber nicht gestartet:** mit a,b <= 40
+bleiben alle Zwischenschritte zweistellig. Der Raum schrumpft dabei auf **256 Saetze** — zu
+wenig fuer eine belastbare Messung. Der Test braucht mehr Raum (mehrere Schreibweisen derselben
+Formel im Lexikon), sonst misst er Memorisierung.
+
+**Was das fuer den Lexikon-Ansatz bedeutet:** er ist **nicht widerlegt**, nur nicht bestaetigt.
+Der Test war mit dreistelligen Zahlen verunreinigt — ein Fehler in der Aufgabenwahl, nicht im
+Konzept.
