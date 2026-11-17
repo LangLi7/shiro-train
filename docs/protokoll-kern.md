@@ -1447,3 +1447,32 @@ Logik positiv 100.
 **nicht** "Rechnung zu gross" (die Zahlen waren zweistellig). Sie ist das **Lesen
 verschachtelter Ausdruecke** — Klammern, mehrere Operatoren, Variablennamen. Das ist eine
 konkrete, benannte Grenze und der erste Befund, der die vier vorigen Fehlversuche erklaert.
+
+## Runde 183 — Bilanz mit belastbaren Stichproben (n = 40 bis 100)
+
+**Das Ziel verlangt belastbare Zahlen, nicht n=16.** Alle sieben Familien auf `mix37`, mit der
+groessten Stichprobe, die der Raum erlaubt:
+
+| Familie | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| Logik positiv | 100 | **100** | **100** | 100 |
+| Addition | 100 | **99** | **99** | 100 |
+| Logik Bruch | 100 | **98** | **98** | 100 |
+| **Sprachlogik** | 100 | **97** | **97** | 100 |
+| Multiplikation | 60 | 91,7 | **93,3** | 100 |
+| Gleichungen | 40 | **92,5** | **92,5** | 100 |
+| Ketten | 60 | 68,3 | **71,7** | 100 |
+
+**Fuenf von sechs Familien liegen ueber 90 Prozent je Komponente** — das ist die Zielmarke des
+Auftrags. Ketten nicht (71,7).
+
+**Was die groesseren Stichproben korrigieren:** mit n=16 sahen Multiplikation 100 und Ketten
+68,8 aus. Mit n=60 sind es **93,3** und **71,7**. Die kleinen Stichproben waren zu optimistisch —
+genau wie die Statistik es vorhersagt (±6,3 Punkte bei n=200, mehr bei n=16).
+
+**Regressionsdatei fortgeschrieben** (`werkzeug/regressions.tsv`), eine Zeile je Familie mit
+Zeitstempel und Stichprobengroesse.
+
+**Der Stand in einem Satz:** ein Modell mit 24M Parametern, sieben Familien, fuenf davon ueber
+der Zielmarke, Sprachlogik als staerkste neue Faehigkeit, und eine klar benannte Grenze
+(verschachtelte Ausdruecke, mehrstufige Ausfuehrung, Stellenwert ueber drei).
