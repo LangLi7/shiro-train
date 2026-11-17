@@ -1372,3 +1372,31 @@ Formel im Lexikon), sonst misst er Memorisierung.
 **Was das fuer den Lexikon-Ansatz bedeutet:** er ist **nicht widerlegt**, nur nicht bestaetigt.
 Der Test war mit dreistelligen Zahlen verunreinigt — ein Fehler in der Aufgabenwahl, nicht im
 Konzept.
+
+## Runde 181 — Lexikon-Test, zweiter Anlauf: kleine Zahlen und drei Schreibweisen
+
+**Zwei Aenderungen gegenueber `mix36`, beide aus dem Befund begruendet:**
+
+1. **Kleine Zahlen** (a <= 20, b <= 40): alle Zwischenschritte bleiben zweistellig. Damit misst
+   die Aufgabe die Formel und nicht den Stellenwert.
+2. **Drei Schreibweisen derselben Formel im Lexikon**, zufaellig gewaehlt:
+   `Reihe(a,b) = (a+b)*(b-a+1)/2`, `= (a+b)*n/2, n = b-a+1`, `= (a+b)*anzahl/2`.
+   Sonst wuerde das Modell eine feste Zeichenkette erkennen statt zu lesen.
+3. **Binet entfernt.** `sqrt(5)` und `phi` sind irrational — das Modell hat keine Operation
+   dafuer (Runde 180). Die Art haette die Messung nur verrauscht.
+
+**Raum:** 1070 Trainingssaetze, 100 reserviert. Nachgerechnet: 18..24 = 42*7/2 = 147,
+20..27 = 47*8/2 = 188, 18..29 = 47*12/2 = 282.
+
+**Hypothese:** wenn die Zahlen zweistellig bleiben und die Formel im Prompt steht, ist die
+Aufgabe reines Einsetzen und Rechnen — die Klasse, die das Modell beherrscht (Multiplikation
+93,8, Addition 100). Erwartung: **ueber 70 Prozent**.
+
+**Entscheidungsregel:**
+
+> **Ueber 70** = der Lexikon-Ansatz traegt; die Grenze war der Stellenwert, nicht das Wissen.
+> Auch dann bleibt: die Familie ist nur mit kleinen Zahlen loesbar.
+>
+> **Unter 70** = auch mit kleinen Zahlen und nachschlagbarer Formel scheitert es. Dann ist die
+> Verkettung "Wert ablesen, einsetzen, multiplizieren, halbieren" selbst zu lang — und das waere
+> der dritte unabhaengige Beleg fuer dieselbe Grenze wie bei Ketten, Division und Programmablauf.
