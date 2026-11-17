@@ -2776,3 +2776,40 @@ die sieben geschuetzten Familien halten (ueber 90).
 ableitbar" waere `x^2 = -1` ohne genannte Grundmenge. Fuer diesen ersten Test ist die Klasse
 trotzdem brauchbar, weil sie die **Verweigerung einer eindeutigen Antwort** trainiert; die
 scharfe Fassung kommt mit der naechsten Familie (quadratisch, ohne reelle Loesung).
+
+## Runde 219 — Auch 2,6 Prozent zerstoeren alles: die Antwortform ist nicht etikettiert
+
+**Ergebnis `mix52` (3000 Urteil-Aufgaben, 2,6 Prozent des Korpus, 2500 Schritte):**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Drei Antwortklassen (neu) | 0 | **0** | 1 |
+| Addition | 0 | **0** | 0 |
+| Gleichungen | 0 | **0** | 0 |
+| Sprachlogik | 0 | 52,5 | 55 |
+
+**Es ist nicht die Menge — es ist der Konflikt.** Die Urteil-Familie benutzt **dieselbe Form** wie
+die bestehende Gleichungen-Familie:
+
+```
+Gleichungen (alt):  3x + 5 = 20        ->  Weg: 3x = 15, x = 5   ->  Antwort: 5
+Urteil (neu):       3x + 5 = 20        ->  Weg: Probe ...        ->  Antwort: bewiesen
+```
+
+Das Modell sieht dieselbe Aufgabe und weiss nicht, ob es eine **Zahl** oder ein **Urteil**
+antworten soll. Bei 2,6 Prozent neuer Beispiele gegen 97,4 Prozent alter kippt es in die falsche
+Richtung und verliert beides.
+
+**Das ist R1 zum fuenften Mal** — und diesmal ist die Regel am klarsten: **jede neue Familie
+braucht ein unterscheidendes Etikett**, sonst ueberschreibt sie die bestehende. Bei LOGIK-BRUCH
+hat ein Etikett 0 auf 100 gehoben; hier fehlt es.
+
+**Der Fix ist eine Zeile:** `Urteil: 3x + 5 = 20` statt `3x + 5 = 20`. Damit sind die beiden
+Familien unterscheidbar, und die Frage "Zahl oder Urteil" ist im Prompt entschieden.
+
+**Entscheidung nach Regel 6:** `mix52` wird **nicht uebernommen**. **Referenz bleibt `mix46`.**
+
+**Was jetzt belegt ist, nach fuenf Fehlversuchen in Folge:** neue Familien scheitern im Projekt
+**nie an der Datenmenge**, sondern immer an einem **fehlenden Etikett**: Stelligkeit (195),
+Reihenfolge (208), Lexikon-Format (210), Quiz-Format (215), Antwortform (219). Die Reihenfolge
+der Arbeit ist deshalb ab jetzt: **erst das Etikett, dann die Daten.**
