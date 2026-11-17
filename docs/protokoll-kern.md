@@ -1476,3 +1476,39 @@ Zeitstempel und Stichprobengroesse.
 **Der Stand in einem Satz:** ein Modell mit 24M Parametern, sieben Familien, fuenf davon ueber
 der Zielmarke, Sprachlogik als staerkste neue Faehigkeit, und eine klar benannte Grenze
 (verschachtelte Ausdruecke, mehrstufige Ausfuehrung, Stellenwert ueber drei).
+
+## Runde 184 — Paraphrase-Transfer gemessen: die Zahlen gelten nur fuer eine Formulierung
+
+**Das Ziel verlangt den Paraphrase-Test. Er liegt jetzt vor, mit einem neuen Skript
+(`werkzeug/paraphrase.ps1`), das den Aufgabentext hinter dem Marker umschreibt.**
+
+| Familie | trainiert | "Bitte loese:" | "Rechne:" | "Frage:" |
+|---|---|---|---|---|
+| Addition (n=15) | **100** | **0** | 7 | 7 |
+| Gleichungen (n=12) | 75 | 25 | 58 | 42 |
+| Ketten (n=15) | 80 | 60 | 60 | 67 |
+
+**Der Befund ist eindeutig: die trainierten Zahlen gelten nur fuer die trainierte
+Formulierung.** Ein Praefix von zwei Woertern loescht die Addition vollstaendig aus (100 auf 0).
+
+**Zwei Dinge sind daran bemerkenswert:**
+
+1. **Ketten halten die Paraphrase am besten** (80 auf 60–67 waehrend Addition auf 0 faellt).
+   Erklaerung: die Kette traegt ihre Anweisung selbst (`3+4*2` sagt, was zu tun ist), waehrend
+   `6+89` mit dem Praefix "Bitte loese:" zu einer Aufgabe wird, deren Auftrag nirgends steht.
+2. **Die Formulierung entscheidet, nicht die Faehigkeit**: "Rechne:" (58) liegt bei Gleichungen
+   doppelt so hoch wie "Bitte loese:" (25). Das Modell reagiert auf das Wort, nicht auf den Sinn.
+
+**Ein Fehler im Skript, der zuerst 8 Prozent in der trainierten Form ergab:** der Prompt besteht
+aus Marker-Bytes (`<AUFGABE>` Text `<DENKWEG>`); mein Praefix landete **vor** dem Marker, also
+ausserhalb der Aufgabe. Behoben durch Einfuegen nach dem ersten Byte. Erst danach waren die
+Zahlen plausibel.
+
+**Was das fuer die Bilanz aus Runde 183 bedeutet:** die 99–100 Prozent bei Addition und Logik
+sind **an die Formulierung gebunden**. Sie sind echt — aber sie messen Musterwiedererkennung,
+nicht Sprachverstaendnis. Die einzige Familie, die eine Umformulierung einigermassen uebersteht,
+ist die Sprachlogik (ihre Saetze sind selbst der Inhalt) — dort ist der Test noch offen.
+
+**Die ehrliche Konsequenz:** ein Modell, das bei "Bitte loese:" von 100 auf 0 faellt, ist kein
+Sprachmodell. Es erkennt Muster. Mehr Daten derselben Form machen es darin besser, nicht
+sprachfaehiger.
