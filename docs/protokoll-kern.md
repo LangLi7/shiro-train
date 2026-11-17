@@ -2978,3 +2978,47 @@ zumindest teilweise gelernt.
 **Warum dieser Test wichtiger ist als der vorige:** ich habe in diesem Projekt schon fuenfmal eine
 Ursache benannt, die eine Kontrollbedingung widerlegt hat. Die Kapazitaetsgrenze waere die
 sechste — und sie ist die teuerste, weil sie 100M rechtfertigt.
+
+## Runde 225 — Die Kapazitaetsdiagnose war falsch: es sind die zu kurzen Records
+
+**Der Blick in die Trainingslogs zeigt, was wirklich passiert ist:**
+
+| Korpus | Records | Bytes | **Bytes pro Record** |
+|---|---|---|---|
+| `mix46` (Referenz, funktioniert) | 40 774 | 28,3 MB | **695** |
+| `mix53` (Urteil, Totalausfall) | 3 000 | 0,30 MB | **99** |
+| `mix54` (Kopie, Totalausfall) | 3 000 | 0,17 MB | **56** |
+
+**Alle drei Totalausfaelle hatten Records von 56 bis 99 Bytes — zwoelfmal kuerzer als die
+Referenz.** Im Log von `mix55` sieht man die Folge:
+
+```
+Schritt 31600: loss 5,08   bytes 442
+Schritt 31800: loss 0,06   bytes 6685
+Schritt 32800: loss 4,53   bytes 439
+```
+
+**Die Batch-Groesse schwankt zwischen 439 und 7561 Bytes**, der Verlust springt zwischen 0,06 und
+5,08. Das ist **instabiles Training durch winzige Batches**, kein Kapazitaetsproblem.
+
+**Damit ist meine Behauptung aus Runde 223 widerlegt** ("das Modell haelt keine achte Familie,
+das ist eine Kapazitaetsgrenze"). Sie war die sechste falsche Ursache in diesem Projekt, und die
+teuerste: sie haette 100M gerechtfertigt.
+
+**Was tatsaechlich gilt:**
+
+1. **Kurze Records zerstoeren das Training.** Ein Batch aus acht 56-Byte-Records hat 448 Bytes
+   statt 8192 — der Gradient ist Rauschen, und die wenigen grossen Batches dazwischen reissen die
+   Gewichte hin und her.
+2. **Die Lernrate war nicht die Ursache** (mit einem Sechstel derselbe Ausfall), und die
+   **Datenmischung war korrekt** (43 774 Records, Kopie 7 Prozent, alle Familien im Manifest).
+3. **Kapazitaet ist nicht widerlegt, aber auch nicht belegt.** Der Test, der sie belegen sollte,
+   hat etwas anderes gemessen.
+
+**Der Fix ist im Trainer, nicht in den Daten:** Records unter einer Mindestlaenge muessen
+**verketten** (mehrere Records pro Sequenz) oder aufgefuellt werden, statt als eigener Batch zu
+laufen. Solange das fehlt, ist jede Familie mit kurzen Aufgaben — und das sind die meisten
+sinnvollen — nicht trainierbar.
+
+**Das erklaert rueckblickend auch die frueheren Einbrueche** bei der dreistelligen Addition und
+der Reihenfolge: dort waren die Records ebenfalls kuerzer als die der Referenz.
