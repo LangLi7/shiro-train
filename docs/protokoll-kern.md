@@ -1838,3 +1838,55 @@ anderes (etwa die Stellenzahl oder die Sequenzlaenge der Spur).
 Runde. Ausserdem waere der Vergleich unfair: das 24M-Modell hat 33 000 Schritte gesehen, ein
 frisches 43M haette 2000. **Der Test wird nicht als Kapazitaetsbeweis verkauft, was er nicht
 ist.**
+
+## Runde 195 — Die Regel ist bestaetigt, aber der Checkpoint ist unbrauchbar
+
+**Ergebnis `mix41` (dreistellig, genau ein Uebertrag), 100 Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **95 %** |
+| Antwort | **95 %** |
+| Klasse | 100 % |
+
+**Die Regel aus Runde 193 hat die Vorhersage getroffen** — zum ersten Mal in diesem Projekt sagt
+eine vorab formulierte Regel ein Ergebnis korrekt voraus:
+
+| Uebergaenge | Ergebnis |
+|---|---|
+| 0 | 93 |
+| **1** | **95** (vorhergesagt: ueber 80) |
+| 2+ | 24 |
+
+Damit ist die Grenze **praediktiv**, nicht nur beschreibend: "das Modell haelt einen Uebertrag"
+sagt fuer jede neue Additionsfamilie das Ergebnis voraus.
+
+**Aber der Checkpoint wird verworfen. Regression (`mix41` gegen `mix38`):**
+
+| Familie | mix38 | mix41 |
+|---|---|---|
+| **Addition zweistellig** | **98,3** | **18,3** |
+| Ketten zweistellig | 94 | 98,3 |
+| Sprachlogik | 97 | 98,3 |
+
+**Die Grundrechnung ist zerstoert** — von 98,3 auf 18,3. Nachgesehen:
+
+```
+Aufgabe: 6+9   (Gold 95... nein: Gold 95 gehoert zu 89+6)
+erzeugt: E 6+9=15 -> 5 u1 ; Z 0+0+1=1 -> 1 u0 ; H 6+8=14 -> 4 u1 ; T ... ; R 1415
+```
+
+Es rechnet **zweistellige Aufgaben als dreistellige** und erfindet Hunderter- und
+Tausenderstellen. Die Spurform ist fuer beide Stelligkeiten identisch — nur die Zahl der
+Stellen unterscheidet sie, und **die Stelligkeit ist kein Etikett**.
+
+**Das ist R1 zum dritten Mal:** eine unterscheidende Information, die im Format nicht steht,
+wird nicht gelernt. Die drei Additionsfamilien im Korpus (zweistellig, dreistellig ohne
+Uebertrag, dreistellig mit einem Uebertrag) haben dasselbe Format und ueberschreiben sich
+gegenseitig.
+
+**Entscheidung nach Regel 6:** `mix41` wird **nicht uebernommen**. 18,3 gegen 98,3 ist keine
+Toleranz. **Referenz bleibt `mix38`.**
+
+**Was der Versuch gezeigt hat, ist trotzdem wertvoll:** die Uebertrag-Regel ist bestaetigt, und
+der Grund fuer den Einbruch ist bekannt und behebbar — die Stelligkeit braucht ein Etikett.
