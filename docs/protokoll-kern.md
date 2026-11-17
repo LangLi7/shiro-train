@@ -1293,3 +1293,35 @@ und das kann das Modell nachweislich.
 
 **Stand `mix35`: sieben Familien, davon vier bei 96–100 Prozent.** Referenz bleibt `mix19` fuer
 Arithmetik und `mix34`/`mix35` fuer Sprache.
+
+## Runde 179 — Lexikon-Test: die Formel steht im Prompt. Hypothese vorab.
+
+**Der Befund aus Runde 178 (Formeln sind Wissen, keine Faehigkeit) wird jetzt direkt geprueft.**
+Derselbe Aufgabentyp, aber mit der Formel **im Prompt**:
+
+```
+Aufgabe:  Merke: Reihe(a,b) = (a+b)*(b-a+1)/2. Summe von 11 bis 51.
+Weg    :  (a+b)*(b-a+1)/2 mit a=11, b=51: 11+51=62, anzahl=41, *41=2542, /2=1271.
+Antwort:  1271
+```
+
+Das Modell muss die Formel **lesen und einsetzen**, nicht kennen. Genau das ist der
+Lexikon-Gedanke — und derselbe Mechanismus, den NL->SQL mit einem Schema-Index braucht.
+
+**Vier Formeln wie in `mix35`, aber alle im Prompt.** 3000 Saetze, 150 reserviert, nachgerechnet
+(11..51 = 62*41/2 = 1271).
+
+**Ausgangspunkt `mix35-step026500.state`** — der Stand mit Sprachlogik 96,7.
+
+**Hypothese:** wenn das Modell die Formel nachschlagen kann, bleibt nur noch **Einsetzen und
+Rechnen** — eine Einstufen-Aufgabe. Erwartung: **ueber 80 Prozent**.
+
+**Entscheidungsregel:**
+
+> **Ueber 80 Prozent** = der Lexikon-Ansatz traegt. Dann ist der Weg fuer Wissen im Modell
+> belegt (Formel im Prompt statt in den Gewichten), und das ist die Vorlage fuer Schema-Index
+> bei SQL.
+>
+> **Unter 80** = auch Nachschlagen hilft nicht, das Modell kann die Formel nicht *anwenden*.
+> Dann ist die Rechenkette "Wert aus der Formel ablesen, einsetzen, ausrechnen" selbst zu lang,
+> und die Grenze liegt noch tiefer als gedacht.
