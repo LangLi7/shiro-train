@@ -2678,3 +2678,33 @@ diesem Anteil nicht umsetzbar. Wenn sie weiterverfolgt wird, dann als **kleine P
 **Der naechste Schritt ist vorbereitet:** der Middle-Out-Vergleich (zwei Laeufe, 1200 Schritte,
 derselbe Text in zwei Ordnungen, Verlust als Mass). Er kommt ohne Aufgabenformat aus und kann
 deshalb nicht durch Katastrophen-Vergessen verfaelscht werden.
+
+## Runde 216 — Zero-Shot-Test: quadratische Gleichung scheitert, lineare gelingt
+
+**Die Frage des Nutzers:** kann das Modell `x² + 196 = 0` oder `x^2 + 196 = 0` loesen?
+
+**Ergebnis (`mix46`, Zero-Shot, beide Schreibweisen ausprobiert):**
+
+| Prompt | Antwort des Modells |
+|---|---|
+| `Loese: x² + 196 = 0` | `2x + 21 + 2x = 25 … x = 2` — **eine andere Aufgabe** |
+| `Loese: x^2 + 196 = 0` | `1x = 2x + 20 = 40 … x = 10` — **eine andere Aufgabe** |
+| `x^2 = 196. x =` | ersetzt durch eine lineare Gleichung |
+| **`Loese: 4x + 7 = 2x + 15`** | **`4x - 2x = 15 - 7 = 8 … x = 8/2 = 4` — richtig** |
+
+**Das Modell loest die quadratische Aufgabe nicht — es erkennt sie nicht einmal.** Statt zu
+sagen "das kann ich nicht" oder "keine reelle Loesung", generiert es eine **lineare** Gleichung
+und loest die. Die Kontrolle mit einer linearen Aufgabe gelingt dagegen fehlerfrei, Zero-Shot,
+ohne Beispiel im Prompt.
+
+**Sachlich richtig waere gewesen:** `x² = -196` hat **keine reelle Loesung** (x = ±14i). Das ist
+genau der Fall, in dem ein Modell "nicht ableitbar" oder "keine reelle Loesung" sagen muesste —
+und der Auftrag verlangt diese Antwortklasse ausdruecklich.
+
+**Damit ist die Grenze ein zweites Mal praezise beschrieben:** Zero-Shot funktioniert **innerhalb
+des Trainingsraums** (lineare Gleichungen: trainiert) und **versagt ausserhalb** (quadratisch:
+nie gesehen) — und zwar nicht mit "weiss ich nicht", sondern mit einer **Ersatzantwort**.
+
+**Was daraus fuer die naechste Datenrunde folgt:** quadratische Gleichungen brauchen eigene
+Beispiele, **einschliesslich der Faelle ohne reelle Loesung**. Ein Modell, das nur loesbare
+Aufgaben sieht, lernt nicht, die Unloesbarkeit zu erkennen — es erfindet dann eine Antwort.
