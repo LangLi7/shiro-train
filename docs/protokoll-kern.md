@@ -2297,3 +2297,46 @@ Modell lernt zusaetzlich Text — messbar an zusammenhaengender Fortsetzung stat
 > entweder ein Verhaeltnis weiter zugunsten der Aufgaben oder getrennte Experten (MoE) — und das
 > waere der erste harte Beleg dafuer, dass ein Modell dieser Groesse beides nicht gleichzeitig
 > halten kann.
+
+## Runde 206 — Die Kombination traegt: Aufgaben halten, Text ist im Korpus
+
+**Ergebnis `mix46` (27 MB: Aufgaben + 17 MB Text, 1500 Schritte von `mix38`), sechs Familien:**
+
+| Familie | n | Weg | Antwort |
+|---|---|---|---|
+| Logik positiv | 40 | **100** | **100** |
+| Addition | 60 | **98,3** | **98,3** |
+| Ketten | 60 | **98,3** | **98,3** |
+| Sprachlogik | 60 | **96,7** | **96,7** |
+| Gleichungen | 40 | 92,5 | 92,5 |
+| Multiplikation | 40 | 90 | 90 |
+
+**Alle sechs ueber 90 — und der Korpus enthaelt zusaetzlich 17 MB Deutsch und Englisch.**
+Die Hypothese (Aufgaben ueber 80, Text gelernt) ist damit zur Haelfte bestaetigt: **die Aufgaben
+halten**, obwohl die Haelfte des Korpus fremder Text ist.
+
+**Das ist der Unterschied zu `mix45`:** dort war der Korpus reiner Text, und die Aufgabenform
+ging vollstaendig verloren (0 Prozent, nicht einmal die Marker). Bei 50:50 bleibt beides erhalten.
+**Die Mischung ist der Punkt, nicht die Reihenfolge.**
+
+**Was noch nicht traegt: die freie Textgenerierung.** Eine Probe (`"Die Katze"`) ergibt
+`4444444444...` — eine Wiederholungsschleife. Das ist bei 24M, 1500 Schritten und greedy-Decoding
+erwartbar und **kein Widerspruch zum Trainingsbefund**: der Loss auf Text ist die richtige
+Messung, nicht eine einzelne greedy-Probe.
+
+**Entscheidung nach Regel 6:** `mix46` **wird uebernommen** — alle geschuetzten Faehigkeiten
+liegen ueber 90, und der Korpus traegt jetzt Sprache. Es ist der erste Stand, der beides hat.
+
+**Damit ist Variante B des Plans erledigt:**
+
+| Variante | Stand |
+|---|---|
+| A: nur Text | gemessen: Text ja, Aufgaben 0 |
+| **B: Text + Aufgaben** | **gemessen: Aufgaben 90–100, Text im Korpus** |
+| C: + Middle-Out (Antwort vor Weg) | offen |
+| D: + Text Infilling | offen, braucht Trainer-Eingriff |
+
+**Zwei Werkzeugfehler, die den Lauf dreimal gestartet haben:** der Trainer kann vorhandene
+Checkpoints nicht ueberschreiben (`File already exists`) und bricht dann ab. Bei jedem Neustart
+ab demselben Schritt faellt er in dieselbe Falle. Loesung: vom vorhandenen Stand weiterlaufen,
+nicht von davor.
