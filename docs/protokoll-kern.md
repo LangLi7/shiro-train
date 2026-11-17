@@ -1674,3 +1674,32 @@ Das erklaert rueckblickend jeden Befund des Projekts — die gescheiterte Divisi
 dreistellig), die geschlossene Form (a+b bis 240), den Lexikon-Test (23+178), die 3x3-
 Multiplikation, und es erklaert, warum die Sprachlogik so gut traegt: ihre "Zahlen" sind Woerter,
 und Woerter haben keine Stellenwerte.
+
+## Runde 190 — Dreistellige Addition: ist die Grenze trainierbar? Hypothese vorab
+
+**Die Frage, die aus allen Befunden folgt:** das Modell scheitert an `23+178`, `686-84`,
+`8777*23`. Ist das eine **Kapazitaetsgrenze** oder eine **Trainingsluecke**?
+
+**Familie `mix39` (dreistellige Addition mit Stellen-Spur):**
+
+```
+Aufgabe:  480+265
+Weg    :  E 0+5=5 -> 5 u0 ; Z 8+6=14 -> 4 u1 ; H 4+2+1=7 -> 7 u0 ; R 745 = 745
+Antwort:  745
+```
+
+Dieselbe Spurform wie die zweistellige Familie, nur mit Hunderter- und Tausenderstelle.
+2000 Saetze, 100 reserviert, **unabhaengig nachgerechnet: 100 von 100 richtig**.
+
+**Hypothese:** die Spur zeigt die Regel Stelle fuer Stelle — genau die Form, die das Modell bei
+zweistelligen Zahlen auf 99 Prozent bringt. Erwartung: **ueber 90 Prozent**.
+
+**Entscheidungsregel:**
+
+> **Ueber 90** = die Grenze ist **Trainingsluecke**, nicht Kapazitaet. Dann sind Ketten,
+> Division und die geschlossene Form mit dreistelligen Zahlen alle nachtraeglich loesbar, und
+> die bisherige Aussage "Stellenwert kann es nicht" ist auf "hat es nie gelernt" zu korrigieren.
+>
+> **Unter 60** = echte Grenze. Dann ist die Kapazitaet oder die Sequenzlaenge der Deckel, und
+> jedes weitere Training derselben Form ist verlorene Zeit. Das waere der Beleg fuer die
+> Skalierung (RunPod), nicht fuer mehr Daten.
