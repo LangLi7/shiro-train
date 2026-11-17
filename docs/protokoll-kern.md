@@ -1004,3 +1004,45 @@ erreichbar — 28,5 Prozent nach vierfacher Datenmenge sind ein Beleg, keine Ver
 **Was das mit der Division teilt:** beide Familien verlangen, einen Zwischenwert zu halten und
 im naechsten Schritt zu benutzen. Die Division steht bei 42, der Programmablauf bei 28,5. Zwei
 unabhaengige Familien, dieselbe Grenze.
+
+## Runde 172 — Sprachfamilie gebaut: Kasus und Stellung, und ein Ambiguitaetsfehler
+
+**Frage des Nutzers:** das Modell kann kein NL->SQL, weil ihm Sprachlogik fehlt — Satzbau, der
+Kern der Sprache, ohne Wortschatz.
+
+**Familie `mix33` (Sprachlogik, geschlossenes Vokabular):**
+
+```
+Aufgabe:  Satz: den Hund sucht das Kind. Wer sucht?
+Weg    :  Artikel "den" ist Akkusativ, "das" ist Nominativ. Das Subjekt ist Kind.
+Antwort:  Kind
+```
+
+24 Nomen mit Genus (8 mask, 8 fem, 8 neut), 6 Verben, zwei Stellungen. Das Modell muss aus dem
+**Artikel** (der/den) oder, wenn kein Artikel unterscheidet, aus der **Stellung** entscheiden,
+wer handelt. Kein Vokabellernen: die Woerter stehen im Satz, die Regel nicht.
+
+**Ein echter Fehler, gefunden durch eine Pruefung, nicht durch Hinsehen:**
+
+Die erste Fassung erzeugte auch umgedrehte Saetze ohne maskulines Nomen —
+"die Frau packt das Pferd" mit der Behauptung, das Subjekt stehe hinten. **Beide Lesarten sind
+grammatisch korrekt**; die Aufgabe war damit unlösbar. Meine Pruefung zaehlte **65 von 200** als
+falsch.
+
+Behoben: umgedrehte Stellung nur, wenn ein maskulines Nomen den Kasus eindeutig macht. Ohne
+Artikel-Hinweis gilt die Grundstellung (Subjekt vorn) — die einzige im Deutschen verteidigbare
+Lesart.
+
+**Danach:** 300 Aufgaben, **0 falsch** (unabhaengige Pruefung mit der vollstaendigen
+Kasusregel). 4884 Trainingssaetze, 300 reserviert.
+
+**Was ich beim Pruefen selbst falsch gemacht habe, zweimal:** erst war meine Pruefung zu eng
+(sie kannte nur "den", nicht "der" — 17 scheinbare Fehler, alle korrekt), dann war die
+Erzeugung wirklich falsch (65 Fehler). Der Unterschied war nur durch das Nachsehen der konkreten
+Faelle zu finden.
+
+**Lauf `mix33`:** 3000 Schritte von `mix19`, Sprachfamilie als siebte Familie.
+
+**Vorschlag des Nutzers, aufgenommen:** ein **Woerterbuch als Index**, in dem das Modell
+nachschlaegt, statt Wortwissen zu lernen. Das ist der naechste Schritt nach diesem Lauf — als
+A/B-Vergleich: dieselbe Familie mit und ohne Lexikon im Prompt.
