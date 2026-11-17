@@ -2730,6 +2730,12 @@ fn chain_record(rng: &mut Rng, max_steps: u64) -> Vec<u8> {
             ),
         };
         let _ = rechnung;
+        // Optional: keep every intermediate below 100. The model fails three-digit arithmetic
+        // (686-84 -> 646, 105+98 -> 1198), so a chain reaching three digits measures the
+        // place-value gap, not chaining. SHIRO_KETTEN_KLEIN=1 keeps the family two-digit.
+        if std::env::var("SHIRO_KETTEN_KLEIN").is_ok() && wert.abs() > 99 {
+            return Vec::new();
+        }
         werte.push(wert);
         let linksname = match op {
             1 => if werte[links] >= werte[rechts] { namen[links] } else { namen[rechts] },
@@ -3101,6 +3107,43 @@ fn main() {
             seen.insert(h);
         }
         // (noun, genus): m = masculine, f = feminine, n = neuter
+        // Foreign vocabulary: nouns that never appear in training. If the model answers these,
+        // it learned the case rule; if not, it memorised the training words.
+        let fremd = std::env::var("SHIRO_SPRACH_FREMD").is_ok();
+        // Third vocabulary: never trained, used only to test whether a model that has SEEN 36
+        // nouns can handle a 37th. This is the generalisation test that the 24-noun family
+        // failed at 0 percent.
+        let dritt = std::env::var("SHIRO_SPRACH_DRITT").is_ok();
+        // Misch: train on the 24 known plus the 12 foreign nouns (36 total).
+        let misch = std::env::var("SHIRO_SPRACH_MISCH").is_ok();
+        let nomen_dritt: [(&str, char); 12] = [
+            ("Vater", 'm'),
+            ("Bruder", 'm'),
+            ("Hahn", 'm'),
+            ("Hirsch", 'm'),
+            ("Mutter", 'f'),
+            ("Schwester", 'f'),
+            ("Rose", 'f'),
+            ("Taube", 'f'),
+            ("Tier", 'n'),
+            ("Haus", 'n'),
+            ("Bild", 'n'),
+            ("Rad", 'n'),
+        ];
+        let nomen_fremd: [(&str, char); 12] = [
+            ("Opa", 'm'),
+            ("Onkel", 'm'),
+            ("Tiger", 'm'),
+            ("Loewe", 'm'),
+            ("Oma", 'f'),
+            ("Tante", 'f'),
+            ("Blume", 'f'),
+            ("Wolke", 'f'),
+            ("Baby", 'n'),
+            ("Auto", 'n'),
+            ("Fenster", 'n'),
+            ("Buch", 'n'),
+        ];
         let nomen: [(&str, char); 24] = [
             ("Hund", 'm'),
             ("Mann", 'm'),
@@ -3144,13 +3187,39 @@ fn main() {
         let mut versuche = 0usize;
         while recs.len() < n && versuche < n * 200 {
             versuche += 1;
-            let si = rng.range(0, (nomen.len() - 1) as i64) as usize;
-            let mut oi = rng.range(0, (nomen.len() - 1) as i64) as usize;
-            if oi == si {
-                oi = (si + 1) % nomen.len();
-            }
-            let (subj, sg) = nomen[si];
-            let (obj, og) = nomen[oi];
+            let (si, oi, subj, sg, obj, og) = if dritt {
+                let a = rng.range(0, (nomen_dritt.len() - 1) as i64) as usize;
+                let mut b = rng.range(0, (nomen_dritt.len() - 1) as i64) as usize;
+                if b == a {
+                    b = (a + 1) % nomen_dritt.len();
+                }
+                (a, b, nomen_dritt[a].0, nomen_dritt[a].1, nomen_dritt[b].0, nomen_dritt[b].1)
+            } else if misch {
+                // 24 known + 12 foreign = 36 nouns
+                let pool: Vec<(&str, char)> = nomen.iter().cloned()
+                    .chain(nomen_fremd.iter().cloned()).collect();
+                let a = rng.range(0, (pool.len() - 1) as i64) as usize;
+                let mut b = rng.range(0, (pool.len() - 1) as i64) as usize;
+                if b == a {
+                    b = (a + 1) % pool.len();
+                }
+                (a, b, pool[a].0, pool[a].1, pool[b].0, pool[b].1)
+            } else if fremd {
+                let a = rng.range(0, (nomen_fremd.len() - 1) as i64) as usize;
+                let mut b = rng.range(0, (nomen_fremd.len() - 1) as i64) as usize;
+                if b == a {
+                    b = (a + 1) % nomen_fremd.len();
+                }
+                (a, b, nomen_fremd[a].0, nomen_fremd[a].1, nomen_fremd[b].0, nomen_fremd[b].1)
+            } else {
+                let a = rng.range(0, (nomen.len() - 1) as i64) as usize;
+                let mut b = rng.range(0, (nomen.len() - 1) as i64) as usize;
+                if b == a {
+                    b = (a + 1) % nomen.len();
+                }
+                (a, b, nomen[a].0, nomen[a].1, nomen[b].0, nomen[b].1)
+            };
+            let _ = (si, oi);
             let verb = verben[rng.range(0, (verben.len() - 1) as i64) as usize];
             // Without a masculine noun nothing marks the case ("die Katze" is nominative and
             // accusative), so an inverted sentence would be genuinely ambiguous - both readings
@@ -3199,10 +3268,19 @@ fn main() {
             let mut rec: Vec<u8> = Vec::new();
             rec.push(B_TASK);
             rec.extend_from_slice(format!(" Satz: {}. Wer {}? ", satz, verb).as_bytes());
-            rec.push(B_THINK);
-            rec.extend_from_slice(format!("{}. Das Subjekt ist {}. ", grund, subj).as_bytes());
-            rec.push(B_ANSWER);
-            rec.extend_from_slice(format!(" {} ", subj).as_bytes());
+            // Answer first: the decision is the centre, the reasoning is wrapped around it.
+            // With the answer before the trace the model cannot "compute its way" to it.
+            if std::env::var("SHIRO_SPRACH_ANTWORT_ZUERST").is_ok() {
+                rec.push(B_ANSWER);
+                rec.extend_from_slice(format!(" {} ", subj).as_bytes());
+                rec.push(B_THINK);
+                rec.extend_from_slice(format!("{}. Das Subjekt ist {}. ", grund, subj).as_bytes());
+            } else {
+                rec.push(B_THINK);
+                rec.extend_from_slice(format!("{}. Das Subjekt ist {}. ", grund, subj).as_bytes());
+                rec.push(B_ANSWER);
+                rec.extend_from_slice(format!(" {} ", subj).as_bytes());
+            }
             rec.push(B_END);
             if rec.len() > budget {
                 continue;
@@ -3623,13 +3701,17 @@ fn main() {
                     rec.iter().position(|&b| b == B_THINK),
                     rec.iter().position(|&b| b == B_ANSWER),
                 ) {
-                    let prompt = &rec[..=t];
-                    let weg = &rec[t + 1..a];
-                    let ant = &rec[a + 1..];
-                    let ant = match ant.iter().position(|&b| b == B_END) {
-                        Some(p) => &ant[..p],
-                        None => ant,
+                    // Order-independent: the answer may precede the trace (Middle-Out variant).
+                    let erster = t.min(a);
+                    let prompt = &rec[..=erster];
+                    let end_pos = rec.iter().position(|&b| b == B_END).unwrap_or(rec.len());
+                    let teil = |von: usize, andere: usize| -> &[u8] {
+                        let mut e = end_pos;
+                        if andere > von && andere < e { e = andere; }
+                        &rec[von + 1..e]
                     };
+                    let weg = teil(t, a);
+                    let ant = teil(a, t);
                     std::fs::write(out.join(format!("p{idx}.txt")), prompt).ok();
                     std::fs::write(out.join(format!("w{idx}.txt")), weg).ok();
                     std::fs::write(out.join(format!("a{idx}.txt")), ant).ok();
@@ -4136,7 +4218,294 @@ fn main() {
         println!("signedpack stufe{}: {} Saetze -> {}", stufe, n, out.display());
         return;
     }
-    if args.len() > 4 && args[1] == "--closepack" {
+    if args.len() > 4 && args[1] == "--lexpack" {
+        // Same closed-form tasks, but the formula is IN THE PROMPT. The model only has to read
+        // it, substitute the values and compute. This isolates "can it use a lookup" from "does
+        // it know the formula" - the closed-form family failed at the latter, not the former.
+        let n: usize = args[2].parse().unwrap();
+        let out = PathBuf::from(&args[3]);
+        let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let mut rng = Rng(seed);
+        let budget = pack_budget();
+        let split = std::env::var("SHIRO_LEX_SPLIT").unwrap_or_else(|_| "train".into());
+        let p = seen_path("lex", &split);
+        let mut seen = seen_load(&p);
+        for h in seen_load(&seen_path("lex", "train")) {
+            seen.insert(h);
+        }
+        for h in seen_load(&seen_path("lex", "test")) {
+            seen.insert(h);
+        }
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut versuche = 0usize;
+        while recs.len() < n && versuche < n * 200 {
+            versuche += 1;
+            // Binet needs sqrt(5) and phi - irrational, the model has no operation for it (see 180).
+            let art = rng.range(0, 2);
+            let (lex, frage, weg, wert): (String, String, String, i64) = match art {
+                0 => {
+                    // Small numbers only: every intermediate stays two-digit, so the task tests
+                    // the formula and not three-digit arithmetic (which the model fails, see 3x3).
+                    let klein = std::env::var("SHIRO_LEX_KLEIN").is_ok();
+                    let a = if klein { rng.range(1, 20) } else { rng.range(1, 60) };
+                    let b = if klein { a + rng.range(2, 20) } else { a + rng.range(5, 180) };
+                    let anzahl = b - a + 1;
+                    let w = (a + b) * anzahl / 2;
+                    (
+                        {
+                            // Three spellings of the same formula: the model must READ the
+                            // entry, not recognise one fixed string.
+                            let s = match rng.range(0, 2) {
+                                0 => " Reihe(a,b) = (a+b)*(b-a+1)/2 ",
+                                1 => " Reihe(a,b) = (a+b)*n/2, n = b-a+1 ",
+                                _ => " Reihe(a,b) = (a+b)*anzahl/2 ",
+                            };
+                            s.to_string()
+                        },
+                        format!("Summe von {} bis {}. ", a, b),
+                        format!(
+                            "(a+b)*(b-a+1)/2 mit a={}, b={}: {}+{}={}, anzahl={}, *{}={}, /2={}",
+                            a,
+                            b,
+                            a,
+                            b,
+                            a + b,
+                            anzahl,
+                            anzahl,
+                            (a + b) * anzahl,
+                            w
+                        ),
+                        w,
+                    )
+                }
+                1 => {
+                    let k = if std::env::var("SHIRO_LEX_KLEIN").is_ok() { rng.range(3, 9) } else { rng.range(5, 20) };
+                    let w = k * (k + 1) * (2 * k + 1) / 6;
+                    (
+                        {
+                            let s = match rng.range(0, 1) {
+                                0 => " Quadrat(n) = n*(n+1)*(2n+1)/6 ",
+                                _ => " Quadrat(n) = n*(n+1)*(2*n+1)/6 ",
+                            };
+                            s.to_string()
+                        },
+                        format!("Summe der Quadrate 1 bis {}. ", k),
+                        format!(
+                            "n*(n+1)*(2n+1)/6 mit n={}: {}+1={}, 2n+1={}, *{}*{}={}, /6={}",
+                            k,
+                            k,
+                            k + 1,
+                            2 * k + 1,
+                            k,
+                            k + 1,
+                            k * (k + 1) * (2 * k + 1),
+                            w
+                        ),
+                        w,
+                    )
+                }
+                2 => {
+                    let k = if std::env::var("SHIRO_LEX_KLEIN").is_ok() { rng.range(3, 10) } else { rng.range(5, 20) };
+                    let w = (1i64 << k) - 1;
+                    (
+                        {
+                            let s = match rng.range(0, 1) {
+                                0 => " Geometrisch(k) = 2^k - 1 ",
+                                _ => " Geometrisch(k) = 2**k - 1 ",
+                            };
+                            s.to_string()
+                        },
+                        format!("Summe 1+2+4+...+2^{}. ", k - 1),
+                        format!("2^k - 1 mit k={}: 2^{}={}, -1={}", k, k, 1i64 << k, w),
+                        w,
+                    )
+                }
+                _ => {
+                    let k = rng.range(5, 15);
+                    let mut a: i64 = 0;
+                    let mut b: i64 = 1;
+                    for _ in 0..k {
+                        let c = a + b;
+                        a = b;
+                        b = c;
+                    }
+                    (
+                        " Fib(n) = Binet, F(n) = (phi^n - psi^n)/sqrt(5) ".to_string(),
+                        format!("Fibonacci F({}). ", k),
+                        format!("Binet mit n={}: F={}", k, a),
+                        a,
+                    )
+                }
+            };
+            let h = hash64(format!("{}|{}|{}", lex, frage, wert).as_bytes());
+            if seen.contains(&h) {
+                continue;
+            }
+            seen.insert(h);
+            let mut rec: Vec<u8> = Vec::new();
+            rec.push(B_TASK);
+            rec.extend_from_slice(format!(" Merke: {}. {} ", lex.trim(), frage.trim()).as_bytes());
+            rec.push(B_THINK);
+            rec.extend_from_slice(format!("{}. ", weg).as_bytes());
+            rec.push(B_ANSWER);
+            rec.extend_from_slice(format!(" {} ", wert).as_bytes());
+            rec.push(B_END);
+            if rec.len() > budget {
+                continue;
+            }
+            recs.push(rec);
+        }
+        seen_save(&p, &seen);
+        write_shard(&out, &recs, seed, "lex");
+        println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
+        return;
+    }    if args.len() > 4 && args[1] == "--add3pack" {
+        // Three-digit addition with an explicit place-by-place trace. The model fails 23+178;
+        // this family tests whether that is a training gap or a capacity limit.
+        let n: usize = args[2].parse().unwrap();
+        let out = PathBuf::from(&args[3]);
+        let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let mut rng = Rng(seed);
+        let budget = pack_budget();
+        let split = std::env::var("SHIRO_ADD3_SPLIT").unwrap_or_else(|_| "train".into());
+        let p = seen_path("add3", &split);
+        let mut seen = seen_load(&p);
+        for h in seen_load(&seen_path("add3", "train")) {
+            seen.insert(h);
+        }
+        for h in seen_load(&seen_path("add3", "test")) {
+            seen.insert(h);
+        }
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut versuche = 0usize;
+        while recs.len() < n && versuche < n * 200 {
+            versuche += 1;
+            // Without a carry every column is independent: the task then tests reading and
+            // single-column addition, not carry propagation. If this works while the carry
+            // version fails, the problem is the carry - not the reading of the digits.
+            let ohne_uebertrag = std::env::var("SHIRO_ADD3_OHNE_UEBERTRAG").is_ok();
+            // Exactly one carry column: the prediction of the rule "one carry is fine, two are
+            // not" is that this variant scores high while the general one scores low.
+            let genau_ein_uebertrag = std::env::var("SHIRO_ADD3_EIN_UEBERTRAG").is_ok();
+            let a = rng.range(100, 999) as i64;
+            let b = if ohne_uebertrag {
+                // pick b so that each of the three columns sums to at most 9
+                let da = [(a / 100) % 10, (a / 10) % 10, a % 10];
+                let mut bb = 0i64;
+                for (i, d) in da.iter().enumerate() {
+                    let frei = 9 - d;
+                    let z = if frei <= 0 { 0 } else { rng.range(0, frei) };
+                    bb += z * 10i64.pow((2 - i) as u32);
+                }
+                if bb < 100 {
+                    continue;
+                }
+                bb
+            } else {
+                rng.range(100, 999) as i64
+            };
+            if genau_ein_uebertrag {
+                let trage = (0..3)
+                    .filter(|i| {
+                        let w = 10i64.pow(*i as u32);
+                        (a / w) % 10 + (b / w) % 10 > 9
+                    })
+                    .count();
+                if trage != 1 {
+                    continue;
+                }
+            }
+            let h = hash64(format!("{}+{}", a, b).as_bytes());
+            if seen.contains(&h) {
+                continue;
+            }
+            seen.insert(h);
+            // Place by place from the right, with carries, exactly as the two-digit family does.
+            let mut spur = String::new();
+            let mut uebertrag = 0i64;
+            let stellen = [("E", 1i64), ("Z", 10), ("H", 100), ("T", 1000)];
+            let summe = a + b;
+            for (name, wert) in stellen {
+                let da = (a / wert) % 10;
+                let db = (b / wert) % 10;
+                if wert == 1000 && da == 0 && db == 0 && uebertrag == 0 {
+                    break;
+                }
+                let s = da + db + uebertrag;
+                let ziffer = s % 10;
+                let neu_uebertrag = s / 10;
+                if uebertrag > 0 {
+                    spur.push_str(&format!(
+                        " ; {} {}+{}+{}={} -> {} u{}",
+                        name, da, db, uebertrag, s, ziffer, neu_uebertrag
+                    ));
+                } else {
+                    spur.push_str(&format!(
+                        " ; {} {}+{}={} -> {} u{}",
+                        name, da, db, s, ziffer, neu_uebertrag
+                    ));
+                }
+                uebertrag = neu_uebertrag;
+            }
+            let mut rec: Vec<u8> = Vec::new();
+            rec.push(B_TASK);
+            // The digit count has to be labelled: three addition families share the same trace
+            // shape, and without a marker the model overwrites one with another (round 195:
+            // two-digit addition fell from 98 to 18 when a three-digit family was added).
+            rec.extend_from_slice(format!(" 3-stellig: {}+{} ", a, b).as_bytes());
+            rec.push(B_THINK);
+            rec.extend_from_slice(format!("{}{} ; R {} = {}", "", spur.trim_start_matches(" ; "), summe, summe).as_bytes());
+            rec.push(B_ANSWER);
+            rec.extend_from_slice(format!(" {} ", summe).as_bytes());
+            rec.push(B_END);
+            if rec.len() > budget {
+                continue;
+            }
+            recs.push(rec);
+        }
+        seen_save(&p, &seen);
+        write_shard(&out, &recs, seed, "add3");
+        println!("add3pack: {} Aufgaben -> {}", recs.len(), out.display());
+        return;
+    }    if args.len() > 3 && args[1] == "--textpack" {
+        // Plain text into training shards: the GPT objective needs text, not task traces.
+        // Paragraphs become records; the trainer cuts 1024-byte windows across them.
+        let quelle = PathBuf::from(&args[2]);
+        let out = PathBuf::from(&args[3]);
+        let max_rec: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(900);
+        let inhalt = fs::read(&quelle).expect("Textdatei lesbar");
+        let text = String::from_utf8_lossy(&inhalt);
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+                // Fixed-size chunks instead of paragraphs: a record length is u16, and Wikipedia
+        // paragraphs are up to 12 KB. Cut on newline boundaries where possible.
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let bytes = text.as_bytes();
+        let mut pos = 0usize;
+        while pos < bytes.len() {
+            let mut ende = (pos + max_rec).min(bytes.len());
+            // First move to a UTF-8 boundary, then look for a newline before it: slicing a
+            // string at a byte index inside a multi-byte character panics.
+            while ende > pos && ende < bytes.len() && (bytes[ende] & 0xC0) == 0x80 {
+                ende -= 1;
+            }
+            if ende < bytes.len() {
+                if let Some(nl) = text[pos..ende].rfind('\n') {
+                    if nl > max_rec / 2 {
+                        ende = pos + nl;
+                    }
+                }
+            }
+            let stueck = &bytes[pos..ende];
+            if !stueck.is_empty() {
+                recs.push(stueck.to_vec());
+            }
+            pos = ende;
+        }let seed: u64 = 12345;
+        write_shard(&out, &recs, seed, "text");
+        let bytes: usize = recs.iter().map(|r| r.len()).sum();
+        println!("textpack: {} Absaetze, {} Bytes -> {}", recs.len(), bytes, out.display());
+        return;
+    }    if args.len() > 4 && args[1] == "--closepack" {
         // Closed form instead of a loop. The task is not "compute this" but "know the closed
         // form, then plug the one value in". Each trace names the formula first.
         let n: usize = args[2].parse().unwrap();
@@ -4157,7 +4526,8 @@ fn main() {
         let mut versuche = 0usize;
         while recs.len() < n && versuche < n * 200 {
             versuche += 1;
-            let art = rng.range(0, 3);
+            // Binet needs sqrt(5) and phi - irrational, the model has no operation for it (see 180).
+            let art = rng.range(0, 2);
             let (frage, weg, wert): (String, String, i64) = match art {
                 // Arithmetic series from a to b: (a+b)*(b-a+1)/2. Two free numbers instead of
                 // one, so the task space is large enough for training and a reserved test set.
@@ -4185,7 +4555,7 @@ fn main() {
                 }
                 // Sum of squares: 1+4+...+n^2 = n(n+1)(2n+1)/6
                 1 => {
-                    let k = rng.range(5, 20);
+                    let k = if std::env::var("SHIRO_LEX_KLEIN").is_ok() { rng.range(3, 9) } else { rng.range(5, 20) };
                     let w = k * (k + 1) * (2 * k + 1) / 6;
                     (
                         format!(" Quadrat: Summe der Quadrate 1 bis {} in geschlossener Form. ", k),
@@ -4203,7 +4573,7 @@ fn main() {
                 }
                 // Geometric series: 1+2+4+...+2^(k-1) = 2^k - 1
                 2 => {
-                    let k = rng.range(5, 20);
+                    let k = if std::env::var("SHIRO_LEX_KLEIN").is_ok() { rng.range(3, 10) } else { rng.range(5, 20) };
                     let w = (1i64 << k) - 1;
                     (
                         format!(" Geometrisch: Summe 1+2+4+...+2^{} in geschlossener Form. ", k - 1),
@@ -5062,6 +5432,23 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

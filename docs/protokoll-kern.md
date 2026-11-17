@@ -2372,3 +2372,41 @@ der Weg die Kruecke war, bricht sie ein (**unter 70**).
 und die Antwort als halbe Aufgabe. Er liest jetzt marker-basiert: jeder Teil bis zum naechsten
 Marker, unabhaengig von der Ordnung. **Ohne diese Aenderung waere das Ergebnis ein Messartefakt
 gewesen.**
+
+## Runde 208 — Middle-Out Punkt 2 gescheitert: 24 Prozent, und die alte Form bricht mit ein
+
+**Ergebnis `mix47` (Antwort vor Weg), je 60–100 Aufgaben:**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| neue Form (Antwort zuerst) | 0 | **24** | 42 |
+| alte Form (Weg zuerst) | 0 | **60** | 61,7 |
+
+**Die Hypothese (ueber 90 bleibt) ist widerlegt, die Alternative (unter 70) trifft zu.** Aber der
+Grund ist nicht "der Weg war die Kruecke" — das Modell hat die **Reihenfolge gar nicht gelernt**:
+
+```
+erwartet:  <ANTWORT> Mann <DENKWEG> "der" ist Nominativ ...
+erzeugt:   "Kalbein 'den' ist Akkusativ, 'der' ist Nominativ ... <ANTWORT> Mann"
+```
+
+Es schreibt den Weg **zuerst**, wie in der alten Form. Die Umstellung ist an ihm vorbeigegangen.
+
+**Und die alte Form bricht gleichzeitig auf 60 ein.** Zwei Reihenfolgen derselben Aufgabe
+konkurrieren um dieselben Parameter — **dasselbe Muster wie bei der Stelligkeit der Addition**
+(Runde 195: zweistellig fiel von 98 auf 18, als dreistellig dazukam).
+
+**Das ist R1 zum vierten Mal:** die Reihenfolge der Abschnitte ist ein **unmarkiertes Merkmal**.
+Wer sie aendert, ohne sie zu etikettieren, bekommt keine zweite Form, sondern eine kaputte.
+
+**Entscheidung nach Regel 6:** `mix47` wird **nicht uebernommen** (alte Form 60 statt 96).
+**Referenz bleibt `mix46`** — Aufgaben 90–100 mit Text im Korpus.
+
+**Was trotzdem gelernt ist:** die Reihenfolge ist kein freier Parameter. Wenn Middle-Out
+(Entscheidung zuerst) wirklich geprueft werden soll, braucht es ein **Etikett** — etwa
+`<FORM>MITTE</FORM>` gegen `<FORM>ENDE</FORM>` —, damit das Modell die beiden Formen
+unterscheiden kann. Sonst ueberschreiben sie sich, wie Stelligkeiten und Wortlisten.
+
+**Ein Werkzeugfehler weniger:** `--wegextract` stuerzte bei der neuen Reihenfolge ab (Slice
+`[t+1..a]` mit `a < t`). Es liest jetzt marker-basiert und ist reihenfolge-unabhaengig — ohne
+diesen Fix waere die Messung ein Absturz statt einer Zahl gewesen.
