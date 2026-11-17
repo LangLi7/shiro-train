@@ -4446,7 +4446,10 @@ fn main() {
             seen.insert(h);
             let mut rec: Vec<u8> = Vec::new();
             rec.push(B_TASK);
-            rec.extend_from_slice(format!(" {} ", aufgabe).as_bytes());
+            // The label is what separates this family from the plain equation family: without
+            // it the model sees the same equation and does not know whether a number or a
+            // verdict is expected (round 219: 2.6 percent destroyed the model).
+            rec.extend_from_slice(format!(" Urteil: {} ", aufgabe).as_bytes());
             rec.push(B_THINK);
             rec.extend_from_slice(format!(" {} ", weg).as_bytes());
             rec.push(B_ANSWER);
@@ -5638,6 +5641,7 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
 
 
 

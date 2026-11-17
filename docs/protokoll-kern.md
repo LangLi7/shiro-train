@@ -2813,3 +2813,20 @@ Familien unterscheidbar, und die Frage "Zahl oder Urteil" ist im Prompt entschie
 **nie an der Datenmenge**, sondern immer an einem **fehlenden Etikett**: Stelligkeit (195),
 Reihenfolge (208), Lexikon-Format (210), Quiz-Format (215), Antwortform (219). Die Reihenfolge
 der Arbeit ist deshalb ab jetzt: **erst das Etikett, dann die Daten.**
+
+## Runde 220 — Etikett zuerst: `Urteil:` trennt die Antwortform
+
+**Der Fix aus Runde 219, angewendet bevor Daten entstehen:** die Familie traegt jetzt ein
+Etikett im Prompt.
+
+```
+Urteil: 4x + 1 = 4x + 10   ->  0 = 9. Falsch fuer jedes x.   Antwort: widerlegt
+```
+
+**Hypothese:** mit Etikett lernt das Modell die drei Antwortklassen (**ueber 80**) und die
+bestehende Gleichungen-Familie haelt (**ueber 90**). Ohne Etikett waren beide bei 0.
+
+**Der Unterschied zu allen vorherigen Versuchen:** bei den fuenf Fehlversuchen davor kam das
+Etikett **nach** dem Training als Erklaerung ("die Form war nicht unterscheidbar"). Diesmal ist es
+**vor** dem Training da. Das ist die einzige Aenderung an der Arbeitsweise, die aus den fuenf
+Fehlern folgt.
