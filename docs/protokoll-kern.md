@@ -1919,3 +1919,49 @@ ohne/1 Uebertrag **ueber 85**, mit zwei Uebergaengen **unter 40**.
 >
 > Zweistellig wieder unter 50 = das Etikett reicht nicht; dann ist der Konflikt tiefer und die
 > dreistellige Familie wird dauerhaft aufgegeben.
+
+## Runde 197 — Das Etikett reicht nicht: vier Additionsvarianten ueberfordern das Modell
+
+**Ergebnis `mix42` (Etikett "3-stellig:" plus drei Varianten), je 60–80 Aufgaben:**
+
+| Variante | mix38/mix40 | **mix42** |
+|---|---|---|
+| Addition zweistellig | 98,3 | **83,3** |
+| 3-stellig ohne Uebertrag | 93 | **55** |
+| 3-stellig, 1 Uebertrag | 95 | **30** |
+| 3-stellig, 2+ Uebergaenge | 24 | **35** |
+
+**Das Etikett hat nichts gerettet — es hat alles schlechter gemacht.** Die Hypothese
+(zweistellig ueber 95, dreistellig nach Uebertrag-Regel) ist an beiden Teilen gescheitert.
+
+**Regression der anderen Familien (`mix42`):**
+
+| Familie | Wert |
+|---|---|
+| Sprachlogik | **98,3** |
+| Ketten zweistellig | **98,3** |
+| Logik positiv | **100** |
+
+**Die anderen Familien halten. Nur die Addition leidet** — und zwar alle vier Varianten.
+
+**Was das bedeutet:** das 24M-Modell kann **vier aehnliche Additionsformen nicht gleichzeitig
+halten**, auch nicht mit Etikett. Die Formen konkurrieren um dieselben Parameter, und 2000
+Schritte reichen nicht, sie zu trennen. Das Etikett hilft nur, wenn genug Kapazitaet da ist, es
+auch zu nutzen.
+
+**Das ist ein saubereres Kapazitaetsargument als alle vorherigen:** nicht "zu klein fuer
+dreistellig", sondern **"zu klein fuer mehrere aehnliche Formen nebeneinander"**. Genau dafuer
+waeren Skalierung oder ein MoE mit getrennten Experten der richtige Hebel — und der Befund ist
+hier entstanden, nicht behauptet.
+
+**Dreistellige Addition wird nach vier Versuchen aufgegeben:**
+
+| Versuch | Aenderung | Ergebnis |
+|---|---|---|
+| 1 | mit Uebertrag | 24 |
+| 2 | ohne Uebertrag | 93 (aber nur diese Variante) |
+| 3 | genau ein Uebertrag | 95 (aber zweistellig brach auf 18) |
+| 4 | Etikett + drei Varianten | 30–83, alles schlechter |
+
+**Entscheidung nach Regel 6:** `mix42` wird **nicht uebernommen**. **Referenz bleibt `mix38`**
+(alle sieben Familien ueber 90).
