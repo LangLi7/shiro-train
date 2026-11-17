@@ -1551,3 +1551,41 @@ UTF-8-Sequenz und wurden dabei zerstoert. Behoben durch byteweises Arbeiten: nur
 zwischen den Markern anfassen.
 
 **Werkzeug liegt bereit:** `werkzeug/sprachparaphrase.ps1`.
+
+## Runde 186 — Ketten: der Fehler ist der Stellenwert, nicht die Verkettung
+
+**Vor dem Aendern nachgesehen, wo die Ketten scheitern.** Sechs Ketten einzeln geprueft, drei
+davon falsch:
+
+```
+Kette:  ... e=a*c=686; f=e-d; f?
+richtig: 686 - 84 = 602
+erzeugt: 686 - 84 = 646
+
+Kette:  ... e=c+a=105; f=e+c; f?
+richtig: 105 + 98 = 203
+erzeugt: 105 + 98 = 1198
+```
+
+**Beide Fehler sind dreistellige Arithmetik** — derselbe Befund wie `23+178=219` und die
+3x3-Multiplikation. Die Verkettung selbst ist nicht das Problem: das Modell uebernimmt die
+Zwischenwerte korrekt und setzt sie an der richtigen Stelle ein.
+
+**Die Hypothese ist damit falsch gewesen:** ich hatte angenommen, mehrstufige Ausfuehrung sei
+die Grenze. Tatsaechlich ist es der **Stellenwert** — und der schlaegt bei Ketten nur zu, weil
+die Zwischenwerte dort dreistellig werden duerfen.
+
+**Eine Aenderung:** `SHIRO_KETTEN_KLEIN=1` bricht jede Kette ab, deren Zwischenwert 99
+ueberschreitet. Geprueft: hoechster Wert in 100 Aufgaben = **98**.
+
+```
+Kette: a=7;b=a+a;c=a*b;d=a+b;e=d-a;e?
+Weg:   a = 7;b=a+a=14;c=a*b=98;d=a+b=21;e=d-a=14;e=14.   Antwort 14
+```
+
+**Nur 340 Trainingssaetze** — der Raum zweistelliger Ketten ist klein. Fuer einen
+Machbarkeitstest reicht es, fuer eine belastbare Aussage nicht. Das steht im Ergebnis dabei.
+
+**Hypothese:** bleiben alle Zwischenwerte zweistellig, steigt die Kettenfamilie von 71,7 auf
+**ueber 85 Prozent**. Wenn ja, ist der Stellenwert die einzige Ursache und die Familie ist mit
+kleinen Zahlen geloest. Wenn nein, ist die Verkettung doch ein eigener Engpass.
