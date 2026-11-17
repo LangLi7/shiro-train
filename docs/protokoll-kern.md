@@ -2644,3 +2644,37 @@ und sie ist mit einem Verlustvergleich direkt beantwortbar.
 **Ein Hinweis fuer die Umsetzung spaeter:** beim freien Erzeugen muss die Laenge vorher feststehen
 (die Mitte ist nur bei bekannter Laenge definiert) — beim Training ist das kein Problem, weil die
 Records feste Laengen haben.
+
+## Runde 215 — Das Woerterbuch-Quiz ist ein Totalausfall, und es reisst alles andere mit
+
+**Ergebnis `mix49` (24 000 Quiz-Aufgaben zusaetzlich zu `mix46`), je 40–100 Aufgaben:**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Woerterbuch-Quiz (reservierte Woerter) | 0 | **0** | 9 |
+| Addition | 0 | **0** | 0 |
+| Sprachlogik | 0 | **35** | 35 |
+
+**Nicht nur das Neue wurde nicht gelernt — das Alte ist zerstoert.** Ein Modell, das vorher
+Addition 98 und Sprachlogik 97 hatte, antwortet jetzt mit Kauderwelsch
+("ach schlalage W Wer Wist den Mach").
+
+**Die Ursache ist erkennbar:** 24 000 Quiz-Aufgaben sind **fast die Haelfte** des Korpus, und die
+Form war neu (Definitionen bis 360 Zeichen). In 1500 Schritten hat das Modell die neue Form weder
+gelernt noch die alte behalten — es hat beides verloren. **Zu viel Neues auf einmal.**
+
+**Das ist dieselbe Mechanik wie in Runde 195** (zweistellige Addition fiel von 98 auf 18, als
+dreistellig dazukam), nur in groesserem Massstab. Die Regel bleibt: eine neue Form braucht
+**kleine Portionen und viele Schritte**, nicht eine grosse Portion und wenige.
+
+**Entscheidung nach Regel 6:** `mix49` wird **nicht uebernommen** (Totalausfall).
+**Referenz bleibt `mix46`** — sechs Familien 90–100 mit Text im Korpus.
+
+**Was der Versuch trotzdem geklaert hat:** die Wörterbuch-Idee als **Trainingsinhalt** ist mit
+diesem Anteil nicht umsetzbar. Wenn sie weiterverfolgt wird, dann als **kleine Portion**
+(etwa 5 Prozent des Korpus) ueber **viele Schritte** — oder als **Nachschlagen zur Laufzeit**
+(Lookup), das gar nicht ins Training muss.
+
+**Der naechste Schritt ist vorbereitet:** der Middle-Out-Vergleich (zwei Laeufe, 1200 Schritte,
+derselbe Text in zwei Ordnungen, Verlust als Mass). Er kommt ohne Aufgabenformat aus und kann
+deshalb nicht durch Katastrophen-Vergessen verfaelscht werden.
