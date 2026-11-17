@@ -1965,3 +1965,53 @@ hier entstanden, nicht behauptet.
 
 **Entscheidung nach Regel 6:** `mix42` wird **nicht uebernommen**. **Referenz bleibt `mix38`**
 (alle sieben Familien ueber 90).
+
+## Runde 198 — Der entscheidende Test: fremde Woerter, 0 Prozent. Die Sprachlogik war ein Memo.
+
+**Die offene Schuld aus Runde 173 wird eingeloest.** Damals stand im Protokoll: "Der
+entscheidende Test steht aus: dieselbe Aufgabe mit Nomen, die nie im Training waren."
+
+**Familie `mix43`:** dieselbe Satzform, dieselben Artikel, aber **zwoelf neue Nomen**
+(Opa, Onkel, Tiger, Loewe, Oma, Tante, Blume, Wolke, Baby, Auto, Fenster, Buch).
+Unabhaengig geprueft: **0 von 12 kommen im Trainingsset vor.**
+
+**Ergebnis `mix38` (Referenz), 100 Aufgaben: Weg 0 %, Antwort 0 %, Klasse 100 %.**
+
+**Nachgesehen, was es schreibt:**
+
+```
+Aufgabe:  Satz mit "Baby" und "Onkel". Wer kennt?
+erzeugt:  "Das Subjekt ist Huhn."   Antwort: Huhn
+
+Aufgabe:  Satz mit "Loewe". Wer kennt?
+erzeugt:  "Das Subjekt ist Lehrer."  Antwort: Lehrer
+```
+
+**Das Modell antwortet mit Woertern, die es kennt** — Huhn, Lehrer, Maus stehen im
+Trainingsvokabular, Baby und Loewe nicht. Es hat die **Satzform** gelernt ("Das Subjekt ist X")
+und fuellt X aus seinem 24-Woerter-Vokabular.
+
+**Damit ist die Bewertung des ganzen Projekts zu korrigieren:**
+
+| Befund | Bisher gedeutet als | Tatsaechlich |
+|---|---|---|
+| Sprachlogik 97 % | Regel gelernt, robust | **Memo ueber 24 Woerter** |
+| Paraphrase "Wer handelt?" 95 % | Regel haelt Umformulierung | Memo — die Woerter blieben gleich |
+| **Fremde Woerter 0 %** | — | **die Regel ist nicht gelernt** |
+
+**Auch die Paraphrase-Zahlen von Runde 184 sind damit neu zu lesen:** die Addition fiel von 100
+auf 0, die Sprachlogik hielt 95 — aber nicht, weil sie die Regel kennt, sondern weil ihre
+Woerter im Training standen.
+
+**Die ehrliche Gesamtaussage nach 101 Runden:**
+
+> Das Modell lernt **Muster innerhalb seines Trainingsraums** — Formen, Woerter, Zahlenbereiche.
+> Es generalisiert auf **neue Kombinationen derselben Bausteine** (Gleichungen auf fremdem Seed:
+> 100), aber **nicht auf neue Bausteine** (fremde Woerter: 0, groessere Zahlen: 24).
+
+Das ist keine Denkfaehigkeit. Es ist ein sehr gutes Wiedererkennen — und die 97 Prozent waren
+die falsche Frage: richtig gemessen, falsch gedeutet.
+
+**Was daraus folgt:** jede kuenftige Behauptung ueber eine Faehigkeit braucht einen Test mit
+**neuen Bausteinen**, nicht nur neuen Kombinationen. Das ist die vierte methodische Lehre des
+Projekts und die wichtigste.
