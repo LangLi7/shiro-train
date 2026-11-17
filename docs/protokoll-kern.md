@@ -1813,3 +1813,28 @@ Uebertrag nicht beigebracht.**
 **Der Fehler in meiner Arbeitsweise, zum zweiten Mal an diesem Tag:** ich habe eine Ursache
 benannt, ohne sie mit einer Kontrollbedingung zu trennen. Das Nachsehen allein reicht nicht —
 man sieht, was falsch ist, aber nicht, warum.
+
+## Runde 194 — Die eigene Regel pruefen: genau EIN Uebertrag. Hypothese vorab.
+
+**Die Regel aus Runde 193 lautet:** "das Modell haelt einen Uebertrag, bei zwei oder mehr bricht
+es ein." Diese Regel ist aus drei Messpunkten abgeleitet (0 Uebergaenge 93, 1 Uebertrag bei
+zweistelligen Zahlen 99, mehrere 24). **Sie ist damit noch nicht geprueft** — der Fall
+"dreistellig mit genau einem Uebertrag" fehlt.
+
+**Familie `mix41`:** dreistellige Addition, **genau eine** Stelle mit Uebertrag.
+Unabhaengig geprueft: 100 von 100 Aufgaben haben genau einen.
+
+```
+Aufgabe:  565+373
+Weg    :  E 5+3=8 -> 8 u0 ; Z 6+7=13 -> 3 u1 ; H 5+3+1=9 -> 9 u0 ; R 938 = 938
+```
+
+**Hypothese:** die Regel sagt **ueber 80 Prozent** voraus. Sie ist falsch, wenn auch hier nur
+etwa 25 herauskommen — dann ist nicht die Zahl der Uebergaenge entscheidend, sondern etwas
+anderes (etwa die Stellenzahl oder die Sequenzlaenge der Spur).
+
+**Warum dieser Test und nicht der 43M-Vergleich:** ein fairer Kapazitaetstest braucht ein
+43M-Modell, das von Grund auf auf demselben Korpus trainiert wurde — mehrere Stunden, nicht eine
+Runde. Ausserdem waere der Vergleich unfair: das 24M-Modell hat 33 000 Schritte gesehen, ein
+frisches 43M haette 2000. **Der Test wird nicht als Kapazitaetsbeweis verkauft, was er nicht
+ist.**
