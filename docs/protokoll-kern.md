@@ -2440,3 +2440,40 @@ anwenden. Erwartung: **ueber 70 Prozent** auf Woertern, die es nie gesehen hat.
 > **Unter 30** = auch das Lexikon hilft nicht; das Modell kann die gegebene Information nicht
 > auf ein fremdes Wort anwenden. Dann ist die Grenze nicht die Information, sondern die
 > Faehigkeit, sie zu benutzen — und das waere der staerkste Hinweis auf Kapazitaet.
+
+## Runde 210 — Der Lexikon-Test ist UNGUELTIG, nicht negativ
+
+**Ergebnis `mix48`, je 100 Aufgaben:**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| dritte Woerter (nie gesehen) **mit Lexikon** | 0 | **0** | 44 |
+| Trainingswoerter (36) **mit Lexikon** | 0 | **0** | 56 |
+
+**Die Kontrolle entscheidet: auch auf den Woertern, die im Training waren, 0 Prozent.** Damit ist
+der Test **nicht** eine Aussage ueber den Wortschatz-Ansatz — er zeigt, dass das **Format selbst
+nicht gelernt wurde**.
+
+**Nachgesehen:** der Prompt ist korrekt zusammengesetzt (203 Bytes, Lexikon + Satz + Frage):
+```
+Lexikon: Ziege = Substantiv, feminin; Nominativ "die Ziege", Akkusativ "die Ziege".
+         Rabe = Substantiv, maskulin; Nominativ "der Rabe", Akkusativ "den Rabe".
+Satz: die Ziege ruft den Rabe. Wer ruft?
+```
+Das Modell antwortet mit Kauderwelsch ("Artikel ntiv. Das Subjekt ist Mann") und geht dann in
+eine **andere** Aufgabe ueber. Es erkennt den Prompt nicht als Aufgabe.
+
+**Der Grund ist die Datenmenge im Korpus:** 2000 Lexikon-Saetze in einem Korpus von rund
+40 000 — **fuenf Prozent**. Bei 1500 Schritten reicht das nicht, um ein neues Prompt-Format zu
+etablieren.
+
+**Das ist eine wichtige Unterscheidung:** ein Test, der aus dem falschen Grund scheitert, ist
+**kein Beleg gegen die Hypothese**. Ich haette ihn beinahe als "das Lexikon hilft nicht"
+protokolliert — die Kontrolle auf den Trainingswoertern hat es verhindert.
+
+**Was daraus folgt:** der Test muss wiederholt werden, mit einem Korpus, in dem das Lexikon-Format
+**dominiert** (nicht fuenf Prozent, sondern die Haelfte), und laenger. Erst dann sagt das Ergebnis
+etwas ueber die Faehigkeit.
+
+**Entscheidung nach Regel 6:** `mix48` wird **nicht uebernommen** — es kann das Format nicht,
+also ist es schlechter als `mix46`. **Referenz bleibt `mix46`.**
