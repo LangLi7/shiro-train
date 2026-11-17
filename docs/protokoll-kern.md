@@ -2047,3 +2047,57 @@ bleibt es bei **0**.
 >
 > **Unter 30** = es memoriert Woerter, nicht Regeln. Dann ist die 97-Prozent-Zahl endgueltig
 > als Memo einzuordnen, und Sprache ist mit dieser Groesse nicht erreichbar.
+
+## Runde 200 — Die Kernfrage ist beantwortet: 0 Prozent. Das Modell memoriert Woerter, nicht Regeln.
+
+**Ergebnis `mix44` (Training mit 36 Nomen, Test auf 12 weiteren), 100 Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **0 %** |
+| Klasse | 100 % |
+
+**Die Hypothese (ueber 70 Prozent) ist widerlegt.** Auch mit 36 Woertern im Training behandelt
+das Modell die 12 unbekannten nicht:
+
+```
+Aufgabe:  Satz mit "Haus". Wer kennt?
+erzeugt:  "Das Subjekt ist Huhn."  — Huhn steht im Trainingsvokabular, Haus nicht
+
+Aufgabe:  Satz mit "Hahn". Wer kennt?
+erzeugt:  "Das Subjekt ist Hund."
+```
+
+**Damit ist die Frage aus Runde 199 entschieden:** es ist **keine Datenfrage**. 24 Woerter reichten
+nicht, 36 reichen auch nicht. Das Modell bildet keine Regel "der = Nominativ", die auf ein neues
+Wort uebertraegt. Es merkt sich, welche der bekannten Woerter in welcher Stellung das Subjekt
+sind.
+
+**Die endgueltige Bilanz des Projekts, nach 102 Runden:**
+
+| Zahl | Belastbar? | Warum |
+|---|---|---|
+| Sprachlogik 97 % | **nein** | Memo ueber 24 Woerter; fremde Woerter 0 |
+| Addition 99 % | **nein** | fremde Formulierung 0 |
+| Gleichungen 100 % (fremder Seed) | **ja, aber** | neue Kombinationen derselben Bausteine |
+| Dreistellig ohne Uebertrag 93 % | **ja** | neue Bausteine (Ziffern) in neuer Form |
+| **Fremde Woerter 0 %** | **ja** | der Test, der gegen das Modell spricht |
+| **Dreistellig mit Uebertrag 24 %** | **ja** | Kontrollbedingung, nicht Memo |
+| **Fremde Formulierung 0 %** | **ja** | der Test, der gegen das Modell spricht |
+
+**Das Muster: die hohen Zahlen sind Memo, die Nullen sind Erkenntnis.** Ein Modell, das auf neue
+Bausteine mit 0 reagiert, hat nichts gelernt, was uebertraegt — es hat einen Trainingsraum
+auswendig gelernt und fuellt ihn zuverlaessig aus.
+
+**Was trotzdem bleibt und uebertragbar ist:** die Methode. Etikett (R1), kurzer pruefbarer Weg,
+getrennte Mengen, vorab festgelegte Regeln, Kontrollbedingungen. Und die vier methodischen
+Lehren, jede aus einem eigenen Fehler:
+
+1. Ein Etikett trennt sonst identische Formen (Logik 0 auf 100).
+2. Datenmenge vor Modellgroesse — erst pruefen, dann skalieren.
+3. Eine Ursachenbehauptung braucht eine Kontrollbedingung, nicht nur eine passende Beobachtung.
+4. Eine Faehigkeitsbehauptung braucht **neue Bausteine**, nicht nur neue Kombinationen.
+
+**Punkt 4 ist die teuerste Lehre:** sie haette drei Runden frueher kommen koennen und haette die
+97-Prozent-Feier verhindert.
