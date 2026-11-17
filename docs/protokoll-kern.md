@@ -1703,3 +1703,45 @@ zweistelligen Zahlen auf 99 Prozent bringt. Erwartung: **ueber 90 Prozent**.
 > **Unter 60** = echte Grenze. Dann ist die Kapazitaet oder die Sequenzlaenge der Deckel, und
 > jedes weitere Training derselben Form ist verlorene Zeit. Das waere der Beleg fuer die
 > Skalierung (RunPod), nicht fuer mehr Daten.
+
+## Runde 191 — Dreistellige Addition: 24 Prozent. Die Grenze ist das Lesen, nicht das Rechnen
+
+**Ergebnis `mix39` (dreistellige Addition mit Stellen-Spur), 100 reservierte Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **23 %** |
+| Antwort | **24 %** |
+| Klasse | 100 % |
+
+**Nach der vorab festgelegten Regel (unter 60) ist das eine echte Grenze, keine Trainingsluecke.**
+Aber das Nachsehen zeigt, woran es liegt — und es ist nicht die Rechnung:
+
+```
+Aufgabe: 480+265 (Gold 745)
+erzeugt: E 0+5=5 -> 5 u0 ; Z 8+2=10 -> 0 u1 ; H 4+2+1=7 -> 7 u0 ; R 705
+
+Aufgabe: 916+907 (Gold 1823)
+erzeugt: E 6+7=13 -> 3 u1 ; Z 1+0+1=2 -> 2 u0 ; H 9+9=18 -> 8 u1 ; T 0+0+1=1 ...
+```
+
+**Die Stellenlogik ist da** — Einer, Zehner, Hunderter, Uebertrag, alles an der richtigen Stelle.
+**Die Ziffern sind falsch:** aus `8+6` wird `8+2`, die Hunderterstelle von `265` verschwindet.
+
+**Das ist derselbe Befund wie im Lexikon-Test** (`a=9, b=27` wurde zu `a=10, b=18`) und wie bei
+der Paraphrase (`9(x+7)` wurde zu `7(x+7)`): **das Modell liest mehrstellige Zahlen nicht
+zuverlaessig aus dem Prompt.** Es rechnet dann mit dem, was es gelesen hat — und rechnet damit
+fehlerfrei.
+
+**Damit ist die Kette der Ursachen vollstaendig, und sie ist eine andere als bisher gedacht:**
+
+> Nicht "das Modell kann nicht dreistellig rechnen". Sondern: **es liest dreistellige Zahlen
+> falsch ab**, und deshalb rechnet es mit falschen Zahlen richtig.
+
+**Was das fuer die Skalierung bedeutet:** das ist die erste Grenze im Projekt, die plausibel
+**kapazitiv** ist. Ziffern aus einem Kontext zuverlaessig zu kopieren ist eine
+Aufmerksamkeitsleistung, und die haengt an Modellgroesse und Kopfzahl. Genau dafuer waere
+RunPod der richtige Hebel — nicht fuer mehr Daten derselben Form.
+
+**Einschraenkung:** 24 Prozent sind nicht null. Das Modell hat die Form gelernt und scheitert
+bei etwa drei von vier Aufgaben am Ablesen. Ein Zwischenwert, kein Totalausfall.
