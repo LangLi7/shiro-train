@@ -1645,3 +1645,32 @@ Aufgabe), alles andere haelt.
 klein. Das Ergebnis ist auf reservierten Aufgaben gemessen und nicht memoriert, aber es gilt
 nur fuer Ketten, deren Zwischenwerte zweistellig bleiben. Eine Kette mit `686 - 84` bleibt
 unloesbar.
+
+## Runde 189 — Generalisation auf unbekannte Daten: die Form traegt, die Groessenordnung nicht
+
+**Drei Mengen, die nie im Training waren** (eigener Seed, eigener Split), gemessen mit `mix38`:
+
+| Menge | n | Weg | Antwort |
+|---|---|---|---|
+| Gleichungen, fremder Seed | 10 | **100** | **100** |
+| Ketten, **dreistellige** Zwischenwerte | 60 | 68,3 | **70** |
+| Multiplikation, **fuenfstellig** (8777*23) | 40 | 0 | **0** |
+
+**Drei Aussagen, jede einzeln belegt:**
+
+1. **Die Form generalisiert.** Gleichungen auf einem Seed, den das Modell nie sah: 100 Prozent.
+   Es hat die Umformungsregel gelernt, nicht die Aufgaben.
+2. **Der Zahlenbereich generalisiert nicht.** Dieselbe Kettenform mit dreistelligen
+   Zwischenwerten faellt auf 70 — genau der alte Wert vor der Aenderung. Das Modell hat die
+   zweistelligen Ketten gelernt, nicht "Ketten".
+3. **Die Groessenordnung generalisiert nicht.** Fuenfstellig mal zweistellig: 0 von 40.
+
+**Damit ist die Grenze des Modells vollstaendig beschrieben:**
+
+> Es lernt **Formen innerhalb eines Zahlenbereichs**. Neue Aufgaben derselben Form: ja.
+> Dieselbe Form mit groesseren Zahlen: nein. Andere Form: nein.
+
+Das erklaert rueckblickend jeden Befund des Projekts — die gescheiterte Division (Zwischenwerte
+dreistellig), die geschlossene Form (a+b bis 240), den Lexikon-Test (23+178), die 3x3-
+Multiplikation, und es erklaert, warum die Sprachlogik so gut traegt: ihre "Zahlen" sind Woerter,
+und Woerter haben keine Stellenwerte.
