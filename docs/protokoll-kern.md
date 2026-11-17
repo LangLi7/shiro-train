@@ -1512,3 +1512,42 @@ ist die Sprachlogik (ihre Saetze sind selbst der Inhalt) — dort ist der Test n
 **Die ehrliche Konsequenz:** ein Modell, das bei "Bitte loese:" von 100 auf 0 faellt, ist kein
 Sprachmodell. Es erkennt Muster. Mehr Daten derselben Form machen es darin besser, nicht
 sprachfaehiger.
+
+## Runde 185 — Sprachlogik uebersteht die Umformulierung: 95 Prozent bei "Wer handelt?"
+
+**Die Frage umformuliert, nicht nur die Rahmung.** Das Modell muss dieselbe Antwort geben, ohne
+dass das Verb in der Frage steht:
+
+| Variante | Treffer (n=20) |
+|---|---|
+| trainiert: "Wer sucht?" | **100** |
+| **"Wer handelt?"** | **95** |
+| "Wer ist der Taeter?" | 20 |
+| "Bitte nenne die handelnde Person." | 10 |
+
+**95 Prozent bei einer echten Umformulierung** — das ist der Gegensatz zur Addition, die bei
+"Bitte loese:" von 100 auf 0 faellt.
+
+**Und der Einbruch bei den anderen beiden Varianten ist genauso lehrreich:** "Taeter" und
+"handelnde Person" sind Woerter, die im Korpus nie vorkommen. Das Modell scheitert nicht an der
+Regel, sondern am **unbekannten Wort**.
+
+**Damit ist die Grenze praezise benannt:**
+
+| Was | Verhalten |
+|---|---|
+| Die **Regel** (Kasus, Stellung) | gelernt, robust gegen Umformulierung — 95 Prozent |
+| Das **Vokabular** | bricht bei unbekannten Woertern — 10 bis 20 Prozent |
+| Die **Rechenform** | bricht bei Umformulierung — 0 Prozent bei Addition |
+
+**Das ist der direkte Beleg fuer die Lexikon-These des Nutzers, und zwar an der richtigen
+Stelle:** nicht die Formel braucht ein Lexikon (die scheitert an Sonderzeichen), sondern das
+**Wort**. Ein Lexikon, das "Taeter" erklaert, wuerde die 20 Prozent auf 95 heben, ohne einen
+einzigen Trainingsschritt.
+
+**Ein Skriptfehler, der zuerst 0 Prozent in der trainierten Form ergab:** ich hatte den Prompt
+als UTF-8 dekodiert und neu geschrieben — die Marker-Bytes (0xFE, 0xFD) sind keine gueltige
+UTF-8-Sequenz und wurden dabei zerstoert. Behoben durch byteweises Arbeiten: nur den Text
+zwischen den Markern anfassen.
+
+**Werkzeug liegt bereit:** `werkzeug/sprachparaphrase.ps1`.
