@@ -1745,3 +1745,32 @@ RunPod der richtige Hebel — nicht fuer mehr Daten derselben Form.
 
 **Einschraenkung:** 24 Prozent sind nicht null. Das Modell hat die Form gelernt und scheitert
 bei etwa drei von vier Aufgaben am Ablesen. Ein Zwischenwert, kein Totalausfall.
+
+## Runde 192 — Gegenprobe: dreistellige Addition OHNE Uebertrag. Hypothese vorab.
+
+**Meine Deutung aus Runde 191 ("das Modell liest Ziffern falsch") ist selbst ungeprueft.** Der
+Gegenversuch trennt zwei Ursachen, die ich bisher vermischt habe:
+
+| Variante | Was sie prueft |
+|---|---|
+| mit Uebertrag (`mix39`) | Lesen **und** Uebertragslogik — 24 Prozent |
+| **ohne Uebertrag** (`mix40`) | nur Lesen und Spaltenaddition |
+
+Bei "ohne Uebertrag" summieren sich die Spalten unabhaengig; jede bleibt unter 10.
+**Unabhaengig geprueft: 0 von 100 Aufgaben haben auch nur eine Stelle mit Uebertrag.**
+
+```
+Aufgabe:  420+538
+Weg    :  E 0+8=8 -> 8 u0 ; Z 2+3=5 -> 5 u0 ; H 4+5=9 -> 9 u0 ; R 958 = 958
+```
+
+**Hypothese:** wenn der **Uebertrag** das Hindernis ist, steigt die Quote deutlich — auf
+**ueber 80 Prozent**. Wenn das **Lesen** das Hindernis ist, bleibt sie bei etwa 25.
+
+**Entscheidungsregel:**
+
+> **Ueber 80** = meine Deutung "liest falsch" ist **widerlegt**. Dann ist der Uebertrag die
+> Grenze, und das ist eine andere Baustelle (Sequenzlogik statt Wahrnehmung).
+>
+> **Unter 50** = die Deutung haelt. Dann ist das Ablesen mehrstelliger Zahlen die Grenze, und
+> das ist kapazitiv — der Beleg fuer Skalierung.
