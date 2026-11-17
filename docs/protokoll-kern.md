@@ -1144,3 +1144,74 @@ beim ersten Schritt wieder weg. Sequentielles Erweitern, wie in den Regeln festg
 > **Ueber 80 Prozent** = PoC gelungen, die Richtung traegt, Skalierung (RunPod) ist sinnvoll.
 > **Unter 80** = das Formelwissen selbst ist die Huerde — dann braucht es das **Lexikon** als
 > Nachschlagewerk, nicht mehr Training. Das waere der direkte Beleg fuer den Lexikon-Vorschlag.
+
+## Runde 175 — RunPod-Stufe 0 vorab bewiesen, ohne einen Credit auszugeben
+
+**Der riskanteste Teil des Plans war nicht die GPU, sondern der Build.** Beide Binaries muessen
+im Pod laufen. Beides ist jetzt im Container geprueft, lokal, kostenlos:
+
+| Binary | Build auf Linux | Lauf |
+|---|---|---|
+| `shiro` (Trainer) | 3 min 48 mit `--features cuda` | `--help` und `eval --help` antworten |
+| `mktool` (Generator) | **5,21 s** | 200 Aufgaben erzeugt, nachgerechnet: 16*17*33/6 = 1496 und (24+53)*30/2 = 1155, beide richtig |
+
+**Damit ist die Kette Pod -> Build -> Daten -> Training -> HuggingFace bis auf die GPU-Seite
+belegt.** Was im Pod noch fehlt: `nvidia-smi`, ein echter Trainingsschritt, der Push.
+
+**Kosten bisher: null.** Kein Pod gestartet.
+
+**Was das fuer den Plan bedeutet:** das Abbruchrisiko in Stufe 0 sinkt auf zwei Punkte — sieht
+der Pod die GPU, und haelt der Durchsatz die 28-Stunden-Rechnung. Alles andere ist bewiesen.
+
+## Runde 176 — Geschlossene Form: 0 Prozent, Hypothese widerlegt — aber die Sprache steigt auf 96,7
+
+**Ergebnis `mix34` (geschlossene Form als achte Familie), 150 reservierte Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **0 %** |
+| Klasse | 91,3 % |
+
+**Die Hypothese (ueber 80 Prozent) ist klar widerlegt.** Wie immer habe ich nachgesehen, statt zu
+deuten — und das Modell antwortet nicht einmal im richtigen Format:
+
+```
+Aufgabe: Fibonacci F(8) mit der geschlossenen Form (Binet).
+erzeugt: "Ar Silo Rabe. zor Lem Jorik. Folgt Silo in Jorik?" — Logiktext.
+Aufgabe: Summe 1+2+4+...+2^7 in geschlossener Form.
+erzeugt: "7x - 77 = 01 ... x = 12" — Gleichungsreste.
+```
+
+**Die Ursache ist ein Regelverstoss, den ich selbst aufgeschrieben habe (R1):** die Familie
+enthaelt **vier verschiedene Formeln** (arithmetische Reihe, Quadratsumme, geometrische Reihe,
+Binet), aber **kein unterscheidendes Etikett** — die Aufgabe sagt nur "in geschlossener Form".
+Das Modell kann nicht wissen, welche Formel gilt, und raet. Genau derselbe Fehler wie bei
+LOGIK-POSITIV gegen LOGIK-BRUCH, wo das Etikett den Sprung von 0 auf 100 brachte.
+
+**Regression (`mix34` gegen `mix19`, je 16):**
+
+| Familie | mix19 | mix34 |
+|---|---|---|
+| Addition | 100 | 100 |
+| Logik positiv | 100 | 100 |
+| Logik Bruch | 100 | 100 |
+| Gleichungen | 93,8 | **81,2** |
+| Multiplikation | 100 | 93,8 |
+| Ketten | 62,5 / 68,8 | **68,8 / 75** |
+| **Sprachlogik** | — | **96,7** (n=150) |
+
+**Der eigentliche Gewinn dieser Runde ist nicht die geschlossene Form, sondern die Sprache:
+96,7 Prozent, nach 90,3 im vorigen Lauf.** Die Faehigkeit haelt nicht nur unter Weitertraining,
+sie wird besser. Das ist der erste Fall im Projekt, in dem eine Faehigkeit durch eine weitere
+Runde **steigt** statt zu verfallen.
+
+**Preis dafuer:** Gleichungen verlieren zwei Aufgaben (93,8 auf 81,2). Ketten gewinnen eine.
+Das ist der uebliche Zielkonflikt — mehr Daten fuer eine Familie kosten eine andere.
+
+**Naechster Versuch fuer die geschlossene Form (eine Aenderung):** vier Formel-Arten, vier
+Etiketten — "Reihe:", "Quadrate:", "Geometrisch:", "Binet:". Sonst nichts.
+
+**Stand der RunPod-Vorbereitung:** `mktool` baut auf Linux in 5,21 s und erzeugt korrekte
+Aufgaben (nachgerechnet); `shiro` baut mit CUDA in 3 min 48. **Die Kette ist bis auf die
+GPU-Seite bewiesen, ohne einen Credit auszugeben.**
