@@ -1046,3 +1046,63 @@ Faelle zu finden.
 **Vorschlag des Nutzers, aufgenommen:** ein **Woerterbuch als Index**, in dem das Modell
 nachschlaegt, statt Wortwissen zu lernen. Das ist der naechste Schritt nach diesem Lauf — als
 A/B-Vergleich: dieselbe Familie mit und ohne Lexikon im Prompt.
+
+## Runde 173 — Sprachlogik: 90,3 Prozent im ersten Versuch
+
+**Ergebnis `mix33`, 300 reservierte Aufgaben, Kasus und Stellung:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **90,3 %** |
+| Antwort | **90,3 %** |
+| Klasse | 100 % |
+
+**Die erste Familie, die im ersten Versuch ueber der Zielmarke liegt — und es ist keine
+Arithmetik, sondern Sprache.**
+
+Das Modell entscheidet aus dem Artikel ("der" gegen "den") oder, wenn kein Artikel
+unterscheidet, aus der Stellung, **wer handelt**. Weg und Antwort sind identisch: es schreibt
+die Begruendung und kommt zum selben Ergebnis. Kein Vokabellernen — die Woerter stehen im Satz.
+
+**Regression (`mix33` gegen `mix19`, je 16):**
+
+| Familie | mix19 | mix33 |
+|---|---|---|
+| Addition | 100 | 100 |
+| Logik positiv | 100 | 100 |
+| Logik Bruch | 100 | 100 |
+| Gleichungen | 93,8 | 87,5 |
+| Multiplikation | 100 | 93,8 |
+| Ketten | 62,5 / 68,8 | 62,5 / 68,8 |
+| **Sprachlogik** | — | **90,3** |
+
+**Der Vorbehalt, der jetzt zaehlt:** der Raum umfasst 24 Nomen x 23 x 6 Verben x 2 Stellungen
+= rund 6600 moegliche Saetze. Im Training liegen 4884. **Die Testmenge ist damit fast die
+einzige Ausnahme** — 90,3 Prozent auf reservierten Aufgaben beweisen weniger, als sie
+scheinen: Memorisierung und Regel sind bei 97 Prozent Abdeckung nicht zu trennen.
+
+**Der entscheidende Test steht aus:** dieselbe Regel mit **Nomen, die nie im Training waren**
+(Opa, Oma, Tante, Baby). Wenn das Modell die Regel gelernt hat, muss es dort funktionieren —
+der Artikel traegt die Information, nicht das Wort. Faellt der Test aus, war es Memorisierung.
+
+## Paper: Byte Language Models (arXiv 2610.05978)
+
+**Kernaussagen des Papers (Wang et al., Okt 2026):**
+
+1. Byte-Modelle ohne Tokenizer erzeugen laengere Sequenzen und **keine expliziten
+   Text-Abstraktionen** — genau das, was ein Tokenizer liefert.
+2. Mit **Token-Superposition-Training und Hash-Embeddings** schlagen Byte-Transformer
+   Subword-Transformer **mit steigender Modellgroesse**.
+3. Byte-Transformer bauen selbst lokale Segmentierungen; **bis 25 Prozent der Zwischenschichten
+   auf diese lokalen Repraesentationen beschraenkt** erhalten die Leistung.
+4. Unsicherheit konzentriert sich an lokalen Strukturgrenzen (3,4-fach besseres speculative
+   decoding).
+
+**Was das fuer uns bedeutet:** unser Modell nutzt **keine** der beiden Techniken — einfache
+256-Byte-Embeddings, Standard-Cross-Entropy. Die im Paper genannten Gewinne entstehen erst
+**mit steigender Groesse**; bei 24M ist der Effekt nicht zu erwarten. Unser Befund (keine
+Sprachabstraktion, keine mehrstufige Ausfuehrung) ist damit **erwartbar**, nicht ueberraschend.
+
+**Der naechste technische Hebel waere damit klar benannt:** Hash-Embeddings ueber n-Gramme —
+mehr Information pro Byte, ohne Tokenizer. Das ist auch die maschinelle Entsprechung des
+Woerterbuch-Vorschlags: ein n-Gramm-Hash ist ein implizites Lexikon.
