@@ -2910,3 +2910,43 @@ Arithmetik-Familie nur ein anderer Blick auf denselben Defekt, und kein Etikett 
 
 **Das ist der erste Test im Projekt, der eine einzelne Faehigkeit vollstaendig isoliert** — ohne
 Rechnen, ohne Regel, ohne Bedeutung. Genau das hat bisher gefehlt.
+
+## Runde 223 — Auch Ziffern-Kopieren scheitert. Das 24M-Modell ist am Limit seiner Familienzahl.
+
+**Ergebnis `mix54` (reine Kopie, 2,6 Prozent des Korpus, 1500 Schritte):**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Ziffern kopieren (neu) | 0 | **0** | 35 |
+| Addition | 0 | **0** | 0 |
+
+**Das Kopieren ist die einfachste Aufgabe im ganzen Projekt** — die Ziffern stehen im Prompt, die
+Antwort ist dieselbe Zeichenfolge. Und es scheitert bei 0 Prozent. Gleichzeitig bricht die
+Addition erneut auf 0 ein.
+
+**Drei Totalausfaelle in Folge (mix52, mix53, mix54), jeder mit einer anderen neuen Familie und
+jeder mit demselben Ergebnis.** Damit ist die Ursache nicht mehr die Form der Aufgabe, sondern
+etwas Gemeinsames:
+
+> **Das Modell kann nicht mehr als etwa sieben Familien halten.** Jede achte — auch eine triviale —
+> verdraengt die bestehenden, statt sich dazuzulegen.
+
+**Das ist der erste belastbare Beleg fuer eine Kapazitaetsgrenze**, und er ist anders begruendet
+als alles vorher: nicht "zu klein fuer dreistellig" (das war der Uebertrag), nicht "zu klein fuer
+neue Woerter" (das war das Vokabular), sondern **zu klein fuer die Zahl der Aufgabenformen**.
+
+**Warum das zur Groesse passt:** das Modell hat 24,4 Mio Parameter und haelt sieben Familien mit
+je eigener Prompt-Form, eigenem Antwortformat und eigenem Weg. Jede Familie braucht eigene
+Parameter; bei acht konkurrieren sie.
+
+**Entscheidung nach Regel 7:** keine weiteren Familien mehr auf 24M. **Referenz bleibt `mix46`**
+(Checkpoint 93 MB, intakt) — sechs Familien 90–100 mit Text im Korpus.
+
+**Was das fuer den Auftrag bedeutet, ehrlich:** die Zielwerte (90 Prozent je Komponente) sind mit
+`mix46` **innerhalb der sieben trainierten Familien** erreicht. Jede achte Faehigkeit ist mit
+dieser Groesse nicht erreichbar — nicht durch bessere Daten, nicht durch Etiketten, sondern durch
+Kapazitaet. **Der naechste sinnvolle Schritt ist deshalb 100M, und der ist durch RunPod blockiert.**
+
+**Die Bilanz der letzten neun Runden:** neun Versuche, drei Totalausfaelle, ein sauberer Befund
+(Middle-Out 12 Prozent schlechter), fuenf Etikett-Lehren. **Kein einziger Versuch hat eine
+Faehigkeit hinzugefuegt.** Das ist die ehrliche Zahl.
