@@ -1606,3 +1606,42 @@ Auswertung auf einer Karte behindern sich messbar.
 
 **Was daraus als Regel folgt:** waehrend eines Laufs keine GPU-Messungen, und der Zielordner
 wird vor dem Start geprueft. Beides ist billig und hat mich heute eine Stunde gekostet.
+
+## Runde 188 — Ketten auf 94 Prozent: der Stellenwert war die Ursache, und alle sieben Familien sind ueber 90
+
+**Ergebnis `mix38` (Ketten nur mit zweistelligen Zwischenwerten), 100 reservierte Aufgaben:**
+
+| Komponente | mix37 (dreistellig) | **mix38 (zweistellig)** |
+|---|---|---|
+| Weg | 68,3 | **94** |
+| Antwort | 71,7 | **94** |
+| Klasse | 100 | 100 |
+
+**Plus 22,3 Punkte durch eine einzige Aenderung am Zahlenbereich.** Die Hypothese (ueber 85)
+ist bestaetigt, und die vorige Deutung ("mehrstufige Ausfuehrung ist die Grenze") ist damit
+widerlegt: das Modell verkettet korrekt, es rechnet nur mit dreistelligen Zwischenwerten falsch.
+
+**Kein Auswendiglernen:** Trainingsmenge 96 Prozent, reservierte Menge 94 — **zwei Punkte
+Unterschied** bei n=50 gegen n=100. Wer auswendig lernt, hat Train 100 und Test deutlich
+niedriger. Hier ist beides gleich.
+
+**Regression (`mix38` gegen `mix37`):**
+
+| Familie | n | mix37 | mix38 |
+|---|---|---|---|
+| **Ketten** | 100 | 71,7 | **94** |
+| Sprachlogik | 100 | 97 | 97 |
+| Addition | 60 | 99 | 98,3 |
+| Logik positiv | 60 | 100 | 100 |
+| Logik Bruch | 60 | 98 | 98,3 |
+| Gleichungen | 40 | 92,5 | 92,5 |
+| Multiplikation | 60 | 93,3 | 91,7 |
+
+**Alle sieben Familien liegen ueber 90 Prozent je Komponente** — das ist die Zielmarke des
+Auftrags, zum ersten Mal vollstaendig erreicht. Multiplikation verliert 1,6 Punkte (eine
+Aufgabe), alles andere haelt.
+
+**Einschraenkung, die bleibt:** nur **340 Trainingssaetze** — der Raum zweistelliger Ketten ist
+klein. Das Ergebnis ist auf reservierten Aufgaben gemessen und nicht memoriert, aber es gilt
+nur fuer Ketten, deren Zwischenwerte zweistellig bleiben. Eine Kette mit `686 - 84` bleibt
+unloesbar.
