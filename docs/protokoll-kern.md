@@ -2477,3 +2477,50 @@ etwas ueber die Faehigkeit.
 
 **Entscheidung nach Regel 6:** `mix48` wird **nicht uebernommen** — es kann das Format nicht,
 also ist es schlechter als `mix46`. **Referenz bleibt `mix46`.**
+
+## Runde 211 — RunPod live geprueft: A40 nicht verfuegbar, Pod-Start scheitert
+
+**Der Hinweis des Nutzers war richtig:** alle bisherigen Zahlen sind auf der lokalen RTX 3060
+gemessen. Die Live-Abfrage bei RunPod (`list-gpu-types` mit `AVAILABILITY`, `get-capacity`)
+ergibt ein anderes Bild:
+
+| GPU | VRAM | Community | Secure | Verfuegbarkeit (live) |
+|---|---|---|---|---|
+| **NVIDIA A40** | 48 | 0,35 | **0,59** | **NONE — nicht buchbar** |
+| RTX 3090 | 24 | **0,22** | 0,50 | Low, **CUDA nur 12.4** |
+| RTX 6000 Ada | 48 | 0,74 | 1,09 | Low, CUDA 13.2 |
+| L40S | 48 | 0,79 | 1,09 | Low, CUDA 13.2 |
+| RTX 5090 | 32 | 0,69 | 1,39 | Low, CUDA 13.2 |
+| A100 SXM 80 | 80 | 1,39 | 2,19 | Low, CUDA 13.2 |
+| RTX PRO 6000 | 96 | 1,69 | 2,69 | Low, CUDA 13.2 |
+
+**Zwei Korrekturen an der Empfehlung:**
+
+1. **Die A40 ist nicht verfuegbar** (Verfuegbarkeit NONE). Der empfohlene "beste Kompromiss"
+   laesst sich nicht buchen. Die guenstigste 48-GB-Karte ist die **RTX 6000 Ada mit 0,74 $/h**.
+2. **Die RTX 3090 hat nur CUDA 12.4** — nicht 12.9. Mein Dockerfile (`12.9.1`) haette auf der
+   guenstigsten Karte nicht gestartet. Das ist genau der Fehler, den der Leitfaden als
+   "CUDA-Floor pinnen" beschreibt, und er waere erst im Pod aufgefallen.
+
+**Pod-Start gescheitert — fuenf Versuche, alle mit derselben Meldung:**
+
+| Versuch | GPU | Cloud | Ergebnis |
+|---|---|---|---|
+| 1 | RTX 3090 | Community | keine Instanz |
+| 2 | RTX 5090 | Community | keine Instanz |
+| 3 | L40S | Community | keine Instanz |
+| 4 | RTX 3090 | Secure | keine Instanz |
+| 5 | RTX 3090 + RunPod-Image | Community | keine Instanz |
+
+**Kontostand:** `list-billing` zeigt **0 Ausgaben** in drei Tagen, `list-pods` ist leer. Es laeuft
+nichts und es wurde nichts ausgegeben.
+
+**Was das heisst, ehrlich gesagt:** Ich kann mit den verfuegbaren Werkzeugen **nicht
+unterscheiden**, ob die Kapazitaet fehlt oder ob dem Konto das Guthaben fehlt. Beides erzeugt
+dieselbe Meldung. Der wahrscheinlichere Fall ist das Guthaben — die Kapazitaetsmatrix meldet fuer
+alle diese Karten "Low" (also vorhanden), und ein Konto ohne Guthaben bekommt genau dieses
+Verhalten.
+
+**Was vorbereitet ist und wartet:** der Code liegt oeffentlich auf GitHub
+(`github.com/LangLi7/shiro-train`), inklusive Benchmark-Konfiguration. Sobald ein Pod startet,
+laufen Build und Messung ohne weiteres Zutun.
