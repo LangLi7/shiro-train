@@ -1245,3 +1245,51 @@ Klasse, die das Modell kann. Erwartung: **ueber 70 Prozent**.
 
 **Was der Lauf ebenfalls entscheiden muss:** bleibt die Sprache bei ueber 90 und die Gleichungen
 bei ueber 80?
+
+## Runde 178 — Geschlossene Form: auch mit Etikett 0 Prozent. Drei Versuche, Urteil.
+
+**Ergebnis `mix35` (Etiketten je Formel-Art), 150 reservierte Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **0 %** |
+| Klasse | 81,3 % |
+
+**Die Etikett-Hypothese ist widerlegt.** Bei LOGIK-BRUCH brachte ein Etikett den Sprung von 0
+auf 100 — hier nicht. Die Klasse faellt sogar von 91 auf 81 Prozent: das Modell trifft nicht
+einmal mehr die Form der Antwort.
+
+**Die anderen Familien halten (`mix35` gegen `mix34`):**
+
+| Familie | mix34 | mix35 |
+|---|---|---|
+| Sprachlogik | 96,7 | **96,7** |
+| Gleichungen | 81,2 | 81,2 |
+| Logik positiv | 100 | 100 |
+| Ketten | 68,8 / 75 | 68,8 / 75 |
+
+**Nichts gewonnen, nichts verloren** — die Familie ist einfach nicht dazugekommen.
+
+**Drei Versuche, damit ist die Familie nach der Regel aufgegeben:**
+
+1. 2500 Saetze, ohne Etikett -> 0 Prozent.
+2. 3000 Saetze, ohne Etikett -> 0 Prozent.
+3. 3000 Saetze, mit vier Etiketten -> 0 Prozent.
+
+**Der Befund, und das ist der eigentliche Wert dieser drei Runden:**
+
+> Das Modell kann die **Rechnung** (Multiplikation 93,8, Addition 100), es kann die **Form**
+> (Etikett lesen, Klasse 100), aber es kann die **Formel selbst** nicht.
+
+Die Formel "n*(n+1)/2" ist **Wissen**, keine Faehigkeit. Sie steht nirgends in den Gewichten,
+weil sie in 3000 Beispielen nur als Zeichenkette vorkommt — das Modell muesste sie auswendig
+lernen, und genau das tut es nicht (Train 100 / Held-out 90 war nie ein Auswendiglern-Signal).
+
+**Das ist der direkte Beleg fuer den Lexikon-Vorschlag des Nutzers:** die Formel gehoert in ein
+Nachschlagewerk, nicht in ein Training. Der naechste Versuch waere derselbe Datensatz, aber mit
+der Formel **im Prompt** — dann testet die Aufgabe nur noch "Formel lesen, einsetzen, rechnen",
+und das kann das Modell nachweislich.
+
+**Stand `mix35`: sieben Familien, davon vier bei 96–100 Prozent.** Referenz bleibt `mix19` fuer
+Arithmetik und `mix34`/`mix35` fuer Sprache.
