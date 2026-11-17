@@ -3187,6 +3187,10 @@ fn main() {
         let mut versuche = 0usize;
         while recs.len() < n && versuche < n * 200 {
             versuche += 1;
+            // Lexicon mode: every noun comes with its grammatical entry in the prompt, the way
+            // a dictionary lookup would. That is the vocabulary hypothesis: structure is given,
+            // the model only has to use it - on words it has never seen.
+            let lexikon = std::env::var("SHIRO_SPRACH_LEXIKON").is_ok();
             let (si, oi, subj, sg, obj, og) = if dritt {
                 let a = rng.range(0, (nomen_dritt.len() - 1) as i64) as usize;
                 let mut b = rng.range(0, (nomen_dritt.len() - 1) as i64) as usize;
@@ -3267,6 +3271,18 @@ fn main() {
             seen.insert(h);
             let mut rec: Vec<u8> = Vec::new();
             rec.push(B_TASK);
+            if std::env::var("SHIRO_SPRACH_LEXIKON").is_ok() {
+                // Dictionary entry in the prompt: structure is given, the model has to use it.
+                let eintrag = |wort: &str, genus: char| -> String {
+                    let nom = match genus { 'm' => "der", 'f' => "die", _ => "das" };
+                    let akk = match genus { 'm' => "den", 'f' => "die", _ => "das" };
+                    format!("{} = Substantiv, {}; Nominativ \"{} {}\", Akkusativ \"{} {}\". ",
+                        wort,
+                        match genus { 'm' => "maskulin", 'f' => "feminin", _ => "neutrum" },
+                        nom, wort, akk, wort)
+                };
+                rec.extend_from_slice(format!(" Lexikon: {}{} ", eintrag(subj, sg), eintrag(obj, og)).as_bytes());
+            }
             rec.extend_from_slice(format!(" Satz: {}. Wer {}? ", satz, verb).as_bytes());
             // Answer first: the decision is the centre, the reasoning is wrapped around it.
             // With the answer before the trace the model cannot "compute its way" to it.
@@ -4359,6 +4375,87 @@ fn main() {
         write_shard(&out, &recs, seed, "lex");
         println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
         return;
+    }    if args.len() > 3 && args[1] == "--defpack" {
+        // Dictionary knowledge as a quiz: "What is X?" -> definition, and the inverse
+        // "Which word means ...?" -> X. This is the vocabulary idea as training data
+        // instead of as a prompt hint.
+        let quelle = PathBuf::from(&args[2]);
+        let out = PathBuf::from(&args[3]);
+        let n: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(20000);
+        let split = std::env::var("SHIRO_DEF_SPLIT").unwrap_or_else(|_| "train".into());
+        let p = seen_path("def", &split);
+        let mut seen = seen_load(&p);
+        let budget = pack_budget();
+        let inhalt = fs::read(&quelle).expect("Definitionsdatei lesbar");
+        let text = String::from_utf8_lossy(&inhalt);
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut genutzt = 0usize;
+        let mut gesehen = 0usize;
+        let mut zu_kurz = 0usize;
+        let mut kein_trenner = 0usize;
+        let mut def_laenge = 0usize;
+        for zeile in text.split('\n') {
+            let z = zeile.trim();
+            if z.is_empty() {
+                continue;
+            }
+            gesehen += 1;
+            if z.len() < 60 {
+                zu_kurz += 1;
+                continue;
+            }
+            let (wort, def) = match z.split_once(": ") {
+                Some((a, b)) => (a.trim(), b.trim()),
+                None => {
+                    kein_trenner += 1;
+                    continue;
+                }
+            };
+            if wort.is_empty() || def.len() < 40 || def.len() > 360 {
+                def_laenge += 1;
+                continue;
+            }
+            if wort.is_empty() || def.len() < 40 || def.len() > 360 {
+                continue;
+            }
+            let h = hash64(z.as_bytes());
+            if seen.contains(&h) {
+                continue;
+            }
+            seen.insert(h);
+            genutzt += 1;
+            // forward: question -> definition
+            let mut rec: Vec<u8> = Vec::new();
+            rec.push(B_TASK);
+            rec.extend_from_slice(format!(" Was ist {}? ", wort).as_bytes());
+            rec.push(B_THINK);
+            rec.extend_from_slice(b" Ich schlage im Wissen nach. ");
+            rec.push(B_ANSWER);
+            rec.extend_from_slice(format!(" {} ", def).as_bytes());
+            rec.push(B_END);
+            if rec.len() <= budget {
+                recs.push(rec);
+            }
+            // inverse: definition -> word
+            let mut rec2: Vec<u8> = Vec::new();
+            rec2.push(B_TASK);
+            rec2.extend_from_slice(format!(" Welches Wort ist gemeint: {} ", def).as_bytes());
+            rec2.push(B_THINK);
+            rec2.extend_from_slice(b" Ich schlage im Wissen nach. ");
+            rec2.push(B_ANSWER);
+            rec2.extend_from_slice(format!(" {} ", wort).as_bytes());
+            rec2.push(B_END);
+            if rec2.len() <= budget {
+                recs.push(rec2);
+            }
+            if genutzt >= n {
+                break;
+            }
+        }
+        seen_save(&p, &seen);
+        write_shard(&out, &recs, 4242, "def");
+        println!("defpack: {} Woerter, {} Aufgaben -> {} (Zeilen {}, zu kurz {}, ohne Trenner {}, Def-Laenge {})", genutzt, recs.len(), out.display(), gesehen, zu_kurz, kein_trenner, def_laenge);
+        return;
     }    if args.len() > 4 && args[1] == "--add3pack" {
         // Three-digit addition with an explicit place-by-place trace. The model fails 23+178;
         // this family tests whether that is a training gap or a capacity limit.
@@ -5432,6 +5529,9 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
+
 
 
 

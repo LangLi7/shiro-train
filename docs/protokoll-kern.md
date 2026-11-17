@@ -2524,3 +2524,43 @@ Verhalten.
 **Was vorbereitet ist und wartet:** der Code liegt oeffentlich auf GitHub
 (`github.com/LangLi7/shiro-train`), inklusive Benchmark-Konfiguration. Sobald ein Pod startet,
 laufen Build und Messung ohne weiteres Zutun.
+
+## Runde 212 — Die Woerterbuch-Idee als Quiz: Definitionen trainieren statt nur etikettieren
+
+**Die Praezisierung des Nutzers:** nicht nur Wortart im Prompt, sondern **Bedeutungen lernen**
+und/oder **nachschlagen** — "wie beim Programmieren Quiz-Aufgaben".
+
+**Datenquelle gefunden, ohne Download:** der **erste Satz eines Wikipedia-Artikels ist eine
+Definition**. Aus dem vorhandenen Korpus extrahiert: **40 000 deutsche Definitionen** (7,2 MB),
+15 000 englische (2,5 MB).
+
+```
+Alan Smithee: Alan Smithee steht als Pseudonym fuer einen fiktiven Regisseur, der Filme verantwortet ...
+Actinium: Actinium ist ein radioaktives chemisches Element mit dem Elementsymbol Ac und der Ordnungszahl 89.
+```
+
+**Quiz-Format, beide Richtungen:**
+
+```
+<AUFGABE> Was ist Actinium?          <DENKWEG> Ich schlage im Wissen nach. <ANTWORT> Actinium ist ein ...
+<AUFGABE> Welches Wort ist gemeint: "ein radioaktives chemisches Element..."?  <ANTWORT> Actinium
+```
+
+**Korpus `mix49`:** `mix46` (Text + sieben Familien) plus **24 000 Quiz-Aufgaben** aus 12 000
+Woertern. 1500 Schritte.
+
+**Hypothese:** das Modell gibt die Definitionen reservierter Woerter wieder (Ziel **ueber 80**) und
+die sieben Familien halten. Wenn es die Definitionen nur nachplappert, aber bei neuen Woertern
+scheitert, ist es derselbe Befund wie bei den fremden Nomen — dann ist die Grenze bestaetigt und
+nicht mehr wegzureden.
+
+**Der Unterschied zu Runde 209 ist wichtig:** dort stand das Lexikon als **Prompt-Hinweis** (fuenf
+Prozent des Korpus, Format nicht gelernt). Hier ist das Wissen **Trainingsinhalt** — 24 000
+Aufgaben, mehr als jede andere Familie.
+
+**Zwei Werkzeugfehler auf dem Weg:**
+1. Der erste Extraktor zerschnitt die Saetze an der Verbform ("Alan Smithee: steht.") — behoben,
+   indem der ganze erste Satz als Definition genommen wird.
+2. `defpack` fand null Zeilen, weil die Datei Windows-Zeilenenden hatte und der Parser auf `\n\n`
+   splittete. Mit `\n` plus `trim()` laeuft es. **Ohne die Diagnose-Zaehler (Zeilen, zu kurz, ohne
+   Trenner, Def-Laenge) haette ich weiter geraten.**
