@@ -4421,8 +4421,30 @@ fn main() {
             recs.push(rec);
         }
         seen_save(&p, &seen);
+        // Chain records: short tasks must not become their own tiny batches. Twelve copies
+        // make one record of ~670 bytes, matching the reference corpus (695 bytes/record).
+        // Without this the batches collapse to a few hundred bytes and training goes unstable
+        // (round 225: loss jumping between 0.06 and 5.08).
+        let pro: usize = std::env::var("SHIRO_VERKETTEN")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1);
+        let recs = if pro > 1 {
+            let mut kett: Vec<Vec<u8>> = Vec::new();
+            for stueck in recs.chunks(pro) {
+                let mut r: Vec<u8> = Vec::new();
+                for c in stueck {
+                    r.extend_from_slice(c);
+                }
+                kett.push(r);
+            }
+            kett
+        } else {
+            recs
+        };
+        let anzahl = recs.len();
         write_shard(&out, &recs, seed, "kopie");
-        println!("kopiepack: {} Aufgaben -> {}", recs.len(), out.display());
+        println!("kopiepack: {} Aufgaben in {} Records (verkettet x{}) -> {}", anzahl, anzahl, pro, out.display());
         return;
     }    if args.len() > 4 && args[1] == "--urteilpack" {
         // The three answer classes the brief requires: proven / refuted / not derivable.
@@ -5690,6 +5712,7 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
 
 
 

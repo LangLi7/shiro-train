@@ -3022,3 +3022,30 @@ sinnvollen — nicht trainierbar.
 
 **Das erklaert rueckblickend auch die frueheren Einbrueche** bei der dreistelligen Addition und
 der Reihenfolge: dort waren die Records ebenfalls kuerzer als die der Referenz.
+
+## Runde 226 — Der Verkettungstest: kurze Aufgaben in lange Records
+
+**Der Fix aus Runde 225, angewendet:** zwölf Kopie-Aufgaben werden zu **einem** Record
+zusammengefasst.
+
+```
+alt:   3000 Records x 56 Bytes    -> Batch aus 8 Records = 448 Bytes
+neu:    300 Records x 671 Bytes   -> Batch aus 8 Records = 5368 Bytes
+```
+
+**Der Korpus hat jetzt 695 Bytes pro Record — genau wie die Referenz `mix46`, die funktioniert.**
+
+**Veraenderter Faktor: nur die Verkettung.** Dieselbe Familie, dieselbe Schrittzahl (1500),
+derselbe Ausgangspunkt, dieselbe Lernrate.
+
+**Hypothese:** die geschuetzten Familien halten (**ueber 90**), obwohl eine achte Familie
+dazukommt. Und die Kopie-Aufgaben werden zumindest teilweise gelernt.
+
+**Entscheidungsregel:**
+
+> **Addition ueber 90** = die Ursache war die Record-Laenge, nicht die Kapazitaet. Dann ist die
+> Kapazitaetsfrage **wieder offen**, und die sechs Fehlversuche davor hatten alle dieselbe
+> behebbare Ursache.
+>
+> **Addition unter 60** = die Verkettung hilft nicht; dann bleibt die Kapazitaet im Spiel und
+> 100M ist gerechtfertigt.
