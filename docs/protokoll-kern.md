@@ -2015,3 +2015,35 @@ die falsche Frage: richtig gemessen, falsch gedeutet.
 **Was daraus folgt:** jede kuenftige Behauptung ueber eine Faehigkeit braucht einen Test mit
 **neuen Bausteinen**, nicht nur neuen Kombinationen. Das ist die vierte methodische Lehre des
 Projekts und die wichtigste.
+
+## Runde 199 — Die Kernfrage: kann das Modell mit NEUEN Bausteinen umgehen? Hypothese vorab.
+
+**Der Befund aus Runde 198 (fremde Woerter: 0 Prozent) laesst zwei Erklaerungen zu:**
+
+1. Das Modell **kann** keine Regel lernen, die auf neue Woerter uebertraegt — Kapazitaet.
+2. Es hat nur **zu wenige Woerter** gesehen (24), um zu merken, dass der Artikel die Regel
+   traegt — Datenmenge.
+
+**Der Test trennt die beiden.** Drei Wortgruppen:
+
+| Gruppe | Woerter | Verwendung |
+|---|---|---|
+| A (bekannt) | 24 | Training |
+| B (fremd) | 12 | **jetzt im Training** (36 zusammen) |
+| **C (dritt)** | **12 neue** | **nur Test, nie im Training** |
+
+Gruppe C: Vater, Bruder, Hahn, Hirsch, Mutter, Schwester, Rose, Taube, Tier, Haus, Bild, Rad.
+**Unabhaengig geprueft: 0 von 12 kommen im Trainingsset vor.**
+
+**Hypothese:** mit 36 Woertern statt 24 lernt das Modell die Regel "der = Nominativ" und wendet
+sie auf die 12 unbekannten an — Erwartung **ueber 70 Prozent**. Wenn es weiter nur memoriert,
+bleibt es bei **0**.
+
+**Entscheidungsregel:**
+
+> **Ueber 70** = das Modell kann Regeln lernen, wenn es genug Beispiele fuer die REGEL sieht
+> (nicht fuer das Wort). Dann ist die 0 aus Runde 198 eine Datenfrage und die Sprachlogik
+> nachtraeglich zu retten.
+>
+> **Unter 30** = es memoriert Woerter, nicht Regeln. Dann ist die 97-Prozent-Zahl endgueltig
+> als Memo einzuordnen, und Sprache ist mit dieser Groesse nicht erreichbar.
