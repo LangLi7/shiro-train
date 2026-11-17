@@ -1215,3 +1215,33 @@ Etiketten — "Reihe:", "Quadrate:", "Geometrisch:", "Binet:". Sonst nichts.
 **Stand der RunPod-Vorbereitung:** `mktool` baut auf Linux in 5,21 s und erzeugt korrekte
 Aufgaben (nachgerechnet); `shiro` baut mit CUDA in 3 min 48. **Die Kette ist bis auf die
 GPU-Seite bewiesen, ohne einen Credit auszugeben.**
+
+## Runde 177 — Geschlossene Form mit Etiketten (R1 angewandt), Hypothese vorab
+
+**Eine Aenderung gegenueber `mix34`:** jede Formel-Art bekommt ein eigenes Etikett.
+
+```
+Aufgabe:  Reihe: Summe von 33 bis 64 in geschlossener Form.
+          Quadrat: Summe der Quadrate 1 bis 16 in geschlossener Form.
+          Geometrisch: Summe 1+2+4+...+2^7 in geschlossener Form.
+          Binet: Fibonacci F(9) mit der geschlossenen Form.
+```
+
+Nachgerechnet: 33..64 = 97*32/2 = 1552, 23..122 = 145*100/2 = 7250, F(9) = 34.
+
+**Ausgangspunkt `mix34-step024000.state`** — der Stand mit Sprachlogik 96,7 Prozent, nicht
+`mix33`. Sonst waere die Sprache wieder bei 90.
+
+**Hypothese:** das Etikett wirkt wie bei LOGIK-POSITIV gegen LOGIK-BRUCH (0 auf 100). Die
+Aufgabe ist danach **eine** Entscheidung (Etikett lesen, Formel anwenden, einsetzen) — die
+Klasse, die das Modell kann. Erwartung: **ueber 70 Prozent**.
+
+**Entscheidungsregel:**
+
+> **Ueber 70 Prozent** = R1 wirkt auch hier, und die Familie wird uebernommen.
+> **Unter 70** = die geschlossene Form ist nach drei Versuchen (2500 Saetze ohne Etikett,
+> 3000 mit Etikett) aufgegeben; dann ist nicht die Form, sondern der Inhalt das Hindernis —
+> Formeln sind Wissen, und Wissen braucht ein Lexikon, kein Training.
+
+**Was der Lauf ebenfalls entscheiden muss:** bleibt die Sprache bei ueber 90 und die Gleichungen
+bei ueber 80?
