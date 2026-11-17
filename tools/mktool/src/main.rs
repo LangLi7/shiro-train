@@ -4375,6 +4375,92 @@ fn main() {
         write_shard(&out, &recs, seed, "lex");
         println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
         return;
+    }    if args.len() > 4 && args[1] == "--urteilpack" {
+        // The three answer classes the brief requires: proven / refuted / not derivable.
+        // A model that only ever sees solvable tasks learns to invent an answer - this family
+        // teaches it to say "not derivable" when the equation has no solution.
+        let n: usize = args[2].parse().unwrap();
+        let out = PathBuf::from(&args[3]);
+        let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let mut rng = Rng(seed);
+        let budget = pack_budget();
+        let split = std::env::var("SHIRO_URTEIL_SPLIT").unwrap_or_else(|_| "train".into());
+        let p = seen_path("urteil", &split);
+        let mut seen = seen_load(&p);
+        for h in seen_load(&seen_path("urteil", "train")) {
+            seen.insert(h);
+        }
+        for h in seen_load(&seen_path("urteil", "test")) {
+            seen.insert(h);
+        }
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut versuche = 0usize;
+        while recs.len() < n && versuche < n * 200 {
+            versuche += 1;
+            let klasse = rng.range(0, 2);
+            let a = rng.range(1, 9) as i64;
+            let b = rng.range(1, 40) as i64;
+            let c = rng.range(1, 9) as i64;
+            let d = rng.range(1, 40) as i64;
+            let (aufgabe, weg, antwort) = match klasse {
+                0 => {
+                    // proven: ax + b = cx + d has exactly one solution. Pick x first, then
+                    // set d = b + (a-c)*x so that this x solves it.
+                    let x = rng.range(-9, 9) as i64;
+                    let aa = 1 + (a % 5);
+                    let cc = 1 + ((c + 2) % 5);
+                    if aa == cc {
+                        continue;
+                    }
+                    let bb = rng.range(-20, 20) as i64;
+                    let dd = bb + (aa - cc) * x;
+                    let links = aa * x + bb;
+                    (
+                        format!("{}x {} {} = {}x {} {}", aa, if bb < 0 { "-" } else { "+" }, bb.abs(), cc, if dd < 0 { "-" } else { "+" }, dd.abs()),
+                        format!("{}x - {}x = {} - ({}), also {}x = {}, x = {}. Probe: {} = {}.", aa, cc, dd, bb, aa - cc, dd - bb, x, links, cc * x + dd),
+                        "bewiesen".to_string(),
+                    )
+                }
+                1 => {
+                    // refuted: x cancels out and the remaining statement is false
+                    let b2 = b + rng.range(1, 20) as i64;
+                    (
+                        format!("{}x + {} = {}x + {}", a, b, a, b2),
+                        format!("{}x - {}x = {} - {}, also 0 = {}. Falsch fuer jedes x.", a, a, b2, b, b2 - b),
+                        "widerlegt".to_string(),
+                    )
+                }
+                _ => {
+                    // not derivable: x cancels out and the statement is true for all x
+                    (
+                        format!("{}x + {} = {}x + {}", a, b, a, b),
+                        format!("{}x - {}x = {} - {}, also 0 = 0. Jedes x erfuellt die Gleichung.", a, a, b, b),
+                        "nicht ableitbar".to_string(),
+                    )
+                }
+            };
+            let h = hash64(aufgabe.as_bytes());
+            if seen.contains(&h) {
+                continue;
+            }
+            seen.insert(h);
+            let mut rec: Vec<u8> = Vec::new();
+            rec.push(B_TASK);
+            rec.extend_from_slice(format!(" {} ", aufgabe).as_bytes());
+            rec.push(B_THINK);
+            rec.extend_from_slice(format!(" {} ", weg).as_bytes());
+            rec.push(B_ANSWER);
+            rec.extend_from_slice(format!(" {} ", antwort).as_bytes());
+            rec.push(B_END);
+            if rec.len() > budget {
+                continue;
+            }
+            recs.push(rec);
+        }
+        seen_save(&p, &seen);
+        write_shard(&out, &recs, seed, "urteil");
+        println!("urteilpack: {} Aufgaben -> {}", recs.len(), out.display());
+        return;
     }    if args.len() > 3 && args[1] == "--defpack" {
         // Dictionary knowledge as a quiz: "What is X?" -> definition, and the inverse
         // "Which word means ...?" -> X. This is the vocabulary idea as training data
@@ -5552,6 +5638,8 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
 
 
 

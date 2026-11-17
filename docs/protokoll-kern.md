@@ -2747,3 +2747,32 @@ auf Basis der 3060 ist damit zu pessimistisch; auf einer 3090 waeren es entsprec
 (keine Zeilenumbrueche mehr, nach denen der Reader sucht). Die Verluste stammen deshalb aus den
 Trainingslogs (`run_end`), die dieselbe Groesse fuehren — **das ist die belastbarere Quelle
 ohnehin**, weil sie zum Lauf gehoert.
+
+## Runde 218 — Die drei Antwortklassen: bewiesen / widerlegt / nicht ableitbar
+
+**Die Luecke aus dem Auftrag, endlich als Familie:** der Zero-Shot-Test (Runde 216) hat gezeigt,
+dass das Modell bei einer unlösbaren Aufgabe **eine Antwort erfindet** statt sie zu verweigern.
+Der Auftrag verlangt ausdruecklich die drei Klassen.
+
+**Familie `mix52`, drei gleich gebaute Aufgabenformen:**
+
+```
+6x + 28 = 2x + 12      ->  4x = -16, x = -4. Probe: -4 = -4.        Antwort: bewiesen
+6x + 33 = 6x + 52      ->  0 = 19. Falsch fuer jedes x.             Antwort: widerlegt
+6x + 35 = 6x + 35      ->  0 = 0. Jedes x erfuellt die Gleichung.   Antwort: nicht ableitbar
+```
+
+Verteilung auf den 100 reservierten: **33 bewiesen · 40 widerlegt · 27 nicht ableitbar.**
+
+**Der Anteil ist bewusst klein: 2,6 Prozent des Korpus** (3000 von ~30 000 Aufgaben). Die Lehre
+aus Runde 215 (24 000 Quiz-Aufgaben zerstoerten das Modell) ist damit eingebaut — neue Form in
+kleiner Portion, dafuer 2500 Schritte.
+
+**Hypothese:** das Modell antwortet bei den drei Formen mit der richtigen Klasse (**ueber 80**) und
+die sieben geschuetzten Familien halten (ueber 90).
+
+**Eine Unsauberkeit, die ich benenne statt zu verdecken:** die dritte Klasse ist genau genommen
+"unendlich viele Loesungen", nicht "nicht ableitbar". Beides ist nicht dasselbe — "nicht
+ableitbar" waere `x^2 = -1` ohne genannte Grundmenge. Fuer diesen ersten Test ist die Klasse
+trotzdem brauchbar, weil sie die **Verweigerung einer eindeutigen Antwort** trainiert; die
+scharfe Fassung kommt mit der naechsten Familie (quadratisch, ohne reelle Loesung).
