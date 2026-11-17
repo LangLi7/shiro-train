@@ -2830,3 +2830,53 @@ bestehende Gleichungen-Familie haelt (**ueber 90**). Ohne Etikett waren beide be
 Etikett **nach** dem Training als Erklaerung ("die Form war nicht unterscheidbar"). Diesmal ist es
 **vor** dem Training da. Das ist die einzige Aenderung an der Arbeitsweise, die aus den fuenf
 Fehlern folgt.
+
+## Runde 221 — Das Etikett hilft nicht. Die Urteil-Familie wird nach zwei Versuchen aufgegeben.
+
+**Ergebnis `mix53` (mit `Urteil:`-Etikett), je 40–100 Aufgaben:**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Drei Antwortklassen | 0 | **2** | 7 |
+| Gleichungen | 0 | **0** | 0 |
+
+**Auch mit Etikett bricht beides ein.** Die Hypothese aus Runde 220 ist widerlegt.
+
+**Nachgesehen — das Modell hat die FORM gelernt, aber nicht die ZAHLEN:**
+
+```
+Aufgabe: Urteil: 6x + 23 = 6x + 23      (richtig: nicht ableitbar)
+erzeugt: 5x - 6x = 23 - 23, also 0 = 17. Falsch fuer jedes x.   Antwort: widerlegt
+```
+
+Der Satz "Falsch fuer jedes x" ist **wortwoertlich aus dem Training** — die Form sitzt. Aber die
+Ziffern sind falsch kopiert (`6x` wurde zu `5x`, `23 - 23` zu `0 = 17`), und die Schlussfolgerung
+kippt dadurch in die falsche Klasse. **Das ist derselbe Ziffern-Lesefehler wie bei der
+dreistelligen Addition und beim Lexikon-Test** — zum vierten Mal.
+
+**Entscheidung nach Regel 7 (zwei Runden ohne Zugewinn): die Urteil-Familie wird aufgegeben.**
+`mix52` und `mix53` sind beide Totalausfaelle, und der zweite Versuch hat die Ursache nicht
+behoben, sondern nur verschoben.
+
+**Referenz bleibt `mix46`** — sechs Familien 90–100 mit Text im Korpus.
+
+**Die Bilanz der letzten sieben Runden, ungeschoent:**
+
+| Runde | Versuch | Ergebnis |
+|---|---|---|
+| 195 | Stelligkeit | 24, danach Einbruch |
+| 208 | Antwort vor Weg | 24, alter Wert 60 |
+| 210 | Lexikon im Prompt | ungueltig (Format nicht gelernt) |
+| 215 | Woerterbuch-Quiz | Totalausfall |
+| 217 | Middle-Out | 12 % schlechter (sauber gemessen) |
+| 219 | Antwortklassen | Totalausfall |
+| 220/221 | Antwortklassen mit Etikett | **wieder Totalausfall** |
+
+**Was daraus folgt, und es ist die wichtigste Erkenntnis des Tages:** das Etikett ist
+**notwendig, aber nicht hinreichend**. Es trennt Formen — aber wenn die Aufgabe selbst
+**Ziffern lesen** verlangt, scheitert das Modell an einer anderen Stelle, die kein Etikett
+behebt. Die Urteil-Familie war doppelt belastet: neue Form **und** Ziffern.
+
+**Was als naechstes Sinn hat:** eine Aufgabe, die **kein Ziffernlesen** verlangt — also Logik und
+Sprache, nicht Arithmetik. Genau dort lag die Sprachfamilie bei 97, und genau dort ist die
+Kapazitaetsfrage noch offen.
