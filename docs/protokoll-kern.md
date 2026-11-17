@@ -1589,3 +1589,20 @@ Machbarkeitstest reicht es, fuer eine belastbare Aussage nicht. Das steht im Erg
 **Hypothese:** bleiben alle Zwischenwerte zweistellig, steigt die Kettenfamilie von 71,7 auf
 **ueber 85 Prozent**. Wenn ja, ist der Stellenwert die einzige Ursache und die Familie ist mit
 kleinen Zahlen geloest. Wenn nein, ist die Verkettung doch ein eigener Engpass.
+
+## Runde 187 — Ein Werkzeugfehler beim Kettenlauf, gefunden und behoben
+
+**Erster Anlauf um 07:19 gestartet, 30 Minuten gerechnet, nichts gespeichert.** Ursache: der
+Zielordner `mix38/ckpt` existierte nicht, und der Trainer legt ihn nicht an — er scheitert still.
+Bei allen frueheren Laeufen hatte `start-train.ps1` den Ordner erstellt; diesmal habe ich direkt
+gestartet.
+
+**Behoben:** Prozess beendet, Ordner angelegt, neu gestartet. Der Checkpoint
+`mix38-step28500` wurde um 08:06 geschrieben.
+
+**Zweiter Befund, harmlos aber lehrreich:** der Lauf brauchte 19 Minuten fuer 200 Schritte statt
+4 — weil meine Messungen parallel auf derselben GPU liefen. Ein Trainingslauf und eine
+Auswertung auf einer Karte behindern sich messbar.
+
+**Was daraus als Regel folgt:** waehrend eines Laufs keine GPU-Messungen, und der Zielordner
+wird vor dem Start geprueft. Beides ist billig und hat mich heute eine Stunde gekostet.
