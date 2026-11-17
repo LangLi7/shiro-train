@@ -2603,3 +2603,44 @@ Zeichen sind einfach Bytes. Genau das war die Staerke der Sprachfamilie.
 **Ein PowerShell-Fehler kostete einen Anlauf:** `$z` in der Schleife ueberschrieb `$Z` (den Pfad),
 weil PowerShell bei Variablennamen nicht zwischen Gross- und Kleinschreibung unterscheidet. Der
 zweite Textpack lief danach ins Leere.
+
+## Runde 214 — Middle-Out als Datenpermutation in Rust umgesetzt
+
+**Der Vorschlag (vom Nutzer, über Claude) ist mathematisch korrekt und billig pruefbar:** die
+Kettenregel gilt fuer **jede** Permutation der Positionen,
+
+    p(x) = Produkt ueber t von p(x_sigma(t) | x_sigma(<t))
+
+also ist Middle-Out **keine Architekturaenderung**, sondern eine **Umsortierung der Bytes** vor
+dem Training. Genau so ist es umgesetzt — `mktool --textpack` mit `SHIRO_MIDDLE_OUT=1`:
+
+```
+normal :  Alan Smithee steht als Pseudonym fuer einen fiktiven Regisseur ...
+mitte  :  tuemnndae hSccshirteaiibswae iesseine wAlliaent Simeiw ...
+```
+
+**Die Permutation:** Mitte, dann abwechselnd links und rechts nach aussen. Laenge bleibt gleich,
+jedes Byte kommt genau einmal vor — der Vergleich ist damit fair.
+
+**Der geplante Vergleich (zwei Laeufe, gleiche Bedingungen):**
+
+| Lauf | Daten | Modell | Schritte |
+|---|---|---|---|
+| `mo-normal` | Text in Originalreihenfolge | 24M | 1200 |
+| `mo-mitte` | **derselbe Text**, Mitte-nach-aussen | 24M | 1200 |
+
+Gemessen wird **Bits pro Byte** (Verlust) auf demselben Text — nur die Reihenfolge unterscheidet
+sich.
+
+**Meine Erwartung, vorab festgehalten:** bei Text **gleich oder schlechter**. Sprache hat eine
+starke Vorwaertsrichtung; ein Byte haengt viel staerker am linken als am rechten Nachbarn. Der
+Gewinn waere bei Daten zu erwarten, deren **Mitte informativ** ist — Lueckentext, Header/Footer in
+Dateien, Bilder, DNA — oder beim paarweisen Erzeugen (zwei Bytes pro Schritt).
+
+**Was daran wirklich neu ist:** nicht die Kompression (die Grenze ist permutationsunabhaengig),
+sondern die **Reihenfolge des Lernens**. Das ist eine andere Frage als "wie gut komprimiert es",
+und sie ist mit einem Verlustvergleich direkt beantwortbar.
+
+**Ein Hinweis fuer die Umsetzung spaeter:** beim freien Erzeugen muss die Laenge vorher feststehen
+(die Mitte ist nur bei bekannter Laenge definiert) — beim Training ist das kein Problem, weil die
+Records feste Laengen haben.

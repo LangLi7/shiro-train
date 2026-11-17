@@ -4570,6 +4570,7 @@ fn main() {
         let quelle = PathBuf::from(&args[2]);
         let out = PathBuf::from(&args[3]);
         let max_rec: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(900);
+        let middle_out = std::env::var("SHIRO_MIDDLE_OUT").is_ok();
         let inhalt = fs::read(&quelle).expect("Textdatei lesbar");
         let text = String::from_utf8_lossy(&inhalt);
         let mut recs: Vec<Vec<u8>> = Vec::new();
@@ -4594,7 +4595,29 @@ fn main() {
             }
             let stueck = &bytes[pos..ende];
             if !stueck.is_empty() {
-                recs.push(stueck.to_vec());
+            if !stueck.is_empty() {
+                // Middle-out: start at the centre, alternate left/right outwards. The chain
+                // rule holds for any permutation, so this only re-orders the same bytes.
+                if std::env::var("SHIRO_MIDDLE_OUT").is_ok() {
+                    let n = stueck.len();
+                    let c = n / 2;
+                    let mut perm: Vec<u8> = Vec::with_capacity(n);
+                    perm.push(stueck[c]);
+                    let mut k = 1usize;
+                    while perm.len() < n {
+                        if c >= k {
+                            perm.push(stueck[c - k]);
+                        }
+                        if c + k < n {
+                            perm.push(stueck[c + k]);
+                        }
+                        k += 1;
+                    }
+                    recs.push(perm);
+                } else {
+                    recs.push(stueck.to_vec());
+                }
+            }
             }
             pos = ende;
         }let seed: u64 = 12345;
@@ -5529,6 +5552,7 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
 
 
 
