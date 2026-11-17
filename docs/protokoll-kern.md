@@ -2101,3 +2101,37 @@ Lehren, jede aus einem eigenen Fehler:
 
 **Punkt 4 ist die teuerste Lehre:** sie haette drei Runden frueher kommen koennen und haette die
 97-Prozent-Feier verhindert.
+
+## Runde 201 — Die Kontrollbedingung: neue Kombinationen 86, neue Woerter 0
+
+**Der Test, den ChatGPT vorgeschlagen hat (Woerter im Training, Kombinationen neu), ist gemacht.**
+
+| Test | Woerter im Training | im Test | Weg | Antwort |
+|---|---|---|---|---|
+| `t_misch_neu` | 36 | dieselben 36, **neue Kombinationen** | 84 | **86** |
+| `t_dritt` | 36 | **12 nie gesehene** | 0 | **0** |
+
+**Damit ist die Trennung belegt, und sie ist die Antwort auf die Kernfrage:**
+
+> Das Modell generalisiert **kombinatorisch** (86 Prozent auf neuen Saetzen aus bekannten
+> Woertern) und **nicht auf neue Bausteine** (0 Prozent auf unbekannten Woertern).
+
+Beides mit derselben Modellversion, demselben Format, denselben Pruefungen. Die 0 aus Runde 200
+war kein Messfehler und keine zu kleine Datenmenge — sie ist der Unterschied zwischen
+Kombination und Baustein.
+
+**Einordnung (Vorschlag von ChatGPT, uebernommen):**
+
+| Faehigkeit | Befund | Aussage |
+|---|---|---|
+| Bekannte Woerter und Muster | 97 % | Reproduktion |
+| Neue Kombinationen bekannter Bausteine | 86 % | kombinatorische Generalisierung |
+| Neue Woerter bei gleicher Regel | **0 %** | keine Uebertragung |
+| Allgemeine Denkfaehigkeit | — | nicht nachgewiesen |
+
+**Der Weg nach vorn, den der Nutzer vorschlaegt:** Sprache mit dem **GPT-Ansatz** lernen —
+naechste Einheit vorhersagen auf echtem Text, ohne Tokenizer (also byte-level, was das Modell
+schon ist). Das ist der fehlende Baustein: bisher hat das Modell nur Aufgaben gesehen, nie
+Sprache als Text.
+
+**Reihenfolge, die Geld spart:** erst Text (lokal, kostenlos) — dann Kapazitaet (RunPod).
