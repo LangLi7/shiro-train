@@ -2178,3 +2178,50 @@ erste Lauf, in dem das Modell **Sprache als Vorhersage** lernt statt Aufgaben mi
 Sprachmodelle keine etablierte Methode. Was uebertragbar waere: (a) die Reihenfolge umdrehen —
 Antwort **vor** dem Weg verlangen, damit das Modell nicht rechnen kann, sondern entscheiden muss;
 (b) Positionskodierung von der Mitte. Beides ist billig testbar, aber erst nach dem Text-Lauf.
+
+## Runde 203 — Text allein: das Modell lernt Sprache und vergisst die Aufgaben
+
+**Lauf `mix45-text`:** 24M byte-level, 2000 Schritte auf 132 MB gemischtem Deutsch und Englisch.
+
+**Ergebnis, zwei Seiten:**
+
+| Pruefung | Ergebnis |
+|---|---|
+| Freie Textfortsetzung | **funktioniert** — es schreibt zusammenhaengenden Text ("... Schriftsteller 2012: Andreas Schweizer ...") |
+| Kasus-Aufgabe mit fremden Woertern | **0 % Weg, 0 % Antwort, 0 % Klasse** |
+
+**Die Klasse faellt auf 0** — das Modell antwortet nicht einmal mehr im Aufgabenformat. Es kennt
+die Marker `<AUFGABE>`, `<DENKWEG>`, `<ANTWORT>` nicht mehr.
+
+**Das ist der erwartbare Preis und der eigentliche Befund:** ein Modell, das nur Text sieht,
+lernt Text und **verliert die Aufgabenform**. Umgekehrt galt dasselbe (die Aufgabenmodelle
+konnten keinen Text). Katastrophales Vergessen in beide Richtungen.
+
+**Damit ist die Kombinationsfrage beantwortet, bevor sie gebaut wird:** es geht nicht "erst
+Text, dann Aufgaben" und nicht "erst Aufgaben, dann Text". Beides muss **im selben Korpus**
+stehen, sonst ueberschreibt das eine das andere.
+
+**Der Plan, der daraus folgt (Vorschlag des Nutzers, von ChatGPT strukturiert):**
+
+| Variante | Korpus |
+|---|---|
+| **A** | nur Text (gemessen: Text ja, Aufgaben 0) |
+| **B** | Text + Aufgaben gemischt — **das ist der naechste Lauf** |
+| **C** | Text + Aufgaben + Middle-Out (Text Infilling) |
+| **D** | alles drei |
+
+**Middle-Out, was davon umsetzbar ist:** Text Infilling — maskiere einen Abschnitt, das Modell
+fuellt ihn aus beiden Richtungen. Das ist ein echter Eingriff in den Trainer (Loss nur auf den
+maskierten Bytes), kein Etikett. Umsetzbar, aber erst nach B.
+
+**Woerterbuch-APIs geprueft (Vorschlag des Nutzers):**
+
+| API | erreichbar | liefert |
+|---|---|---|
+| dictionaryapi.dev | ja | Englisch, Wortart |
+| freedictionaryapi.com | ja | Englisch, ausfuehrlich |
+| dwds.de | ja | Deutsch: Lemma, **Wortart** ("Substantiv") |
+| opendictionaryapi.com | 404 | — |
+
+Fuer den Wortschatz-Ansatz reicht das: Wortart und Lemma kommen aus DWDS, das **Genus** aus dem
+Textkorpus (welcher Artikel steht vor dem Nomen).
