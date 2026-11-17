@@ -2950,3 +2950,31 @@ Kapazitaet. **Der naechste sinnvolle Schritt ist deshalb 100M, und der ist durch
 **Die Bilanz der letzten neun Runden:** neun Versuche, drei Totalausfaelle, ein sauberer Befund
 (Middle-Out 12 Prozent schlechter), fuenf Etikett-Lehren. **Kein einziger Versuch hat eine
 Faehigkeit hinzugefuegt.** Das ist die ehrliche Zahl.
+
+## Runde 224 — Gegenprobe zur Kapazitaetsdiagnose: ist es die Lernrate?
+
+**Ich habe in Runde 223 behauptet, das 24M-Modell halte keine achte Familie — das sei eine
+Kapazitaetsgrenze. Diese Behauptung ist nicht geprueft.** Es gibt eine einfachere Erklaerung, die
+dieselben Zahlen erzeugt:
+
+> Bei 1500 Schritten mit `lr = 0.0003` werden die Gewichte weit genug verschoben, dass die alten
+> Familien ueberschrieben werden. Das waere **katastrophales Vergessen durch die Lernrate**, nicht
+> durch fehlende Parameter.
+
+**Der Test aendert genau einen Faktor:** dieselbe Familie (`mix54`, Ziffern kopieren), dieselbe
+Schrittzahl, derselbe Ausgangspunkt — aber **`lr = 0.00005`** statt `0.0003` (ein Sechstel).
+
+**Hypothese:** mit kleiner Lernrate halten die alten Familien (**ueber 90**) und die neue wird
+zumindest teilweise gelernt.
+
+**Entscheidungsregel:**
+
+> **Addition ueber 90** = meine Kapazitaetsdiagnose ist **widerlegt**. Die Grenze war die
+> Lernrate, und das ist behebbar — dann ist die naechste Familie wieder einen Versuch wert.
+>
+> **Addition unter 60** = die Diagnose haelt. Dann ist es wirklich die Zahl der Familien, und nur
+> mehr Parameter helfen.
+
+**Warum dieser Test wichtiger ist als der vorige:** ich habe in diesem Projekt schon fuenfmal eine
+Ursache benannt, die eine Kontrollbedingung widerlegt hat. Die Kapazitaetsgrenze waere die
+sechste — und sie ist die teuerste, weil sie 100M rechtfertigt.
