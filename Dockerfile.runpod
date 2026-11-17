@@ -1,10 +1,11 @@
-# RunPod-Image fuer den Shiro-Trainer.
+# RunPod-Image fuer Shiro: Trainer und Aufgabengenerator.
 #
-# Geprueft am 14.11.2026: `cargo build --release --features cuda` laeuft in diesem
-# Basis-Image unter Linux in 3 Minuten 48 durch (ohne GPU, reiner Build).
+# Geprueft am 17.11.2026:
+#   - mktool baut auf Linux in  5,2 s   und erzeugt korrekte Aufgaben
+#   - shiro  baut mit CUDA in   3 min 48 (ohne GPU im Container)
 #
-# Bauen:   docker build -f Dockerfile.runpod -t shiro-trainer:0.1 .
-# Starten: docker run --gpus all shiro-trainer:0.1 train --config /data/train.toml --backend cuda
+# Bauen:   docker build -f Dockerfile.runpod -t shiro-trainer:0.2 .
+# Starten: docker run --gpus all shiro-trainer:0.2 shiro train --config /data/train.toml
 
 FROM nvidia/cuda:12.9.1-devel-ubuntu24.04
 
@@ -21,13 +22,25 @@ RUN apt-get update -qq \
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 WORKDIR /work
+
+# Trainer zuerst: die Schicht aendert sich am seltensten.
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release --features cuda
 
-# Daten und Konfiguration werden zur Laufzeit gemountet, nicht ins Image gelegt:
-# 475 MB Korpora gehoeren auf ein Volume, nicht in ein Image.
+# Generator: eigener Crate, unabhaengig vom Trainer.
+COPY tools/mktool/Cargo.toml ./tools/mktool/Cargo.toml
+COPY tools/mktool/src ./tools/mktool/src
+RUN cd tools/mktool && cargo build --release
+
+# Beide Programme liegen danach unter /work/target/release und /work/tools/mktool/target/release.
+# Ein Wrapper macht sie ohne Pfadwissen aufrufbar.
+RUN printf '#!/bin/sh\nexec /work/target/release/shiro "$@"\n' > /usr/local/bin/shiro \
+ && printf '#!/bin/sh\nexec /work/tools/mktool/target/release/mktool "$@"\n' > /usr/local/bin/mktool \
+ && chmod +x /usr/local/bin/shiro /usr/local/bin/mktool
+
+# Daten und Konfiguration werden zur Laufzeit gemountet.
+# Der Generator erzeugt die Aufgaben im Pod; 1 Mrd Tokens brauchen keinen Upload.
 VOLUME ["/data"]
 
-ENTRYPOINT ["/work/target/release/shiro"]
-CMD ["--help"]
+CMD ["shiro", "--help"]
