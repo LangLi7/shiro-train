@@ -2880,3 +2880,33 @@ behebt. Die Urteil-Familie war doppelt belastet: neue Form **und** Ziffern.
 **Was als naechstes Sinn hat:** eine Aufgabe, die **kein Ziffernlesen** verlangt — also Logik und
 Sprache, nicht Arithmetik. Genau dort lag die Sprachfamilie bei 97, und genau dort ist die
 Kapazitaetsfrage noch offen.
+
+## Runde 222 — Die Wurzel direkt getestet: kann das Modell Ziffern kopieren?
+
+**Alle Fehlschlaege der letzten Runden liefen auf dieselbe Vermutung hinaus:** das Modell liest
+Ziffern falsch. Diese Vermutung ist nie **isoliert** geprueft worden — immer nur zusammen mit
+Rechnen, Gleichungen oder Lexikon.
+
+**Familie `mix54`, reine Kopie, mit Etikett:**
+
+```
+Kopie: 294541   ->   Die Zahl hat 6 Stellen: 294541.   Antwort: 294541
+```
+
+Laengen 1 bis 6, 3000 Aufgaben (2,6 Prozent des Korpus), 1500 Schritte.
+
+**Hypothese:** Kopieren ist trivial — **ueber 90 Prozent**. Wenn das scheitert, ist jede
+Arithmetik-Familie nur ein anderer Blick auf denselben Defekt, und kein Etikett hilft.
+
+**Entscheidungsregel:**
+
+> **Ueber 90** = Ziffernlesen ist in Ordnung. Dann ist die Grenze **nicht** die Wahrnehmung,
+> sondern die **Weiterverarbeitung** (Uebertrag, Stellenwert), und die Fehlversuche sind an der
+> richtigen Stelle erklaert, aber an der falschen Stelle behandelt.
+>
+> **Unter 60** = die Wurzel liegt tiefer als gedacht: schon das Ablesen sechsstelliger Zahlen
+> scheitert. Dann ist jede Rechenfamilie von dieser Grenze abhaengig, und das erklaert alle
+> bisherigen Zahlen mit einer einzigen Ursache.
+
+**Das ist der erste Test im Projekt, der eine einzelne Faehigkeit vollstaendig isoliert** — ohne
+Rechnen, ohne Regel, ohne Bedeutung. Genau das hat bisher gefehlt.

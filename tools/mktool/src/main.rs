@@ -4375,6 +4375,55 @@ fn main() {
         write_shard(&out, &recs, seed, "lex");
         println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
         return;
+    }    if args.len() > 4 && args[1] == "--kopiepack" {
+        // Copy only: can the model read digits off the page at all? If this fails, every
+        // arithmetic family is measuring the same defect and no label can fix it.
+        let n: usize = args[2].parse().unwrap();
+        let out = PathBuf::from(&args[3]);
+        let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let mut rng = Rng(seed);
+        let budget = pack_budget();
+        let split = std::env::var("SHIRO_KOPIE_SPLIT").unwrap_or_else(|_| "train".into());
+        let p = seen_path("kopie", &split);
+        let mut seen = seen_load(&p);
+        for h in seen_load(&seen_path("kopie", "train")) {
+            seen.insert(h);
+        }
+        for h in seen_load(&seen_path("kopie", "test")) {
+            seen.insert(h);
+        }
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut versuche = 0usize;
+        while recs.len() < n && versuche < n * 100 {
+            versuche += 1;
+            let laenge = 1 + (rng.range(0, 5) as usize);
+            let mut ziffern = String::new();
+            for _ in 0..laenge {
+                ziffern.push(char::from(b'0' + rng.range(1, 9) as u8));
+            }
+            let h = hash64(ziffern.as_bytes());
+            if seen.contains(&h) {
+                continue;
+            }
+            seen.insert(h);
+            let mut rec: Vec<u8> = Vec::new();
+            rec.push(B_TASK);
+            // label, so this cannot collide with the arithmetic families
+            rec.extend_from_slice(format!(" Kopie: {} ", ziffern).as_bytes());
+            rec.push(B_THINK);
+            rec.extend_from_slice(format!(" Die Zahl hat {} Stellen: {}. ", laenge, ziffern).as_bytes());
+            rec.push(B_ANSWER);
+            rec.extend_from_slice(format!(" {} ", ziffern).as_bytes());
+            rec.push(B_END);
+            if rec.len() > budget {
+                continue;
+            }
+            recs.push(rec);
+        }
+        seen_save(&p, &seen);
+        write_shard(&out, &recs, seed, "kopie");
+        println!("kopiepack: {} Aufgaben -> {}", recs.len(), out.display());
+        return;
     }    if args.len() > 4 && args[1] == "--urteilpack" {
         // The three answer classes the brief requires: proven / refuted / not derivable.
         // A model that only ever sees solvable tasks learns to invent an answer - this family
@@ -5641,6 +5690,7 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
 
 
 
