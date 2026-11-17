@@ -2135,3 +2135,46 @@ schon ist). Das ist der fehlende Baustein: bisher hat das Modell nur Aufgaben ge
 Sprache als Text.
 
 **Reihenfolge, die Geld spart:** erst Text (lokal, kostenlos) — dann Kapazitaet (RunPod).
+
+## Runde 202 — Der GPT-Ansatz: erstes Texttraining statt Aufgaben
+
+**Der Vorschlag des Nutzers, umgesetzt:** Sprache mit dem GPT-Ansatz lernen — naechste Einheit
+vorhersagen auf echtem Text, ohne Tokenizer. Das Modell **ist** bereits ein byte-level GPT; es
+hat bisher nur nie Text gesehen, sondern nur Aufgaben.
+
+**Textkorpus beschafft (kostenlos, lokal):**
+
+| Quelle | Groesse | Sprache |
+|---|---|---|
+| Wikipedia-Parquet `wikimedia/wikipedia` | 745 MB → **1,24 GB Text** | Deutsch |
+| Wikitext-103 `Salesforce/wikitext` | 150 MB → **247 MB Text** | Englisch |
+| gemischt (abwechselnd Absaetze) | **132 MB** | DE + EN |
+
+**Umlaute:** die Daten sind UTF-8 und enthalten ä, ö, ü, ß (geprueft: 7910 Umlaut-Bytes im
+ersten Shard). Die Konsole zeigt sie als `..` — das ist die Anzeige des Dump-Werkzeugs, nicht
+die Datei.
+
+**Neues Werkzeug:** `mktool --textpack` schneidet Text in 900-Byte-Records (Record-Laenge ist
+u16, Wikipedia-Absaetze sind bis 12 KB — der erste Versuch ist daran gescheitert, zweimal).
+
+**Lauf `mix45-text`:** 24M byte-level, 2000 Schritte auf 132 MB gemischtem Text. Das ist der
+erste Lauf, in dem das Modell **Sprache als Vorhersage** lernt statt Aufgaben mit Spur.
+
+**Die anderen Punkte des Nutzers, aufgenommen:**
+
+| Vorschlag | Einschaetzung |
+|---|---|
+| **`n=` als Aufgaben-ID** | richtig und billig — das ist R1 in neuer Form; als naechstes Etikett |
+| **Mathe-Zeichen (`x` statt `*`, `·`)** | richtig: das Modell kennt nur `*`; jede Schreibweise braucht eigene Beispiele |
+| **50M/100M** | sinnvoll, **aber erst nach dem Text-Test** — sonst skaliert man ein Memo |
+| **Safepoint vor Credit-Ende** | ja: Checkpoint alle 500 Schritte, jeder zweite zu HuggingFace |
+| **Preis/Geschwindigkeit** | als Rechnung: 3090 kostet 0,22 $/h; schnelleres Modell = weniger Stunden, nicht weniger $/Token |
+| **Sprache DE+EN mischen** | jetzt umgesetzt |
+| **Mandarin** | moeglich (UTF-8, byte-level), braucht aber eigene Daten — spaeter |
+| **Memory layer / RAG / Woerterbuch** | bleibt die richtige Antwort auf "neue Bausteine" — aber erst messen, ob Text hilft |
+| **Kiwix ZIM** | gute Option fuer grosse Korpora; H: hat 505 GB frei. Braucht einen ZIM-Reader (libzim), kein direktes Training-Format |
+
+**Middle-Out:** als Kompressionstechnik (Weissman/Stanford) funktioniert es, ist aber fuer
+Sprachmodelle keine etablierte Methode. Was uebertragbar waere: (a) die Reihenfolge umdrehen —
+Antwort **vor** dem Weg verlangen, damit das Modell nicht rechnen kann, sondern entscheiden muss;
+(b) Positionskodierung von der Mitte. Beides ist billig testbar, aber erst nach dem Text-Lauf.
