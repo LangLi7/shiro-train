@@ -2410,3 +2410,33 @@ unterscheiden kann. Sonst ueberschreiben sie sich, wie Stelligkeiten und Wortlis
 **Ein Werkzeugfehler weniger:** `--wegextract` stuerzte bei der neuen Reihenfolge ab (Slice
 `[t+1..a]` mit `a < t`). Es liest jetzt marker-basiert und ist reihenfolge-unabhaengig — ohne
 diesen Fix waere die Messung ein Absturz statt einer Zahl gewesen.
+
+## Runde 209 — Der Wortschatz-Ansatz: Lexikon im Prompt, Test auf nie gesehenen Woertern
+
+**Das ist der Test, der die urspruengliche Idee des Nutzers prueft** — Woerter als Vorlage, nicht
+als Trainingsmenge.
+
+**Format:** jede Aufgabe traegt den Lexikoneintrag beider Nomen im Prompt:
+
+```
+Lexikon: Hahn = Substantiv, maskulin; Nominativ "der Hahn", Akkusativ "den Hahn".
+         Rose = Substantiv, feminin; Nominativ "die Rose", Akkusativ "die Rose".
+Satz: die Rose sieht der Hahn. Wer sieht?
+```
+
+**Training:** 36 Nomen (24 bekannt + 12 fremd) **mit** Lexikoneintrag, 2000 Saetze.
+**Test:** die **12 dritten** Nomen (Hahn, Rose, Bruder, Tier, Vater, Mutter, Hirsch, Taube,
+Schwester, Haus, Bild, Rad) — nie im Training, **aber mit Lexikoneintrag**.
+
+**Hypothese:** das Lexikon liefert die Information, die dem Modell bisher fehlte. Es muss sie nur
+anwenden. Erwartung: **ueber 70 Prozent** auf Woertern, die es nie gesehen hat.
+
+**Entscheidungsregel:**
+
+> **Ueber 70** = der Wortschatz-Ansatz traegt. Dann ist "Wortbedeutung kommt aus dem Lexikon,
+> Grammatik aus den Gewichten" belegt, und ein Wörterbuch (DWDS, dictionaryapi) ist die richtige
+> Ergaenzung — genau wie der Nutzer es vorgeschlagen hat.
+>
+> **Unter 30** = auch das Lexikon hilft nicht; das Modell kann die gegebene Information nicht
+> auf ein fremdes Wort anwenden. Dann ist die Grenze nicht die Information, sondern die
+> Faehigkeit, sie zu benutzen — und das waere der staerkste Hinweis auf Kapazitaet.
