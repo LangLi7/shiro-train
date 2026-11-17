@@ -1400,3 +1400,50 @@ Aufgabe reines Einsetzen und Rechnen — die Klasse, die das Modell beherrscht (
 > **Unter 70** = auch mit kleinen Zahlen und nachschlagbarer Formel scheitert es. Dann ist die
 > Verkettung "Wert ablesen, einsetzen, multiplizieren, halbieren" selbst zu lang — und das waere
 > der dritte unabhaengige Beleg fuer dieselbe Grenze wie bei Ketten, Division und Programmablauf.
+
+## Runde 182 — Lexikon-Test, zweiter Anlauf: wieder 0 Prozent. Vierter Versuch, Urteil.
+
+**Ergebnis `mix37` (kleine Zahlen, drei Formel-Schreibweisen, kein Binet), 100 Aufgaben:**
+
+| Komponente | Wert |
+|---|---|
+| Weg | **0 %** |
+| Antwort | **0 %** |
+| Klasse | 94 % |
+
+**Auch der bereinigte Test scheitert.** Und das Nachsehen zeigt einen anderen Fehler als beim
+ersten Mal:
+
+```
+Aufgabe:  Merke: Reihe(a,b) = (a+b)*n/2, n = b-a+1. Summe von 9 bis 27.
+erzeugt:  "(a+b)*(b-a+1)/2 mit a=10, b=18 -u1+b=20, a=20, =18."  Antwort 28
+richtig:  a=9, b=27: 9+27=36, anzahl=19, *19=684, /2=342
+```
+
+**Das Modell kopiert die Zahlen aus dem Prompt falsch** — aus `9` und `27` werden `10` und `18`.
+Bei der anderen Aufgabe steht Kauderwelsch ("Aritill Lemb. zorikt 108. Fenn inzahlori").
+
+**Das ist derselbe Fehler wie beim Paraphrase-Test (Runde 150):** dort wurde `9(x+7)` zu
+`7(x+7)`. Das Modell liest Operanden von der falschen Stelle.
+
+**Die Erklaerung, die zu allen Befunden passt:** die Sprachfamilie benutzt **normale Woerter**
+und erreicht 97 Prozent. Die Formel-Familie benutzt **Sonderzeichen** (`+ * ^ / ( )`) und
+scheitert. Sonderzeichen kommen im Korpus fast nur in den Rechenfamilien vor, und dort in
+kurzen Formen (`7*8=56`), nicht in verschachtelten Ausdruecken wie `(a+b)*(b-a+1)/2`.
+
+**Vier Versuche, damit endgueltig aufgegeben:**
+
+| Versuch | Aenderung | Antwort |
+|---|---|---|
+| 1 | 2500 Saetze | 0 % |
+| 2 | 3000 Saetze | 0 % |
+| 3 | Etiketten je Formel | 0 % |
+| 4 | Formel im Prompt, kleine Zahlen, 3 Schreibweisen | 0 % |
+
+**Geschuetzte Faehigkeiten halten (`mix37`):** Sprachlogik **97**, Gleichungen 81,2,
+Logik positiv 100.
+
+**Was daraus folgt:** die Grenze ist **nicht** "Wissen fehlt" (die Formel stand im Prompt) und
+**nicht** "Rechnung zu gross" (die Zahlen waren zweistellig). Sie ist das **Lesen
+verschachtelter Ausdruecke** — Klammern, mehrere Operatoren, Variablennamen. Das ist eine
+konkrete, benannte Grenze und der erste Befund, der die vier vorigen Fehlversuche erklaert.
