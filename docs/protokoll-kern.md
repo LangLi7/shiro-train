@@ -1106,3 +1106,41 @@ Sprachabstraktion, keine mehrstufige Ausfuehrung) ist damit **erwartbar**, nicht
 **Der naechste technische Hebel waere damit klar benannt:** Hash-Embeddings ueber n-Gramme —
 mehr Information pro Byte, ohne Tokenizer. Das ist auch die maschinelle Entsprechung des
 Woerterbuch-Vorschlags: ein n-Gramm-Hash ist ein implizites Lexikon.
+
+## Runde 174 — PoC "geschlossene Form" (Vorschlag des Nutzers), Hypothese vorab
+
+**Auftrag:** erst ein PoC des Trainingsmaterials — Loesungsansatz in geschlossene Form
+umschreiben, Fibonacci per Binet, Material aus Grundwissen/Linear Algebra/Diskreter Mathematik.
+
+**Familie `mix34` (geschlossene Form statt Schleife):**
+
+```
+Aufgabe:  Summe von 44 bis 64 in geschlossener Form.
+Weg    :  Arithmetische Reihe: (a+b)*anzahl/2. a=44, b=64, anzahl=21: 44+64=108, *21=2268, /2=1134.
+Antwort:  1134
+```
+
+Vier Arten: arithmetische Reihe ueber beliebigen Bereich, Quadratsumme, geometrische Reihe,
+Fibonacci mit Binet. Nachgerechnet an vier Beispielen (1134, 385, 524287, F(8)=21).
+
+**Zwei Anlaeufe, beide lehrreich:**
+
+1. Erste Fassung rechnete die Summe nur ab 1 (n = 10..200). Der Raum war damit **234 Aufgaben
+   gross**; die Testmenge belegte 200 davon, das Training bekam **34**. Zu klein.
+2. Behoben durch Summe **von a bis b** — zwei freie Zahlen statt einer. Jetzt 2500 Trainings-
+   und 150 Testsätze.
+
+**Ausgangspunkt ist `mix33`, nicht `mix19`** — sonst waere die Sprachfaehigkeit (90,3 Prozent)
+beim ersten Schritt wieder weg. Sequentielles Erweitern, wie in den Regeln festgehalten.
+
+**Hypothese, vorab festgelegt:**
+
+> Die geschlossene Form ist eine **Einstufen-Aufgabe** (Formel kennen, einen Wert einsetzen,
+> einmal rechnen). Solche Aufgaben kann das Modell bereits: Sprachlogik 90,3, Gleichungen 87,5.
+> Erwartung: **ueber 80 Prozent** Antwort.
+
+**Entscheidungsregel:**
+
+> **Ueber 80 Prozent** = PoC gelungen, die Richtung traegt, Skalierung (RunPod) ist sinnvoll.
+> **Unter 80** = das Formelwissen selbst ist die Huerde — dann braucht es das **Lexikon** als
+> Nachschlagewerk, nicht mehr Training. Das waere der direkte Beleg fuer den Lexikon-Vorschlag.
