@@ -1,0 +1,42 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 4242,
+  "note": "Logik und analytisches Denken, Stufe 1 - Training (400 Datensaetze)",
+  "tasks": {
+    "answer.category-chain.ja": 47,
+    "answer.category-chain.nein": 48,
+    "answer.conditional.ja": 48,
+    "answer.conditional.nein": 47,
+    "level.arithmetic.easy": 34,
+    "level.arithmetic.medium": 29,
+    "level.category-chain.easy": 35,
+    "level.category-chain.hard": 28,
+    "level.category-chain.medium": 32,
+    "level.conditional.easy": 27,
+    "level.conditional.hard": 27,
+    "level.conditional.medium": 41,
+    "level.propositional.easy": 28,
+    "level.propositional.medium": 26,
+    "level.sequence.easy": 33,
+    "level.sequence.hard": 32,
+    "level.sequence.medium": 28,
+    "logic.carry_arithmetic": 63,
+    "logic.category_chain": 95,
+    "logic.conditional_rules": 95,
+    "logic.number_sequence": 93,
+    "logic.propositional": 54
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 400,
+      "payload_bytes": 139686,
+      "file_size": 140518,
+      "checksum": "fe3aa73c78f06c82"
+    }
+  ]
+}

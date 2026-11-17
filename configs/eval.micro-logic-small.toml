@@ -1,0 +1,46 @@
+# Kleiner Messlauf fuer das Micro-Modell: derselbe Logik-Generator, aber nur
+# 200 Held-out-Datensaetze. Damit laeuft `shiro eval --answers` auf der CPU in
+# Sekunden statt Stunden (der Loss-Pass ueber 5000 Datensaetze dominiert sonst).
+#
+# Aufruf:  shiro eval --config configs/eval.micro-logic-small.toml \
+#            --checkpoint models/shiro-micro-logic-refocus-v1/model.safetensors --answers 50
+
+[run]
+name = "eval-micro-logic-small"
+seed = 1337
+steps = 1
+log_every = 1
+checkpoint_every = 1
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/eval-small/train"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 256
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 5
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

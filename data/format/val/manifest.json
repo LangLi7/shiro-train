@@ -1,0 +1,42 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Format-Erkennung aus Bytes (Familie 2) - Held-out (5000 Datensaetze)",
+  "tasks": {
+    "answer.format.fehler": 106,
+    "answer.paar.fehler": 482,
+    "fmt.endung": 1009,
+    "fmt.format": 962,
+    "fmt.gueltig": 1104,
+    "fmt.ort": 535,
+    "fmt.paar": 827,
+    "fmt.reparatur": 563,
+    "level.endung.easy": 338,
+    "level.endung.hard": 339,
+    "level.endung.medium": 332,
+    "level.format.easy": 344,
+    "level.format.hard": 301,
+    "level.format.medium": 317,
+    "level.gueltig.easy": 374,
+    "level.gueltig.hard": 371,
+    "level.gueltig.medium": 359,
+    "level.ort.hard": 535,
+    "level.paar.easy": 287,
+    "level.paar.hard": 275,
+    "level.paar.medium": 265,
+    "level.reparatur.hard": 563
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 5000,
+      "payload_bytes": 2732066,
+      "file_size": 2742098,
+      "checksum": "3932cb841ecbcc99"
+    }
+  ]
+}

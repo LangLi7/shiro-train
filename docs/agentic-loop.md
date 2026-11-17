@@ -228,3 +228,51 @@ Wird verworfen, bleibt der Vorgaenger der gueltige Stand.
 * **Ein Modul statt sechs**: Capability, Registry, Klassifikation, Pakete,
   Messung und Loop liegen in `src/agent.rs`. Bewusst, solange die Faehigkeit
   eine ist; bei der zweiten Faehigkeit wird geteilt.
+* **Der Replay-Hebel wirkt erst unterhalb der Kappung (O-T10).** `anfrage_fuer` kappt
+  Ein-Typ-Pakete auf `TYP_DECKEL`, und die Wiederholung fuellt danach **alles** wieder
+  auf. In exp-019 gemessen: `replay_share` 0,35 / 0,20 / 0,05 lieferten **identische**
+  Trainingsdaten (6250 gezielt + 70550 Wiederholung) - der Hebel wurde **dreimal**
+  gezogen und konnte nichts aendern; der Zieltyp bekam **8,1 %** der Proben. Wirksam
+  wird er erst, wenn `dosis * batch * (1 - replay) <= TYP_DECKEL` gilt; darunter ist
+  **der Deckel** der Hebel. `TYP_DECKEL` steht seit exp-019 auf **20000** (gezielter
+  Anteil 8,1 % -> 28,6 %), und exp-020 hat genau diese eine Variable geprueft:
+  **einstimmig verworfen** (-0,007 / -0,008 auf den beiden Panels).
+* **`hebel_an` beurteilt einen Hebel am Zahlenwert statt an der gelieferten Datenmenge
+  (O-T11).** Ein Replay-Wechsel 0,35 -> 0,20 meldet sich damit weiterhin als
+  **wirksam**, obwohl die Trainingsdaten identisch sind. Eine Pruefung, die den Hebel
+  gegen die **tatsaechlich gelieferte** Menge stellt, fehlt.
+
+## 11 Regel fuer jede kuenftige Familien-Freigabe (n11b)
+
+**Die Regel.** Eine Familie wird **nicht** freigegeben, solange nicht **drei**
+Groessen auf einem **festen Referenzsatz** vorliegen:
+
+| # | Groesse | Frage | Werkzeug |
+|---|---|---|---|
+| 1 | Verlust / Perplexitaet (teacher forced, gebatcht) | Passt das Modell auf die Verteilung? | `shiro eval --checkpoint ...` |
+| 2 | Trefferquote byte-genau (greedy, frei) | Loest das Modell die Aufgabe? | `shiro eval --answers N` |
+| 3 | **Zerlegung A/B** (teacher-forced exakt gegen greedy) | Fehlt der **Inhalt** oder die **Ausfuehrung**? | `shiro eval --answers N --probe` |
+
+**Warum drei und nicht zwei.** Der Verlust misst **jedes Byte einzeln**, die
+Trefferquote die **ganze Antwort** - und die Frage "Ausfuehrung oder Faehigkeit?"
+laesst sich aus keiner von beiden allein beantworten. Genau daran ist der Satz
+"was fehlt, ist die byte-genaue Antwort, nicht die Faehigkeit" gescheitert: er
+war aus guten Einzelbyte-Zahlen und einer schwachen Trefferquote **geschlossen**,
+aber nie **gemessen**. Die Messung steht in
+[`zahlenfolgen-ausfuehrung-vs-faehigkeit.md`](zahlenfolgen-ausfuehrung-vs-faehigkeit.md);
+das Ergebnis ist **typabhaengig** und deshalb als **Verdikt je Aufgabentyp**
+ausgegeben, nicht als eine Kopfzahl.
+
+**Kosten (gemessen).** Ein `--probe`-Lauf ueber 120 Datensaetze kostet auf der
+CPU rund **90 s** - der Teacher-forced-Teil ist **ein** Forward-Pass je Datensatz,
+der Sampling-Teil (`--probe-samples K`) skaliert mit K. Mit `K = 8` sind es rund
+**13 min** je Zustand. Der Loop kann Regel 3 also in jeder Runde mitfahren.
+
+**Nebenbefund, der eine offene Frage in §6 schliesst.** Die dort offen gelassene
+Diskrepanz (~30 s gegen ~1,3 s je Datensatz) ist **geklaert**: `answers_core`
+erzeugt mit `max_new = seq_len` (512) und schneidet erst danach an der
+`ENDE`-Marke ab, die Sonde dagegen mit `Soll-Laenge + 2`. Da Greedy-Erzeugung
+**prefix-deterministisch** ist (Byte `i+1` haengt nur von `0..=i` ab), liefern
+beide Budgets **dieselben** fuehrenden Bytes - das kleine ist nur rund 25-mal
+schneller. Belegt dadurch, dass die Sonde auf `seq-step200` exakt die
+Referenzzahl aus exp-002 reproduziert (22 von 120).

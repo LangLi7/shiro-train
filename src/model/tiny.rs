@@ -252,7 +252,7 @@ impl TinyModel {
                     ops::matvec(&normed, &layer.w_gate, ffn, d, &mut gate);
                     ops::matvec(&normed, &layer.w_up, ffn, d, &mut up);
                     for i in 0..ffn {
-                        gate[i] = ops::gelu(gate[i]) * up[i];
+                        gate[i] = ops::silu(gate[i]) * up[i];
                     }
                     ops::matvec(&gate, &layer.w_down, d, ffn, &mut down);
                     for i in 0..d {

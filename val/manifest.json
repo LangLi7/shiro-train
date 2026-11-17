@@ -1,0 +1,17 @@
+{
+ "format_version": 1,
+ "vocab_size": 256,
+ "byte_order": "little",
+ "record_encoding": "raw-bytes-with-special-tokens",
+ "seed": 1,
+ "note": "mktool",
+ "tasks": {"typ.rechnen": 40},
+ "shards": [{
+  "id": 0,
+  "path": "shard-0000.bin",
+  "records": 40,
+  "payload_bytes": 2963,
+  "file_size": 3075,
+  "checksum": "dd84e9939daafff2"
+ }]
+}

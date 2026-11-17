@@ -106,6 +106,19 @@ Abschluss**. Was richtig bleibt, ist die **Schlussfolgerung**: mehr Daten
 derselben Bauart wiederholen den Fehler, weil schon das Trainingsband mit 29,2 %
 byte-genau selbst schwach ist.
 
+**Zweite Korrektur (n11b, exp-007).** Der Satz "was fehlt, ist die byte-genaue
+Antwort, **nicht die Faehigkeit**" ist so ebenfalls nicht haltbar. Die Zerlegung
+je Aufgabentyp zeigt **beides**
+([`zahlenfolgen-ausfuehrung-vs-faehigkeit.md`](zahlenfolgen-ausfuehrung-vs-faehigkeit.md)):
+auf dem Stand `seq-step200` fehlt bei `luecke`, `naechste` und `offen` der
+**Inhalt** (die richtige Antwort ist auch unter acht Proben nicht erreichbar: 0
+von 17, 0 von 15, 0 von 18), bei `stelle`, `vergleich` und `regel` die
+**Ausfuehrung** (`vergleich`: 7 von 15 greedy gegen **15 von 15** unter Proben).
+Und der Schluss, mehr Daten derselben Bauart seien wertlos, ist zu stark: schon
+mehr **Dosis** hebt alle drei Inhaltstypen von B auf A (i3-step2200: `luecke` 10
+von 17, `naechste` 6 von 15, `offen` 14 von 18) - dieselbe Dosis-Erhoehung, die
+exp-005 von 2,2 % auf 42,2 % hob.
+
 ## 7 Offene Punkte
 
 **Keine neue O-ID und keine neue D-ID.** Diese Antwort ist eine Klarstellung von

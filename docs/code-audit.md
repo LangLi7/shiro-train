@@ -187,6 +187,18 @@ DeepSeek V4-Pro braucht eine 4×GB300-Node — für dieses Projekt keine Option.
 Solvern/Verifiern und lizenzgeprüften Quellen. Fremde Modell-Ausgaben höchstens dort,
 wo sie **nicht** ins Training fließen.
 
+**Nachtrag 07.10.2026 (`x14`) — Vertragstext im Original geprüft.** Die Regel oben ist
+gegen die Primärquelle bestätigt: **MCA §2.3(b)** von TypeSafe (Stand 23.09.2026,
+`https://typesafe.ai/legal/mca`, HTTP 200, abgerufen 07.10.2026) verbietet wörtlich die
+Nutzung des Outputs für *„model distillation, train a model to imitate the output of the
+Services"*. Die Klausel enthält **drei** Verbote, und **zwei davon greifen unabhängig
+von einer Wettbewerbsabsicht** — das Argument „wir machen kein Konkurrenzmodell"
+entkräftet nur das dritte. Die Grenze aus (c) ist damit nicht Konvention, sondern
+Vertrag: **Jev-Ausgaben dürfen Steuerfluss sein, nie Trainingsziel.** Offener Punkt dazu:
+**O-K24** in `docs/logik-und-analytisches-denken.md` §10 (dort §10.3 die Klausel, §10.6
+die Kostenrechnung — der ganze Korpus kostete zweistellige Dollar, Geld ist also **kein**
+Argument).
+
 ---
 
 ## 6. Antworten auf die beiden Fragen

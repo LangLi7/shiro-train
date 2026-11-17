@@ -1,0 +1,41 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Programm-Semantik und Fehlerort (Mini-VM v1) - Held-out (2000 Datensaetze)",
+  "tasks": {
+    "answer.output.fehler": 44,
+    "level.bug.easy": 78,
+    "level.bug.hard": 115,
+    "level.bug.medium": 97,
+    "level.compare.easy": 154,
+    "level.compare.hard": 144,
+    "level.compare.medium": 145,
+    "level.output.easy": 147,
+    "level.output.hard": 148,
+    "level.output.medium": 148,
+    "level.repair.easy": 102,
+    "level.repair.hard": 138,
+    "level.repair.medium": 124,
+    "level.trace.easy": 154,
+    "level.trace.hard": 153,
+    "level.trace.medium": 153,
+    "sem.bug": 290,
+    "sem.compare": 443,
+    "sem.output": 443,
+    "sem.repair": 364,
+    "sem.trace": 460
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 2000,
+      "payload_bytes": 1188650,
+      "file_size": 1192682,
+      "checksum": "c5034ab9be84b06c"
+    }
+  ]
+}

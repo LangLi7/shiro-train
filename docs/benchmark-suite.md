@@ -42,6 +42,16 @@ Abschnitt 6, erweitert um die vom Nutzer verlangten Ebenen **UnitTest**,
 (Regel R9 des Loop-Programms). Stufe 4 setzt voraus, dass die Stufen 0-3
 gelaufen sind; erst dann ist ein Durchbruch belegt statt behauptet.
 
+**Zur Namensgebung "Basic Check" (Klarstellung, weil die Bezeichnung im Projekt
+bereits geprueft ist).** "Basic Check" ist hier die **Arbeitsbezeichnung einer
+Grundstufe** aus der Nutzerauflage. Es ist **nicht** das gleichnamige
+kommerzielle Angebot (gateway.one) und **kein** Nachfolger des Schweizer Check S2
+- das hat das Projekt bereits festgehalten (`docs/lernstufen/level-L4.md` Z.307,
+`docs/lernstufen/SOURCES.md` Z.93-96 und Z.392: "ist ein kommerzielles Angebot
+(gateway.one) und kein EDK-Nachfolger von Check S2 ... wird in diesem Dokument
+nirgends als Referenz verwendet"). Stufe 1 ist damit eine **projekteigene**
+Stufe, so wie Stufe 0 eine ist.
+
 **Was jede Stufe ausdruecklich NICHT beweist:**
 
 * Stufe 0 beweist **nichts** ueber das Modell - sie beweist, dass die Kette
@@ -207,6 +217,19 @@ Trainingsstoff stammen?
    Aufgaben, deren Loesung das Modell nicht auswendig kennen kann, weil die
    Stellung erzeugt wird und der Generator die Loesung kennt.
 
+   **Belegte Kennzahlen (Manifeste frisch gelesen, Seed 1337, je genau ein
+   Shard):** `data/games/train` 40.000 Datensaetze / 12.179.395 B, Pruefsumme
+   `eed034a53a0bb19b`, 89 Aufgaben-Schluessel; `data/games/val` 2.416 / 730.841 B,
+   Pruefsumme `5dc1625f12c7f537`, 65 Schluessel. Neun Spielarten (`maze`, `rush`,
+   `tile`, `hanoi`, `pack`, `latin`, `chess`, `match`, `trail`) mal vier
+   Aufgabentypen (`game.solve`, `game.legal`, `game.bug`, `game.repair`); zwei
+   Zellen fehlen ganz (`pack.game.repair`, `trail.game.repair`), und die
+   Besetzung ist stark ungleich. **Kein trainierter Stand und kein
+   Kombinationskorpus** enthalten `games` - eine Spiele-Messung ist heute eine
+   Transfer-Messung. Nebenbefund: die in `docs/programmiersprachen/spiele-korpus.md`
+   genannte JSONL-Begleitung ist im ausgelieferten Ordner **nicht** vorhanden;
+   die Dokumentangabe ist gegen den Stand nicht reproduzierbar.
+
 **Kriterium (vorab).** Je Familie und je Bewegung wird die Antwortquote getrennt
 berichtet; "beherrscht" heisst **ueber** der Kurzstrategie-Basislinie **und**
 ueber der untrainierten Basislinie, auf **beiden** Panels. Die Puzzlezahl
@@ -233,9 +256,57 @@ Fremdquelle wird nur benutzt, wenn **drei** Bedingungen belegt sind:
 Ist eine der drei Bedingungen nicht erfuellbar, wird die Quelle **nicht**
 benutzt; stattdessen wird die Aufgabe aus einer eigenen Grammatik erzeugt (Bauart
 wie `src/data/logic.rs`, Denkweg aus dem Solver). Ein Generator kostet einmal
-Arbeit und liefert dafuer Wahrheit per Konstruktion. Die Quellenpruefung laeuft
-als Recon-Auftrag; das Ergebnis entscheidet, welche Klassen aus einer
-Fremdquelle und welche aus dem Generator kommen.
+Arbeit und liefert dafuer Wahrheit per Konstruktion.
+
+**Geprueft am 09.10.2026 (HTTP-Status und Lizenz woertlich, zwei unabhaengige
+Durchgaenge). Ergebnis: zwei Wuensche fallen weg, zwei Quellen tragen.**
+
+| Quelle | Lizenz / Beleg | Wahrheitsfeld | Urteil |
+| --- | --- | --- | --- |
+| **Duden** | Impressum, `duden.de/impressum` (HTTP 200): "Die Webseite einschliesslich aller ihrer Teile ist urheberrechtlich geschuetzt." `robots.txt` (HTTP 200) sperrt 38 KI-Crawler (u. a. GPTBot, ClaudeBot, CCBot) je mit `Disallow: /`. Der einzige programmatische Weg ist kostenpflichtig: `duden.de/api` nennt API Pro 100 = 100 Anfragen/Tag fuer 39,95 EUR/Monat (500 = 99,95, 1000 = 174,95); der Lizenzweg nennt "mindestens 80,- EUR" und 6-8 Wochen Bearbeitung. | keines | **nicht nutzbar** |
+| **DWDS** | Nutzungsbedingungen `dwds.de/d/nutzungsbedingungen` (HTTP 200): "Jegliche Nutzung der Inhalte des DWDS, einschliesslich jedoch nicht beschraenkt auf automatisierte Abfragen und Auswertungen (Crawlen, Parsen, Text- und Data-Mining) ... ist nur mit ausdruecklicher Genehmigung gestattet"; zusaetzlich ist jede kommerzielle Nutzung ausgeschlossen. | keines | **nicht nutzbar** |
+| **Wikidata-Lexeme** | CC0, belegt auf `Wikidata:Data_access` (HTTP 200): "All that data is licensed CC0"; Fusszeile nennt die Namensraeume main, Property, Lexeme, EntitySchema als CC0. | **JA**: `P5185` (grammatical gender) und `forms[].grammaticalFeatures` mit Nominativ, Genitiv, Dativ, Akkusativ (live geprueft an Lexem L2957 "Haus"); **184.763 von 188.950** deutschen Nomen tragen Genus = **97,8 %** | **nutzbar fuer Genus und Kasus** |
+| **LanguageTool (deutsche Regeln)** | LGPL 2.1 oder spaeter, `COPYING.txt` (HTTP 200) woertlich "GNU LESSER GENERAL PUBLIC LICENSE Version 2.1"; Regelwerk `grammar.xml` (HTTP 200, 5.057.135 B) | **JA**: Regel-ID maschinenlesbar, live gezaehlt **1.035 Regeln** in 17 Kategorien, darunter PUNCTUATION und HILFESTELLUNG_KOMMASETZUNG (AB_WANN_KOMMA, SOFERN_KOMMA, ...) und CASING (SIE_GROSS, GROSSES_ABER) | **nutzbar fuer Zeichensetzung und Gross-/Kleinschreibung** |
+| **Hunspell igerman98** | GPLv2/GPLv3 (`wooorm/dictionaries`, Kopfzeilen von `index.aff`/`index.dic` und Lizenzdatei) | **nein**: die Flags sind Affix-Klassen (SFX F, SFX A), kein Genus- und kein Kasusfeld | nutzbar hoechstens fuer Rechtschreibung, **nicht** fuer Genus/Kasus |
+| **Wiktionary / kaikki.org** | CC BY-SA 4.0 und GFDL, Fusszeile `de.wiktionary.org`; kaikki.org (HTTP 200) woertlich "licenses as Wiktionary - both CC-BY-SA and GFDL"; Dump `dewiktionary-latest-pages-articles.xml.bz2` HTTP 200, 269.990.944 B | **nein**: Wortformen als Text, kein Feld - Flexionsangaben muessten aus Wikitext extrahiert werden | **Vorbehalt Share-alike** (siehe unten) |
+| **Leipzig Corpora** | CC BY, im Repo belegt (`docs/quellen-uebersicht.md` Z.80, Abruf 07.10.2026); die Uebersichtsseite ist am 09.10.2026 nur ueber einen Bot-Schutz erreichbar, die Korpusdatei selbst HTTP 200 (229.132.821 B) | nein: freier Text | fuer den Denk-Teil unbrauchbar, Sprache allein traegt keine Regel |
+
+**Abbildung auf die neun Klassen:**
+
+| Klasse | Quelle | Status |
+| --- | --- | --- |
+| Genus | Wikidata `P5185` (CC0) | **belegt, 97,8 % Abdeckung** |
+| Kasus | Wikidata `forms[].grammaticalFeatures` (CC0) | Feld belegt, **Abdeckung ungemessen** |
+| Zeichensetzung | LanguageTool Regel-ID (LGPL 2.1) | **belegt** |
+| Gross- und Kleinschreibung | LanguageTool Regel-ID, Kategorie CASING | **belegt** |
+| Fehlerort | kein Feld - Mutation mit bekannter Stelle | eigener Generator |
+| Minimierung | kein Feld - nur bei genau einer Aenderung eindeutig | eigener Generator |
+| Wortstellung | **keine Quelle gefunden** | eigener Generator |
+| Morphemzerlegung | **keine Quelle gefunden** | eigener Generator |
+| Gegenprobe | **keine Quelle gefunden** | eigener Generator |
+
+**Share-alike, ausdruecklich benannt.** CC BY-SA (Wiktionary) verlangt, dass
+abgeleitete Werke unter derselben Lizenz stehen. Ob ein **trainiertes Modell**
+ein abgeleitetes Werk seiner Trainingsdaten ist, ist rechtlich nicht geklaert und
+wird hier **nicht** entschieden. Folge: fuer die **Messung** ist der Vorbehalt
+tragbar, weil Benchmark-Aufgaben nach D-056 kein Trainingsstoff sind und die
+Daten getrennt von den Gewichten bleiben; fuer eine spaetere **Verwendung als
+Trainingsstoff** waere er es nicht. Wiktionar-Text wandert deshalb nicht in einen
+Korpus, solange die Frage offen ist. Dieselbe Trennung gilt fuer die
+LGPL-Regeln von LanguageTool: als Messinstrument gelesen, nicht einkompiliert und
+nicht als Trainingssatz verwendet.
+
+**Kein Einzelabruf, kein Massendownload.** Der Benchmark baut seine Aufgaben aus
+**lokal gehaltenen** Staenden (Wikidata-Auszug, Regelwerk-Datei); die Messung
+selbst geht **nicht** ins Netz. Damit ist sie reproduzierbar und haengt nicht von
+der Verfuegbarkeit eines fremden Dienstes ab.
+
+**Offene Punkte aus dieser Pruefung:** (1) Wikidata-Kasusabdeckung ist ungemessen
+(SPARQL-Zaehlung lief in HTTP 429; belegt ist nur das Feld am Einzelfall).
+(2) Die Lizenzfrage LGPL/GPL-Daten als Trainingskorpus ist juristisch offen.
+(3) Die drei Klassen ohne Quelle brauchen Generator und Verifier nach dem Muster
+der bestehenden Korpora. (4) Die Leipzig-Lizenz stuetzt sich am 09.10.2026 nur
+noch auf den repo-internen Beleg.
 
 **Orthografie-Konvention.** ASCII-Transliteration (ae, oe, ue, ss), eine Sprache
 je Korpus - sonst wird Sprachdifferenz statt Denkfaehigkeit gemessen
@@ -355,7 +426,7 @@ jede Zahl nachpruefbar bleibt.
 | Stufe 0 als **ein** Kommando | offen (bm7: `scripts/benchmark-suite.sh`) |
 | Basic Check je Familie | Skript offen; die Messbefehle existieren (`eval`, `eval --answers`) |
 | Check S2 als Aufgabensatz | offen: Kompetenzbereiche aus `docs/lernstufen/level-L4.md` auf Repo-Familien abbilden |
-| Sprache: Quellenentscheidung | Recon laeuft |
+| Sprache: Quellenentscheidung | **entschieden am 09.10.2026** (Abschnitt 4.3): **Duden und DWDS nicht nutzbar** (Urheberrecht, Crawler-Sperre, Kosten- und Limitmodell bzw. woertliches Verbot automatisierter Abfragen); **Wikidata-Lexeme (CC0)** tragen Genus und Kasus, **LanguageTool (LGPL 2.1)** traegt Regel-IDs fuer Zeichensetzung und Casing; **drei der neun Klassen** (Wortstellung, Morphemzerlegung, Gegenprobe) haben keine Quelle und brauchen einen eigenen Generator mit Verifier |
 | Coding: LeetCode-Lizenzurteil | **entschieden: nicht nutzbar** (Abschnitt 4.4); externe Ergaenzung waere CruxEval (MIT), erst nach der Kontaminationspruefung |
 | Logik/Spiele: Panels je Spieltyp | Instrument vorhanden (`benchmark-logik.py`), Lauf offen |
 | Durchbruch-Benchmark | Instrument vorhanden, laeuft in Phase 4 des Loop-Programms |

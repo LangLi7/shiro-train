@@ -26,12 +26,11 @@ pub struct ModelConfig {
     pub rope_theta: f32,
     #[serde(default = "default_rms_eps")]
     pub rms_norm_eps: f32,
-    /// Embedding und Ausgabekopf teilen sich dieselbe Matrix.
+    /// Ob Einbettung und Ausgabekopf dieselbe Matrix teilen.
     ///
-    /// **Im Platzhalter-Modell (`src/model/tiny.rs`) NICHT umgesetzt** - dort liegen
-    /// `token_embedding` und `w_out` getrennt vor. Der Standard ist deshalb `false`,
-    /// damit `param_count()` die real allokierten Werte zaehlt. Das echte Gewichtsteilen
-    /// kommt mit dem Backend (Burn/Candle) im richtigen Modell.
+    /// Noch nicht implementiert: sowohl der Smoke-Pfad als auch das Burn-Modell
+    /// halten getrennte Matrizen. `validate()` lehnt daher `true` ab, damit die
+    /// Parameterzahl nicht von den tatsaechlich trainierten Gewichten abweicht.
     #[serde(default = "default_false")]
     pub tie_embeddings: bool,
     #[serde(default)]
@@ -61,7 +60,7 @@ impl ModelConfig {
     /// Embedding = 256 * d_model
     /// je Schicht = 4*d^2 (q,k,v,o) + 3*d*d_ff (SwiGLU) + 2*d (2x RMSNorm)
     /// Abschluss-Norm = d_model
-    /// Ausgabe = d_model * 256 (nur wenn Embeddings nicht geteilt werden)
+    /// Ausgabe = d_model * vocab_size (geteilte Embeddings sind nicht unterstuetzt)
     /// Bias    = vocab_size
     /// ```
     ///
@@ -73,22 +72,21 @@ impl ModelConfig {
         let per_layer = 4 * d * d + 3 * d * self.d_ff + 2 * d;
         let embed = self.vocab_size * d;
         let norm_final = d;
-        let head = if self.tie_embeddings {
-            0
-        } else {
-            d * self.vocab_size
-        };
+        let head = d * self.vocab_size;
         let bias = self.vocab_size;
         embed + self.n_layers * per_layer + norm_final + head + bias
     }
 
-    /// Kopf-Dimension. Muss `d_model` teilen.
+    /// Kopf-Dimension. `d_model` muss sie teilen; RoPE benoetigt eine gerade Breite.
     pub fn head_dim(&self) -> usize {
         self.d_model / self.n_heads
     }
 
     /// Validiert die Kombination, bevor Speicher allokiert wird.
     pub fn validate(&self) -> Result<()> {
+        if self.d_model == 0 || self.n_layers == 0 || self.d_ff == 0 {
+            crate::error::bail!("d_model, n_layers und d_ff muessen > 0 sein");
+        }
         if self.n_heads == 0 || !self.d_model.is_multiple_of(self.n_heads) {
             crate::error::bail!(
                 "d_model ({}) muss durch n_heads ({}) teilbar sein",
@@ -96,11 +94,40 @@ impl ModelConfig {
                 self.n_heads
             );
         }
-        if self.d_model == 0 || self.n_layers == 0 || self.d_ff == 0 {
-            crate::error::bail!("d_model, n_layers und d_ff muessen > 0 sein");
+        if self.head_dim() < 2 || !self.head_dim().is_multiple_of(2) {
+            crate::error::bail!(
+                "head_dim ({}) muss gerade und mindestens 2 sein, damit RoPE paarweise rotieren kann",
+                self.head_dim()
+            );
         }
         if self.max_seq_len == 0 {
             crate::error::bail!("max_seq_len muss > 0 sein");
+        }
+        if self.vocab_size < crate::data::bytes::VOCAB_SIZE {
+            crate::error::bail!(
+                "vocab_size ({}) muss mindestens {} betragen, damit jedes Byte ein gueltiges Token ist",
+                self.vocab_size,
+                crate::data::bytes::VOCAB_SIZE
+            );
+        }
+        if !self.rope_theta.is_finite() || self.rope_theta <= 0.0 {
+            crate::error::bail!("rope_theta muss endlich und > 0 sein");
+        }
+        if !self.rms_norm_eps.is_finite() || self.rms_norm_eps <= 0.0 {
+            crate::error::bail!("rms_norm_eps muss endlich und > 0 sein");
+        }
+        if !self.dropout.is_finite() || !(0.0..1.0).contains(&self.dropout) {
+            crate::error::bail!("dropout muss endlich und in [0, 1) liegen");
+        }
+        if self.dropout != 0.0 {
+            crate::error::bail!(
+                "dropout ist im Modell noch nicht implementiert; setze dropout = 0.0"
+            );
+        }
+        if self.tie_embeddings {
+            crate::error::bail!(
+                "geteilte Embeddings sind im Modell noch nicht implementiert; setze tie_embeddings = false"
+            );
         }
         if self.head_dim() > 128 {
             crate::error::bail!(
@@ -109,6 +136,37 @@ impl ModelConfig {
             );
         }
         Ok(())
+    }
+
+    /// Kleinste echte Trainingsgroesse: **4.656.640 Parameter**.
+    ///
+    /// Sie ist die lokale Einstiegsstufe aus `docs/lokales-cpu-training-plan.md`
+    /// (§5, Stufe A) und laeuft ueber **denselben** Codepfad wie Modell S - nur mit
+    /// kleineren Zahlen. Rechnung (ungeteilte Embeddings):
+    ///
+    /// ```text
+    /// Einbettung      = 256 * 256            =    65.536
+    /// je Schicht      = 4*256^2 + 3*256*640 + 2*256 = 754.176
+    /// 6 Schichten     = 6 * 754.176          = 4.525.056
+    /// Abschluss-Norm  = 256                  =       256
+    /// Ausgabekopf     = 256 * 256            =    65.536
+    /// Bias            = 256                  =       256
+    /// Summe                                  = 4.656.640
+    /// ```
+    pub fn micro() -> Self {
+        Self {
+            name: "shiro-micro".to_string(),
+            d_model: 256,
+            n_layers: 6,
+            n_heads: 4,
+            d_ff: 640,
+            vocab_size: crate::data::bytes::VOCAB_SIZE,
+            max_seq_len: 512,
+            rope_theta: 10_000.0,
+            rms_norm_eps: 1e-5,
+            tie_embeddings: false,
+            dropout: 0.0,
+        }
     }
 }
 
@@ -289,6 +347,15 @@ impl TrainConfig {
         let cfg: Self = toml::from_str(&text)
             .with_context(|| format!("Konfiguration ungueltig: {}", path.display()))?;
         cfg.model.validate()?;
+        if !cfg.optim.lr.is_finite() || cfg.optim.lr <= 0.0 {
+            crate::error::bail!("optim.lr muss endlich und > 0 sein");
+        }
+        if !cfg.optim.weight_decay.is_finite() || cfg.optim.weight_decay < 0.0 {
+            crate::error::bail!("optim.weight_decay muss endlich und >= 0 sein");
+        }
+        if !cfg.optim.grad_clip.is_finite() || cfg.optim.grad_clip < 0.0 {
+            crate::error::bail!("optim.grad_clip muss endlich und >= 0 sein");
+        }
         if cfg.data.batch_size == 0 {
             crate::error::bail!("data.batch_size muss > 0 sein");
         }

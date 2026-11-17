@@ -1,10 +1,12 @@
-# Programmier-Lernplan: Grundlagen und fünf Sprachpfade
+# Programmier-Lernplan: Grundlagen, sechs Sprachpfade und ein Format
 
 **Was das ist:** ein zweiter Lernplan neben [`../lernstufen/`](../lernstufen/) —
 aber mit einem anderen Gegenstand. `docs/lernstufen/` beschreibt **Denkstufen**
 (Vorschule bis Universität: Logik, Mathematik, Sprache). Dieses Paket beschreibt
-**Programmierkompetenz**: die sprachunabhängigen Grundlagen und danach fünf
-Sprachpfade (Python, C, Rust, Java, Go), jeder in sechs Stufen `K0`–`K5`.
+**Programmierkompetenz**: die sprachunabhängigen Grundlagen, danach **sechs
+Sprachpfade** (Python, C, Rust, Java, Go, **Assemblersprache x86-64**), jeder in
+sechs Stufen `K0`–`K5` — und **eine Formatseite** ([`json.md`](json.md)), die
+kein Sprachpfad ist.
 
 **Was das nicht ist:** keine Aussage über die Fähigkeiten von Shiro, kein
 Benchmark, keine Sprachempfehlung für ein konkretes Produkt. Dieses Paket
@@ -23,12 +25,17 @@ Trennung verhindert, dass gesetzte Stufen wie belegte aussehen. Siehe
 | Dokument / Datei | Rolle |
 |---|---|
 | [`../lernstufen/`](../lernstufen/) | **Stoff**: Denkstufen L0–L6, curricular belegt |
-| `docs/programmiersprachen/` (dieses) | **Stoff**: Programmiergrundlagen + fünf Sprachpfade K0–K5 |
+| `docs/programmiersprachen/` (dieses) | **Stoff**: Programmiergrundlagen + **sechs** Sprachpfade K0–K5 + **eine Formatseite** |
 | [`grundlagen.md`](grundlagen.md) | **Stoff**: die 14 sprachunabhängigen Konzeptbereiche |
+| **Sprachpfade** | [`python.md`](python.md) · [`c.md`](c.md) · [`go.md`](go.md) · [`java.md`](java.md) · [`rust.md`](rust.md) · [`assembly.md`](assembly.md) |
+| [`json.md`](json.md) | **Format**, kein Sprachpfad: Syntax, Parsing, Serialisierung, Byte-Darstellung, Projektbezug (RFC 8259) |
+| [`sprachstufe.md`](sprachstufe.md) | **Spezifikation**: Sprache als eigene Stufe — Stufenfolge **Mathematik → Englisch → Deutsch** (D-017), vier feste Teile (Aufgabenschablone · Denkweg · Antwortformat · Verifier) plus verbindliche Orthografie-Konvention; Entscheidungen **D-016**, **D-017** |
+| [`sprachlogik-und-analytik.md`](sprachlogik-und-analytik.md) | **Konzept**: Schichtung **innerhalb** einer Sprache — Sprachlogik vor Wortschatz (**D-019**), Alphabetfrage, und die **vier analytischen Bewegungen** (Zerlegen · Vergleichen · Lokalisieren · Minimieren) für Sprache **und** Programmieren |
 | [`mapping.md`](mapping.md) | **Zuordnung**: K-Stufen ↔ L-Stufen ↔ Projektdateien ↔ offene Lücken |
 | `docs/03-trainingsstoff.md` | **Projektprinzipien**: Anfängerfehler → Prinzip, Rust-Vorlagen |
 | `LOGIC_ANALYTICS.md` | **Daten**: Logikkorpus, Generator, gemessene Raumgrössen |
 | [`byte-model-roadmap.md`](../byte-model-roadmap.md) | **Konzept**: Architektur, Curriculum, Phasen |
+| [../benchmark-strategie.md](../benchmark-strategie.md) | **Messung**: wie gemessen wird (D-018) — vier Zulässigkeitsbedingungen, Stufenplan 0–3, Messvertrag; die **Stufenfolge der Sprache** aus [sprachstufe.md](sprachstufe.md) §1a ist dort **Stufe 3** |
 
 ---
 
@@ -37,7 +44,7 @@ Trennung verhindert, dass gesetzte Stufen wie belegte aussehen. Siehe
 Die Frage war: *was wird beim Programmieren **immer** angewendet?*
 
 Die Antwort ist in [`grundlagen.md`](grundlagen.md) ausgearbeitet: **14
-Konzeptbereiche**, die in jeder der fünf Sprachen wiederkehren, plus **neun
+Konzeptbereiche**, die in jeder der sechs Sprachen wiederkehren, plus **neun
 Denkweisen**, die quer durch alle 14 liegen.
 
 | # | Konzeptbereich | Kernfrage |
@@ -96,13 +103,13 @@ wiederfindet.
 
 `K3` ist die Stufe, die es in `lernstufen/` **nicht** gibt: die Stufe, auf der
 man versteht, **warum** Sprachen sich unterscheiden. Sie ist der Grund, warum
-dieses Paket fünf Sprachpfade hat und nicht einen.
+dieses Paket sechs Sprachpfade hat und nicht einen.
 
 ---
 
-## 3. Warum fünf Sprachen — und warum diese Reihenfolge
+## 3. Warum sechs Sprachen — und warum diese Reihenfolge
 
-Die fünf Sprachen sind nicht nach Beliebtheit gewählt, sondern nach **Kontrast**.
+Die sechs Sprachen sind nicht nach Beliebtheit gewählt, sondern nach **Kontrast**.
 Jede zeigt eine andere Antwort auf dieselben 14 Fragen aus §1.
 
 | Sprache | Zeigt vor allem | Fällt auf durch |
@@ -112,9 +119,10 @@ Jede zeigt eine andere Antwort auf dieselben 14 Fragen aus §1.
 | **Java** | Struktur und Verträge | checked Exceptions, Klassen, Bytecode/VM |
 | **Go** | Einfachheit und Nebenläufigkeit | `error` als Wert, Goroutinen, `nil`-Map |
 | **Rust** | was ein Typensystem verhindern kann | Besitz, Borrow-Checker, `Result` |
+| **Assemblersprache** (x86-64) | was **unter** allem liegt | Register statt Typen, Flags statt Ausdrücke, **Byte = Befehl** |
 
 **Empfohlene Reihenfolge:** Python → **`grundlagen.md` lesen** → C → Go → Java →
-Rust.
+Rust → **Assembler**.
 
 **Begründung — und die Gegenposition:**
 
@@ -125,14 +133,24 @@ Rust.
 | C danach | erklärt, was Python verdeckt hat: Speicher, Zeiger, warum Überlauf gefährlich ist |
 | Go danach | zeigt Nebenläufigkeit als Sprachmittel und Fehler als Wert — beides neu nach C |
 | Java danach | zeigt Struktur, Verträge, virtuelle Maschine — nach C/Go gut vergleichbar |
-| Rust zuletzt | verlangt das Speichermodell aus C **und** die Typstrenge aus Java |
+| Rust danach | verlangt das Speichermodell aus C **und** die Typstrenge aus Java |
+| **Assembler zuletzt** | verlangt **beides**: das Speichermodell aus C **und** die Bit-Ebene; es ist die unterste Schicht, nicht eine weitere Meinung |
 
 > **Die Gegenposition, die hier stehen muss.** Die Reihenfolge ist eine
 > **didaktische Setzung**, keine belegte Erkenntnis. Es gibt ernstzunehmende
 > Alternativen: C zuerst (Wahrheiten zuerst, mehr Frust), oder Rust zuerst
-> (keine schlechten Gewohnheiten). Belegt ist nur eines: **eine** Sprache allein
-> genügt nicht, weil sich die Konzepte erst im Kontrast zeigen. Alles Weitere ist
-> begründete Wahl.
+> (keine schlechten Gewohnheiten). **Für Assembler ist die Lage anders als für
+> die fünf anderen:** die Roadmap legt die Stufe selbst fest —
+> [`byte-model-roadmap.md`](../byte-model-roadmap.md) Z. 110 nennt die
+> Lernreihenfolge „Logik → Mathematik → Code → **Assembly/Decompiler** →
+> Kompression", Z. 496 führt „Phase 7: Stufe 4 Assembly/Decompiler". Assembler
+> ist damit der **einzige** Pfad, dessen Position **belegt** und nicht gesetzt
+> ist. Alles Weitere bleibt begründete Wahl.
+
+**Und eine Formatseite, die kein Pfad ist.** [`json.md`](json.md) steht **neben**
+den sechs Pfaden: JSON ist eine **Datenformat**-Seite (Syntax, Parsing,
+Serialisierung, Byte-Darstellung, Projektbezug). Sie hat **keine** Stufen und
+**keine** Sprachfallen im Sinne der Pfade — siehe §4.
 
 **Parallele Empfehlung — die L-Stufen laufen mit.** K-Stufen ersetzen die
 L-Stufen nicht. `grundlagen.md` §6 (Rekursion ↔ Induktion) und §8 (Komplexität)
@@ -141,10 +159,11 @@ K2 ankommt, sollte L3/L4 erreicht haben.
 
 ---
 
-## 4. Aufbau der Sprachpfade
+## 4. Aufbau: Sprachpfade gegen Formatseite
 
-Jede Sprachdatei (`python.md`, `c.md`, `rust.md`, `java.md`, `go.md`) hat
-dieselben Abschnitte, damit die Sprachen vergleichbar sind:
+**Sprachpfade.** Jede dieser sechs Dateien — (`python.md`, `c.md`, `go.md`,
+`java.md`, `rust.md`, `assembly.md`) — hat dieselben Abschnitte, damit die
+Sprachen vergleichbar sind:
 
 1. **Einordnung** — Sprache, Paradigma, Typsystem, Speichermodell, Stufen K0–K5
 2. **Lernstoff je Stufe** — was auf K0, K1, … K5 dazukommt
@@ -155,12 +174,37 @@ dieselben Abschnitte, damit die Sprachen vergleichbar sind:
 7. **Belegstatus** — was belegt, was Setzung, was offen
 8. **Quellen** — wörtlich, mit Versionsstand
 
+**Formatseiten** — derzeit **eine**: [`json.md`](json.md). Sie tragen eine
+andere Struktur, weil sie etwas anderes beschreiben:
+
+| | Sprachpfad | Formatseite |
+|---|---|---|
+| Gegenstand | eine **Programmiersprache** | ein **Datenformat** |
+| Stufen K0–K5 | ja | **nein** — ein Format hat keine Könnensstufen |
+| Messindikatoren | ja (LOC, Programmgrösse, Selbstkorrektur …) | **nein** |
+| „Sprachfallen" | ja, ≥ 8 | **Fallstricke** heissen sie hier — Formatregeln, nicht Sprachfallen |
+| Messbarkeit | über Programmgrösse und Verhalten | über **Parser-Konformität** gegen die Spezifikation |
+| Prüfung durch das Skript | 8 Pflichtabschnitte, K0–K5, ≥ 8 Fallen | Format-Kennzeichnung, **kein** Stufentitel, Pflichtinhalte, ≥ 8 Fallstricke |
+
+> **Warum die Trennung erzwungen wird.** Wird JSON als „siebter Sprachpfad"
+> geführt, entstehen zwei Fehler gleichzeitig: JSON bekommt Stufen, die es nicht
+> hat, **und** die sechs Sprachpfade verlieren ihre Vergleichbarkeit. Der
+> Prüfskript-Teil 10 prüft deshalb **gegen** einen Sprachpfad-Titel und **gegen**
+> ein Stufenmodell in `json.md`.
+
+**Weitere Formate im Projekt, die (noch) keine Seite haben.** TOML
+(`Cargo.toml`, `configs/*.toml`), `.bshard` ([`../datenformat.md`](../datenformat.md)),
+`safetensors` ([`../../MODEL_FORMAT.md`](../../MODEL_FORMAT.md)) und JSON Lines
+(`.jsonl`). Sie sind in dieser Reihenfolge Kandidaten für weitere Formatseiten —
+**nicht** für weitere Sprachpfade.
+
 ---
 
 ## 5. Messindikatoren — der Grund für die Stufen
 
 Eine Stufe ist nur nützlich, wenn man sie messen kann. Die sechs Indikatoren
-gelten für alle fünf Sprachen mit stufenspezifischen Werten:
+gelten für alle **sechs Sprachpfade** mit stufenspezifischen Werten — die
+**Formatseite** [`json.md`](json.md) hat keine, weil sie keine Stufen hat:
 
 | Indikator | Einheit | Was er misst |
 |---|---|---|
@@ -222,6 +266,10 @@ cat docs/programmiersprachen/README.md
 
 # ein Sprachpfad
 cat docs/programmiersprachen/python.md
+cat docs/programmiersprachen/assembly.md
+
+# die Formatseite
+cat docs/programmiersprachen/json.md
 
 # Zuordnung zu den L-Stufen und zu den Projektdateien
 cat docs/programmiersprachen/mapping.md
@@ -242,12 +290,13 @@ noch?* Eine Stufe ohne Daten ist eine Lücke, kein Erfolg.
 |---|---|
 | Sprachunabhängige Grundlagen | ja, [`grundlagen.md`](grundlagen.md) mit 14 Bereichen + 9 Denkweisen |
 | Stufen K0–K5 definiert | ja, sechs Stufen |
-| Sprachpfade | ja, fünf: Python, C, Rust, Java, Go |
-| Messindikatoren | ja, sechs Indikatoren mit Werten je Stufe |
+| Sprachpfade | ja, **sechs**: Python, C, Go, Java, Rust, **Assemblersprache (x86-64)** |
+| Formatseiten | ja, **eine**: [`json.md`](json.md) — als Format gekennzeichnet, ohne Stufenmodell |
+| Messindikatoren | ja, sechs Indikatoren mit Werten je Stufe (nur Sprachpfade) |
 | Zuordnung zu L0–L6 und Projektdateien | ja, [`mapping.md`](mapping.md) |
-| Quellen mit Verifikationsstatus | ja, [`SOURCES.md`](SOURCES.md) — 5 Sprachversionen, 5 offizielle Lernpfade, **4 sprachunabhängige Konzeptkataloge**, Fallen je Sprache |
+| Quellen mit Verifikationsstatus | ja, [`SOURCES.md`](SOURCES.md) — 5 Sprachversionen, 5 offizielle Lernpfade, **4 sprachunabhängige Konzeptkataloge**, **x86-64-Referenz abgerufen**, **RFC 8259 abgerufen**, Fallen je Sprache |
 | **Externe Konzeptkataloge** geprüft | ja — **CS2023** (SDF/FPL), **CS2013**, **CSTA PK–12 2026**, **AP CSA**. Ergebnis: **12 der 14 Bereiche** stehen in CS2023 SDF als eigenes Topic, die zwei übrigen in CS2023 FPL. Siehe [`grundlagen.md`](grundlagen.md) §17a |
-| Konsistenzprüfung | `scripts/programmiersprachen-check.sh` (97 Prüfungen, 0 Fehler, 0 Warnungen) |
+| Konsistenzprüfung | `scripts/programmiersprachen-check.sh` (130 Prüfungen, 0 Fehler, 0 Warnungen) |
 
 **Offene Punkte** stehen gesammelt in [`mapping.md`](mapping.md) §6. Die
 wichtigsten drei:
@@ -264,3 +313,24 @@ wichtigsten drei:
   als Logikaufgaben: eine Funktion mit Test ist schnell länger als 929 Bytes
   (längster Logikdatensatz, `LOGIC_ANALYTICS.md` §5.3). Ob K3–K5 überhaupt als
   Byte-Korpus darstellbar sind, ist eine offene Modellfrage.
+
+**Und eine Frage, die keine Lücke dieses Pakets ist, sondern eine des Projekts:**
+**Sprache ist kein Nebenaspekt, und ihre Reihenfolge ist entschieden.** Der Korpus
+ist **sprachgebunden und verifizierbar** — nicht sprachfrei
+([`byte-model-roadmap.md`](../byte-model-roadmap.md) Z. 539 „Bei freier Sprache
+gibt es keinen [Verifier]", Z. 557 „Welche Sprachen soll das Modell zuerst können
+(Deutsch, Englisch, weitere)", Z. 560 „Wann und wie Sprache als eigene Stufe …
+ergänzt wird"). Die Antwort auf Z. 557 lautet seit dem 07.10.2026 (**D-017**):
+
+| Stufe | Sprache | Stand |
+|---|---|---|
+| **1** | **Mathematik als (formale) Sprache** | **teilweise** — `data/add/*` (echte Formalnotation); `arithmetic`/`sequence` im Logikkorpus sind deutsche Prosa und zählen als Stufe 3 |
+| **2** | **Englisch** | **nicht vorhanden** — eigener Korpus nach `sprachstufe.md` §2/§3 |
+| **3** | **Deutsch** | vorhanden (`data/logic*`, `data/sample`) |
+
+Die **Form** jedes Korpus dieser Stufen steht in [`sprachstufe.md`](sprachstufe.md)
+— vier feste Teile, **eine** Sprache je Korpus und eine Orthografie-Konvention, die
+für **alle** Stufen gilt. Offen bleibt nur die **Ausgestaltung** (Termin,
+Aufgabentypen, Datenquellen, Mischung im Training). Details, die drei wörtlichen
+Belege und die Abgrenzung zur unveränderten Roadmap:
+[`mapping.md`](mapping.md) §7.1.6.

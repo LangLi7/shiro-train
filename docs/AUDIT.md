@@ -137,7 +137,16 @@ Datenmengen-Produktion im Original prüfen. Das bleibt ein TODO.
 **Kostenrealität beim Jev-Einsatz:** 0,042 $/Mio. Token ist sehr günstig. 100 Mio.
 Token Eingabe kosten 4,20 $. Als reiner Bewerter (nicht als Trainingsziel) ist das
 Budget-neutral. **Risiko bleibt:** Labels oder Wahrscheinlichkeiten als Trainingsziel
-wären Destillation — laut Doku heikel. Als Bewerter mit eigenen Labels unproblematisch.
+wären Destillation — laut Doku heikel.
+**Präzisierung 07.10.2026 (`x14`):** Die frühere Formulierung „als Bewerter mit eigenen
+Labels unproblematisch" war **zu weit** und ist ersetzt. Der Vertragstext wurde im
+Original geprüft — **MCA §2.3(b)** (Stand 23.09.2026) verbietet die Nutzung des Outputs
+für *„model distillation, train a model to imitate the output of the Services"*.
+Zulässig ist damit **nicht** „der Bewerter", sondern die Kombination aus **Steuerfluss**
+und **eigenen Labels**: Jev darf als Gate, Filter oder Ranking im `eval`-Pfad wirken
+(`docs/code-audit.md` Z. 174–180), aber sein Output darf **nie** Trainingsziel sein.
+Die Grenze verläuft zwischen **Steuerfluss** und **Trainingsziel**, nicht zwischen
+„Bewerter" und „Trainer". Einzelheiten: `docs/logik-und-analytisches-denken.md` §10.
 
 ---
 

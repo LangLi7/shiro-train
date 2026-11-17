@@ -159,9 +159,140 @@ antwortet — also n1–n3.
 
 ---
 
-## 5. Quellen
+## 5. Vendor-Strategie (D-014) — NVIDIA und AMD RX
+
+Frage: **Sollten wir die Blocker so beheben, dass Shiro NVIDIA *und* AMD RX
+unterstützt?** Antwort in drei Sätzen:
+
+1. **Die Portabilität ist bereits Teil der Entscheidung D-010** — Burn/CubeCL deckt
+   AMD, NVIDIA, Apple, Intel und Qualcomm ab, und mehrere Backends lassen sich in
+   **einem** Binary zur Laufzeit wählen. Ein Modellumbau ist dafür **nicht** nötig.
+2. **Ein zweites (ROCm-)Image ist heute trotzdem nicht gerechtfertigt**, weil auf
+   diesem Rechner **keine AMD-Hardware** steht und RunPod **ausschliesslich NVIDIA**
+   anbietet — es gäbe also kein Gerät, auf dem das Image je verifiziert würde.
+3. **AMD ist also kein Blocker-Thema, sondern eine Feature-Flag-Frage für später.**
+   Die harten Blocker (B1–B4, B6–B9) sind **vendor-neutral** und werden von keiner
+   Multi-Vendor-Massnahme berührt.
+
+### 5.1 Was bereits dokumentiert ist (kein neuer Befund)
+
+`docs/backend-und-reihenfolge.md` §4 nennt für Burn schon heute:
+„CUDA, ROCm, Metal, Vulkan, WebGPU über **CubeCL**" und „eigene GPU-Kernels in
+Rust, einmal schreiben, auf CUDA/Metal/Vulkan/WebGPU laufen lassen".
+Die Roadmap-Tabelle (`byte-model-roadmap.md`, Tech-Stack) sagt: „Burn: mehrere
+Backends (u. a. CUDA, wgpu/Metal, CPU)".
+
+**D-010 hat also nie „nur NVIDIA" bedeutet.** Der Nvidia-Fokus der bisherigen
+Planung kommt aus `t4`/`t5` (RunPod-Kartenliste) und aus dem GPU-Ziel — nicht aus
+der Backend-Wahl.
+
+### 5.2 Belegte Backend-Matrix (Burn `main`, abgerufen 07.10.2026)
+
+| | CUDA | ROCm | Metal | Vulkan | WebGPU |
+|---|---|---|---|---|---|
+| **NVIDIA** | ☑️ | – | – | ☑️ | ☑️ |
+| **AMD** | – | ☑️ | – | ☑️ | ☑️ |
+| **Apple** | – | – | ☑️ | – | ☑️ |
+| **Intel** | – | – | – | ☑️ | ☑️ |
+| **Qualcomm** | – | – | – | ☑️ | ☑️ |
+| **Wasm** | – | – | – | – | ☑️ |
+
+Quelle: Burn-README (GitHub `tracel-ai/burn`, Abschnitt *Supported Backends*,
+abgerufen 07.10.2026). Wörtlich: *„Burn's backend architecture lets you swap
+backends while keeping the same model code. You can enable multiple backends in
+the same application and choose the device for your tensors and modules at
+runtime through `Device`."*
+
+**Zwei Konsequenzen, die in der Frage stecken:**
+
+- **Wichtig:** In der Matrix ist `ROCm` **ausschliesslich für AMD** markiert, nicht
+  für NVIDIA. „ROCm-Support" ist also kein Ersatz für den CUDA-Pfad auf RunPod.
+- **Nebenbefund:** NVIDIA kann zusätzlich **Vulkan** — derselbe Backend-Pfad, den
+  eine RX-Karte nutzt. Für einen ersten Portabilitätstest braucht man damit **kein
+  AMD-Gerät**: derselbe Vulkan-Backend läuft auch auf der RTX 3060.
+
+### 5.3 Portabilität in Burn: der Beleg
+
+Die WGPU-Backend-Doku (Burn 0.22) formuliert es ausdrücklich:
+Enabling Vulkan, Metal, or WebGPU uses the **same** `Wgpu` device type with
+different graphics APIs, multiple backend features can be enabled together, and
+`Device::wgpu_options().graphics_api(WgpuBackend::Vulkan)` picks the API at
+runtime — *„Tensor and model types have no backend parameter."*
+
+Plattform-Matrix dieses Backends: **Vulkan = CPU+GPU auf Linux, macOS, Windows,
+Android, iOS**; OpenGL ebenso; Metal nur macOS/iOS; DX12 nur Windows; WebGPU nur
+Wasm. Vulkan ist damit der einzige Backend-Pfad, der **alle** Zielplattformen
+dieses Projekts abdeckt (Linux/RunPod, WSL2, Windows, Mac Studio).
+
+### 5.4 Was „AMD RX unterstützen" konkret erfordert
+
+| Pfad | Was nötig ist | Status hier |
+|---|---|---|
+| **NVIDIA auf RunPod** (der einzige gehostete Pfad) | Basis-Image `nvidia/cuda:*-devel` statt `debian:bookworm-slim`, passende CUDA-Runtime, `cargo`-Feature `cuda` | **offen** = Blocker **B5**; an Backlog-Punkt 5 gekoppelt |
+| **AMD RX lokal** (ROCm) | ROCm-Installation + Bild `rocm/dev-*`, `cargo`-Feature `rocm`; auf **WSL2** seit Adrenalin 26.2.2 + ROCm 7.2.1 produktiv (ROCDXG); unter **nativem Windows** nur spezifische Radeon-Modelle, Treiber- und Framework-Matrizen von AMD | **keine AMD-Hardware vorhanden** → nicht testbar, nicht sinnvoll jetzt |
+| **AMD RX lokal** (Vulkan, Fallback) | nur `cargo`-Feature `vulkan`/`wgpu` — **kein** Treiber-Stack, kein ROCm | sofort möglich; auf der RTX 3060 mit-testbar |
+| **Intel / Qualcomm** | Vulkan, dito | nicht im Zielbild |
+
+**Bewertung:** Der AMD-Weg ist **technisch billig** (ROCm-Backend existiert; sonst
+Vulkan-Fallback), aber er löst **kein** heutiges Problem.
+
+### 5.5 Was Multi-Vendor behebt — und was nicht
+
+| Blocker | Betroffen? | Begründung |
+|---|---|---|
+| **B1** (kein Backend, kein Backward-Pass) | **ja** | Der Backend-Schritt ist der Portabilitäts-Hebel: bei der Einführung wird die Backend-Auswahl als Cargo-Feature + `Device`-Wahl angelegt — dann ist AMD später **eine Zeile**, kein Umbau |
+| **B5** (kein CUDA-Image) | **teilweise** | Fix ist der **NVIDIA**-Pfad (`nvidia/cuda`-Basis, an RunPod gekoppelt). Ein ROCm-Image ist ein **anderes**, heute unnötiges Image |
+| **N1** (Containerfile-Stubtrick) | **nein** | Image-Hygiene, vendor-neutral |
+| **B2, B3, B4, B6, B7, B8, B9, N2, N3** | **nein** | Modell, Messkette, Datenmenge, Resume, Loader, Accumulation, Pod-Config, Registry, Deploy-Skript — alle **vendor-neutral** |
+
+Von den 12 genannten Punkten sind also **1,5** vom Vendor-Thema berührt (B1 als
+Hebel, B5 als halber), **10,5 nicht**.
+
+### 5.6 Empfehlung
+
+**Teilweise ja — und zwar als Vorsorge, nicht als Blocker-Fix.**
+
+1. **Jetzt:** Backend-Einführung (Backlog-Punkt 1) so anlegen, dass die
+   Backend-Wahl **eine Cargo-Feature + `Device`-Konstruktion** ist. Damit ist
+   AMD-Unterstützung später ein Aufwand von Minuten. Das kostet nichts extra und
+   ist die einzige sinnvolle „Multi-Vendor-Massnahme" in dieser Phase.
+2. **Jetzt nicht:** kein ROCm-Image, keine AMD-Testmatrix, keine zweite CI. Es
+   existiert **kein AMD-Gerät** zum Verifizieren; ein ungetestetes Image ist
+   schlechter als keines.
+3. **Später, gebündelt:** Das **CUDA-Image** (B5) kommt mit Backlog-Punkt 5 —
+   zusammen mit Resume und Pod-Config, wenn tatsächlich GPU-Stunden gekauft
+   werden. Vorher ist es Arbeitszeit ohne Nutzen.
+4. **Optionaler Frühwarn-Test:** Da Vulkan **auch auf NVIDIA** läuft, kann der
+   Vulkan-Backend schon beim Backend-Spike mitgemessen werden
+   (`Device::wgpu_options().graphics_api(WgpuBackend::Vulkan)`). Läuft er auf der
+   RTX 3060 mit plausibler Geschwindigkeit, ist der AMD-Pfad **vorgeprüft**, ohne
+   AMD-Hardware. Ein Vorbehalt bleibt: Vulkan-Kernel sind erfahrungsgemäss
+   langsamer als CUDA/ROCm — für „läuft überhaupt" reicht es, für Tempo nicht.
+
+### 5.7 Randbedingung, die die Antwort scharf macht
+
+Der lokale Rechner hat **nur eine NVIDIA GeForce RTX 3060** (Treiber 32.0.16.1714;
+`Win32_VideoController`). Es gibt heute **kein AMD-Gerät im Projekt**. „RX
+unterstützen" ist deshalb eine **hypothetische** Anforderung — ihre Priorität ist
+niedriger als die Datenmenge (B4) und der Backward-Pass (B1). Sobald eine
+RX-Karte tatsächlich im Rechner steckt oder ein AMD-Pod gemietet wird, wird aus
+der Vorsorge eine Aufgabe mit messbarem Akzeptanzkriterium.
+
+---
+
+## 6. Quellen
 
 - Burn (GitHub, README, abgerufen 06.10.2026): https://github.com/tracel-ai/burn
+- Burn-README, Abschnitt *Supported Backends* + *Platform Support*, abgerufen
+  07.10.2026: https://github.com/tracel-ai/burn
+- Burn WGPU-Backend (README, abgerufen 07.10.2026):
+  https://github.com/tracel-ai/burn/blob/main/crates/burn-wgpu/README.md
+- CubeCL (Multi-Plattform-Kernel-Compiler): https://github.com/tracel-ai/cubecl
+- AMD ROCm auf Radeon/Ryzen, WSL-Kompatibilität (ROCDXG, Adrenalin 26.2.2 +
+  ROCm 7.2.1, abgerufen 07.10.2026):
+  https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/wsl/howto_wsl.html
+- AMD ROCm Support-Matrizen Windows/Linux:
+  https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibilityrad/windows/windows_compatibility.html
 - Burn-Projektseite und Buch: https://burn.dev/ · https://burn.dev/books/burn/
 - Candle (GitHub, README, abgerufen 06.10.2026): https://github.com/huggingface/candle
 - Rig (Dokumentation, abgerufen 06.10.2026): https://rig.rs/docs/

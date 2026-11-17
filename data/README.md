@@ -35,6 +35,63 @@ in dem Bereich, der in gueltigem UTF-8 nie vorkommt, und sind deshalb kollisions
 **`0xF9` und `0x00` sind im Inhalt gesperrt** — `0xF9` grenzt direkt an die
 Spezialbytes, `0x00` ist ein Nullbyte.
 
+**Die sechs Strukturmarken sind reservierte Werte INNERHALB der 256, keine
+zusaetzlichen Klassen.** `VOCAB_SIZE = 256` schliesst sie ein (`src/data/bytes.rs`
+Z. 7–8: „Vokabulargroesse: 256 Byte-Werte, **inklusive** der sechs Spezialbytes").
+Die Einbettungstabelle hat also 256 Zeilen, nicht 262; die sechs Marken belegen
+davon die Zeilen 250–255. Der Rest des Raums ist gewoehnlicher Inhalt.
+
+### Hat ein Byte-Modell einen Tokenizer?
+
+Hier sind zwei Dinge zu trennen, die im Alltag beide „Tokenizer" heissen:
+
+**(a) Tokenisierung als Abbildung existiert — und sie ist eine Identitaet.**
+Byte → Ganzzahl → Einbettungszeile ist die Abbildung `byte as usize`, ohne
+Tabelle und ohne Zwischenschritt. Belegt: der Loader legt die Rohbytes direkt in
+den Batch (`input_at`/`target_at` in `src/data/loader.rs`, Ziel = Eingabe um ein
+Byte verschoben), das Training castet sie und gibt sie der Einbettung
+(`let tok = batch.input_at(b, t) as usize` in `src/model/tiny.rs`;
+`Tensor::<2, Int>::from_data(...)` in `src/model/lm.rs`), und die Ausgabe ist
+`[batch · seq, vocab]` Logits — also 256 Klassen, die **denselben** Byte-Werten
+entsprechen. Kurz: **Byte-Wert = Index = Klasse.** Es gibt keine Zwischendarstellung,
+die man lernen, speichern oder nachschlagen muesste.
+
+**(b) Ein Tokenizer als lernbares, dateigestuetztes Artefakt gibt es nicht.**
+BPE/SentencePiece/WordPiece lernen, welche Zeichenfolgen zu einem Token
+verschmelzen, und legen das Ergebnis versioniert ab (`vocab.json`, `merges.txt`,
+`tokenizer.model`). Im Repo existiert **keine** solche Datei, und es gibt
+**keinen** Code und **keine** Konfiguration, die eine laedt (Volltextsuche:
+0 Treffer fuer `*.model`, `vocab.json`, `merges.txt`, `tokenizer.json`,
+`tokenizer.model`, `spm`). Das ist gewollt, nicht vergessen.
+
+Konsequenzen: Es gibt **kein OOV**. Jede Bytefolge ist gueltig, weil jeder Wert
+0–255 eine Klasse ist — Freitext, Umlaute, Binärdaten und Nicht-UTF-8 brauchen
+keine Sonderbehandlung und keine Ersatzmarke. Und es gibt **keine zwei
+Tokenizer-Staende**, die auseinanderlaufen koennen: die Abbildung ist eine Konstante
+im Quelltext, kein Artefakt.
+
+**Warum es trotzdem „keine Tokenizer-Datei" heisst, obwohl (a) existiert:** Weil
+„Tokenizer" im Modellbau das *gelernte Artefakt* meint. Dass die Serialisierung
+trivial ist, macht sie nicht inexistent — sie macht sie **dateilos und
+unlernbar**. Genau das transportiert `special_bytes.json`: es ist kein Ersatz fuer
+eine BPE-Vokabeldatei, sondern die **Dokumentation der sechs reservierten Marken**,
+damit ein Empfaenger weiss, was im Byte-Raum Struktur ist und was Inhalt.
+
+**Abgrenzungen, damit „byte-level" nicht als Synonym gelesen wird:**
+„Byte-level BPE" (GPT-2) ist ein **echter** BPE-Tokenizer, der auf Bytes statt
+Unicode-Codepoints verschmilzt — er lernt weiterhin Merges und schreibt eine
+`merges.txt`. ByT5 nutzt einen festen Byte-Encoder, hat also dieselbe
+tokenizer-freie Serialisierung wie Shiro. MegaByte und Byte Latent Transformer
+segmentieren Bytes zusaetzlich zu **Patches** (bei BLT dynamisch nach Entropie) —
+Patching ist Segmentierung, kein Tokenizer, und in der Roadmap ausdruecklich eine
+spaetere Phase (Abschnitt 3, „Patches spaeter (Phase 8)").
+
+**Bekannter, bereits dokumentierter Befund (hier nur referenziert, nicht neu
+aufgerollt):** Die Roadmap formuliert an einer Stelle „256 **plus** Spezialbytes"
+und an einer anderen „**256** Klassen". Gueltig ist die Zahl aus dem Code —
+256 **inklusive** der Marken. Der Widerspruch steht in `docs/byte-model-roadmap.md`
+und ist in `docs/review-gpu-analyse.md` §1 sowie im Korrekturwunsch **K8** erfasst.
+
 Obergrenze je Datensatz: **4096 Bytes** (`format::MAX_RECORD_LEN`). Der Kontext der
 Roadmap ist 1–2 k Bytes, also ist reichlich Luft.
 
@@ -188,3 +245,134 @@ Adresse des jeweiligen Projekts; sie ist im Bericht als solche kenntlich gemacht
 Alle Statusangaben und Lizenzen in dieser Tabelle sind am **06.10.2026** durch
 Abruf belegt. Was hier `unverifiziert` heisst, ist **nicht** geprueft und darf
 nicht als geprueft weiterverwendet werden.
+## Korpus "Programm-Semantik und Fehlerort" (Familie 1, D-024/D-028)
+
+Der fuenfte Korpus neben `sample`, `logic*` und `add*`. Erzeugt mit
+`shiro data generate-semantics --n <N> --out data/semantics`; Darin entstehen
+`train/` und `val/` mit je einem Shard und einem Manifest.
+
+**Verifier ist eine eigene Mini-VM** (`src/data/semantics.rs`): vier Register,
+wrapping-Arithmetik, feste Zeilennummern, definierte Laufzeitfehler. Jede Antwort
+stammt aus einem **Lauf des Interpreters**, nicht aus einer Formel des Generators.
+Damit ist der Korpus unabhaengig nachpruefbar, ohne dass `rustc` je Datensatz
+gestartet werden muss.
+
+| Merkmal | Wert |
+|---|---|
+| Aufgabentypen | `output`, `trace`, `compare`, `bug`, `repair` (Manifest: `sem.<typ>`) |
+| Bewegungen | ableiten (output/trace), VERGLEICHEN (compare), LOKALISIEREN (bug), MINIMIEREN (repair) |
+| Laengster Datensatz | 2.319 B (Grenze `MAX_RECORD_LEN` 4096) |
+| Nutzbytes (Seed 1337, `--n 20000`) | **11.933.646 B Training** + 1.188.650 B Held-out (Manifest `payload_bytes`; ohne die 4 Strukturmarken je Datensatz meldet `validate-data` 11.853.646 B + 1.180.650 B) |
+| Skalierung | `--n 50000` = 29.775.543 B, `--n 100000` = 59.543.597 B; global **0 Dubletten** (20.000/50.000/100.000 Zeilen, je `sort -u` = Zeilenzahl) |
+| Shortcut-Baseline | 1,2–32,9 % je Typ (Logikkorpus-Bestmarke: 53,2 %) |
+| Reproduzierbarkeit | gleicher Seed -> Shards **byteidentisch** |
+| Held-out-Trennung | Konstantenband 0..=49 gegen 50..=99 und **keine Schleifen** im Held-out |
+
+Format unveraendert: `<AUFGABE>...<DENKWEG>...<ANTWORT>...<ENDE>`,
+ASCII-transliteriertes Deutsch, eine Sprache je Korpus, Programmtext zwischen
+`PROG`/`ENDE-PROG` **ohne** Code-Fence. Details:
+`docs/programmiersprachen/semantik-korpus.md`.
+
+## Korpus "Format-Erkennung aus Bytes" (Familie 2, D-021/D-024)
+
+Der sechste Korpus neben `sample`, `logic*`, `add*` und `semantics`. Erzeugt mit
+`shiro data generate-format --n <N> --out data/format`; darin entstehen `train/`,
+`val/` und `jsonl/`.
+
+**Verifier ist der Detektor** (`src/data/formats.rs`): Signaturvergleich,
+Gueltigkeitsprobe und Strukturparser entscheiden. Eine Probe steht als **Hex-Text**
+zwischen den Marken `HEX`/`ENDE-HEX`, die behauptete Dateiendung in der Zeile
+`Endung: .png` bzw. `Endung: keine` - beides ist Teil des Datensatzformats.
+
+| Merkmal | Wert |
+|---|---|
+| Aufgabentypen | `format`, `gueltig`, `endung`, `paar`, `ort`, `reparatur` (Manifest: `fmt.<typ>`) |
+| Bewegungen | ableiten (format/gueltig), VERGLEICHEN (endung/paar), LOKALISIEREN (ort), MINIMIEREN (reparatur) |
+| Klassen (D-021) | 1 Signatur, 2 Signatur gegen Gueltigkeit, 3 Struktur, 4 Widerspruch, 5 falsche Endung, dazu `nicht bestimmbar` |
+| Laengster Datensatz | 1.072 B (Grenze `MAX_RECORD_LEN` 4096) |
+| Nutzbytes (Seed 1337, `--n 50000`) | **25.740.625 B Training** + 2.732.066 B Held-out (Manifest `payload_bytes`; ohne die 4 Strukturmarken je Datensatz meldet `validate-data` 25.540.625 B + 2.712.066 B) |
+| Skalierung | `--n 100000` = 51.530.444 B, Ausbeute 99,58 %; global **0 Dubletten** (50.000/50.000 und 5.000/5.000 Zeilen, je `sort -u` = Zeilenzahl) |
+| Shortcut-Baseline | 5,0-26,4 % je Typ |
+| Reproduzierbarkeit | gleicher Seed -> Shards **und** JSONL byteidentisch |
+| Held-out-Trennung | Fuellbytes, Schluesselnamen und Wortlisten disjunkt; `ort`/`reparatur` im Training an der **Signatur**, im Held-out an der **Gueltigkeitsmarke** |
+
+Format unveraendert: `<AUFGABE>...<DENKWEG>...<ANTWORT>...<ENDE>`,
+ASCII-transliteriertes Deutsch, eine Sprache je Korpus. Details:
+`docs/programmiersprachen/format-korpus.md`.
+
+## Korpus "Quantoren, Syllogistik und Mengen" (Familie 3, D-024/D-039)
+
+Der siebte Korpus neben `sample`, `logic*`, `add*`, `semantics` und `format`. Erzeugt
+mit `shiro data generate-quant --n <N> --out data/quant`; darin entstehen `train/`,
+`val/` und `jsonl/`.
+
+**Verifier ist eine erschoepfende Modellpruefung** (`src/data/quant.rs`): ein Modell
+ist eine Belegung von 2-3 Praedikaten ueber 2-4 Objekten, es gibt hoechstens 4096
+davon. Folgerung, Erfuellbarkeit, Widerspruch und Entscheidbarkeit werden ueber
+**alle** Modelle **berechnet** - kein Modellaufruf, keine Heuristik.
+
+| Merkmal | Wert |
+|---|---|
+| Aufgabentypen | `quantor`, `mengen`, `unvollstaendig`, `syllogistik`, `vergleich`, `konsistenz`, `ort`, `minimal` (Manifest: `quant.<typ>`) |
+| Bewegungen | ableiten (quantor/mengen/unvollstaendig), VERGLEICHEN (syllogistik/vergleich/konsistenz), LOKALISIEREN (ort), MINIMIEREN (minimal) |
+| Antwortwert `nicht entscheidbar` | verankert in `unvollstaendig` (O-D22 geschlossen) |
+| Laengster Datensatz | 715 B (Grenze `MAX_RECORD_LEN` 4096) |
+| Nutzbytes (Seed 1337, `--n 30000`) | **14.279.272 B Training** + 1.496.447 B Held-out (Manifest `payload_bytes`; ohne die 4 Strukturmarken je Datensatz meldet `validate-data` 14.159.272 B + 1.484.447 B) |
+| Shortcut-Baseline | 7,5-45,4 % je Typ (hoechste Werte bei den fast binaeren Fragen `syllogistik` und `vergleich`) |
+| Reproduzierbarkeit | gleicher Seed -> Shards, JSONL und Manifest **byteidentisch** |
+| Held-out-Trennung | **strikt ueber die Objektzahl**: Training 2-3 Objekte, Held-out 4 - im ausgelieferten Korpus noch mit einem gemeinsamen Datensatz (O-D30) |
+
+Format unveraendert: `<AUFGABE>...<DENKWEG>...<ANTWORT>...<ENDE>`,
+ASCII-transliteriertes Deutsch, eine Sprache je Korpus. Feste Textmarken im
+Aufgabentext: `Modell:`, `P = {...}` bzw. `P = unbekannt`, `Praedikate:`,
+`A:`/`B:`/`C:` und genau eine Aufgabenmarke (`Behauptung:`, `Frage:`,
+`Entschieden:`, `Folgerung:`, `Vergleich:`, `Erfuellbar:`, `Aenderung:`). Details:
+`docs/programmiersprachen/quantor-korpus.md`.
+## Korpus "Spiele und Raetsel" (Familie 5, D-041)
+
+Der Korpus der **Spiel-Umgebungen**. Erzeugt mit
+`shiro data generate-games --n <N> --out data/games [--seed] [--val-percent] [--kind] [--category]`;
+darin entstehen `train/`, `val/` und auf Wunsch `jsonl/`.
+
+**Verifier ist je Spielart ein eigener Solver** (`src/data/games.rs`): BFS fuer
+Labyrinth, Rush Hour, Schiebepuzzle und Kacheln, Rekursion fuer Hanoi, exakte
+Ueberdeckung fuer Packen, Constraint-Ausbreitung fuer Latin/Sudoku, Zugarten und
+Distanz fuer Schach, Backtracking mit **Eindeutigkeitspruefung** fuer den
+Zahlenweg. Wer eine Stellung nachspielt, bekommt dasselbe Ergebnis, weil derselbe
+deterministische Solver laeuft - die Antwort stammt aus einem **Lauf**, nie aus
+einer Behauptung des Generators.
+
+| Merkmal | Wert |
+|---|---|
+| Spielarten | `maze`, `rush`, `tile`, `hanoi`, `pack`, `latin`, `chess`, `match`, `trail` |
+| Aufgabentypen | `game.solve`, `game.legal`, `game.bug`, `game.repair` |
+| Bewegungen | ableiten (solve), LOKALISIEREN (legal, bug), MINIMIEREN (repair) |
+| Laengster Datensatz | 527 B (Grenze `MAX_RECORD_LEN` 4096, Generatorgrenze `RECORD_MAX` 3500) |
+| Nutzbytes (Seed 1337, `--n 40000`) | **12.179.395 B Training** + 730.841 B Held-out (Manifest `payload_bytes`; ohne die Laengenfelder meldet `validate-data` 12.019.395 B + 721.177 B) |
+| Pruefsummen | `eed034a5` (Training), `5dc1625f` (Held-out) |
+| Shortcut-Baseline | 0,1-70 % je Zelle; hoechste Werte bei den fast binaeren `legal`-Zellen |
+| Reproduzierbarkeit | gleicher Seed -> Shards **und** Manifest **byteidentisch** |
+| Held-out-Trennung | eigener Vorrat: andere Groessen, andere Konstantenbaender, kein gemeinsamer Datensatz |
+
+**Der Held-out-Vorrat ist kleiner als angefordert - und das ist gemessen:**
+angefordert waren 4000 Datensaetze (10 %), geliefert **2416**. Nach 40.000
+verschiedenen Trainingsdatensaetzen gab der Zufallsstrom innerhalb des
+Sicherheitsnetzes (200 Versuche je angefordertem Datensatz) keine 2416 weiteren
+**verschiedenen** Aufgaben mehr her. Die Zusage "kein gemeinsamer Datensatz"
+(0 gemeinsame, aus den Shards nachgezaehlt) ist damit eingehalten, die
+10-%-Aufteilung nicht. Ein groesserer Trainingsvorrat verschaerft das.
+
+**Abdeckung ist nicht gleichmaessig** - und das ist gemessen, nicht behauptet:
+`hanoi.solve` (4), `trail.solve` (8), `chess.bug` (8), `trail.legal` (8),
+`trail.bug` (8), `maze.legal` (8) und `latin.legal` (8) sind Zellen am unteren
+Rand, waehrend `chess.repair` (6247), `latin.bug` (4856) und `chess.solve` (4039)
+die Verteilung dominieren. `pack.repair` und `trail.repair` kamen im Lauf
+**nicht** vor. Wer mit diesem Korpus trainiert, sollte die kleinen Zellen
+gewichten oder getrennt auswerten. Die Antwortsperre (`ANSWER_SHARE_DIV`, ein
+Drittel je Aufgabentyp) und die **globale** Dublettenpruefung begrenzen zugleich
+die Ausbeute: 235.582 Versuche fuer 40.000 Datensaetze.
+
+**Noch nicht gebaut:** der Bildbefund "Weg mit schwarzen Wandsegmenten". `Wall`
+und `wall_key` stehen bereit, aber es werden **keine** Wandsperren erzeugt
+(`walls` ist ueberall leer) und der Solver kennt sie nicht. Details:
+`docs/programmiersprachen/spiele-korpus.md`.

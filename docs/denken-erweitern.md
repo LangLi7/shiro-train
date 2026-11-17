@@ -178,6 +178,62 @@ Regel 3) · Mutations-Selbsttest der Verifier (§10) · Compiler-Verdrahtung (O-
 - **O-D9** — Additions-Baselines nur genannt (`README.md` Z. 217–219).
 - **O-D10** — **Manifest-Schema fehlt**: belegt ist `logic.<kategorie>`
   (§3.1 Z. 248–251), vorgeschlagen `format.*` (`json.md` §10.4).
+- **O-D31** - **`reparatur`-Antwortform**: die zweiteilige Antwort
+  (`Stelle p: wert`) **multipliziert zwei Komponenten** (0,886 x 0,82 = 0,727 gegen
+  gemessene 0,724), und die Einstellungsachse ist mit **fuenf** widerlegten
+  Einzelvariablen **ausgeschoepft**. Die **Aenderung statt Absolutwert**
+  (`Stelle 5: +7`) ist **gebaut** (Commit `eb33520`), **gemessen** (exp-021,
+  angenommen, D-047 erreicht) und **repliziert** (exp-024: drei unabhaengige
+  Datenziehungen, 91,04 / 91,15 / 91,25 % Kopfzahl, kein Typ unter 84,3 %).
+  **Offen** bleiben der faire Ueberlegenheitstest beider Formen und die
+  Uebertragung auf `reparatur1` (Abschnitt 19; exp-025 hat sie gemessen: der
+  Hebel wirkt - 0/56 -> 54/56 -, aber die Runde wurde wegen eines Einbruchs der
+  `reparatur`-Delta-Form verworfen, siehe **O-D32**).
+- **O-D32** - **Formgleiche Wiederholung** (exp-025, **in exp-026 bestaetigt und behoben**): die
+  Wiederholungsfaelle einer Runde stammen aus dem **absoluten** Korpus. Wird eine Antwortform
+  trainiert, wiederholt das Training die **alte** Form - und die neue Form des *anderen* Typs
+  verfaellt (exp-025: `reparatur` 91,9 -> 49,6 %, 57 von 123 Antworten "Form kaputt"). **Behoben
+  und gemessen** (exp-026, einstimmig angenommen): der Schalter `--formgleiche-wiederholung`
+  rendert die Wiederholung in dieselbe Form - `reparatur1` 49,2 -> **91,8 %**, und
+  `reparatur`-**Delta haelt** (91,1 %), Form kaputt 0 statt 31/26. Die Regel gilt: **eine Runde,
+  die eine Antwortform aendert, muss die Wiederholung mitrendern.**
+- **O-D33** - **`regel` verliert zweimal in dieselbe Richtung** (-12,0 Pp in exp-025, -9,8 Pp in
+  exp-026), obwohl der Typ von der Formachse **nicht beruehrt** wird (in beiden Formen
+  byte-identisch). Der Verlust ist der groesste Einzelposten auf der urspruenglichen Form
+  (-13 Faelle) und **nicht erklaert**; er wird nicht weggedeutet.
+  **Nachtrag Runde 30 (D-054) - der Punkt ist auf der PHASENEBENE verschaerft, nicht geklaert:**
+  der eingefrorene Phase-Stand `kombi-delta-step21200` verliert `regel` von **127/133 = 95,5 %**
+  auf **87/133 = 65,4 %** (-30,1 Pp) und `naechste` von **108/121 = 89,3 %** auf **87/121 = 71,9 %**
+  (-17,4 Pp) - **beide unter die 75-%-Marke**, und zwar auf **beiden** Antwortformen mit
+  **identischen Zaehlern** (was zugleich belegt, dass die Formachse diese Typen nicht beruehrt).
+  Verschaerfend: das **Trainingsband** zeigt `Band-Typ regel 1/5` statt `5/5` - der Typ wird
+  **nicht einmal auf Trainingsdaten** getroffen, also **Vergessen statt Generalisierungsproblem**.
+  **Nicht zugeordnet, offen benannt:** die `regel`-Daten sind in beiden Korpora byte-identisch, der
+  Formwechsel kann den Typ also nicht direkt treffen; Kandidaten sind (a) die **zweite Phase auf
+  derselben breiten Verteilung** (weitere 2000 Schritte bei 1e-4) und (b) die **verschobenen
+  Batch-Fenster** (der `seq`-Shard ist in der Delta-Form laenger, `shuffle = false`). Eine Messung
+  trennt das **nicht**.
+- **O-D34** - **kein Stand erreicht D-047 in der ABSOLUTEN Form** - **in Runde 28 beantwortet: es
+  gibt jetzt einen.** Die Marke war zuerst nur in der **Delta-Form** erreicht (874-876/960 =
+  91,04-91,25 %, exp-021/024). Der Stand der ersten Phase-Runde auf dem kombinierten Korpus
+  (`checkpoints/kombi-step19200.safetensors`) erreicht sie in der **absoluten** Form: Kopf
+  **882/960 = 91,88 %**, inhaltlich **760/838 = 90,69 %**, `reparatur` 81,3 %, **kein Typ unter
+  75 %** - bei **Form kaputt 1/0**. Derselbe Stand ist in der **Delta**-Form zerstoert
+  (`reparatur` 2/123), weil der kombinierte Korpus die absolute Form traegt (**D-052**). Die
+  Frage "soll ein Stand die Marke auch absolut erreichen?" ist damit **positiv beantwortet**, und
+  sie ist mit einem **Preis** verbunden: die Form folgt dem Korpus.
+  **Nachtrag Runde 29-30 (D-053/D-054) - der Befund ist bestaetigt und die Form ist jetzt
+  umschaltbar:** der Satz "die Form folgt dem Korpus" ist keine Ohnmacht, sondern eine
+  **Bauanweisung** - `shiro data combine --antwortform absolut|delta` setzt die Form beim
+  **Bauen** des Korpus (**D-053**). Die Gegenprobe lief in Runde 30: derselbe Plan auf demselben
+  Korpus in der **Delta**-Form holt die Konvention **vollstaendig** zurueck (`reparatur`
+  **121/123 = 98,4 %**, **Form kaputt 0/0**, inhaltlich 87,95 %, Kopfzahl 859/960 = 89,48 %) -
+  gegen 73,0/73,8 % und `reparatur` 1/63 bzw. 1/60 beim Stand aus Runde 28 auf **denselben** Panels.
+  **D-047 bleibt trotzdem offen** (Delta-Kopfzahl 89,48 %, SE 0,99, **innerhalb eines
+  Standardfehlers** unter der Marke) **und** es sind **zwei** Typen unter 75 % (`regel` 65,4 %,
+  `naechste` 71,9 %). **Der angenommene Delta-Stand aus exp-021/024 bleibt deshalb der
+  D-047-Stand in der Delta-Form**; `kombi-delta-step21200` ist der **breite Phase-Stand** und
+  **kein Ersatz**. Ein D-047-Status nennt ab jetzt **immer** die Antwortform (**D-049**).
 
 Keine **D-ID** vergeben; die Reihenfolge bleibt beim Register in
 `docs/abschluss-vorbereitungsphase.md` §2.
@@ -590,3 +646,95 @@ Mathematik-Stufe hat jetzt ihren ersten verifizierten Korpus.
 **Zahlen und Belege:** `docs/zahlenfolgen-korpus.md` (Familie) ·
 `docs/experiment-log.md` (Protokoll und Messung) ·
 `docs/training-loop.md` §9 (Rundenstand) · Registerzeile **D-045**.
+
+## 19. Rundenstand Runde 18/19 - der Engpass `reparatur` ist die AUFGABENFORM, nicht eine Zahl
+
+**Gemessen in exp-019 und exp-020** (`docs/experiment-log.md`, Commits `394911c` und
+`39e8779`). Dieser Abschnitt baut nichts und aendert kein Modell - er haelt zwei
+gemessene Ergebnisse dauerhaft fest, weil sie die Zielmarke **D-047** erklaeren.
+
+**Der Ausgangspunkt.** `reparatur` ist mit **89/123 = 72,4 %** (SE 4,0 Pp) der
+**einzige** Aufgabentyp unter der 75-%-Marke; alle anderen liegen bei 87,6-99,2 %.
+Damit haengt **D-047** (Kopf **89,06 %** = 855/960, inhaltlich **87,59 %** = 734/838)
+allein an diesem einen Typ. Fuer ihn waren bereits **vier Loop-Hebel widerlegt**
+(Dosis am Deckel, Replay 0,20/0,05, Lernrate 4,5e-4, Paket `breit` - **D-048**).
+
+### 19.1 Was exp-019 gemessen hat
+
+`reparatur` verlangt **zwei** Felder in **einer** Antwort (`Stelle p: wert`). exp-019
+zerlegt diese Form (reine Funktionen `zerlege_reparatur` und `form_befund` in
+`src/agent.rs`) und misst auf dem angenommenen Stand `from7600-i1-step12400` ueber
+**2 x 480 disjunkte Fragen**:
+
+| Groesse (gepoolt, 123 zweiteilige Faelle) | Wert |
+|---|---|
+| beide Felder richtig | **89 (72,4 %)** |
+| Stelle richtig, Wert falsch | 20 |
+| Stelle falsch | 11 |
+| Form kaputt | 3 |
+| Wert innerhalb `FENSTER = 20` (179 Werte beider Formen) | **147 (82,1 %)** |
+
+**Befund 1 - die Deutung aus D-048 ist widerlegt.** Dort stand, in allen belegten
+Fehlern stimme die **Stelle** und nur der **Wert** nicht. Gemessen stimmt die Stelle in
+**109/123 = 88,6 %**, und **11 der 31 Fehler (35 %)** sind **Stellenfehler**. Die
+korrigierte Deutung: beide Felder gelingen einzeln mit `p_stelle = 0,886` und
+`p_wert = 0,82`; das Produkt **0,886 x 0,82 = 0,727** trifft die gemessenen **0,724**
+auf 0,3 Prozentpunkte. Die zweiteilige Form **multipliziert zwei Komponenten**. Der
+einfeldrige Verwandte `reparatur1` liegt bei **88,5 %**, der Typ `stelle` allein
+(LOKALISIEREN, ein Feld) bei **96,8 %**.
+
+### 19.2 Die Einstellungsachse ist gemessen ausgeschoepft
+
+Fuenf Einzelvariablen wurden gegen den angenommenen Stand geprueft - **jede macht ihn
+schlechter oder ist wirkungslos**:
+
+| Hebel | Runde | Panel A | Panel B | Urteil |
+|---|---|---|---|---|
+| Dosis auf 4800 | exp-015/016/017 | - | - | am Deckel, wirkungslos |
+| Replay 0,20 / 0,05 | exp-016/017/018 | - | - | **wirkungslos** (Kappung, exp-019) |
+| Lernrate 4,5e-4 | exp-018 i1 | **-0,008** | **-0,007** | einstimmig verworfen |
+| Paket `breit` | exp-017 r2 | **-0,009** | **-0,007** | einstimmig verworfen |
+| gezielte Daten 20000 | **exp-020** | **-0,007** | **-0,008** | einstimmig verworfen |
+
+`from7600-i1-step12400` ist auf dieser Achse ein **lokales Optimum**. Der Replay-Hebel
+war zusaetzlich ein **No-op**: `anfrage_fuer` kappte Ein-Typ-Pakete auf
+`TYP_DECKEL = 6250`, die Wiederholung fuellte danach alles auf - 0,35 / 0,20 / 0,05
+lieferten **identische** Trainingsdaten (6250 gezielt + 70550 Wiederholung), der
+Zieltyp bekam **8,1 %** der Proben. Die zwei daraus folgenden Loop-Defekte stehen
+dauerhaft in `docs/agentic-loop.md` Abschnitt 10 (**O-T10**, **O-T11**).
+
+### 19.3 Der naechste Hebel ist die Aufgabenform - als Vorschlag, nicht als Messung
+
+**Kein Hebel der Leiter beruehrt die gemessene Ursache**, deshalb kann keiner wirken.
+Der Ansatzpunkt ist genau die Multiplikation: wenn der **Wert** das teure Feld ist,
+muss sein **Antwortraum** kleiner werden, ohne die Aufgabe zu verraten.
+
+**Vorschlag (ausdruecklich offen, nicht gemessen):** statt des **absoluten** Werts
+(`Stelle 5: 4096`, vier bis fuenf Ziffern) die **Aenderung** ausgeben lassen
+(`Stelle 5: +7` bzw. `-3`, ein bis zwei Ziffern) - dasselbe Wissen, ein deutlich
+kleinerer Antwortraum, in **beiden** Richtungen verifizierbar. Zweiter Kandidat: die
+getrennte Abfrage in **einem** Satz (`Stelle 5 und Wert 4096`), damit die beiden
+Felder nicht mehr zwei unabhaengige Entscheidungen in einer Fortsetzung sind.
+
+**Belegt ist** die Multiplikation der beiden Komponenten, die fuenf widerlegten Hebel
+und die Aussage, dass die Einstellungsachse ausgeschoepft ist. **Nicht belegt ist**,
+dass eine andere Antwortform die Quote hebt - sie muss selbst als **Einzelvariable**
+gemessen werden, und eine Formaenderung ist eine **neue Korpus-Version**: alte und neue
+Form sind auf demselben Panel **nicht** vergleichbar.
+
+**Offener Punkt dieser Runde:**
+
+| Punkt | Inhalt |
+|---|---|
+| **O-D31** | **`reparatur`-Antwortform: Aenderung statt Absolutwert** - (a) **gebaut** (Commit `eb33520`): `als_delta` und `ist_delta_form` in `src/data/seq.rs`, Pack `reparatur-delta`, der Verifier prueft **beide Richtungen**, und **nur** `reparatur` wird umgeschrieben; (b) **Baseline gemessen: 0 von 123** auf der Delta-Form (2 x 480, `--dry-run`); (c) **gemessen und angenommen** (exp-021, genau eine Variable gegen `from7600-i1-step12400`, kein Leiterhebel): Panel A Score 0,492 -> 0,535, inhaltlich 76,4 -> 89,3 %; Panel B 0,495 -> 0,538, 77,5 -> 90,2 %; **D-047 erreicht** (Kopf 874/960 = 91,04 %, `reparatur` 72,4 -> 91,9 %, kein Typ unter 86,0 %). Als **D-049** im Register festgehalten: die Antwortform gehoert zur Faehigkeit, die absolute Form bleibt Regressionsreferenz, ein D-047-Status nennt kuenftig **immer** die Form; (d) **repliziert** (exp-024): zwei weitere unabhaengige Datenziehungen ueber den neuen Schalter `--seed` erreichen die Marke ebenfalls (875/960 = 91,15 % und 876/960 = 91,25 %, kein Typ unter 84,3 %), waehrend dieselben drei Staende auf der **absoluten** Form die Marke **dreimal verfehlen** (88,96 / 89,17 / 89,27 %, `reparatur` 74,8-75,6 %) - Abstand der Formen 2,08 / 1,98 / 1,98 Punkte; (e) **offen** bleiben der **faire Ueberlegenheitstest** (beide Formen, dieselbe Dosis, auf beiden gemessen - die Replikation ersetzt ihn nicht), die **Uebertragung auf `reparatur1`** (schwaechster Typ zweier Ziehungen, 86,1-86,9 %, dort steht noch der absolute Wert) und eine **groessere Fragezahl**: bei 960 Fragen betraegt der Standardfehler 0,92 Punkte, der Abstand zur Marke 1,04-1,25 Punkte - die Marke liegt im 95-%-Intervall jeder einzelnen Ziehung. **Folge fuer D-047:** die Marke nennt **keine Antwortform** - ein angenommener Delta-Stand gilt fuer die **Delta-Form**, der Stand auf der absoluten Form ist damit **nicht** automatisch mitgemessen; der Status muss kuenftig die Form nennen. Der Punkt bleibt **kein Beschluss**; die Formkonvention selbst ist als **D-049** entschieden. **NACHTRAG exp-025 (Uebertragung auf `reparatur1`): die Vorhersage ist bestaetigt, die Runde trotzdem VERWORFEN.** Fuer die einfeldrige Variante ist `als_delta_einzeln` gebaut (nur die **Wertfrage**; die Stellenfrage nennt keine Zahl) und der Verifier prueft beide Richtungen; neues Messfeld `FormBefund::wert_einzeln_richtig`, weil `reparatur1` zwei Frageformen mischt und nur die Wertfrage eine Zahl traegt. **Baseline 0 von 56** Wertfragen (A 0/28, B 0/28). Nach der Runde (GPU, genau eine Variable, Dosis 4800): Wertfragen **54/56 = 96,4 %**, Typ `reparatur1` 49,2 -> **92,6 %** - der Hebel wirkt also **mechanisch**, nicht formabhaengig. **Aber** `reparatur` in Delta-Form bricht von 91,9 % auf **49,6 %** ein (Typeneinbruch, Regressionsdelta -0,0113, einstimmig VERWORFEN), und der Antwortform-Befund nennt den Grund: **57 der 123 Faelle (46 %) sind "Form kaputt"** - die zweiteilige Antwort wird einteilig. Auf den **absoluten** Panels ist dieselbe Antwort intakt (Form kaputt 0, `reparatur` 77,2 %): das Modell hat die zweiteilige Form nicht verlernt, sondern **in der Delta-Form ersetzt**. **Ursache, aus den Daten belegbar:** die Wiederholung der Runde (56.800 Saetze) stammt aus dem **absoluten** Korpus - der Bestand wird in der alten Form wiederholt und in der neuen **gar nicht**. Eine Formrunde **tauscht** damit eine Konvention gegen die andere. Offen als **O-D32**; naechste Runde exp-026 mit **formgleicher Wiederholung** als einziger Variable. Nicht erklaert und offen benannt: `regel` verliert 12,0 Pp (auf 78,2 %, ueber der Marke). **NACHTRAG exp-026: die Ursache aus exp-025 ist bestaetigt und behoben.** Mit dem Schalter `--formgleiche-wiederholung` (die Wiederholung wird in dieselbe Form gerendert wie die gezielten Daten) ist dieselbe Runde **einstimmig ANGENOMMEN**: Kopf 828/960 = 86,25 -> **862/960 = 89,79 %**, inhaltlich 84,25 -> 88,31 %, `reparatur1` 49,2 -> **91,8 %**, und `reparatur`-**Delta haelt** (91,9 -> **91,1 %**, -0,8 Pp statt -42,3), Form kaputt **0/0** statt 31/26 - **ohne jede Formulierungsaenderung**. **Ausdruecklich festgehalten: der neue Stand ist nicht in jeder Ansicht besser.** Auf der **urspruenglichen** Delta-Form liegt er mit 857/960 = 89,27 % unter dem alten Stand (874/960 = 91,04 %), und in der **absoluten** Ansicht faellt `reparatur` auf 87/123 = **70,7 %** (unter die 75-%-Marke); bezahlt wurde der Zielgewinn mit `regel` (-9,8 Pp) und `naechste` (-4,1 Pp). **D-047** auf der erweiterten Delta-Form: 0,21 Pp unter der Kopfmarke (SE 0,95), **kein Typ unter 75 %**; auf der urspruenglichen 0,73 Pp. Siebter Loop-Defekt vor dem Lauf gefunden und behoben: der neue Schalter aenderte die Trainingsdaten, ging aber nicht in `runden_fingerabdruck` ein und haette den Stand von exp-025 ueberschrieben (D-048-Klasse, Defekt b). Offen und nicht erklaert: **O-D33** - `regel` faellt zweimal in dieselbe Richtung (-12,0 und -9,8 Pp), obwohl der Typ von der Formachse nicht beruehrt wird |
+
+**D-047 ist erreicht - in der Delta-Form, und dreifach belegt.** Die Formachse hat den Engpass
+gemessen und behoben (exp-021: Kopf 874/960 = 91,04 %, `reparatur` 72,4 -> 91,9 %, kein Typ unter
+86,0 %), und exp-024 hat denselben Schluss in **zwei weiteren unabhaengigen Datenziehungen**
+wiederholt (875/960 = 91,15 % und 876/960 = 91,25 %, kein Typ unter 84,3 %). Die Gegenrichtung
+ist ebenso dreifach: auf der **absoluten** Form verfehlen dieselben drei Staende die Marke
+(88,96 / 89,17 / 89,27 %). **Die Rechnung, mit der diese Stelle frueher den Abstand beschrieb, ist
+damit erledigt** (`reparatur` von 72,4 % auf ~80 % haette ~90,0 % Kopfzahl ergeben - der
+Formwechsel hat 91,0 bis 91,3 % gebracht). Was **bleibt**: der Abstand zur Marke betraegt
+1,04-1,25 Punkte bei einem Standardfehler von 0,92 Punkten - die Marke ist auf dem **fixierten
+Panel** erreicht, nicht mit vielen Standardfehlern Abstand; dafuer braucht es **mehr Fragen**.

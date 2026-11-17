@@ -1,0 +1,47 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Quantoren, Syllogistik und Mengen (Familie 3) - Held-out (3000 Datensaetze)",
+  "tasks": {
+    "answer.unvollstaendig.unentschieden": 143,
+    "level.konsistenz.easy": 55,
+    "level.konsistenz.hard": 164,
+    "level.konsistenz.medium": 153,
+    "level.mengen.easy": 153,
+    "level.mengen.hard": 162,
+    "level.mengen.medium": 162,
+    "level.minimal.hard": 272,
+    "level.ort.hard": 282,
+    "level.quantor.easy": 144,
+    "level.quantor.hard": 158,
+    "level.quantor.medium": 142,
+    "level.syllogistik.hard": 402,
+    "level.unvollstaendig.easy": 119,
+    "level.unvollstaendig.hard": 164,
+    "level.unvollstaendig.medium": 148,
+    "level.vergleich.easy": 61,
+    "level.vergleich.hard": 137,
+    "level.vergleich.medium": 122,
+    "quant.konsistenz": 372,
+    "quant.mengen": 477,
+    "quant.minimal": 272,
+    "quant.ort": 282,
+    "quant.quantor": 444,
+    "quant.syllogistik": 402,
+    "quant.unvollstaendig": 431,
+    "quant.vergleich": 320
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 3000,
+      "payload_bytes": 1503784,
+      "file_size": 1509816,
+      "checksum": "3df164da5d8bcca9"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Zahlenfolgen und Regelausfuehrung (D-045) - Held-out (5000 Datensaetze)",
+  "tasks": {
+    "answer.offen.unentschieden": 24,
+    "bewegung.luecke.ableiten": 625,
+    "bewegung.naechste.ableiten": 625,
+    "bewegung.offen.ableiten": 625,
+    "bewegung.regel.ableiten": 625,
+    "bewegung.reparatur.MINIMIEREN": 625,
+    "bewegung.reparatur1.MINIMIEREN": 625,
+    "bewegung.stelle.LOKALISIEREN": 625,
+    "bewegung.vergleich.VERGLEICHEN": 625,
+    "level.luecke.level.medium": 625,
+    "level.naechste.level.easy": 216,
+    "level.naechste.level.medium": 409,
+    "level.offen.level.hard": 625,
+    "level.regel.level.medium": 625,
+    "level.reparatur.level.hard": 625,
+    "level.reparatur1.level.hard": 625,
+    "level.stelle.level.medium": 625,
+    "level.vergleich.level.easy": 625,
+    "typ.luecke": 625,
+    "typ.naechste": 625,
+    "typ.offen": 625,
+    "typ.regel": 625,
+    "typ.reparatur": 625,
+    "typ.reparatur1": 625,
+    "typ.stelle": 625,
+    "typ.vergleich": 625
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 5000,
+      "payload_bytes": 1220723,
+      "file_size": 1230755,
+      "checksum": "b760c6773ae35e38"
+    }
+  ]
+}

@@ -228,7 +228,13 @@ Denkweg — kein Fliesskomma, damit die Referenz auf jeder Maschine bitgleich is
 
 Der Inhalt ist **reines ASCII**. Die sechs Spezialbytes `0xFA..0xFF` liegen
 unmittelbar ueber `0xF9`; Latin-1-Zeichen darunter wuerden die Byte-Schicht
-verwischen. Der Korpus benutzt **dieselben** vier Strukturmarken wie der
+verwischen. **Umlaute werden transliteriert** (`ae`/`oe`/`ue`/`ss`), und je Korpus
+gilt **eine** Sprache. Die verbindliche Orthografie-Konvention inklusive
+Sperrbytes und Metadatenregeln steht in
+[`docs/programmiersprachen/sprachstufe.md`](docs/programmiersprachen/sprachstufe.md) §3
+(Entscheidung **D-016**) — sie war bisher nur **Praxis** und nur in `IQ_TEST.md`
+Z. 24 dokumentiert, nicht in dieser Spezifikation. Der Korpus benutzt
+**dieselben** vier Strukturmarken wie der
 Beispieldatensatz:
 
 ```

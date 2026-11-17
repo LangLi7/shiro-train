@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Gate fuer die Familiendoku "Quantoren, Syllogistik und Mengen" (Familie 3, D-024).
+#
+# Prueft nicht Prosa, sondern die Zusagen, die den Korpus ausmachen, und gleicht
+# die Doku gegen den CODE und gegen das ausgelieferte MANIFEST ab: die acht
+# Aufgabentypen muessen im Modul als Manifest-Schluessel stehen UND in der Doku
+# genannt sein, und die dokumentierte Korpusgroesse muss die des Manifests sein.
+set -u
+DOC="docs/programmiersprachen/quantor-korpus.md"
+MOD="src/data/quant.rs"
+fails=0
+oks=0
+
+ok()   { printf '  ok  %s\n' "$1"; oks=$((oks+1)); }
+fehlt(){ printf '  FEHLT  %s\n' "$1"; fails=$((fails+1)); }
+
+pruefe() { # pruefe <datei> <muster> <beschreibung>
+  if grep -q -- "$2" "$1"; then ok "$3"; else fehlt "$3"; fi
+}
+
+[ -f "$DOC" ] || { echo "FEHLER: $DOC fehlt"; exit 1; }
+[ -f "$MOD" ] || { echo "FEHLER: $MOD fehlt"; exit 1; }
+
+echo "== Familiendoku =="
+pruefe "$DOC" "Quantoren, Syllogistik und Mengen" "Titel nennt die Familie"
+pruefe "$DOC" "nicht entscheidbar" "Antwortwert 'nicht entscheidbar' dokumentiert"
+pruefe "$DOC" "O-D22" "O-D22 als geschlossen benannt"
+pruefe "$DOC" "Raten %" "Shortcut-Baseline dokumentiert"
+pruefe "$DOC" "byteidentisch" "Reproduzierbarkeit dokumentiert"
+pruefe "$DOC" "erschoepfend\|erschöpfend" "erschoepfende Modellpruefung dokumentiert"
+pruefe "$DOC" "LOKALISIEREN" "Bewegung LOKALISIEREN genannt"
+pruefe "$DOC" "MINIMIEREN" "Bewegung MINIMIEREN genannt"
+pruefe "$DOC" "unabhaengig\|unabhängig" "Verifier-Unabhaengigkeit benannt"
+pruefe "$DOC" "Prioritaet\|Priorität" "Prioritaetsregel der Antwort dokumentiert"
+
+echo "== Doku gegen Code: acht Aufgabentypen =="
+for k in quantor mengen unvollstaendig syllogistik vergleich konsistenz ort minimal; do
+  if grep -q "quant\.$k" "$MOD"; then
+    if grep -q "\`$k\`" "$DOC"; then
+      ok "Aufgabentyp $k in Code und Doku"
+    else
+      fehlt "Aufgabentyp $k steht im Code, fehlt aber in der Doku"
+    fi
+  else
+    fehlt "Aufgabentyp $k fehlt im Modul"
+  fi
+done
+
+echo "== Doku gegen Code: Markenzeilen des Datensatzformats =="
+for m in Behauptung Frage Entschieden Folgerung Vergleich Erfuellbar Aenderung; do
+  if grep -q "\"$m\"" "$MOD"; then
+    if grep -q "$m" "$DOC"; then
+      ok "Markenzeile $m in Code und Doku"
+    else
+      fehlt "Markenzeile $m steht im Code, fehlt aber in der Doku"
+    fi
+  else
+    fehlt "Markenzeile $m fehlt im Modul"
+  fi
+done
+
+echo "== Gegenprobe: Verifier liest nur Datensatz-Bytes =="
+for f in task_in answer_in denkweg_in verify lies; do
+  if grep -q "pub fn $f" "$MOD"; then ok "Verifier-Einstieg $f vorhanden"; else fehlt "Verifier-Einstieg $f fehlt"; fi
+done
+if grep -q "fn section(record: &\[u8\]" "$MOD"; then ok "Byte-Ebene (kein Lossy-Text) belegt"; else fehlt "Byte-Ebene nicht belegt"; fi
+
+echo "== Gegenprobe: Sperrbytes und Antwortraum =="
+if grep -q "0xF9" "$MOD" || grep -q "0xF9" "$DOC"; then ok "Sperrbyte-Regel referenziert"; else fehlt "Sperrbyte-Regel fehlt"; fi
+if grep -q "NICHT_ENTSCHIEDEN" "$MOD"; then ok "Antwortwert 'nicht entscheidbar' im Code verankert"; else fehlt "Antwortwert fehlt im Code"; fi
+
+echo "== Gegenprobe: vier Bewegungen =="
+for m in ableiten VERGLEICHEN LOKALISIEREN MINIMIEREN; do
+  if grep -q "\"$m\"" "$MOD"; then ok "Bewegung $m im Modul verankert"; else fehlt "Bewegung $m fehlt im Modul"; fi
+done
+
+echo "== Doku gegen Korpus: Nutzbytes aus dem Manifest =="
+MAN="data/quant/train/manifest.json"
+if [ -f "$MAN" ]; then
+  n=$(grep -m1 '"payload_bytes"' "$MAN" | tr -dc '0-9')
+  r=$(grep -m1 '"records"' "$MAN" | tr -dc '0-9')
+  fmt=$(printf '%s' "$n" | rev | sed 's/\([0-9]\{3\}\)/\1./g' | rev | sed 's/^\.//; s/\.$//')
+  ohne=$((n - 4 * r))
+  fmt2=$(printf '%s' "$ohne" | rev | sed 's/\([0-9]\{3\}\)/\1./g' | rev | sed 's/^\.//; s/\.$//')
+  cs=$(grep -m1 '"checksum"' "$MAN" | sed 's/.*"checksum": "\([^"]*\)".*/\1/' | cut -c1-8)
+  if grep -q "$fmt" "$DOC"; then
+    ok "Manifest-Zahl $fmt ($n B, mit Strukturmarken) steht in der Doku"
+  else
+    fehlt "Manifest-Zahl $fmt fehlt in der Doku"
+  fi
+  if grep -q "$fmt2" "$DOC"; then
+    ok "zweite Zaehlweise $fmt2 (ohne $r x 4 Strukturmarken) steht in der Doku"
+  else
+    fehlt "zweite Zaehlweise $fmt2 fehlt in der Doku"
+  fi
+  if grep -q "$cs" "$DOC"; then
+    ok "Pruefsumme $cs steht in der Doku"
+  else
+    fehlt "Pruefsumme $cs fehlt in der Doku"
+  fi
+else
+  printf '  --  %s fehlt (Korpus nicht vorhanden), Manifest-Vergleich uebersprungen\n' "$MAN"
+fi
+
+echo "=========================================="
+if [ "$fails" -eq 0 ]; then
+  echo "Familiendoku konsistent. ($oks ok, 0 Warnungen)"
+  exit 0
+fi
+echo "Familiendoku inkonsistent: $fails Befund(e)."
+exit 1

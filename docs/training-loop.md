@@ -84,10 +84,40 @@ bisherige Bestmarke (1,3482) um **28–66 %**.
 
 ## 6. Nächste Iteration (geplant, nicht ausgeführt)
 
+> **Korrekturhinweis (08.10.2026, nach `D-051`/`D-052`):** dieser Abschnitt ist
+> **historisch**. Punkt 2 und Punkt 5 sind inzwischen **erledigt** — der kombinierte
+> Korpus ist **gebaut** (`shiro data combine`, `data/kombi/train`, D-051) und die erste
+> Phase-Runde darauf ist **gelaufen** (`configs/train.kombi.toml` →
+> `checkpoints/kombi-step19200.safetensors`, D-052). Gemessen: das negative Transfer
+> (`O-D21`) ist **weg**, und der Stand erreicht **D-047 erstmals in der absoluten Form**
+> (Kopf 882/960 = 91,88 %, inhaltlich 90,69 %). Die Zeilen darunter bleiben als
+> Zeitdokument stehen; massgeblich sind `docs/kombi-korpus.md` und
+> `docs/experiment-log.md` (Runde 27/28).
+>
+> **Fortschreibung Runde 29-31 (Stand 08.10.2026).** Der Hinweis oben nennt nur
+> D-051/D-052 und ist damit **nicht mehr der aktuelle Stand**; er bleibt als
+> Zeitdokument stehen. Was seither gilt: **(a)** die Antwortform ist eine
+> **Korpus**-Eigenschaft und wird beim **Bauen** gesetzt — `shiro data combine
+> --antwortform absolut|delta` (**D-053**, Runde 29); der Delta-Korpus
+> `data/kombi-delta/train` trägt 9.430 umgeschriebene `reparatur`-Antworten, die
+> übrigen Familien laufen byteweise durch. **(b)** Der **Phase-Elternstand** ist
+> `checkpoints/kombi-delta-step21200.safetensors` (SHA-256 `7a18da50...`, **D-054**,
+> Runde 30): Breite gehalten, Delta-Konvention zurück (Form kaputt 0/0), **Preis**
+> `regel` 65,4 % und `naechste` 71,9 % — beide unter der 75-%-Marke. **(c)** Der
+> **Algebra-Eintritt** ist vorbereitet, aber **nicht gebaut** (**D-055**, Runde 31).
+> **(d) Für dieses Dokument wichtig:** ein **Phasenlauf** (`shiro train` auf einem
+> neuen Korpus) erscheint **nicht** in `registry/experiments.jsonl` — die Registry
+> führt **Loop-Runden**, nicht Phasenläufe. Der jüngste Elternstand der Loop-Registry
+> ist deshalb weiterhin `checkpoints/kombi-step19200.safetensors` (Runde 28), während
+> der eingefrorene **Phase**-Elternstand `kombi-delta-step21200` ist (**neu als
+> O-T18** festgehalten, siehe Abschnitt 7).
+
+
 1. **Verstärkung durch Fortsetzen** (`--resume` auf `checkpoints/format-step000200.state`,
    weitere 200 Schritte) — läuft; prüft zugleich B6 auf einem echten Korpus.
 2. **Kombinierter Lauf** über mehrere Familien in einem Modell (der Loader kann
-   mehrere Shards über ein Manifest lesen) — noch nicht gebaut.
+   mehrere Shards über ein Manifest lesen) — **erledigt: gebaut in Runde 27**
+   (`shiro data combine`, D-051), erste Phase-Runde darauf in Runde 28 (D-052).
 3. **Daten hochskalieren** auf ≥ 430 MB (Chinchilla-Untergrenze für Modell S) mit den
    gemessenen Rezepten: Format `--n 100000` = 51,5 MB, Semantik `--n 100000` = 59,5 MB,
    Quantoren `--n 30000` = 14,3 MB (Skalierung linear, Ausbeute stabil).
@@ -107,6 +137,24 @@ bisherige Bestmarke (1,3482) um **28–66 %**.
    (memmap2, Gradient Accumulation) für den GPU-Betrieb und B5/B9 für RunPod.
 - **Fremdblocker:** `cargo test`/`clippy`/`fmt` bleiben rot, solange der Testcode in
    `src/data/games.rs` nicht übersetzt; der Loop fasst die Datei nicht an.
+- **O-T18 (neu, Runde 32):** **Phasenläufe stehen nicht in der Loop-Registry.** Ein
+  `shiro train`-Lauf auf einem neuen Korpus (`kombi-step19200`, `kombi-delta-step21200`)
+  erzeugt **keine** Registry-Zeile — die Registry führt **Loop-Runden**
+  (`registry/experiments.jsonl`, 38 Zeilen, Feld `parent_checkpoint`). Folge: die Frage
+  „welcher Stand ist der aktuelle Elternstand" wird an **zwei** Orten beantwortet, und
+  beide sind für sich richtig — der **jüngste Loop-Elternstand** ist
+  `checkpoints/kombi-step19200.safetensors` (Runde 28), der **eingefrorene
+  Phase-Elternstand** ist `checkpoints/kombi-delta-step21200.safetensors` (D-054,
+  Runde 30). Wer nur eine der beiden Quellen liest, bekommt eine veraltete Antwort.
+  **Gemessen, nicht vermutet:** alle 38 Registry-Zeilen geprüft, 12 verschiedene
+  `parent_checkpoint`-Werte, `kombi-step19200.safetensors` kommt **1×** vor,
+  `kombi-delta-step21200.safetensors` **0×**. Offen ist damit: entweder ein Feld
+  `phase_run` in der Registry oder eine ausdrückliche Regel, welche Quelle für welchen
+  Zweck gilt. Die Korpus-Seite steht in [kombi-korpus.md](kombi-korpus.md), die
+  Registerzeilen in [abschluss-vorbereitungsphase.md](abschluss-vorbereitungsphase.md)
+  §2, der Messplan der Mathematik in
+  [trainingsloop-logik-plan.md](trainingsloop-logik-plan.md) Abschnitt 5a und die
+  Rundenprotokolle in [experiment-log.md](experiment-log.md).
 
 ## 8. Nachtrag: Verstärkungslauf per `--resume` — Fehler gefunden, FALSCH diagnostiziert, behoben
 

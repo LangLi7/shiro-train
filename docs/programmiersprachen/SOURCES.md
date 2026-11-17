@@ -33,12 +33,16 @@ für alle Tabellen:
 | `docs/lernstufen/*`, `docs/lernstufen/SOURCES.md` | die curricularen Befunde (Lehrplan 21, RLP 2024, MAV SR 413.11, Check S2/S3, ÜGK) — siehe dort |
 | `LOGIC_ANALYTICS.md`, `src/data/logic.rs`, `docs/byte-model-roadmap.md` | Korpusstatistik und Kontextbudget |
 | `tests/logic.rs`, `src/**`, `configs/**`, `scripts/**` | die Projektbezüge in [`mapping.md`](mapping.md) §3 und §8 |
+| [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259.txt) — **abgerufen 07.10.2026**, HTTP 200, `text/plain` | die JSON-Belege in **§4b** und [`json.md`](json.md) |
+| [felixcloutier.com/x86](https://www.felixcloutier.com/x86/) — **abgerufen 07.10.2026**, HTTP 200 | die Instruktionsbelege in **§4a** und [`assembly.md`](assembly.md) — **abgeleitet** aus der Intel-SDM-Fassung Dezember 2023, **nicht** das Original |
 
 ---
 
-## 2. Versionsstände der fünf Sprachen
+## 2. Versionsstände der fünf Sprachen und der ISA
 
-Alle Angaben **abgerufen** (UA) am 6.10.2026.
+Alle Angaben **abgerufen** (UA) am 6.10.2026, sofern nicht anders vermerkt.
+**Assemblersprache hat keine Version** — sie hat eine **ISA und eine Syntax**,
+beide sind Projekt-Setzung (siehe §4a): **x86-64**, Intel-Syntax.
 
 | Sprache | Stand | Editions-/Standardangabe | Quelle |
 |---|---|---|---|
@@ -364,6 +368,63 @@ Computing) sind als **Link** bestätigt, der **Inhalt nicht abgerufen**
 
 ---
 
+## 4a. Assemblersprache (x86-64) — Roadmap-Stufe 4
+
+**Projektinterne Belege (im Repo verifiziert, keine Fremdquelle nötig):**
+
+| Aussage | Beleg | Status |
+|---|---|---|
+| Assembler ist **Roadmap-Stufe 4** | `docs/byte-model-roadmap.md` Z. 110 „Lernreihenfolge: Logik → Mathematik → Code → **Assembly/Decompiler** → Kompression"; Z. 496 „Phase 7: Stufe 4 Assembly/Decompiler" | **abgerufen** (Autor) |
+| Lernreihenfolge ist **entschieden** | `docs/byte-lm-docs/docs/decisions.md` Z. 10, **D-004**, Status *beschlossen* | **abgerufen** (Autor) |
+| Verifier vergleicht **Verhalten, nicht Bytes** | ebd. Z. 499, wörtlich: „Ergebnis neu kompilieren und Verhalten mit Testeingaben vergleichen (nicht bytegleich, nur verhaltensgleich)" | **abgerufen** (Autor) |
+| Zielumfang: „kleine Funktionen, keine ganzen Programme" | ebd. Z. 500, wörtlich | **abgerufen** (Autor) |
+| Datenpaare lokal mit `rustc`/`gcc`, mehrere Optimierungsstufen | ebd. Z. 497 | **abgerufen** (Autor) |
+| Compiler-Runner in einer Sandbox | ebd. Z. 247, wörtlich: „**Immer in einer Sandbox**" | **abgerufen** (Autor) |
+| Disassembler `objdump` / `capstone` / `iced-x86` | ebd. Z. 246 | **abgerufen** (Autor) |
+| Compiler Explorer (godbolt.org) als Quelle | `data/README.md` Z. 126 und `docs/datenformat.md` Z. 131: HTTP 200, Seite **BSD-2-Clause** (`LICENSE` gelesen); Ausgabelizenzen **`unverifiziert`**; Datum 06.10.2026 | **abgerufen** (Autor), Lizenz der Ausgaben offen |
+| Paare selbst erzeugen ist „exakt und gratis" | `docs/02-datenquellen.md` §Assembly, wörtlich | **abgerufen** (Autor) |
+
+**Fremdquelle für die Instruktionssemantik:**
+
+| Quelle | Was sie beiträgt | Status |
+|---|---|---|
+| [x86 and amd64 instruction reference](https://www.felixcloutier.com/x86/) | Mnemonics, Operanden, Flags, `syscall`, `div`, `lea` — die Ebene, auf der [`assembly.md`](assembly.md) §2 und §5 arbeiten | **abgerufen** (Autor) am 07.10.2026, HTTP 200. Abgeleitet aus der **Intel SDM, Fassung Dezember 2023**, Stand **18.2.2024**. **Drei Vorbehalte, die die Seite selbst nennt:** (1) „**THIS REFERENCE IS NOT PERFECT**" — mechanisch in Einzeldateien zerlegt; (2) „**No longer updated**", sie verweist auf die offizielle Doku [intel.github.io/SDM](https://intel.github.io/SDM/sdm.html); (3) der Autor rät für ernsthafte Fälle zur offiziellen Dokumentation. **Eigener Vorbehalt:** der abgerufene **Index war abgeschnitten**; einzelne Befehle (u. a. `mov`, `lea`, `mul`, `ret`) wurden **nicht einzeln gegengelesen** |
+| *System V AMD64 ABI* (Aufrufkonvention: 16-Byte-Ausrichtung, callee-saved, Argumentregister) | die Angaben in [`assembly.md`](assembly.md) §2/K3 und §5 Punkte 6–7 | **nicht verifiziert** — das ABI-Dokument wurde **nicht abgerufen**. Die Angaben stehen im Pfad als **Setzung mit starkem Praxisbezug**, nicht als Zitat |
+| Intel SDM (Original) | normative Quelle für alles oben | **nur Link** — über die abgerufene Referenzseite belegt, **Inhalt nicht abgerufen** |
+
+## 4b. JSON — RFC 8259
+
+| Quelle | Was sie beiträgt | Status |
+|---|---|---|
+| [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259.txt), *The JavaScript Object Notation (JSON) Data Interchange Format*, Dez. 2017, Standards Track | Grammatik, Wertarten, Zahlen, Strings, UTF-8/BOM, Parser- und Erzeugerpflichten, Sicherheit — alle Belege in [`json.md`](json.md) | **abgerufen** (Autor) am 07.10.2026, HTTP 200, `text/plain`; der **Volltext** wurde gelesen |
+
+**Wörtliche Belege aus dem abgerufenen RFC** (Auswahl; vollständig in
+[`json.md`](json.md) §7):
+
+| Zitat | Fundstelle |
+|---|---|
+| „JSON can represent **four primitive types** (strings, numbers, booleans, and null) and **two structured types** (objects and arrays)." | §1 |
+| „An object is an **unordered collection** of zero or more name/value pairs" | §1 |
+| „The names within an object **SHOULD be unique**." · „… the behavior of software that receives such an object is **unpredictable**." | §4 |
+| „JSON parsing libraries have been observed to **differ** as to whether or not they make the ordering of object members visible to calling software." | §4 |
+| „Numeric values that cannot be represented in the grammar below (such as **Infinity and NaN**) are **not permitted**." | §6 |
+| „numbers that are integers and are in the range **[-(2\*\*53)+1, (2\*\*53)-1]** are interoperable" | §6 |
+| „characters that **MUST be escaped**: quotation mark, reverse solidus, and the control characters (U+0000 through U+001F)" | §7 |
+| „**MUST** be encoded using **UTF-8**" · „Implementations **MUST NOT add a byte order mark (U+FEFF)**" | §8.1 |
+| „An implementation may set limits on the maximum **depth of nesting**." | §9 |
+| „A JSON generator produces JSON text. The resulting text **MUST strictly conform** to the JSON grammar." | §10 |
+
+| Aussage in [`json.md`](json.md) | Status |
+|---|---|
+| §1, §2, §3, §5, §7 Fallstricke 1–12 — alle auf RFC-Regeln gestützt | **belegt (abgerufen)** — wörtlich zitiert |
+| §4 „JSON-Text ist nicht kanonisch" | **belegt mit Ableitung** — der RFC nennt die Reihenfolge-Unterschiede; die Folgerung für Digest-Vergleiche ist **Projekt-Ableitung** |
+| §6 Projekt-Fundstellen (Manifeste, `.jsonl`, `config.json`, JSON-Lines-Logs, `serde_json`) | **belegt (im Repo verifiziert)** |
+| §8 „`serde_json` sortiert alphabetisch; `preserve_order` ändert das" | **Setzung mit Bibliotheksbezug** — die Abhängigkeit ist über `Cargo.toml` belegt, das Sortierverhalten **nicht** gegen die Crate-Doku geprüft |
+| ECMA-404 | **nur Link** — im RFC normativ referenziert, **nicht abgerufen** |
+| Ob `serde_json` `NaN` beim Schreiben erzeugt | **nicht verifiziert** |
+
+---
+
 ## 5. Sprachfallen mit Quelle
 
 Jede Zeile nennt die **abgerufene** Fundstelle. Wo keine vorliegt, steht das
@@ -478,6 +539,12 @@ des Pakets **schwächer** belegt sind als andere.
 | **Lizenzen** von CS2023, AP CSA, Go-Doku und Rust-Buch | auf den abgerufenen Seiten **keine** Lizenzangabe gefunden | für eine Veröffentlichung offen. **Belegt:** PEP 8/PEP 20 public domain; CSTA 2026 CC BY-NC-SA; CS2013 erlaubt ausdrücklich die Nutzung für Lehrmaterial; glibc und GCC „Verbatim copying permitted"; POSIX © IEEE/The Open Group |
 | **CS2023-Stundenzahlen FPL** | **belegter Widerspruch im Dokument** (20/23, 23/20, 22/20) | **Konsequenz:** die FPL-Stunden werden **nicht** übernommen |
 | **Ob andere C-Compiler auf C23 umgestellt haben** | **nicht verifiziert** | nur GCC 15 belegt |
+| **System V AMD64 ABI** (16-Byte-Stapelausrichtung, callee-saved/caller-saved, Argumentregister) | **nicht abgerufen** | [`assembly.md`](assembly.md) §2/K3 und §5 Punkte 6–7 — dort als **Setzung mit Praxisbezug** gekennzeichnet |
+| **Intel SDM (Original)** | **nur Link** — über die abgerufene Referenzseite belegt, **Inhalt nicht abgerufen** | [`assembly.md`](assembly.md) §7; der Autor der Referenzseite verweist selbst dorthin |
+| **Einzelne x86-Mnemonics** (`mov`, `lea`, `mul`, `ret` u. a.) | **nicht einzeln gegengelesen** — der abgerufene Index war **abgeschnitten** | [`assembly.md`](assembly.md) §7 |
+| **ECMA-404** (zweite normative JSON-Fassung) | **nicht abgerufen** | [`json.md`](json.md) §9 — im RFC normativ referenziert |
+| **`serde_json`-Verhalten** (Schlüsselsortierung, `preserve_order`, `NaN` beim Schreiben) | **nicht gegen die Crate-Doku geprüft** | [`json.md`](json.md) §4, §8 — die **Abhängigkeit** ist über `Cargo.toml` belegt, das **Verhalten** nicht |
+| **Lizenz der Compiler-Explorer-Ausgaben** | **`unverifiziert`** — bereits in `data/README.md` Z. 126 und `docs/datenformat.md` Z. 131 so geführt | [`assembly.md`](assembly.md) §7 |
 
 ---
 
@@ -492,6 +559,8 @@ des Pakets **schwächer** belegt sind als andere.
 | Der Widerspruch bei den CS2023-Stundenzahlen | **eigene Summenprobe** des Unteragenten, nicht aus dem Dokument übernommen; die drei Zahlenpaare selbst sind abgelesen |
 | Die Zuordnung in §4.2 (`grundlagen.md` ↔ CS2023) | **Projekt-Setzung** — eine Gegenüberstellung, keine Aussage von CS2023 |
 | Die Ableitung in §2.2 (JDK 25 als Lernumgebung) | **Ableitung**, keine Quelle |
+| Die zwei Abrufe vom 07.10.2026 (§4a x86-Referenz, §4b RFC 8259) | **abgerufen** durch den **Autor** dieses Dokuments, HTTP 200 — mit den in §4a/§4b genannten Vorbehalten. Damit liegt für diese beiden Bereiche eine **stärkere** Beleglage vor als für §2–§5, wo die Abrufe durch einen Unteragenten erfolgten |
+| Die ISA-Wahl **x86-64 / Intel-Syntax** | **Projekt-Setzung** — begründet aus Roadmap Z. 246/247 und der Hardware, **nicht** aus einer Vorgabe im Repo |
 | Die Bewertung „SDF-DataStructures vs. SDF-ADT ist ein Widerspruch" | **eigene Lesung** zweier Stellen desselben Dokuments |
 
 **Was dieses Dokument nicht leistet.** Es belegt **nicht**, dass die 14
@@ -505,4 +574,5 @@ gibt es, anders als für die L-Stufen, **kein** Curriculum und **keine** Prüfun
 [`README.md`](README.md) (Stufen K0–K5, Reihenfolge, Indikatoren) ·
 [`mapping.md`](mapping.md) (Zuordnung und offene Punkte O-K1…O-K12) ·
 [`python.md`](python.md) · [`c.md`](c.md) · [`go.md`](go.md) ·
-[`java.md`](java.md) · [`rust.md`](rust.md)
+[`java.md`](java.md) · [`rust.md`](rust.md) · [`assembly.md`](assembly.md) ·
+[`json.md`](json.md)

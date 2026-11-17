@@ -1,0 +1,18 @@
+# Kleinste echte Trainingsgroesse (Stufe A aus docs/lokales-cpu-training-plan.md §5).
+# Rechnung (ungeteilte Embeddings):
+#   6 * (4*256^2 + 3*256*640 + 2*256) + 256*256 + 256 + 256*256 + 256 = 4.656.640 Parameter.
+# Gleicher Codepfad wie Modell S - nur kleinere Zahlen. Geprueft in tests/burn_training.rs.
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+# Nicht geteilt (Entscheidung o2): param_count() beschreibt die realen Tensoren.
+tie_embeddings = false
+dropout = 0.0

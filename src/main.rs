@@ -100,6 +100,7 @@ fn real_main() -> Result<()> {
         Command::ValidateData => cmd_validate_data(&args),
         Command::VerifyCheckpoint { path } => cmd_verify_checkpoint(path),
         Command::Export { out } => cmd_export(&args, out),
+        Command::Hub { action } => cmd_hub(action),
         Command::Chat {
             prompt,
             max_new,
@@ -2374,6 +2375,45 @@ pub fn export_core(
     Ok(vec![model_path, config_path_out, special_path, run_path])
 }
 
+/// Modellablage auf dem HuggingFace Hub (`shiro hub pull|push`).
+///
+/// Ohne `--features hub` gibt es weder Client noch Netzwerk-Stack; dann sagt
+/// dieses Kommando, wie es gebaut werden muss, statt stumm zu scheitern.
+#[cfg(feature = "hub")]
+fn cmd_hub(action: cli::HubAction) -> Result<()> {
+    match action {
+        cli::HubAction::Pull {
+            repo,
+            dir,
+            revision,
+        } => shiro::hub::pull(&shiro::hub::PullRequest {
+            repo,
+            dir,
+            revision,
+        }),
+        cli::HubAction::Push {
+            repo,
+            dir,
+            path_in_repo,
+            message,
+            private,
+        } => shiro::hub::push(&shiro::hub::PushRequest {
+            repo,
+            dir,
+            path_in_repo,
+            message,
+            private,
+        }),
+    }
+}
+
+#[cfg(not(feature = "hub"))]
+fn cmd_hub(_action: cli::HubAction) -> Result<()> {
+    Err(shiro::error::anyhow!(
+        "`shiro hub` ist nicht einkompiliert. Bauen mit: cargo build --release --features hub"
+    ))
+}
+
 /// Kern von `chat`: erzeugt genau `max_new` neue Bytes, ohne Gewichtsaenderung.
 pub fn chat_core(
     cfg: &ModelConfig,
@@ -2635,7 +2675,7 @@ fn cmd_chat(
 pub struct AnswerOutcome {
     /// So viele Datensaetze wurden gestellt.
     pub asked: usize,
-    /// Davon byte-genau richtig.
+    /// Davon nach der gewaehlten Auswertungsregel richtig.
     pub correct: usize,
     /// Beispiele mit Abweichung: `(Datensatznummer, erwartet, erzeugt)`.
     pub fehler: Vec<(usize, String, String)>,
@@ -2652,8 +2692,105 @@ impl AnswerOutcome {
     }
 }
 
-/// **Trefferquote statt Verlust:** das Modell bekommt den Datensatz bis zur
-/// Antwortmarke (`0xFC`) und muss die Antwort **byte-genau** fortsetzen.
+fn answers_prompt_end(rec: &[u8], mode: cli::AnswersMode) -> Option<usize> {
+    let marker = match mode {
+        cli::AnswersMode::M1 => shiro::data::bytes::B_THINK,
+        cli::AnswersMode::M2 => shiro::data::bytes::B_ANSWER,
+    };
+    rec.iter().position(|b| *b == marker).map(|p| p + 1)
+}
+
+fn trim_ascii_bytes(bytes: &[u8]) -> &[u8] {
+    let start = bytes
+        .iter()
+        .position(|b| !b.is_ascii_whitespace())
+        .unwrap_or(bytes.len());
+    let end = bytes
+        .iter()
+        .rposition(|b| !b.is_ascii_whitespace())
+        .map(|p| p + 1)
+        .unwrap_or(start);
+    &bytes[start..end]
+}
+
+fn m1_answer(generated: &[u8]) -> Option<Vec<u8>> {
+    let end = generated
+        .iter()
+        .position(|b| *b == shiro::data::bytes::B_END)
+        .unwrap_or(generated.len());
+    let sequence = &generated[..end];
+    let answer = sequence
+        .iter()
+        .position(|b| *b == shiro::data::bytes::B_ANSWER)?;
+    Some(trim_ascii_bytes(&sequence[answer + 1..]).to_vec())
+}
+
+#[cfg(test)]
+mod answers_mode_tests {
+    use super::*;
+
+    #[test]
+    fn m1_prompt_excludes_reference_reasoning_and_answer() {
+        let record = [
+            shiro::data::bytes::B_TASK,
+            b' ',
+            b'Q',
+            shiro::data::bytes::B_THINK,
+            b' ',
+            b'g',
+            b'o',
+            b'l',
+            b'd',
+            shiro::data::bytes::B_ANSWER,
+            b' ',
+            b'4',
+            shiro::data::bytes::B_END,
+        ];
+        let end = answers_prompt_end(&record, cli::AnswersMode::M1).unwrap();
+        assert_eq!(
+            &record[..end],
+            &[
+                shiro::data::bytes::B_TASK,
+                b' ',
+                b'Q',
+                shiro::data::bytes::B_THINK
+            ]
+        );
+    }
+
+    #[test]
+    fn m1_extracts_answer_after_generated_reasoning() {
+        let output = [
+            b' ',
+            b'1',
+            b'.',
+            b' ',
+            b'r',
+            b'e',
+            b'a',
+            b's',
+            b'o',
+            b'n',
+            b' ',
+            shiro::data::bytes::B_ANSWER,
+            b' ',
+            b'1',
+            b'0',
+            b'5',
+            b' ',
+            shiro::data::bytes::B_END,
+            b'j',
+            b'u',
+            b'n',
+            b'k',
+        ];
+        assert_eq!(m1_answer(&output).as_deref(), Some(b"105".as_slice()));
+    }
+}
+
+/// Trefferquote fuer `m1` oder `m2`. Bei `m1` bekommt das Modell nur Aufgabe und
+/// Denkweg-Marke; es erzeugt Denkweg und Antwort. Bei `m2` enthaelt der Prompt
+/// den Gold-Denkweg und nur die Antwort wird fortgesetzt.
 ///
 /// Familienunabhaengig: die Antwort ist der Text zwischen der Antwortmarke und
 /// `ENDE` (`0xFF`) - dieselbe Regel gilt fuer alle Korpora. Gemessen wird
@@ -2668,7 +2805,7 @@ pub fn answers_core(
     manifest: &str,
     checkpoint: &Path,
     limit: usize,
-    max_new: usize,
+    mode: cli::AnswersMode,
 ) -> Result<(AnswerOutcome, usize)> {
     use shiro::model::lm::{Arch, Lm, Rope, Trainer};
 
@@ -2696,32 +2833,45 @@ pub fn answers_core(
     let mut fehler = Vec::new();
     for i in (0..records.len()).step_by(stride).take(limit) {
         let rec = &records[i];
-        let Some(p) = rec.iter().position(|b| *b == 0xFC) else {
+        let Some(answer_pos) = rec.iter().position(|b| *b == shiro::data::bytes::B_ANSWER) else {
             continue;
         };
-        let soll: Vec<u8> = rec[p + 1..]
+        let soll: Vec<u8> = rec[answer_pos + 1..]
             .iter()
             .copied()
-            .take_while(|b| *b != 0xFF)
+            .take_while(|b| *b != shiro::data::bytes::B_END)
             .collect();
         if soll.is_empty() {
             continue;
         }
-        let prompt = &rec[..=p];
+        let Some(prompt_end) = answers_prompt_end(rec, mode) else {
+            continue;
+        };
+        let prompt = &rec[..prompt_end];
         if prompt.len() + 2 >= cfg.max_seq_len {
             continue;
         }
-        let out = trainer.generate(prompt, max_new.max(soll.len() + 2), 0.0, 0, seed)?;
+        let max_new = match mode {
+            cli::AnswersMode::M2 => soll.len().saturating_add(2),
+            cli::AnswersMode::M1 => rec.len().saturating_sub(prompt.len()).saturating_add(16),
+        };
+        let out = trainer.generate(prompt, max_new, 0.0, 0, seed)?;
         let leer: [u8; 0] = [];
-        let got: Vec<u8> = out
-            .get(prompt.len()..)
-            .unwrap_or(&leer)
-            .iter()
-            .copied()
-            .take_while(|b| *b != 0xFF)
-            .collect();
+        let completion = out.get(prompt.len()..).unwrap_or(&leer);
+        let got = match mode {
+            cli::AnswersMode::M1 => m1_answer(completion).unwrap_or_default(),
+            cli::AnswersMode::M2 => completion
+                .iter()
+                .copied()
+                .take_while(|b| *b != shiro::data::bytes::B_END)
+                .collect(),
+        };
         asked += 1;
-        if got == soll {
+        let is_correct = match mode {
+            cli::AnswersMode::M1 => trim_ascii_bytes(&got) == trim_ascii_bytes(&soll),
+            cli::AnswersMode::M2 => got == soll,
+        };
+        if is_correct {
             correct += 1;
         } else if fehler.len() < 8 {
             fehler.push((
@@ -2858,6 +3008,45 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         return Ok(());
     }
 
+    if args.answers_mode == cli::AnswersMode::M1 {
+        let Some(limit) = args.answers else {
+            shiro::error::bail!("--answers-mode m1 braucht --answers <N>");
+        };
+        let Some(ckpt) = args.checkpoint.as_deref() else {
+            shiro::error::bail!("--answers-mode m1 braucht --checkpoint");
+        };
+        let (o, stride) = answers_core(
+            &cfg.model,
+            cfg.run.seed,
+            &cfg.data.dir,
+            &cfg.data.manifest,
+            ckpt,
+            limit,
+            cli::AnswersMode::M1,
+        )?;
+        println!("Konfiguration : {}", args.config.display());
+        println!("Datenordner   : {}", cfg.data.dir.display());
+        println!("Modell        : {}", ckpt.display());
+        println!("Messmodus     : m1 (Denkweg und Antwort frei erzeugt)");
+        println!("Auswahl       : jeder {stride}. Datensatz des Shards");
+        println!(
+            "Gefragt       : {} Datensaetze, davon richtig: {} ({:.1} %)",
+            o.asked,
+            o.correct,
+            o.percent()
+        );
+        if !o.fehler.is_empty() {
+            println!("Beispiele mit Abweichung:");
+            for (i, soll, got) in &o.fehler {
+                println!(
+                    "  #{i}: erwartet '{soll}' / erzeugt '{}'",
+                    if got.is_empty() { "(leer)" } else { got }
+                );
+            }
+        }
+        return Ok(());
+    }
+
     let (baseline, trained) = eval_core(
         &cfg.model,
         cfg.run.seed,
@@ -2937,9 +3126,9 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             &cfg.data.manifest,
             ckpt,
             limit,
-            cfg.data.seq_len,
+            args.answers_mode,
         )?;
-        println!("\n--- Trefferquote (greedy, byte-genau) ---");
+        println!("\n--- Trefferquote (m2: Gold-Denkweg vorgegeben, greedy, byte-genau) ---");
         println!("Auswahl       : jeder {stride}. Datensatz des Shards");
         println!(
             "Gefragt       : {} Datensaetze, davon richtig: {} ({:.1} %)",

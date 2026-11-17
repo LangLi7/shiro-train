@@ -1,0 +1,42 @@
+# Logik-Feintuning auf Basis des Elternstands:
+# checkpoints/kombi-add-step023200.state
+# 200 CPU-Schritte auf data/logic-large/train; Ergebnis: Schritt 23400.
+[run]
+name = "logic-refocus-20261110"
+seed = 1337
+steps = 200
+log_every = 10
+checkpoint_every = 200
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/logic-large/train"
+manifest = "manifest.json"
+batch_size = 4
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.00001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 0
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

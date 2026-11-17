@@ -39,10 +39,20 @@ pub fn softmax_inplace(x: &mut [f32]) {
     }
 }
 
-/// GELU (tanh-Naeherung) - Aktivierung im SwiGLU-Block.
+/// GELU (tanh-Naeherung), fuer Modelle, die GELU als Aktivierung verwenden.
 pub fn gelu(x: f32) -> f32 {
     const C: f32 = 0.797_884_6; // sqrt(2/pi)
     0.5 * x * (1.0 + (C * (x + 0.044_715 * x * x * x)).tanh())
+}
+
+/// SiLU (`x * sigmoid(x)`) - die Gate-Aktivierung des SwiGLU-Blocks.
+pub fn silu(x: f32) -> f32 {
+    if x >= 0.0 {
+        x / (1.0 + (-x).exp())
+    } else {
+        let exp = x.exp();
+        x * exp / (1.0 + exp)
+    }
 }
 
 /// `out = x @ W^T` mit `W` als `[out_dim, in_dim]` in Zeilenreihenfolge.

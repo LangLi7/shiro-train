@@ -157,6 +157,10 @@ pub enum Command {
         /// Zielordner; `None` = `models/<modellname>-<version>`.
         out: Option<PathBuf>,
     },
+    /// Modellablage auf dem HuggingFace Hub (`--features hub`).
+    Hub {
+        action: HubAction,
+    },
     /// Ein Modell laden und Bytes generieren (Messtest, keine Gewichtsaenderung).
     Chat {
         prompt: String,
@@ -172,6 +176,29 @@ pub enum Command {
     Info,
     Version,
     Help,
+}
+
+/// Unterkommando von `shiro hub`.
+///
+/// Die Felder sind absichtlich einfache Werte und kein Verweis auf
+/// [`crate::hub`]: jenes Modul existiert nur mit `--features hub`, und die
+/// CLI soll auch ohne das Feature uebersetzen (dann mit klarer Meldung).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HubAction {
+    /// Repository in einen lokalen Ordner laden.
+    Pull {
+        repo: String,
+        dir: PathBuf,
+        revision: Option<String>,
+    },
+    /// Lokalen Ordner in ein Repository hochladen.
+    Push {
+        repo: String,
+        dir: PathBuf,
+        path_in_repo: Option<String>,
+        message: Option<String>,
+        private: bool,
+    },
 }
 
 /// Optionen fuer `shiro data generate-logic`.
@@ -375,6 +402,14 @@ impl Default for LogicGenOptions {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AnswersMode {
+    /// Aufgabe plus Denkweg-Marke vorgeben; das Modell erzeugt Denkweg und Antwort.
+    M1,
+    /// Gold-Denkweg vorgeben; nur die Antwortfortsetzung messen.
+    M2,
+}
+
 #[derive(Debug, Clone)]
 pub struct Args {
     pub command: Command,
@@ -399,9 +434,11 @@ pub struct Args {
     /// Top-k fuer `chat`; `0` = alle Klassen.
     pub top_k: usize,
     /// Trefferquotenmessung fuer `eval`: so viele Datensaetze greedy
-    /// vervollstaendigen und die Antwort byte-genau vergleichen. `None` = nur
-    /// Verlust messen.
+    /// vervollstaendigen und die Antwort nach `answers_mode` vergleichen.
+    /// `None` = nur Verlust messen.
     pub answers: Option<usize>,
+    /// `m1` misst freie Denkweg- und Antworterzeugung; `m2` gibt den Gold-Denkweg vor.
+    pub answers_mode: AnswersMode,
     /// Ursachen-Isolation fuer `eval`: drei Messungen auf **derselben**
     /// Stichprobe - Teacher forcing (A), freie Erzeugung (B) und Inhalt bei
     /// erzwungenem Abschluss (C), dazu die Entscheidungstabelle (n11).
@@ -437,6 +474,7 @@ impl Default for Args {
             temperature: 0.0,
             top_k: 0,
             answers: None,
+            answers_mode: AnswersMode::M2,
             probe: false,
             probe_samples: 0,
             backend: None,
@@ -541,6 +579,8 @@ OPTIONEN FUER eval:
     --answers <N>         Trefferquote messen: N Datensaetze greedy
                           vervollstaendigen und byte-genau vergleichen
                           (braucht --checkpoint; familienunabhaengig)
+    --answers-mode <m1|m2> m1: Denkweg und Antwort selbst erzeugen;
+                          m2: Gold-Denkweg ist im Prompt (Standard: m2)
     --probe               Ursachen-Isolation statt einfacher Trefferquote:
                           Teacher forcing (A), freie Erzeugung (B) und Inhalt
                           bei erzwungenem Abschluss (C) auf derselben
@@ -647,8 +687,20 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut combine_sources: Vec<PathBuf> = Vec::new();
     let mut combine_form: Option<crate::data::seq::Antwortform> = None;
     let mut agent_dry = false;
-    let mut saw_data = false;
-    // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
+    let mut saw_data = false;    // Wurde ueberhaupt ein Subkommando genannt? Ohne eines ist Smoke der Standard.
+    // Modellablage (`hub`): zwei Woerter wie `data generate-logic`, plus eigene
+    // Schalter. `--public` oeffnet ein neu angelegtes Repository; Vorgabe ist
+    // privat, weil die Datenlage der Korpora noch nicht geklaert ist
+    // (docs/modell-ablage-huggingface.md §4).
+    let mut saw_hub = false;
+    let mut saw_pull = false;
+    let mut saw_push = false;
+    let mut hub_repo: Option<String> = None;
+    let mut hub_dir: Option<PathBuf> = None;
+    let mut hub_revision: Option<String> = None;
+    let mut hub_path_in_repo: Option<String> = None;
+    let mut hub_message: Option<String> = None;
+    let mut hub_private = true;
     let mut command_set = false;
 
     while let Some(arg) = iter.next() {
@@ -787,6 +839,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out.command = Command::Export { out: None };
                 command_set = true;
             }
+            "hub" => {
+                saw_hub = true;
+                command_set = true;
+            }
+            "pull" => saw_pull = true,
+            "push" => saw_push = true,
+            "--repo" => hub_repo = Some(take_value(&mut iter, "--repo")?),
+            "--dir" => hub_dir = Some(PathBuf::from(take_value(&mut iter, "--dir")?)),
+            "--revision" => hub_revision = Some(take_value(&mut iter, "--revision")?),
+            "--path-in-repo" => hub_path_in_repo = Some(take_value(&mut iter, "--path-in-repo")?),
+            "--message" => hub_message = Some(take_value(&mut iter, "--message")?),
+            "--public" => hub_private = false,
             "chat" => {
                 out.command = Command::Chat {
                     prompt: out.prompt.clone(),
@@ -901,6 +965,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 }
                 out.answers = Some(n);
             }
+            "--answers-mode" => {
+                let v = take_value(&mut iter, "--answers-mode")?;
+                out.answers_mode = match v.as_str() {
+                    "m1" => AnswersMode::M1,
+                    "m2" => AnswersMode::M2,
+                    _ => {
+                        crate::error::bail!("--answers-mode: '{v}' ist unbekannt. Erlaubt: m1, m2")
+                    }
+                };
+            }
             "--probe" => out.probe = true,
             "--probe-samples" => {
                 let v = take_value(&mut iter, "--probe-samples")?;
@@ -983,6 +1057,41 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
              `generate-format`, `generate-quant`, `generate-seq`, `generate-formel` oder \
              `combine`)"
         );
+    }
+
+    // Modellablage: `hub` braucht eine Richtung und ein Repository.
+    if saw_hub {
+        let Some(repo) = hub_repo else {
+            bail!("`hub` braucht `--repo <owner/name>`");
+        };
+        let dir = hub_dir.unwrap_or_else(|| PathBuf::from("models"));
+        out.command = match (saw_pull, saw_push) {
+            (true, false) => Command::Hub {
+                action: HubAction::Pull {
+                    repo,
+                    dir,
+                    revision: hub_revision,
+                },
+            },
+            (false, true) => {
+                // `--revision` gilt nur beim Laden. Beim Push still zu ignorieren
+                // waere eine Falle: der Aufrufer glaubt, in einen Branch zu schreiben.
+                if hub_revision.is_some() {
+                    bail!("`--revision` gilt nur fuer `hub pull`, nicht fuer `hub push`");
+                }
+                Command::Hub {
+                    action: HubAction::Push {
+                        repo,
+                        dir,
+                        path_in_repo: hub_path_in_repo,
+                        message: hub_message,
+                        private: hub_private,
+                    },
+                }
+            }
+            (true, true) => bail!("`hub pull` und `hub push` schliessen sich aus"),
+            (false, false) => bail!("`hub` braucht `pull` oder `push`"),
+        };
     }
 
     if want_combine {
@@ -1232,6 +1341,23 @@ mod tests {
         assert!(p(&["--quatsch"]).is_err());
         assert!(p(&["--steps"]).is_err());
         assert!(p(&["--steps", "abc"]).is_err());
+    }
+
+    #[test]
+    fn parses_answer_evaluation_modes() {
+        assert_eq!(
+            p(&["eval", "--answers", "24", "--answers-mode", "m1"])
+                .unwrap()
+                .answers_mode,
+            AnswersMode::M1
+        );
+        assert_eq!(
+            p(&["eval", "--answers", "24", "--answers-mode", "m2"])
+                .unwrap()
+                .answers_mode,
+            AnswersMode::M2
+        );
+        assert!(p(&["eval", "--answers-mode", "m3"]).is_err());
     }
 
     /// Die Messkette kennt drei neue Subkommandos; `export` teilt sich `--out`

@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Addition eval-5d, Schema normal, Uebertrag explizit",
+  "tasks": {
+    "addition": 2000,
+    "mit_uebertrag_einerstelle": 879,
+    "ohne_uebertrag_einerstelle": 1121
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 2000,
+      "payload_bytes": 286140,
+      "file_size": 290172,
+      "checksum": "a031d36b7ad70208"
+    }
+  ]
+}

@@ -26,3 +26,4 @@ pub mod manifest;
 pub mod quant;
 pub mod semantics;
 pub mod seq;
+pub mod seqgen;

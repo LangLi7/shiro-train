@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Algebra A1 - Terme mit Variablenbelegung (D-030/D-055) - Training (90720 Datensaetze)",
+  "tasks": {
+    "bewegung.alg-reparatur.MINIMIEREN": 22400,
+    "bewegung.alg-stelle.LOKALISIEREN": 22400,
+    "bewegung.alg-vergleich.VERGLEICHEN": 22960,
+    "bewegung.alg-wert.ABLEITEN": 22960,
+    "level.alg-reparatur.leicht": 11840,
+    "level.alg-reparatur.mittel": 10560,
+    "level.alg-stelle.leicht": 11840,
+    "level.alg-stelle.mittel": 10560,
+    "level.alg-vergleich.leicht": 12200,
+    "level.alg-vergleich.mittel": 10760,
+    "level.alg-wert.leicht": 12200,
+    "level.alg-wert.mittel": 10760,
+    "typ.alg-reparatur": 22400,
+    "typ.alg-stelle": 22400,
+    "typ.alg-vergleich": 22960,
+    "typ.alg-wert": 22960
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 90720,
+      "payload_bytes": 16475732,
+      "file_size": 16657204,
+      "checksum": "94ae26f901c765b0"
+    }
+  ]
+}

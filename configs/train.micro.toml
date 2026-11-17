@@ -1,0 +1,46 @@
+# Lokaler Einstiegslauf: Micro-Modell (4.656.640 Parameter) auf dem Logik-Korpus.
+# CPU-Profil, Batch 16 x 512 = 8.192 Bytes je Schritt (Basis der Zeitrechnung in
+# docs/lokales-cpu-training-plan.md §4.3). Laufzeit: Schritte * s/Step.
+#
+# Aufruf:  shiro train --config configs/train.micro.toml
+
+[run]
+name = "micro-logic"
+seed = 1337
+steps = 200
+log_every = 10
+checkpoint_every = 100
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/logic-large/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 20
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
+

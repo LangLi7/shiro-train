@@ -25,13 +25,13 @@ Alle Dokumente liegen in `docs/` (Übersicht: `docs/README.md`).
 | **`IQ_TEST.md`** | **Logisch-analytischer Benchmark** (15 Aufgaben, Bewertung, `iq_test.py`) |
 | **`LOGIC_ANALYTICS.md`** | **Trainingskorpus „Logik und analytisches Denken"** — Konzept, Kategorienspezifikation, Generator (`shiro data generate-logic`), offene Punkte |
 | **`docs/lernstufen/`** | **Lernstufen-Curriculum** — 7 Stufen (Vorschule bis Universität) an Lehrplan 21, Check S2 und MAR angelehnt, mit Messindikatoren und Mapping der vorhandenen Daten |
-| **`docs/programmiersprachen/`** | **Programmier-Lernplan** — 14 sprachunabhängige Grundkonzepte + 5 Sprachpfade (Python, C, Go, Java, Rust) in 6 Stufen K0–K5, mit Messindikatoren, Sprachfallen und Verifikationsstatus |
+| **`docs/programmiersprachen/`** | **Programmier-Lernplan** — 14 sprachunabhängige Grundkonzepte + **6 Sprachpfade** (Python, C, Go, Java, Rust, **Assemblersprache x86-64**) + **Formatseite JSON**, in 6 Stufen K0–K5, mit Messindikatoren, Sprachfallen und Verifikationsstatus |
 
 ## Stand (verifiziert)
 
 | Prüfung | Ergebnis |
 |---|---|
-| `cargo test --release` | **118 Unit-Tests + 15 Integrationstests grün** |
+| `cargo test --release` | **239 Tests grün, 0 failed** (188 Unit-Tests + 51 Integrationstests: `burn_training` 7, `formats` 8, `logic` 5, `messkette` 5, `quant` 9, `semantics` 7, `smoke` 10) |
 | `cargo run --release -- smoke` | Loss 5,6143 → 5,5586, Checkpoint OK, 0,16 s |
 | `cargo fmt --check` | sauber |
 | `cargo clippy --all-targets -- -D warnings` | sauber |
@@ -313,6 +313,37 @@ Regelkombinationen). Evaluation auf der gemieteten GPU ist Geldverbrennung.
 Ein 24/7-Pod auf einer L40 kostet ~600 $/Monat. Das Modell braucht in FP16 rund
 rund 43 MB in FP16 (Modell S, Gewichte; mit KV-Cache ≈ 62 MB), läuft also als Rust-Binary lokal in Millisekunden. Für eine
 öffentlich erreichbare API wäre **Serverless** der wirtschaftliche Weg.
+
+## Trainings-Dashboard (Fortschritt sehen)
+
+Ein Trainingslauf schreibt seine Fortschritte als JSON-Zeilen nach `logs/`.
+Das Dashboard macht daraus eine Anzeige im Browser — **es liest nur**.
+
+```powershell
+cd tools\training-dashboard
+cargo run --release
+# dann im Browser: http://127.0.0.1:8787
+```
+
+Es zeigt: Fortschritt in Prozent, Loss, **besten Loss mit Schritt**, Perplexität,
+Lernrate, Tempo (Bytes/s), **Rechenleistung in GFLOPS**, Restzeit-Schaetzung,
+die **Verlustkurve mit Bestwert-Treppe und Checkpoint-Marken** und einen
+**Ereignis-Feed**, in dem jeder neue Bestwert als **Durchbruch** erscheint.
+
+**Keine Abhängigkeit, kein Frontend-Build, keine externe Ressource:** HTML, CSS
+und JavaScript sind ins Binary eingebettet, die Kurve wird auf einem `<canvas>`
+gezeichnet. Der Crate liegt bewusst **ausserhalb** des Shiro-Workspace und
+importiert die Bibliothek nicht — so kann er den Trainingspfad nicht
+beeinflussen und läuft auch dann, wenn das Haupt-Crate gerade nicht baut.
+
+Optionen: `--log-dir` (Standard `logs`), `--checkpoint-dir` (Standard
+`checkpoints`), `--bind` (Standard `127.0.0.1`), `--port` (Standard `8787`, `0`
+wählt einen freien Port). Details, Ereignisregeln und Grenzen:
+`docs/trainings-dashboard.md`.
+
+> **Offener Rest:** Sobald das Haupt-Crate wieder sauber baut, kann derselbe Code
+> als `shiro dashboard` in `src/cli.rs`/`src/main.rs` verdrahtet werden. Heute ist
+> das nicht möglich — `src/data/games.rs` (fremde Sitzung) übersetzt nicht.
 
 ## Architektur des Codes
 

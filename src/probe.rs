@@ -185,6 +185,10 @@ pub fn urteil(a: f64, b: f64, c: f64) -> Urteil {
 }
 
 /// Kennzahlen je Aufgabentyp.
+///
+/// Die Aufschluesselung ist keine Verzierung: die Frage "Ausfuehrung oder
+/// Faehigkeit?" hat **keine** einheitliche Antwort, und das Urteil wird deshalb
+/// je Typ gefaellt.
 #[derive(Debug, Clone, Default)]
 pub struct TypZeile {
     pub gestellt: usize,
@@ -193,6 +197,33 @@ pub struct TypZeile {
     pub a_exact: usize,
     pub b_exact: usize,
     pub c_content: usize,
+    /// Erstes Antwortbyte schon falsch (Teacher forcing).
+    pub d_byte0_falsch: usize,
+    /// pass@k: richtige Antwort unter `k` Proben.
+    pub f_exakt: usize,
+    /// Zahlenantworten dieses Typs und ihre Fehlerweite gegen die Zufallsdistanz.
+    pub g_zahlen: usize,
+    pub g_fehler_sum: f64,
+    pub g_zufall_sum: f64,
+}
+
+impl TypZeile {
+    /// Der A/B-Befund dieses Typs. `k` ist die Zahl der Proben (0 = kein Sampling).
+    pub fn ab_befund(&self, k: usize) -> AbBefund {
+        AbBefund {
+            pass_zuwachs: if k == 0 || self.gestellt == 0 {
+                0.0
+            } else {
+                (self.f_exakt as f64 - self.b_exact as f64) / self.gestellt as f64
+            },
+            byte0_falsch: prozent(self.d_byte0_falsch, self.gestellt) / 100.0,
+            fehler_ratio: if self.g_zahlen == 0 || self.g_zufall_sum <= 0.0 {
+                None
+            } else {
+                Some(self.g_fehler_sum / self.g_zufall_sum)
+            },
+        }
+    }
 }
 
 /// Das Teacher-forced-Ergebnis eines Datensatzes.
@@ -204,6 +235,17 @@ struct Vorhersage {
     eos_argmax: u8,
     eos_hit: bool,
     eos_prob: f32,
+    /// Index des **ersten** falsch vorhergesagten Antwortbytes.
+    ///
+    /// Das ist der Unterschied zwischen "die Entscheidung scheitert sofort"
+    /// (Index 0) und "die Ausfuehrung laeuft sich fest" (Index > 0) - die
+    /// Trennlinie zwischen Hypothese B und A.
+    erste_abweichung: Option<usize>,
+    /// `log10` der Wahrscheinlichkeit, die das Modell der **ganzen** richtigen
+    /// Antwort gibt (Produkt der Einzelwahrscheinlichkeiten unter Teacher
+    /// forcing). Sehr kleine Werte heissen: die Antwort liegt nicht im
+    /// Wahrscheinlichkeitsmodell, sie ist nicht nur schlecht decodiert.
+    log10_p: f64,
 }
 
 /// Alles, was die Sonde gemessen hat.
@@ -230,6 +272,35 @@ pub struct Report {
     pub a_eos_argmax: BTreeMap<u8, usize>,
     /// Antwortbytes richtig, Ende trotzdem nicht gesetzt.
     pub a_wissen_ohne_ende: usize,
+
+    // **(D) Erstabweichung und Antwortwahrscheinlichkeit** - die Trennlinie
+    // zwischen "Entscheidung scheitert" und "Ausfuehrung laeuft sich fest".
+    /// Histogramm: Position der **ersten** falsch vorhergesagten Antwortstelle.
+    pub d_abweichung: BTreeMap<usize, usize>,
+    /// Datensaetze mit mindestens einer Abweichung.
+    pub d_abweichend: usize,
+    /// Datensaetze, deren **erstes** Antwortbyte schon falsch ist.
+    pub d_byte0_falsch: usize,
+    /// Summe von `log10 P(ganze richtige Antwort)` unter Teacher forcing.
+    pub d_log10_p_sum: f64,
+    /// Verteilung von `P(Antwort)`: ueber 1e-3 / ueber 1e-6 / ueber 1e-12 / darunter.
+    pub d_p_stufen: [usize; 4],
+
+    // **(E) Antwortform** - sieht die Ausgabe aus wie eine Antwort?
+    pub e_form_richtig: usize,
+    /// Form richtig, Inhalt falsch: die Signatur "lokale Struktur ohne Inhalt".
+    pub e_form_ohne_inhalt: usize,
+
+    // **(F) pass@k** - ist die richtige Antwort ueberhaupt in der Verteilung?
+    pub f_k: usize,
+    pub f_temperatur: f32,
+    pub f_exakt: usize,
+    pub f_inhalt: usize,
+
+    // **(G) Zahlenantworten**: Fehlerweite gegen die Zufallsdistanz desselben Typs.
+    pub g_zahlen: usize,
+    pub g_fehler_sum: f64,
+    pub g_zufall_sum: f64,
 
     // (B) freie Erzeugung
     pub b_exact: usize,
@@ -309,6 +380,56 @@ impl Report {
     /// Die drei Zahlen, die die Entscheidungstabelle braucht.
     pub fn entscheidungszeile(&self) -> (f64, f64, f64) {
         (self.a_exakt_pct(), self.b_pct(), self.c_pct())
+    }
+
+    /// Anteil der Datensaetze, deren erstes Antwortbyte schon falsch ist (D).
+    pub fn d_byte0_anteil(&self) -> f64 {
+        prozent(self.d_byte0_falsch, self.asked) / 100.0
+    }
+
+    /// Mittleres `log10 P(ganze richtige Antwort)` (D).
+    pub fn d_log10_p(&self) -> f64 {
+        if self.asked == 0 {
+            0.0
+        } else {
+            self.d_log10_p_sum / self.asked as f64
+        }
+    }
+
+    /// Anteil "Form richtig, Inhalt falsch" (E).
+    pub fn e_form_ohne_inhalt_anteil(&self) -> f64 {
+        prozent(self.e_form_ohne_inhalt, self.asked) / 100.0
+    }
+
+    /// Zuwachs durch Sampling: Anteil richtiger Antworten unter k Proben minus
+    /// Anteil unter greedy (F). `<= 0` heisst: Sampling hilft nicht.
+    pub fn f_pass_zuwachs(&self) -> f64 {
+        if self.f_k == 0 || self.asked == 0 {
+            return 0.0;
+        }
+        (self.f_exakt as f64 - self.b_exact as f64) / self.asked as f64
+    }
+
+    /// Mittlere Fehlerweite bei Zahlenantworten geteilt durch die mittlere
+    /// Zufallsdistanz (G). **1,0 heisst: die Antwort traegt keine Information.**
+    ///
+    /// `None`, wenn der Typ keine Zahlenantworten hat - eine **fehlende**
+    /// Messung darf kein Urteil stuetzen und ist deshalb kein Ersatzwert.
+    pub fn g_fehler_ratio(&self) -> Option<f64> {
+        if self.g_zahlen == 0 || self.g_zufall_sum <= 0.0 {
+            None
+        } else {
+            Some(self.g_fehler_sum / self.g_zufall_sum)
+        }
+    }
+
+    /// Der Befund fuer die Frage "Ausfuehrung oder Faehigkeit?".
+    pub fn ab_befund(&self) -> AbBefund {
+        AbBefund {
+            pass_zuwachs: self.f_pass_zuwachs(),
+            byte0_falsch: self.d_byte0_anteil(),
+            fehler_ratio: self.g_fehler_ratio(),
+        }
     }
 
     /// Der Textbericht. Bewusst hier und nicht in `main.rs`: die Zahlen und ihre
@@ -481,22 +602,46 @@ impl Report {
         }
 
         if !self.typen.is_empty() {
-            let _ = writeln!(s, "\n--- Je Aufgabentyp ---");
             let _ = writeln!(
                 s,
-                "{:<14} {:>8} {:>9} {:>9} {:>9} {:>9}",
-                "Typ", "gestellt", "A-Byte %", "A-exakt", "B-exakt", "C-Inhalt"
+                "\n--- Je Aufgabentyp (A-exakt = C-Inhalt, siehe Beweis oben) ---"
+            );
+            let _ = writeln!(
+                s,
+                "{:<12} {:>8} {:>8} {:>8} {:>8} {:>7} {:>8} {:>9}  {}",
+                "Typ",
+                "gestellt",
+                "A-Byte %",
+                "A-exakt",
+                "B-exakt",
+                "k-exakt",
+                "Byte0 %",
+                "Fehler/Z",
+                "Urteil A/B"
             );
             for (typ, z) in &self.typen {
+                let bef = z.ab_befund(self.f_k);
+                let kurz = if self.f_k == 0 {
+                    "nicht gemessen".to_string()
+                } else {
+                    urteil_ab(&bef).kurz().to_string()
+                };
                 let _ = writeln!(
                     s,
-                    "{:<14} {:>8} {:>9.1} {:>9} {:>9} {:>9}",
+                    "{:<12} {:>8} {:>8.1} {:>8} {:>8} {:>7} {:>8.1} {:>9.3}  {}",
                     typ,
                     z.gestellt,
                     prozent(z.a_hits, z.a_bytes),
                     z.a_exact,
                     z.b_exact,
-                    z.c_content
+                    z.f_exakt,
+                    prozent(z.d_byte0_falsch, z.gestellt),
+                    if z.g_zahlen == 0 {
+                        f64::NAN
+                    } else {
+                        z.g_fehler_sum / z.g_zufall_sum.max(1e-9)
+                    },
+                    kurz
                 );
             }
         }
@@ -511,6 +656,122 @@ impl Report {
                 };
                 let _ = writeln!(s, "  #{i}: erwartet '{soll}' / erzeugt '{got}'");
             }
+        }
+
+        let _ = writeln!(
+            s,
+            "\n(D) Erstabweichung und Antwortwahrscheinlichkeit (Teacher forcing)"
+        );
+        let _ = writeln!(
+            s,
+            "    erstes Antwortbyte schon falsch: {} von {} ({:.1} %)  <- Entscheidung scheitert sofort",
+            self.d_byte0_falsch,
+            self.asked,
+            prozent(self.d_byte0_falsch, self.asked)
+        );
+        let _ = writeln!(
+            s,
+            "    mindestens eine Abweichung     : {} von {} ({:.1} %)",
+            self.d_abweichend,
+            self.asked,
+            prozent(self.d_abweichend, self.asked)
+        );
+        if !self.d_abweichung.is_empty() {
+            let mut paare: Vec<(&usize, &usize)> = self.d_abweichung.iter().collect();
+            paare.sort_by_key(|(k, _)| **k);
+            let text: Vec<String> = paare
+                .iter()
+                .take(12)
+                .map(|(k, n)| format!("{k}:{n}"))
+                .collect();
+            let _ = writeln!(s, "    erste Abweichung je Position   : {}", text.join(" "));
+        }
+        let _ = writeln!(
+            s,
+            "    mittleres log10 P(Antwort)     : {:.2}",
+            self.d_log10_p()
+        );
+        let _ = writeln!(
+            s,
+            "    P(Antwort) ueber 1e-3 / 1e-6 / 1e-12 / darunter: {} / {} / {} / {}",
+            self.d_p_stufen[0], self.d_p_stufen[1], self.d_p_stufen[2], self.d_p_stufen[3]
+        );
+
+        let _ = writeln!(
+            s,
+            "\n(E) Antwortform - sieht die Ausgabe aus wie eine Antwort?"
+        );
+        let _ = writeln!(
+            s,
+            "    Form richtig                : {} von {} ({:.1} %)",
+            self.e_form_richtig,
+            self.asked,
+            prozent(self.e_form_richtig, self.asked)
+        );
+        let _ = writeln!(
+            s,
+            "    Form richtig, Inhalt falsch : {} ({:.1} %)  <- Signatur von Hypothese B",
+            self.e_form_ohne_inhalt,
+            prozent(self.e_form_ohne_inhalt, self.asked)
+        );
+
+        let _ = writeln!(
+            s,
+            "\n(F) pass@{} (Temperatur {:.2}) - ist die Antwort in der Verteilung?",
+            self.f_k, self.f_temperatur
+        );
+        if self.f_k == 0 {
+            let _ = writeln!(s, "    nicht gemessen - `--probe-samples <K>` fehlt");
+        } else {
+            let _ = writeln!(
+                s,
+                "    exakt unter k Proben : {} von {} ({:.1} %)   gegen greedy {} ({:.1} %)",
+                self.f_exakt,
+                self.asked,
+                prozent(self.f_exakt, self.asked),
+                self.b_exact,
+                self.b_pct()
+            );
+            let _ = writeln!(
+                s,
+                "    Inhalt unter k Proben: {} von {} ({:.1} %)",
+                self.f_inhalt,
+                self.asked,
+                prozent(self.f_inhalt, self.asked)
+            );
+            let _ = writeln!(
+                s,
+                "    Zuwachs gegen greedy : {:+.1} Prozentpunkte",
+                self.f_pass_zuwachs() * 100.0
+            );
+        }
+
+        let _ = writeln!(
+            s,
+            "\n(G) Zahlenantworten - Fehlerweite gegen die Zufallsdistanz"
+        );
+        if self.g_zahlen == 0 {
+            let _ = writeln!(s, "    keine Zahlenantworten in der Stichprobe");
+        } else {
+            let _ = writeln!(s, "    Zahlen-Datensaetze  : {}", self.g_zahlen);
+            let _ = writeln!(
+                s,
+                "    mittlerer |Fehler|  : {:.2}",
+                self.g_fehler_sum / self.g_zahlen as f64
+            );
+            let _ = writeln!(
+                s,
+                "    Zufallsdistanz      : {:.2}  (gleicher Aufgabentyp)",
+                self.g_zufall_sum / self.g_zahlen as f64
+            );
+            let _ = writeln!(
+                s,
+                "    Verhaeltnis         : {}   (1,0 = keine Information, << 1 = Faehigkeit)",
+                match self.g_fehler_ratio() {
+                    Some(r) => format!("{r:.3}"),
+                    None => "nicht gemessen".to_string(),
+                }
+            );
         }
 
         let (a, b, c) = self.entscheidungszeile();
@@ -534,9 +795,148 @@ impl Report {
             "                eine Auswahl (n = {}), kein Zensus ueber den Korpus.",
             self.asked
         );
+
+        let bef = self.ab_befund();
+        let _ = writeln!(s, "\n--- Urteil A/B: Ausfuehrung oder Faehigkeit? ---");
+        let _ = writeln!(
+            s,
+            "Eingang       : pass@k-Zuwachs {:+.1} Pp, erstes Byte falsch {:.1} %, Fehler/Zufall {}",
+            bef.pass_zuwachs * 100.0,
+            bef.byte0_falsch * 100.0,
+            match bef.fehler_ratio {
+                Some(r) => format!("{r:.3}"),
+                None => "nicht gemessen".to_string(),
+            }
+        );
+        let _ = writeln!(
+            s,
+            "Regel         : Zuwachs >= {:.0} Pp -> A; Zuwachs <= {:.0} Pp UND (erstes Byte falsch >= {:.0} % ODER Fehler/Zufall >= {:.1}) -> B",
+            PASS_ZUWACHS_HOCH * 100.0,
+            PASS_ZUWACHS_NIEDRIG * 100.0,
+            BYTE0_FALSCH_HOCH * 100.0,
+            FEHLER_RATIO_ZUFALL
+        );
+        if self.f_k == 0 {
+            let _ = writeln!(
+                s,
+                "URTEIL A/B    : nicht messbar - ohne `--probe-samples` ist die Verteilung ungeprueft"
+            );
+        } else {
+            let _ = writeln!(s, "URTEIL A/B    : {}", urteil_ab(&bef).key());
+        }
         s
     }
 }
+/// **Die Frage "Ausfuehrung oder Faehigkeit?"** als Urteil.
+///
+/// * **Ausfuehrung** - die Faehigkeit ist in der Verteilung vorhanden, nur nicht
+///   greedy erreichbar. Das ist Hypothese **A**.
+/// * **Faehigkeit** - die richtige Antwort ist auch unter Sampling nicht
+///   erreichbar; das Modell hat lokale Struktur, aber keine belastbare
+///   Abbildung. Das ist Hypothese **B**.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UrteilAB {
+    Ausfuehrung,
+    Faehigkeit,
+    Unentschieden,
+}
+
+impl UrteilAB {
+    /// Kurzform fuer die Typentabelle.
+    pub fn kurz(self) -> &'static str {
+        match self {
+            UrteilAB::Ausfuehrung => "A",
+            UrteilAB::Faehigkeit => "B",
+            UrteilAB::Unentschieden => "?",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            UrteilAB::Ausfuehrung => "A - Faehigkeit vorhanden, Ausfuehrung instabil",
+            UrteilAB::Faehigkeit => "B - lokale Struktur, keine belastbare Faehigkeit",
+            UrteilAB::Unentschieden => "unentschieden - die Messung trennt nicht",
+        }
+    }
+}
+
+/// Die Eingangsgroessen des Urteils, alle als Anteil in `[0, 1]`.
+#[derive(Debug, Clone, Copy)]
+pub struct AbBefund {
+    /// Anteil richtiger Antworten unter `k` Proben minus Anteil unter greedy.
+    pub pass_zuwachs: f64,
+    /// Anteil der Datensaetze, deren **erstes** Antwortbyte schon falsch ist.
+    pub byte0_falsch: f64,
+    /// Fehlerweite bei Zahlen geteilt durch die Zufallsdistanz (1,0 = Zufall).
+    /// `None` = fuer diesen Typ nicht gemessen (keine Zahlenantworten).
+    pub fehler_ratio: Option<f64>,
+}
+
+/// Ab diesem Zuwachs gilt die Faehigkeit als in der Verteilung nachgewiesen.
+pub const PASS_ZUWACHS_HOCH: f64 = 0.10;
+/// Bis zu diesem Zuwachs gilt Sampling als wirkungslos.
+pub const PASS_ZUWACHS_NIEDRIG: f64 = 0.02;
+/// Ab diesem Anteil gilt das erste Antwortbyte als systematisch falsch.
+pub const BYTE0_FALSCH_HOCH: f64 = 0.50;
+/// Ab diesem Verhaeltnis gilt die Fehlerweite als zufaellig.
+pub const FEHLER_RATIO_ZUFALL: f64 = 0.80;
+
+/// **Die Regel, VOR der Messung festgelegt** (n11b).
+///
+/// Bewusst nur zwei Stufen und ein `Unentschieden`: eine Regel, die immer ein
+/// Urteil erzwingt, erfindet Gewissheit. Die Schwellen stehen als Konstanten
+/// daneben, damit sie pruefbar und nicht in der Ausgabe versteckt sind.
+pub fn urteil_ab(b: &AbBefund) -> UrteilAB {
+    if b.pass_zuwachs >= PASS_ZUWACHS_HOCH {
+        return UrteilAB::Ausfuehrung;
+    }
+    if b.pass_zuwachs <= PASS_ZUWACHS_NIEDRIG
+        && (b.byte0_falsch >= BYTE0_FALSCH_HOCH
+            || b.fehler_ratio.is_some_and(|r| r >= FEHLER_RATIO_ZUFALL))
+    {
+        return UrteilAB::Faehigkeit;
+    }
+    UrteilAB::Unentschieden
+}
+
+/// **(E) Antwortform**: sieht `got` aus wie eine Antwort vom Typ `expected`?
+///
+/// Bewusst eine kleine eigene Nachbildung von `agent::form_passt` statt eines
+/// `pub`-Umbaus dort: `src/agent.rs` wird parallel bearbeitet und bleibt
+/// unangetastet.
+fn form_passt(expected: &str, got: &str) -> bool {
+    let e = expected.trim();
+    let g = got.trim();
+    if ist_zahl(e) {
+        return ist_zahl(g);
+    }
+    if e.starts_with("Stelle ") {
+        return g.starts_with("Stelle ");
+    }
+    if seq::Regel::aus_name(e).is_some() {
+        return seq::Regel::aus_name(g).is_some();
+    }
+    if e == seq::NICHT_ENTSCHIEDEN {
+        return g == seq::NICHT_ENTSCHIEDEN;
+    }
+    !g.is_empty()
+}
+
+/// Besteht der Text nur aus Ziffern?
+fn ist_zahl(s: &str) -> bool {
+    let t = s.trim();
+    !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Der Text als Zahl, wenn er eine ist.
+fn als_zahl(s: &str) -> Option<i64> {
+    let t = s.trim();
+    if !ist_zahl(t) {
+        return None;
+    }
+    t.parse::<i64>().ok()
+}
+
 /// Ein Byte lesbar machen: druckbar wie es ist, sonst als Hexwert.
 fn zeige_byte(b: u8) -> String {
     if b.is_ascii_graphic() || b == b' ' {
@@ -594,6 +994,8 @@ fn vorhersagen(vals: &[f32], vocab: usize, rec: &[u8], a: Abschnitt) -> Result<V
     let mut eos_argmax = 0u8;
     let mut eos_hit = false;
     let mut eos_prob = 0.0f32;
+    let mut erste_abweichung: Option<usize> = None;
+    let mut log10_p = 0.0f64;
 
     for r in 0..=n {
         let ziel = rec[a.p + r + 1];
@@ -606,8 +1008,11 @@ fn vorhersagen(vals: &[f32], vocab: usize, rec: &[u8], a: Abschnitt) -> Result<V
             eos_prob = p_ziel;
         } else {
             ce_sum += ce;
+            log10_p += f64::from(p_ziel.max(f32::MIN_POSITIVE)).log10();
             if argmax == ziel {
                 hits += 1;
+            } else if erste_abweichung.is_none() {
+                erste_abweichung = Some(r);
             }
         }
     }
@@ -618,6 +1023,8 @@ fn vorhersagen(vals: &[f32], vocab: usize, rec: &[u8], a: Abschnitt) -> Result<V
         eos_argmax,
         eos_hit,
         eos_prob,
+        erste_abweichung,
+        log10_p,
     })
 }
 
@@ -636,6 +1043,13 @@ pub struct ProbeOptions<'a> {
     /// statt die Ende-Marke zu setzen. Ein groesseres Budget aendert B nicht
     /// (Prefix-Determinismus), kostet aber ein Vielfaches.
     pub puffer: usize,
+    /// **pass@k**: so viele Temperatur-Proben je Datensatz. `0` = aus.
+    ///
+    /// Beantwortet die Kernfrage: ist die richtige Antwort ueberhaupt in der
+    /// Verteilung des Modells, oder nur nicht greedy erreichbar?
+    pub samples: usize,
+    /// Temperatur der Proben (nur bei `samples > 0`).
+    pub temperatur: f32,
 }
 
 /// **Die Messbatterie.** Liest den Shard, misst A, B und C je Datensatz und
@@ -671,8 +1085,12 @@ pub fn run(opts: &ProbeOptions<'_>) -> Result<Report> {
         backend: gewaehlt.key().to_string(),
         data_dir: opts.data_dir.display().to_string(),
         stride,
+        f_k: opts.samples,
+        f_temperatur: opts.temperatur,
         ..Report::default()
     };
+    // (G) Zahlenpaare fuer die Fehlerweite: (Typ, Soll, Erzeugt).
+    let mut zahlen: Vec<(String, i64, i64)> = Vec::new();
 
     for i in (0..records.len()).step_by(stride).take(opts.limit) {
         let rec = &records[i];
@@ -737,6 +1155,38 @@ pub fn run(opts: &ProbeOptions<'_>) -> Result<Report> {
             .map(|ver| ver.category.short().to_string())
             .unwrap_or_else(|_| "?".to_string());
         let expected = seq::answer_in(rec).unwrap_or_default().trim().to_string();
+        let got_text = String::from_utf8_lossy(&b_roh).into_owned();
+        // Fuer die typweise pass@k-Zaehlung (unten) - `category` selbst wandert
+        // gleich in die Typen-Tabelle.
+        let typ_fuer_proben = category.clone();
+
+        // ---------- (D) Erstabweichung und Antwortwahrscheinlichkeit ----------
+        if let Some(pos) = v.erste_abweichung {
+            rep.d_abweichend += 1;
+            *rep.d_abweichung.entry(pos).or_insert(0) += 1;
+            rep.d_byte0_falsch += usize::from(pos == 0);
+        }
+        rep.d_log10_p_sum += v.log10_p;
+        let p_antwort = 10f64.powf(v.log10_p);
+        if p_antwort > 1e-3 {
+            rep.d_p_stufen[0] += 1;
+        } else if p_antwort > 1e-6 {
+            rep.d_p_stufen[1] += 1;
+        } else if p_antwort > 1e-12 {
+            rep.d_p_stufen[2] += 1;
+        } else {
+            rep.d_p_stufen[3] += 1;
+        }
+
+        // ---------- (E) Antwortform ----------
+        let form = form_passt(&expected, &got_text);
+        rep.e_form_richtig += usize::from(form);
+        rep.e_form_ohne_inhalt += usize::from(form && !b_exact);
+
+        // ---------- (G) Zahlenantworten sammeln ----------
+        if let (Some(s_num), Some(g_num)) = (als_zahl(&expected), als_zahl(&got_text)) {
+            zahlen.push((category.clone(), s_num, g_num));
+        }
 
         rep.a_bytes += v.bytes;
         rep.a_hits += v.hits;
@@ -770,15 +1220,73 @@ pub fn run(opts: &ProbeOptions<'_>) -> Result<Report> {
         zeile.a_exact += usize::from(v.hits == v.bytes);
         zeile.b_exact += usize::from(b_exact);
         zeile.c_content += usize::from(c_content);
+        zeile.d_byte0_falsch += usize::from(v.erste_abweichung == Some(0));
         if !b_exact && rep.fehler.len() < 12 {
-            rep.fehler
-                .push((i, expected, String::from_utf8_lossy(&b_roh).into_owned()));
+            rep.fehler.push((i, expected, got_text));
+        }
+
+        // ---------- (F) pass@k: ist die Antwort in der Verteilung? ----------
+        if opts.samples > 0 {
+            let mut exakt = false;
+            let mut inhalt = false;
+            for s in 0..opts.samples {
+                // Eigener Seed je Probe: `generate` baut seinen Zufallsstrom aus
+                // dem Seed, sonst waeren alle k Proben identisch.
+                let probe_seed = opts
+                    .seed
+                    .wrapping_add((s as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+                let o = trainer.generate(
+                    prompt,
+                    soll.len() + opts.puffer,
+                    opts.temperatur,
+                    0,
+                    probe_seed,
+                )?;
+                let r = o.get(prompt.len()..).unwrap_or(&leer);
+                let roh: Vec<u8> = r.iter().copied().take_while(|b| *b != B_END).collect();
+                if roh.as_slice() == soll.as_slice() {
+                    exakt = true;
+                }
+                if inhalt_bei_abschnitt(r, &soll).1 {
+                    inhalt = true;
+                }
+                if exakt && inhalt {
+                    break;
+                }
+            }
+            rep.f_exakt += usize::from(exakt);
+            rep.f_inhalt += usize::from(inhalt);
+            let z = rep.typen.entry(typ_fuer_proben.clone()).or_default();
+            z.f_exakt += usize::from(exakt);
         }
         rep.asked += 1;
     }
 
     if rep.asked == 0 {
         bail!("kein Datensatz der Stichprobe war messbar");
+    }
+
+    // (G) Fehlerweite gegen die Zufallsdistanz **desselben Aufgabentyps**:
+    // 1,0 heisst, der Fehler ist so gross wie ein Griff in die Antwortverteilung.
+    for (i, (typ, soll_i, got_i)) in zahlen.iter().enumerate() {
+        let fehler = (got_i - soll_i).unsigned_abs() as f64;
+        let mut summe = 0.0;
+        let mut anzahl = 0usize;
+        for (j, (typ_j, soll_j, _)) in zahlen.iter().enumerate() {
+            if i != j && typ_j == typ {
+                summe += (soll_j - soll_i).unsigned_abs() as f64;
+                anzahl += 1;
+            }
+        }
+        if anzahl > 0 {
+            rep.g_zahlen += 1;
+            rep.g_fehler_sum += fehler;
+            rep.g_zufall_sum += summe / anzahl as f64;
+            let z = rep.typen.entry(typ.clone()).or_default();
+            z.g_zahlen += 1;
+            z.g_fehler_sum += fehler;
+            z.g_zufall_sum += summe / anzahl as f64;
+        }
     }
     Ok(rep)
 }
@@ -946,6 +1454,164 @@ mod tests {
     fn prozent_teilt_nicht_durch_null() {
         assert_eq!(prozent(0, 0), 0.0);
         assert_eq!(prozent(1, 4), 25.0);
+    }
+
+    #[test]
+    fn vorhersagen_meldet_erste_abweichung_und_wahrscheinlichkeit() {
+        // Antwort "179": Byte 0 richtig, Byte 1 falsch, Byte 2 richtig.
+        let r = rec("179", true);
+        let (a, _) = abschnitt(&r).expect("Abschnitt");
+        assert_eq!(a.len(), 3);
+        let vocab = 256usize;
+        let mut vals = vec![0.0f32; 4 * vocab];
+        for (zeile, ziel) in [(0usize, b'1'), (1, b'X'), (2, b'9'), (3, B_END)] {
+            vals[zeile * vocab + ziel as usize] = 20.0;
+        }
+        let v = vorhersagen(&vals, vocab, &r, a).expect("Vorhersage");
+        assert_eq!(v.hits, 2, "zwei von drei Antwortbytes stimmen");
+        assert_eq!(
+            v.erste_abweichung,
+            Some(1),
+            "erste Abweichung auf Position 1"
+        );
+        assert!(v.log10_p < 0.0 && v.log10_p.is_finite());
+
+        // Erstes Byte schon falsch -> Position 0 (die Entscheidung scheitert).
+        let mut vals2 = vec![0.0f32; 4 * vocab];
+        for (zeile, ziel) in [(0usize, b'9'), (1, b'7'), (2, b'9'), (3, B_END)] {
+            vals2[zeile * vocab + ziel as usize] = 20.0;
+        }
+        let v2 = vorhersagen(&vals2, vocab, &r, a).expect("Vorhersage");
+        assert_eq!(v2.erste_abweichung, Some(0));
+
+        // Ohne Abweichung: None.
+        let mut vals3 = vec![0.0f32; 4 * vocab];
+        for (zeile, ziel) in [(0usize, b'1'), (1, b'7'), (2, b'9'), (3, B_END)] {
+            vals3[zeile * vocab + ziel as usize] = 20.0;
+        }
+        let v3 = vorhersagen(&vals3, vocab, &r, a).expect("Vorhersage");
+        assert_eq!(v3.erste_abweichung, None);
+        assert_eq!(v3.hits, 3);
+    }
+
+    #[test]
+    fn urteil_ab_folgt_der_vorab_festgelegten_regel() {
+        // A: Sampling holt die Antwort, die greedy nicht findet.
+        let a = AbBefund {
+            pass_zuwachs: 0.25,
+            byte0_falsch: 0.6,
+            fehler_ratio: Some(0.9),
+        };
+        assert_eq!(urteil_ab(&a), UrteilAB::Ausfuehrung);
+        // B: Sampling hilft nicht UND das erste Byte ist systematisch falsch.
+        let b = AbBefund {
+            pass_zuwachs: 0.0,
+            byte0_falsch: 0.55,
+            fehler_ratio: Some(0.3),
+        };
+        assert_eq!(urteil_ab(&b), UrteilAB::Faehigkeit);
+        // B ueber die Fehlerweite: Sampling nutzlos, Fehler so gross wie Zufall.
+        let c = AbBefund {
+            pass_zuwachs: 0.01,
+            byte0_falsch: 0.1,
+            fehler_ratio: Some(0.95),
+        };
+        assert_eq!(urteil_ab(&c), UrteilAB::Faehigkeit);
+        // Unentschieden: kein Zuwachs, aber die Fehler sind klein und das erste
+        // Byte stimmt meistens.
+        let d = AbBefund {
+            pass_zuwachs: 0.0,
+            byte0_falsch: 0.1,
+            fehler_ratio: Some(0.3),
+        };
+        assert_eq!(urteil_ab(&d), UrteilAB::Unentschieden);
+        // Eine FEHLENDE Messung darf kein Urteil stuetzen: ohne Zahlenantworten
+        // gibt es keinen Zufallsvergleich und damit kein B.
+        let f = AbBefund {
+            pass_zuwachs: 0.0,
+            byte0_falsch: 0.1,
+            fehler_ratio: None,
+        };
+        assert_eq!(urteil_ab(&f), UrteilAB::Unentschieden);
+        // Genau auf der Schwelle gilt "Ausfuehrung".
+        let e = AbBefund {
+            pass_zuwachs: PASS_ZUWACHS_HOCH,
+            byte0_falsch: 1.0,
+            fehler_ratio: Some(1.0),
+        };
+        assert_eq!(urteil_ab(&e), UrteilAB::Ausfuehrung);
+    }
+
+    #[test]
+    fn form_passt_unterscheidet_form_von_inhalt() {
+        // Zahl gegen Zahl: die Form stimmt, der Inhalt nicht - genau der Fall,
+        // der Hypothese B stuetzt.
+        assert!(form_passt("423", "24"));
+        assert!(!form_passt("423", "Stelle 2"));
+        assert!(!form_passt("423", ""));
+        // Stellenantwort.
+        assert!(form_passt("Stelle 2", "Stelle 5"));
+        assert!(!form_passt("Stelle 2", "423"));
+        // "nicht entscheidbar" ist ein eigener Antwortwert.
+        assert!(form_passt(seq::NICHT_ENTSCHIEDEN, seq::NICHT_ENTSCHIEDEN));
+        assert!(!form_passt(seq::NICHT_ENTSCHIEDEN, "423"));
+        // Rueckfall: irgendein nicht-leerer Text.
+        assert!(form_passt("irgendein Freitext", "etwas anderes"));
+        assert!(!form_passt("irgendein Freitext", "   "));
+    }
+
+    #[test]
+    fn als_zahl_liest_nur_ziffern() {
+        assert_eq!(als_zahl("423"), Some(423));
+        assert_eq!(als_zahl("  17 "), Some(17));
+        assert_eq!(als_zahl("Stelle 2"), None);
+        assert_eq!(als_zahl(""), None);
+        assert_eq!(als_zahl("-5"), None);
+        assert!(ist_zahl("0"));
+        assert!(!ist_zahl("1a"));
+    }
+
+    #[test]
+    fn kennzahlen_sind_ohne_messung_wohl_definiert() {
+        let r = Report::default();
+        assert_eq!(
+            r.g_fehler_ratio(),
+            None,
+            "ohne Zahlenantworten nicht gemessen"
+        );
+        assert_eq!(r.f_pass_zuwachs(), 0.0);
+        assert_eq!(r.d_byte0_anteil(), 0.0);
+        assert_eq!(r.e_form_ohne_inhalt_anteil(), 0.0);
+        assert_eq!(r.d_log10_p(), 0.0);
+        let r2 = Report {
+            g_zahlen: 2,
+            g_fehler_sum: 4.0,
+            g_zufall_sum: 20.0,
+            ..Report::default()
+        };
+        assert_eq!(r2.g_fehler_ratio(), Some(0.2));
+    }
+
+    #[test]
+    fn pass_zuwachs_zieht_greedy_ab() {
+        let r = Report {
+            asked: 100,
+            b_exact: 20,
+            f_exakt: 45,
+            f_k: 8,
+            ..Report::default()
+        };
+        assert!((r.f_pass_zuwachs() - 0.25).abs() < 1e-12);
+        // Weniger Treffer unter Sampling als greedy ist moeglich (Temperatur) -
+        // kein Sonderfall, sondern ein negativer Zuwachs.
+        let r2 = Report {
+            asked: 100,
+            b_exact: 20,
+            f_exakt: 5,
+            f_k: 8,
+            ..Report::default()
+        };
+        assert!(r2.f_pass_zuwachs() < 0.0);
     }
 
     #[test]

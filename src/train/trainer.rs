@@ -290,6 +290,11 @@ pub fn run_real(
         }
         None => LmTrainer::new(&cfg.model, cfg.run.seed, &device, cfg.data.seq_len)?,
     };
+    // Diese Werte sind Teil der TOML-Trainingskonfiguration und muessen auch bei
+    // einem Resume erneut gesetzt werden; der Checkpoint speichert Gewichte und
+    // Momente, waehrend die aktive Run-Konfiguration die Optimizer-Regeln vorgibt.
+    trainer.cfg.weight_decay = cfg.optim.weight_decay;
+    trainer.cfg.grad_clip = cfg.optim.grad_clip;
     let resume_label = resume.map(|p| p.display().to_string());
 
     log.log(&Event::RunStart {

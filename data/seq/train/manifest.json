@@ -1,0 +1,46 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Zahlenfolgen und Regelausfuehrung (D-045) - Training (50000 Datensaetze)",
+  "tasks": {
+    "answer.offen.unentschieden": 21,
+    "bewegung.luecke.ableiten": 6250,
+    "bewegung.naechste.ableiten": 6250,
+    "bewegung.offen.ableiten": 6250,
+    "bewegung.regel.ableiten": 6250,
+    "bewegung.reparatur.MINIMIEREN": 6250,
+    "bewegung.reparatur1.MINIMIEREN": 6250,
+    "bewegung.stelle.LOKALISIEREN": 6250,
+    "bewegung.vergleich.VERGLEICHEN": 6250,
+    "level.luecke.level.medium": 6250,
+    "level.naechste.level.easy": 4007,
+    "level.naechste.level.medium": 2243,
+    "level.offen.level.hard": 6250,
+    "level.regel.level.medium": 6250,
+    "level.reparatur.level.hard": 6250,
+    "level.reparatur1.level.hard": 6250,
+    "level.stelle.level.medium": 6250,
+    "level.vergleich.level.easy": 6250,
+    "typ.luecke": 6250,
+    "typ.naechste": 6250,
+    "typ.offen": 6250,
+    "typ.regel": 6250,
+    "typ.reparatur": 6250,
+    "typ.reparatur1": 6250,
+    "typ.stelle": 6250,
+    "typ.vergleich": 6250
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 50000,
+      "payload_bytes": 11164275,
+      "file_size": 11264307,
+      "checksum": "a26dd6e83b9a3a5a"
+    }
+  ]
+}

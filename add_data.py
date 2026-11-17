@@ -44,6 +44,11 @@ SPLITS
             auf 3645 je Uebertragsklasse ausgeduennt (7290 Aufgaben, exakt 50/50).
   eval-3d   dreistellige Operanden 100..999, im Training NIE enthalten
   eval-4d   vierstellige Operanden 1000..9999, im Training NIE enthalten
+  eval-Nd   beliebig lange Messbaender ueber --eval-stellen, z. B. 5 und 6
+            Stellen. Sie sind MESSACHSE, kein Trainingsstoff: sie pruefen, ob
+            die Faеhigkeit auf nie gesehene Laengen traegt (Stellenwert-
+            ALGORITHMUS) oder ob nur die trainierten 1-2 Stellen sitzen
+            (auswendig gelernte Tabelle).
 
 Uebertragsklasse bezieht sich auf die EINERSTELLE:
   U1 = (a%10 + b%10) >= 10, sonst U0.
@@ -56,6 +61,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import sys
 
 B_TASK = 0xFE
@@ -68,7 +74,12 @@ VERSION = 1
 HEADER_SIZE = 32
 NOTE_SIZE = 8
 MAX_RECORD_LEN = 4096
-STELLE = ["E", "Z", "H", "T", "K"]
+# Spaltenbuchstaben von der Einerstelle aufwaerts. Die ersten fuenf sind
+# unveraendert (E Z H T K); fuer laengere Baender kommen HT (Hundert-
+# tausender, 10^5) und M (Million, 10^6) dazu - damit sind bis zu
+# sieben Spalten moeglich, also 6-stellige Operanden mit 7-stelliger
+# Summe (999999 + 999999 = 1999998).
+STELLE = ["E", "Z", "H", "T", "K", "HT", "M"]
 FNV_OFFSET = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 
@@ -99,6 +110,9 @@ def spaltenweg(a, b, antwort_darstellung):
         y = db[i] if i < len(db) else 0
         if i >= n and x == 0 and y == 0 and uebertrag == 0:
             break
+        if i >= len(STELLE):
+            sys.exit("FEHLER: %d Stellen ueberschreiten die %d Spaltenbuchstaben"
+                     % (i + 1, len(STELLE)))
         s = x + y + uebertrag
         ziffer = s % 10
         neuer = s // 10
@@ -109,8 +123,6 @@ def spaltenweg(a, b, antwort_darstellung):
         ziffern.append(str(ziffer))
         uebertrag = neuer
         i += 1
-        if i > len(STELLE):
-            sys.exit("FEHLER: mehr Stellen als Spaltenbuchstaben")
     while len(ziffern) > 1 and ziffern[-1] == "0":
         ziffern.pop()
     weg = " ; ".join(teile)
@@ -281,20 +293,42 @@ def main():
     p.add_argument("--eval-records", type=int, default=2000)
     p.add_argument("--balance", action="store_true", help="train-2d auf exakt 50/50 ausduennen")
     p.add_argument("--verify", action="store_true", help="geschriebene Shards zuruecklesen und pruefen")
+    p.add_argument("--eval-stellen", type=int, nargs="+", default=[],
+                   help="NUR diese Baender erzeugen (Standardname eval-<N>d), z. B. "
+                        "--eval-stellen 5 6. Ohne den Schalter entstehen die vier "
+                        "Standard-Splits wie bisher.")
+    p.add_argument("--stellen-praefix", choices=("eval", "train"), default="eval",
+                   help="Namenspraefix der ueber --eval-stellen erzeugten Baender. "
+                        "Mit 'train' entsteht z. B. train-3d - ein TRAININGSband fuer "
+                        "laengere Operanden. Standard 'eval' (Messband).")
     args = p.parse_args()
 
     rng = random.Random(args.seed)
     splits = []
-    splits.append(("train-1d", "add1d", baue_split("train-1d", paare_1d(), args.schema)))
-    splits.append(("train-2d", "add2d", baue_split("train-2d", paare_2d(args.balance, rng), args.schema)))
-    splits.append(("eval-3d", "add3d", baue_split("eval-3d", paare_nd(3, args.eval_records, rng), args.schema)))
-    splits.append(("eval-4d", "add4d", baue_split("eval-4d", paare_nd(4, args.eval_records, rng), args.schema)))
+    if args.eval_stellen:
+        # Messmodus: NUR die genannten Baender, nichts anderes. Die Notiz im
+        # Shard bleibt bei acht ASCII-Zeichen (NOTE_SIZE).
+        for n in args.eval_stellen:
+            if n < 1:
+                sys.exit("FEHLER: --eval-stellen verlangt Werte >= 1")
+            name = "%s-%dd" % (args.stellen_praefix, n)
+            splits.append((name, ("%s%dd" % (args.stellen_praefix[:2], n))[:8],
+                           baue_split(name, paare_nd(n, args.eval_records, rng), args.schema)))
+    else:
+        splits.append(("train-1d", "add1d", baue_split("train-1d", paare_1d(), args.schema)))
+        splits.append(("train-2d", "add2d", baue_split("train-2d", paare_2d(args.balance, rng), args.schema)))
+        splits.append(("eval-3d", "add3d", baue_split("eval-3d", paare_nd(3, args.eval_records, rng), args.schema)))
+        splits.append(("eval-4d", "add4d", baue_split("eval-4d", paare_nd(4, args.eval_records, rng), args.schema)))
 
     alle_fehler = []
     for name, _, aufgaben in splits:
         alle_fehler += pruefe_split(name, aufgaben)
         stellen = {len(str(a["a"])) for a in aufgaben} | {len(str(a["b"])) for a in aufgaben}
-        erwartet = {"train-1d": {1}, "train-2d": {2}, "eval-3d": {3}, "eval-4d": {4}}[name]
+        m = re.match(r"^(?:train|eval)-(\d+)d$", name)
+        if not m:
+            alle_fehler.append("%s: Splitname nicht deutbar" % name)
+            continue
+        erwartet = {int(m.group(1))}
         if stellen != erwartet:
             alle_fehler.append("%s: Stellen %s statt %s" % (name, sorted(stellen), sorted(erwartet)))
     if alle_fehler:

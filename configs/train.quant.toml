@@ -1,0 +1,48 @@
+# Trainingslauf auf dem Korpus "Quantoren, Syllogistik und Mengen" (Familie 3, D-024).
+#
+# Erzeugt wird der Korpus mit:
+#   shiro data generate-quant --n <ANZAHL> --out data/quant
+#
+# Der Verifier dieses Korpus ist die erschoepfende Modellpruefung in
+# src/data/quant.rs - jede Antwort stammt aus der Pruefung ueber alle 2^(n*k)
+# Modelle, nicht aus einer Formel des Generators.
+
+[run]
+name = "quant"
+seed = 1337
+steps = 200
+log_every = 1
+checkpoint_every = 100
+output_dir = "checkpoints"
+log_dir = "logs"
+
+[data]
+dir = "data/quant/train"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 512
+shuffle = false
+
+[model]
+name = "shiro-micro"
+d_model = 256
+n_layers = 6
+n_heads = 4
+d_ff = 640
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 5
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

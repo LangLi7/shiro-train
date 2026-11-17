@@ -48,6 +48,9 @@ pub enum Event {
         seq_len: usize,
         weights: String,
         autocast: String,
+        /// Pfad des fortgesetzten Stands (**B6**) - fehlt bei einem frischen Lauf.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume: Option<String>,
     },
     /// Datensatz ist geladen und geprueft.
     DataLoaded {
@@ -176,6 +179,7 @@ mod tests {
             seq_len: 64,
             weights: "fp32".into(),
             autocast: "bf16".into(),
+            resume: None,
         })
         .unwrap();
         log.log(&Event::Step(StepRecord {

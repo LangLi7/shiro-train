@@ -7,10 +7,13 @@ neue Sprache als **neue Schreibweise von Bekanntem**; wer sie nicht kennt, lernt
 bei jeder Sprache wieder bei null. Diese Datei ist deshalb **sprachunabhängig**
 geschrieben und benutzt mehrere Sprachen nur als Kontrast, nie als Lehrstoff.
 
-**Rolle im Paket.** Diese Datei ist die **Voraussetzung** für alle fünf
+**Rolle im Paket.** Diese Datei ist die **Voraussetzung** für alle **sechs**
 Sprachpfade ([`python.md`](python.md), [`rust.md`](rust.md), [`c.md`](c.md),
-[`java.md`](java.md), [`go.md`](go.md)). Kein Sprachpfad erklärt ein Konzept aus
-dieser Datei neu — er zeigt nur, **wie diese Sprache es ausdrückt**.
+[`java.md`](java.md), [`go.md`](go.md), [`assembly.md`](assembly.md)). Kein
+Sprachpfad erklärt ein Konzept aus dieser Datei neu — er zeigt nur, **wie diese
+Sprache es ausdrückt**. Die **Formatseite** [`json.md`](json.md) steht daneben:
+sie beschreibt ein Datenformat, nicht eine Sprache, und hat deshalb keine Stufen
+(nur §7 Datenstrukturen und §9 Ein-/Ausgabe berühren sie).
 
 **Wie die Beispiele funktionieren.** Dasselbe Problem in zwei bis drei Sprachen,
 gewählt nach Kontrast, nicht nach Beliebtheit:
@@ -21,6 +24,7 @@ gewählt nach Kontrast, nicht nach Beliebtheit:
 | **C** | was die Maschine tatsächlich tut — Speicher, Zeiger, Undefiniertes |
 | **Rust** | was ein Typensystem verhindern kann — Fehler zur Übersetzungszeit |
 | **Java / Go** | der industrielle Mittelweg — explizite Typen, Laufzeitumgebung |
+| **Assemblersprache** | dieselbe Sache **ohne** Abstraktion — Register, Flags, Bytes (nur wo es das Konzept schärft, siehe [`assembly.md`](assembly.md)) |
 
 ---
 
@@ -640,10 +644,11 @@ dieses Dokument überhaupt existiert: sie gelten in **jeder** der fünf Sprachen
 | **Rust** | Systems, Sicherheit, Nebenläufigkeit | Lernkurve (Borrow-Checker) | dritte Sprache |
 | **Java** | grosse Anwendungen, Enterprise, Android | Ausführlichkeit, Startzeit | erste „strenge" Sprache |
 | **Go** | Netzdienste, Werkzeuge, Einfachheit | Generics/Abstraktion weniger mächtig | zweite Sprache für Backend |
+| **Assemblersprache** (x86-64) | was **unter** allem liegt: Register, Flags, Bytes | es gibt **keine** Typen, keine Fehlermeldungen, kein `main` | zuletzt, nach C **und** einer strengen Sprache |
 
 **Empfohlene Reihenfolge für dieses Paket:** Python → **Grundlagen hier lesen**
-→ C (verstehen) → Go (anwenden) → Java (Struktur) → Rust (Sicherheit). Die
-Begründung steht in [`README.md`](README.md).
+→ C → Go → Java → Rust → **Assembler**. Die Begründung steht in
+[`README.md`](README.md) §3.
 
 ---
 

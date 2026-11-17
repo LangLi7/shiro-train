@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Algebra A1 - Held-out-Band (D-030/D-055) - 10000 Datensaetze",
+  "tasks": {
+    "bewegung.alg-reparatur.MINIMIEREN": 2547,
+    "bewegung.alg-stelle.LOKALISIEREN": 2476,
+    "bewegung.alg-vergleich.VERGLEICHEN": 2518,
+    "bewegung.alg-wert.ABLEITEN": 2459,
+    "level.alg-reparatur.mittel": 395,
+    "level.alg-reparatur.schwer": 2152,
+    "level.alg-stelle.mittel": 415,
+    "level.alg-stelle.schwer": 2061,
+    "level.alg-vergleich.mittel": 422,
+    "level.alg-vergleich.schwer": 2096,
+    "level.alg-wert.mittel": 409,
+    "level.alg-wert.schwer": 2050,
+    "typ.alg-reparatur": 2547,
+    "typ.alg-stelle": 2476,
+    "typ.alg-vergleich": 2518,
+    "typ.alg-wert": 2459
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 10000,
+      "payload_bytes": 2844503,
+      "file_size": 2864535,
+      "checksum": "d3ec7a7770012d89"
+    }
+  ]
+}

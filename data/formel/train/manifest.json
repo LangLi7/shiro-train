@@ -1,0 +1,40 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Formel-Verstaendnis und Funktion (D-030 A2/A3) - Training (100000 Datensaetze)",
+  "tasks": {
+    "bewegung.fkt-liegt.VERGLEICHEN": 25000,
+    "bewegung.fkt-mittel.LOKALISIEREN": 25000,
+    "bewegung.fkt-steig.MINIMIEREN": 25000,
+    "bewegung.fkt-tabelle.ABLEITEN": 25000,
+    "level.fkt-liegt.leicht": 908,
+    "level.fkt-liegt.mittel": 6342,
+    "level.fkt-liegt.schwer": 17750,
+    "level.fkt-mittel.leicht": 307,
+    "level.fkt-mittel.mittel": 4566,
+    "level.fkt-mittel.schwer": 20127,
+    "level.fkt-steig.leicht": 572,
+    "level.fkt-steig.mittel": 5851,
+    "level.fkt-steig.schwer": 18577,
+    "level.fkt-tabelle.leicht": 629,
+    "level.fkt-tabelle.mittel": 5676,
+    "level.fkt-tabelle.schwer": 18695,
+    "typ.fkt-liegt": 25000,
+    "typ.fkt-mittel": 25000,
+    "typ.fkt-steig": 25000,
+    "typ.fkt-tabelle": 25000
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 100000,
+      "payload_bytes": 29566789,
+      "file_size": 29766821,
+      "checksum": "15ccde7579a3625c"
+    }
+  ]
+}

@@ -54,7 +54,7 @@ Drei Festlegungen, die den Katalog eindeutig machen:
 | `regel` | ableiten/erkennen | Nach welcher Regel ist die Folge gebaut? | Regelname (6 Werte) |
 | `offen` | ableiten/**Grenze** | Welche Zahl fehlt? (**keine** Regel genannt) | Zahl **oder** `nicht entscheidbar` |
 | `stelle` | LOKALISIEREN | Eine Zahl passt nicht. An welcher Stelle steht sie? | `Stelle p` |
-| `reparatur` | MINIMIEREN | Welche **eine** Zahl muss geaendert werden? | `Stelle p: wert` |
+| `reparatur` | MINIMIEREN | Welche **eine** Zahl muss geaendert werden? | `Stelle p: wert` bzw. in der **Delta-Form** `Stelle p: +/-d` (D-049, exp-021/024; O-D31) |
 | `vergleich` | VERGLEICHEN | Welche Folge passt zur Regel, A oder B? | `A`/`B` |
 | `reparatur1` | MINIMIEREN | Wie `reparatur`, aber **ein** Antwortfeld: nur die Stelle **oder** nur der Wert (**exp-009**) | `Stelle p` bzw. `wert` |
 
@@ -253,6 +253,34 @@ stehen und wird wiederholt. Ergebnis: **7.143 je Typ**, exakt.
 * **O-Z5** Der Katalog ist **geschlossen** und streng wachsend. Fallende,
   gebrochene, negative oder multiplikativ-gemischt fallende Folgen fehlen
   vollstaendig.
+* **O-D31** (Nachtrag aus `docs/denken-erweitern.md` Abschnitt 19) Die
+  **Antwortform** von `reparatur` ist die gemessene Ursache der 72,4 %: die zweiteilige
+  Antwort **multipliziert zwei Komponenten** (0,886 x 0,82 = 0,727 gegen gemessene
+  0,724; einfeldrig `reparatur1` 88,5 %, `stelle` allein 96,8 %, exp-019). Die
+  **Aenderung statt Absolutwert** (`Stelle 5: +7`) ist als `als_delta`/`ist_delta_form`
+  **gebaut** (Pack `reparatur-delta`, Verifier prueft beide Richtungen) und **gemessen**:
+  exp-021 hat sie als **eine** Variable gegen `from7600-i1-step12400` **angenommen**
+  (Kopf 874/960 = 91,04 %, `reparatur` 72,4 -> 91,9 %), exp-024 hat sie in **zwei
+  weiteren unabhaengigen Datenziehungen repliziert** (91,15 % und 91,25 %, kein Typ
+  unter 84,3 %), und dieselben drei Staende verfehlen auf der **absoluten** Form die
+  Marke dreimal (88,96 / 89,17 / 89,27 %). Fuenf Einzelvariablen der Einstellungsachse
+  sind geprueft und widerlegt (exp-020). Offen sind der **faire Ueberlegenheitstest**
+  beider Formen, die **Uebertragung auf `reparatur1`** (dort steht noch der absolute
+  Wert, 86,1-86,9 %) und eine **groessere Fragezahl** (Standardfehler 0,92 Punkte bei
+  960 Fragen gegen 1,04-1,25 Punkte Abstand zur Marke). **exp-025** hat die
+  Uebertragung auf `reparatur1` gemessen: die Wertfrage geht von **0/56** auf
+  **54/56 = 96,4 %**, aber die Runde wurde **verworfen**, weil `reparatur` in der
+  Delta-Form von 91,9 % auf 49,6 % einbricht (57 von 123 Antworten "Form kaputt",
+  also einteilig statt zweiteilig). Grund: die **Wiederholung** der Runde traegt
+  die **absolute** Form - eine Formrunde tauscht deshalb eine Konvention gegen
+  die andere (**O-D32**). **exp-026 hat die Ursache bestaetigt und behoben:** mit
+  dem Schalter `--formgleiche-wiederholung` (die Wiederholung wird in dieselbe
+  Form gerendert) ist dieselbe Runde **einstimmig angenommen** - Kopf 828/960 =
+  86,25 -> **862/960 = 89,79 %**, `reparatur1` 49,2 -> **91,8 %**, `reparatur`
+  in der Delta-Form **haelt** (91,1 %, Form kaputt 0 statt 31/26). Der neue Stand
+  ist aber **nicht in jeder Ansicht** besser: auf der urspruenglichen Delta-Form
+  89,27 % gegen 91,04 % des alten Stands, in der absoluten Ansicht `reparatur`
+  70,7 %; bezahlt mit `regel` -9,8 Pp (**O-D33**).
 
 ## 11 Messung (exp-002)
 

@@ -16,6 +16,10 @@ pub mod model;
 pub mod probe;
 pub mod train;
 
+/// Modellablage auf dem HuggingFace Hub - nur mit `--features hub` gebaut.
+#[cfg(feature = "hub")]
+pub mod hub;
+
 /// Hilfen fuer Tests. Oeffentlich, weil Integrationstests in `tests/` gegen die
 /// Bibliothek linken und `#[cfg(test)]` dort nicht greift.
 pub mod testutil;

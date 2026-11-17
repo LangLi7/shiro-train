@@ -1,0 +1,40 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 1337,
+  "note": "Formel-Verstaendnis und Funktion (D-030 A2/A3) - Held-out-Band - 10000 Datensaetze",
+  "tasks": {
+    "bewegung.fkt-liegt.VERGLEICHEN": 2500,
+    "bewegung.fkt-mittel.LOKALISIEREN": 2500,
+    "bewegung.fkt-steig.MINIMIEREN": 2500,
+    "bewegung.fkt-tabelle.ABLEITEN": 2500,
+    "level.fkt-liegt.leicht": 65,
+    "level.fkt-liegt.mittel": 509,
+    "level.fkt-liegt.schwer": 1926,
+    "level.fkt-mittel.leicht": 44,
+    "level.fkt-mittel.mittel": 498,
+    "level.fkt-mittel.schwer": 1958,
+    "level.fkt-steig.leicht": 67,
+    "level.fkt-steig.mittel": 618,
+    "level.fkt-steig.schwer": 1815,
+    "level.fkt-tabelle.leicht": 70,
+    "level.fkt-tabelle.mittel": 583,
+    "level.fkt-tabelle.schwer": 1847,
+    "typ.fkt-liegt": 2500,
+    "typ.fkt-mittel": 2500,
+    "typ.fkt-steig": 2500,
+    "typ.fkt-tabelle": 2500
+  },
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 10000,
+      "payload_bytes": 3002406,
+      "file_size": 3022438,
+      "checksum": "26f6df1bf6e74add"
+    }
+  ]
+}

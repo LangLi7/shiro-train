@@ -7,13 +7,38 @@ description = "Byte-Level-Sprachmodell (Shiro) - Trainingsgeruest und RunPod-Umg
 license = "MIT OR Apache-2.0"
 publish = false
 
+[features]
+default = ["cpu"]
+# CPU-Pfad (Standard): reines Rust (Flex) mit SIMD und Mehrfach-Threading.
+# Genau die zwei Hebel aus docs/lokales-cpu-training-plan.md §4.2a.
+cpu = ["burn/flex", "burn/simd", "burn/rayon"]
+# GPU-Pfad: nur mit --features cuda baubar, braucht ein CUDA-faehiges Image (B5).
+cuda = ["burn/cuda"]
+# Modellablage auf dem HuggingFace Hub (`shiro hub pull|push`).
+# Bewusst NICHT im Standardbau: der Trainings- und Messpfad soll ohne
+# Netzwerk-Stack bauen, und ein Pod ohne HF-Bedarf soll ihn nicht mitschleppen.
+# Siehe docs/modell-ablage-huggingface.md.
+hub = ["dep:hf-hub"]
+
 [dependencies]
 anyhow = "1"
+# Backend-Entscheidung D-010 (Burn). Version festgenagelt, kein "*" (siehe
+# docs/backend-und-reihenfolge.md: Risiko-Massnahme gegen Breaking Changes).
+# Kein Default-Backend: die Auswahl passiert ueber die Features oben, das Geraet
+# waehlt zur Laufzeit (Device::flex() / Device::cuda(0) / Device::default()).
+burn = { version = "0.22", default-features = false, features = ["std", "autodiff", "optim", "store"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
+# HuggingFace-Client nur mit `--features hub` (docs/modell-ablage-huggingface.md).
+# `blocking` liefert die synchronen Handles (kein tokio im Hauptpfad),
+# `rustls-tls` haelt das Image frei von einer OpenSSL-Abhaengigkeit.
+hf-hub = { version = "1", features = ["blocking", "rustls-tls"], optional = true }
 
 [profile.release]
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+
+
+

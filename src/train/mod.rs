@@ -9,4 +9,5 @@
 //! - **Checkpointing** und **Logging** - vollstaendig.
 
 pub mod checkpoint_verify;
+pub mod state;
 pub mod trainer;
