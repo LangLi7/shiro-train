@@ -2270,3 +2270,30 @@ Kompressionstechnik verkuerzt — das war zu eng.
 
 **Punkt 2 ist der naechste Schritt** — eine Zeile im Generator, eine Runde Training, und es
 prueft genau die Frage, ob das Modell entscheidet oder nachplappert.
+
+## Runde 205 — Kombination: Text und Aufgaben im selben Korpus (Variante B)
+
+**Der Befund aus Runde 203 liess nur einen Schluss zu:** Text allein zerstoert die Aufgabenform,
+Aufgaben allein erzeugen kein Sprachverstaendnis. Beides muss in **einem** Korpus stehen.
+
+**Korpus `mix46`:** 27 MB, gemischt aus
+
+| Teil | Inhalt | Groesse |
+|---|---|---|
+| Aufgaben | `mix38` (sieben Familien, Referenzstand) | ~10 MB |
+| Text | Deutsch/Englisch gemischt | **17,1 MB** |
+
+**Ausgangspunkt `mix38-step029500`** (alle sieben Familien ueber 90), 2500 Schritte.
+
+**Hypothese:** die Aufgaben halten bei **ueber 80 Prozent** (Toleranz nach Regel 6), und das
+Modell lernt zusaetzlich Text — messbar an zusammenhaengender Fortsetzung statt Kauderwelsch.
+
+**Entscheidungsregel:**
+
+> **Aufgaben ueber 80 und Text lesbar** = die Kombination traegt; dann ist sie der neue
+> Ausgangspunkt fuer alles Weitere (Middle-Out, Wortschatz, Skalierung).
+>
+> **Aufgaben unter 60** = der Text verdraengt die Aufgaben auch bei 50:50. Dann braucht es
+> entweder ein Verhaeltnis weiter zugunsten der Aufgaben oder getrennte Experten (MoE) — und das
+> waere der erste harte Beleg dafuer, dass ein Modell dieser Groesse beides nicht gleichzeitig
+> halten kann.
