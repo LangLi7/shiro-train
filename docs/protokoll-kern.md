@@ -2564,3 +2564,42 @@ Aufgaben, mehr als jede andere Familie.
 2. `defpack` fand null Zeilen, weil die Datei Windows-Zeilenenden hatte und der Parser auf `\n\n`
    splittete. Mit `\n` plus `trim()` laeuft es. **Ohne die Diagnose-Zaehler (Zeilen, zu kurz, ohne
    Trenner, Def-Laenge) haette ich weiter geraten.**
+
+## Runde 213 — Byte-Rechnung korrigiert und Korpus fuer das 100M-Modell gebaut
+
+**Der Nutzer hat einen Rechenfehler aufgedeckt, und er ist wichtig:** Chinchilla zaehlt
+**Tokens**, nicht Bytes. Bei einem Byte-Modell ist 1 Token = 1 Byte, also **viermal weniger Text
+pro Token** als bei Subword.
+
+| | Bytes/Parameter bei 100M | Niveau |
+|---|---|---|
+| **10 $** (45,5 h auf 3090) | **4,4** | unter GPT-3 (6,8) |
+| **60 $** (273 h) | **26,5** | ueber Chinchilla (20) |
+
+**Mit 10 Dollar ist ein 100M-Byte-Modell stark untertrainiert; erst mit 60 Dollar erreicht es
+Chinchilla.** Das ist die ehrliche Zahl, und sie verschiebt den sinnvollen Zeitpunkt.
+
+**Korpus `mix50` gebaut — die Themen des Nutzers:**
+
+| Quelle | Inhalt | Bytes |
+|---|---|---|
+| `mint_de` (250 MB Ausschnitt) | Mathe/Physik Deutsch, nach Schluesselwoertern gefiltert | 262 MB |
+| `mint_en` | Mathe/Physik Englisch | 39 MB |
+| `f_text` | allgemeiner Text DE+EN | 139 MB |
+| `mix46/all` | sieben Aufgabenfamilien | ~10 MB |
+| `mix49/f_def` | 24 000 Woerterbuch-Quiz-Aufgaben | ~10 MB |
+| **gesamt** | | **453 MB (0,47 Mrd Bytes)** |
+
+**Filter-Ergebnis aus dem vorhandenen Korpus:** 75 208 deutsche und 39 626 englische Absaetze mit
+mindestens zwei Begriffen aus Mathematik/Physik — ohne einen einzigen Download.
+
+**Modell `shiro-dense-100m`:** d_model 768, 12 Schichten, 12 Koepfe, d_ff 3072 — **dense**,
+weil MoE bei 100M wenig bringt (die aktiven Parameter entscheiden ueber das Lernen, und das
+Routing kostet Daten, die wir nicht haben). MoE lohnt ab etwa 1B.
+
+**Der Byte-Vorteil bleibt:** keine Tokenizer-Grenzen, keine OOV-Woerter, Umlaute und chinesische
+Zeichen sind einfach Bytes. Genau das war die Staerke der Sprachfamilie.
+
+**Ein PowerShell-Fehler kostete einen Anlauf:** `$z` in der Schleife ueberschrieb `$Z` (den Pfad),
+weil PowerShell bei Variablennamen nicht zwischen Gross- und Kleinschreibung unterscheidet. Der
+zweite Textpack lief danach ins Leere.
