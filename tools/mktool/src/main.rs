@@ -4375,6 +4375,31 @@ fn main() {
         write_shard(&out, &recs, seed, "lex");
         println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
         return;
+    }    if args.len() > 4 && args[1] == "--teilsatz" {
+        // Take only the first N records of a shard: tests whether variety alone is the
+        // limiting factor, without adding any new task family.
+        let quelle = PathBuf::from(&args[2]);
+        let out = PathBuf::from(&args[3]);
+        let n: usize = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(300);
+        let bytes = fs::read(&quelle).expect("Shard lesbar");
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        // Shard layout: 32-byte header (BSHD, version, header size, records, 0, pad),
+        // then record frames of u16 length + bytes.
+        let mut i = 32usize;
+        while i + 2 <= bytes.len() && recs.len() < n {
+            let len = u16::from_le_bytes([bytes[i], bytes[i + 1]]) as usize;
+            let start = i + 2;
+            if start + len > bytes.len() {
+                break;
+            }
+            recs.push(bytes[start..start + len].to_vec());
+            i = start + len;
+        }
+        let anzahl = recs.len();
+        let groesse: usize = recs.iter().map(|r| r.len()).sum();
+        write_shard(&out, &recs, 4242, "teil");
+        println!("teilsatz: {} Records, {} Bytes (Durchschnitt {}) -> {}", anzahl, groesse, groesse / anzahl.max(1), out.display());
+        return;
     }    if args.len() > 4 && args[1] == "--kopiepack" {
         // Copy only: can the model read digits off the page at all? If this fails, every
         // arithmetic family is measuring the same defect and no label can fix it.
@@ -5712,6 +5737,8 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
 
 
 

@@ -3091,3 +3091,43 @@ durch die Verkettung zu 300 Records gemacht — statt **36 000 Aufgaben zu erzeu
 **60 und 62 Prozent** (19,3 von 31,8 GB), nie ueber 90. Eine Wache (`werkzeug/ram-wache.ps1`)
 laeuft und protokolliert jede Minute nach `pmh/ram-verlauf.tsv`; bei ueber 90 Prozent stoppt sie
 den Trainer.
+
+## Runde 228 — Die Ursache ist gefunden: die Zahl der Beispiele, nicht die Familie
+
+**Der entscheidende Kontrolltest, ohne eine neue Familie:** aus der Referenz `mix46` wurden
+**480 Records** gezogen — aus allen zwoelf Familien, dieselben Aufgaben, dieselbe Record-Laenge
+(669 Bytes), dieselbe Schrittzahl, derselbe Ausgangspunkt.
+
+| Korpus | Records | Bytes/Record | Addition | Sprachlogik |
+|---|---|---|---|---|
+| `mix46` (voll) | **40 774** | 695 | **98,3** | **96,7** |
+| `mix57` (Teilmenge) | **480** | 669 | **0** | **50** |
+
+**Dieselben Daten, nur weniger davon — und alles bricht ein.** Damit ist bewiesen:
+
+> **Die Vielfalt der Beispiele ist die Ursache.** Nicht die Familie, nicht die Record-Laenge,
+> nicht die Lernrate, nicht die Kapazitaet.
+
+**Das erklaert rueckblickend jeden Fehlversuch des Tages:**
+
+| Korpus | Records | Ergebnis |
+|---|---|---|
+| mix46 (Referenz) | 40 774 | funktioniert |
+| mix52/53 (Urteil) | 3 000 | Totalausfall |
+| mix54/55/56 (Kopie) | 3 000 → 300 | Totalausfall |
+| **mix57 (Teilmenge der Referenz)** | **480** | **Totalausfall** |
+
+**Jede neue Familie hat die Gesamt-Record-Zahl gesenkt statt erhoeht** — 3 000 neue Aufgaben
+gegen 40 774 bestehende heisst: der Korpus waechst kaum, aber die alten Beispiele werden
+seltener. Bei 40 Durchlaeufen ueber dieselben 300 Beispiele lernt das Modell sie auswendig
+(Loss 0,065) und verliert den Rest.
+
+**Was daraus folgt, und es ist eine harte Regel fuer alle weiteren Familien:**
+
+> Eine neue Familie muss den Korpus **vergroessern**, nicht verdraengen. Bei 40 000 bestehenden
+> Records braucht sie **mindestens 10 000 eigene** — sonst sinkt die Vielfalt und alles bricht ein.
+
+**Das erklaert auch, warum die Etiketten nicht halfen:** das Etikett trennt Formen, aber es
+verhindert nicht, dass 300 Beispiele 40 000 verdraengen.
+
+**Referenz bleibt `mix46`.** `mix57` wird nicht uebernommen.
