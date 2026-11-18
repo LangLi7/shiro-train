@@ -2,7 +2,7 @@
 # Aufruf:  ram-wache.ps1 [-Grenze 90] [-IntervallSekunden 30] [-StoppBeiGrenze]
 param(
     [double]$Grenze = 90,
-    [int]$IntervallSekunden = 30,
+    [int]$IntervallSekunden = 10,
     [switch]$StoppBeiGrenze,
     [string]$Protokoll = "O:\shiro\pmh\ram-verlauf.tsv"
 )
@@ -25,3 +25,4 @@ while ($true) {
     }
     Start-Sleep -Seconds $IntervallSekunden
 }
+

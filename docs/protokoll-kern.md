@@ -3158,3 +3158,36 @@ dazukommt, und die Kopie-Aufgaben werden gelernt (**ueber 70**).
 **Was diesmal anders ist:** der Korpus waechst um 25 Prozent (40 774 → 50 774), die neue Familie
 macht 20 Prozent aus, und es gibt nur zwei Durchlaeufe ueber sie statt vierzig. **Alle drei
 Faktoren, die in Runde 225–228 als Ursache identifiziert wurden, sind damit behoben.**
+
+## Runde 230 — Die RAM-Wache hat eingegriffen, und sie hatte recht
+
+**Der Nutzer verlangte: der Arbeitsspeicher darf nie ueber 90 Prozent.** Das Protokoll der Wache
+zeigt, dass er es beinahe wurde:
+
+| Zeit | RAM | belegt | frei |
+|---|---|---|---|
+| 02:05 | 94,9 % | 30,2 GB | 1,6 GB |
+| 02:07 | 93,6 % | 29,8 GB | 2,0 GB |
+| **02:10** | **99,2 %** | **31,6 GB** | **0,3 GB** |
+| 02:12 | 53,7 % | 17,1 GB | 14,7 GB |
+
+**Neun Messungen lagen ueber 90 Prozent.** Die Wache hat den Trainer gestoppt — **genau wie
+eingestellt** — und damit den Rechner geschuetzt. Das ist der erste Lauf im Projekt, der an einer
+Ressource und nicht an den Daten gescheitert ist.
+
+**Die Ursache ist nicht das Training, sondern `data combine`:** der Korpus ist nur 33,7 MB, das
+Modell 24 Mio Parameter — beides zusammen braucht kein GB. Trotzdem stieg der Verbrauch auf
+31,6 GB. Der Verdacht: `data combine` laedt alle Records aller Quellen gleichzeitig in den
+Speicher und haelt sie, bis das neue Manifest geschrieben ist.
+
+**Zwei Konsequenzen, beide sofort umgesetzt bzw. vorgemerkt:**
+
+1. **Die Wache bleibt scharf** (90 Prozent, stoppen). Sie hat bewiesen, dass sie funktioniert.
+2. **Das Messintervall wird verkuerzt** — 60 Sekunden sind zu lang, zwischen zwei Messungen lagen
+   im schlimmsten Fall 6 GB. Ab jetzt 10 Sekunden.
+3. **`data combine` muss gestreamt werden** statt alles zu halten — sonst ist jeder Korpus ueber
+   etwa 100 MB nicht baubar, und das betrifft das 100M-Modell unmittelbar.
+
+**Was der Lauf `mix58` trotzdem gezeigt hat:** die Daten waren richtig aufgesetzt (50 774 Records,
+697 Bytes pro Record, Kopie-Anteil 20 Prozent). Er ist **nicht an den Daten gescheitert**, sondern
+am Speicher — das ist ein neuer, behebbarer Fehler und kein Rueckschritt bei der Frage.
