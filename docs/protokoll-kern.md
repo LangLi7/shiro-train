@@ -3259,3 +3259,34 @@ die Familien dann ebenfalls einbrechen, liegt es am Lauf oder am Zustand, nicht 
 hielt, hat den Test nicht bestanden. Was bleibt, ist eine Messung, die sich wiederholt: **jeder
 Lauf mit veraendertem Korpus bricht ein, jeder Lauf auf `mix46` haelt.** Bis der Kontrolltest das
 Gegenteil zeigt, ist der Verdacht nicht das Modell, sondern **die Art, wie ich den Korpus baue**.
+
+## Runde 233 — Der Kontrolltest: `mix46` erneut trainieren, ohne irgendetwas zu aendern
+
+**Die Frage, die alles entscheidet:** brechen die Familien auch dann ein, wenn **nichts** am Korpus
+geaendert wird?
+
+**Der Aufbau — genau ein Faktor: kein neuer Korpus.**
+
+| | Wert |
+|---|---|
+| Daten | `mix46/all` (unveraendert, 40 774 Records, mit `data combine` gebaut) |
+| Ausgangspunkt | `mix46-step031500.state` |
+| Schritte | 2500 |
+| Lernrate | 0,0003 (wie immer) |
+| Seed | 13027 |
+| **Neu** | nichts ausser der Schrittzahl |
+
+**Entscheidungsregel:**
+
+> **Familien halten (ueber 90)** = der Korpus-Bau ist die Ursache. Dann haben die letzten vier
+> Laeufe nichts ueber Shiro ausgesagt, sondern nur ueber mein Werkzeug — und der Fehler liegt in
+> `merge-manifest.py` oder in der Behandlung des Text-Shards.
+>
+> **Familien brechen ein** = nicht die Daten sind das Problem, sondern der **Lauf selbst**
+> (Zustand, Optimierer, Schrittzaehler). Dann ist auch `mix46` als Referenz in Frage zu stellen,
+> weil jede Fortsetzung ihn zerstoert.
+
+**Warum dieser Test vor allem anderen kommt:** nach vier Totalausfaellen ist die billigste
+Erklaerung nicht mehr eine neue Hypothese ueber das Modell, sondern ein Fehler in meinem eigenen
+Verfahren. Diesen Fehler zu finden ist billiger als jeder weitere Trainingslauf — und wenn er
+existiert, sind alle vier Messungen wertlos.
