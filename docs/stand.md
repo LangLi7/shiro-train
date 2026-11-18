@@ -1,86 +1,77 @@
 # Stand und Bilanz — Shiro
 
-*Stand: 18. November 2026, nach 124 Runden des Trainings- und Evaluationsloops.*
-
-## Worum es geht
-
-Shiro ist ein Byte-Sprachmodell ohne Tokenizer: 256 Zeichen, kausale Selbstaufmerksamkeit,
-RoPE, RMSNorm, SwiGLU. Aufgaben werden über vier Marker gestellt (`<AUFGABE>`, `<DENKWEG>`,
-`<ANTWORT>`, `<ENDE>`), und die Antwort wird in drei Teilen bewertet: **Weg**, **Antwort**,
-**Klasse** (ist es die richtige Art von Antwort).
+*Stand: 18. November 2026, nach 131 Runden. Alle Zahlen mit geprüften Held-out-Testdaten.*
 
 ## Was gemessen erreicht ist
 
-Referenz-Checkpoint `mix46-step31500`, 24,4 Mio Parameter, mit dem reparierten Verifizierer:
+| Familie | n (held-out) | Weg | Antwort | Klasse | Verdikt |
+|---|---|---|---|---|---|
+| **Addition** | 37 | **100** | **100** | **100** | generalisiert |
+| **Sprachlogik** | 60 | **96,7** | **96,7** | **100** | generalisiert |
+| **Gleichungen** | 37 | **91,9** | **91,9** | **100** | generalisiert |
+| Logik | 60 | 0 | 60 | 95 | **rät** (Zufall: 50) |
+| Urteil | 60 | 5 | 61,7 | 98,3 | unter Ziel |
 
-| Familie | n | Weg | Antwort | Klasse |
-|---|---|---|---|---|
-| Addition | 60 | 98,3 | 98,3 | 100 |
-| Sprachlogik | 60 | 96,7 | 96,7 | 100 |
-| Gleichungen | 40 | 92,5 | 92,5 | 100 |
-| Logik | 40 | 87,5 | 97,5 | 97,5 |
-| **Urteil (drei Antwortklassen)** | 60 | 5 | **61,7** | 98,3 |
+**Drei Familien über 90 Prozent, auf Aufgaben die das Modell nachweislich nie gesehen hat.**
+Der Weg ist dort so gut wie die Antwort — das Modell schreibt den Rechenweg hin, nicht nur das
+Ergebnis.
 
-**Vier Familien über der 90-Prozent-Marke, die fünfte nicht.** Der Weg ist bei den ersten vier
-Familien so gut wie die Antwort — das Modell schreibt also den richtigen Rechenweg hin, nicht nur
-das Ergebnis.
+## Die eine Grenze, viermal bestätigt
 
-## Was nicht erreicht ist
+| Runde | Was aus dem Prompt übernommen werden musste | Ergebnis |
+|---|---|---|
+| 195 | Ziffern beim Übertrag (dreistellig) | 24 % |
+| 240 | zwei Ziffern vergleichen | 51,7 % |
+| 251 | 30 feste Nomen (auswendig) | 1,7 % auf neuen Ketten |
+| 255 | zufällige Nomen | Raten (60 % bei 50 % Zufall) |
 
-**Die Urteils-Familie bleibt bei 61,7 Prozent.** Sie verlangt, aus zwei Ziffern eine dreistufige
-Regel abzuleiten:
+**Das Modell kann Zeichen nicht zuverlässig aus dem Prompt übernehmen.** Es lernt Satzbau und
+Formeln, aber nicht das Binden konkreter Zeichen. Das ist bei einem Byte-Modell mit 8 Schichten
+und 24 Mio Parametern die plausibelste Erklärung für alle vier Befunde.
 
-```
-Differenz 0 = 0      ->  nicht ableitbar
-Differenz 0 = 5      ->  widerlegt
-Differenz -22 = -22  ->  bewiesen
-```
+Was dagegen hilft, ist gemessen:
+- **Etikett** trennt Formen (11,7 → 30 bei der Urteils-Familie)
+- **mehr Beispiele** helfen (30 → 48,3)
+- **mehr Schritte** helfen bis zum Plateau (dann nicht mehr)
+- **Auswendiglernen verhindern** durch Vielfalt (feste Nomen → zufällige: 1,7 → 36,7)
 
-Vier Versuche, sie zu heben: mehr Beispiele (3 000 → 12 000: 30 → 48), Etikett im Prompt
-(11,7 → 30), mehr Schritte (Plateau bei 1 500), den Vergleich liefern statt verlangen (51,7 → 61,7).
-**Jeder Schritt half zehn bis achtzehn Punkte, keiner dreißig.**
+Was nicht hilft: den Vergleich liefern (51,7 → 61,7, aber nicht 90).
 
 ## Was das 24M-Modell nicht kann
 
-| Grenze | Beleg |
-|---|---|
-| fremde Wörter | 0 Prozent bei nie gesehenen Nomen, mit 24 und mit 36 Nomen im Training |
-| fremde Formulierungen | 0 Prozent bei umformulierter Addition |
-| neue Aufgabenformen ohne Etikett | verwechselt die Formen (11,7 gegen 30 Prozent) |
-| quadratische Gleichungen (zero-shot) | ersetzt die Aufgabe durch eine lineare |
-| Ziffern an fester Stelle vergleichen | dreimal die Grenze: Übertrag, Multiplikation, Urteil |
+- fremde Wörter: 0 Prozent bei nie gesehenen Nomen
+- fremde Formulierungen: 0 Prozent bei umformulierter Addition
+- quadratische Gleichungen zero-shot: ersetzt die Aufgabe durch eine lineare
+- Transitivität über zufällige Nomen: rät
 
 ## Das 100M-Modell
 
-Gebaut und lokal getestet: **113 658 880 Parameter**, 3,4 GB VRAM, 561 Bytes/s auf der RTX 3060.
-Der Verlust fällt in 350 Schritten von 5,5 auf 2,24 — die Architektur trägt.
-
-**Es ist mit dem vorhandenen Budget nicht trainierbar:**
+Gebaut und lokal getestet: **113 658 880 Parameter**, 3,4 GB VRAM, 561 Bytes/s.
+Verlust fällt in 350 Schritten von 5,5 auf 2,24 — die Architektur trägt.
+**Nach 600 Schritten: keine Ausgabe.** Das sind 7 Prozent des Chinchilla-Ziels.
 
 | | 24M | 100M |
 |---|---|---|
-| Bytes/s auf RTX 3090 | ~6 600 | ~1 200 |
-| Chinchilla (2,65 Mrd Bytes) | 25 $ | **135 $** |
+| Chinchilla auf RTX 3090 | 25 $ | **135 $** |
 | 10 Dollar erreichen | 40 % | 7 % |
 
-## Die teuerste Lehre
+## Die zwei Werkzeugfehler, die acht Runden gekostet haben
 
-**Zwei Fehler im Messskript haben acht Runden lang falsche Ergebnisse geliefert.** Der Verifizierer
-las die Antwort als `'95 <ENDE><AUFGABE> 4+8'` statt `'95'` und den Lösungsweg als leer — er suchte
-das Ende eines Abschnitts am nächstgrößeren Marker statt am nächsten, und er suchte `<DENKWEG>` an
-einer Stelle, an der es nur im Prompt steht.
+1. **Der Verifizierer las die Antwort falsch** (`'95 <ENDE><AUFGABE> 4+8'` statt `'95'`) und den
+   Lösungsweg als leer. Acht Runden lang meldete er Nullen, wo das Modell richtig antwortete.
+2. **Die Testdaten waren nicht getrennt**: 38 Prozent der Additions-Testaufgaben standen im
+   Training. Auf diesen Nullen standen vier Ursachen-Hypothesen, alle zurückgezogen.
 
-Auf diesen Nullen standen vier Ursachen-Hypothesen (Kapazitätsgrenze, Record-Länge, Vielfalt,
-Lernrate), **alle vier sind zurückgezogen**. Die betroffenen Zeilen der Regressionstabelle sind als
-`UNGÜLTIG-Verifier-Defekt` markiert und bleiben stehen.
-
-**Die Regel, die daraus folgt:** nach jeder Änderung am Messwerkzeug wird die Referenz gemessen.
-Weicht eine Zahl von 98,3 / 96,7 / 92,5 / 87,5 ab, ist das Werkzeug defekt — nicht das Modell.
+**Die Regeln, die daraus folgen und ab jetzt gelten:**
+- Nach jeder Änderung am Messwerkzeug wird die Referenz gemessen.
+- Keine Zahl ohne `mktool --disjunkt` (Mengenvergleich der Aufgabentexte).
+- Bei Ja/Nein-Aufgaben wird die Zufallsrate mitgenannt.
 
 ## Was als nächstes zu tun ist
 
-1. **Blindtest** mit Aufgaben, die nicht aus den Generatoren stammen — der Auftrag verlangt ihn,
-   und er ist der einzige Test, der nicht von mir stammt.
-2. **Entscheidung über 100M**: 135 Dollar für ein Chinchilla-trainiertes Modell, oder die vier
-   Familien als das Ergebnis nehmen, das sie sind.
-3. **Urteils-Familie**: mit 100M erneut prüfen. Bei 24M ist sie nach vier Versuchen am Plateau.
+1. **Blindtest** mit Aufgaben, die nicht aus den Generatoren stammen — der Auftrag verlangt ihn.
+2. **Zeichenbindung gezielt trainieren**: eine Kopier-Familie mit großer Vielfalt, dann prüfen,
+   ob die Logik davon profitiert.
+3. **Nomen unterscheidbarer machen** (3–4 Silben, verschiedene Längen) — `nagi`, `rado`, `rori`
+   sind zu ähnlich, um sie auseinanderzuhalten.
+4. **Entscheidung über 100M**: 135 Dollar, oder die drei Familien als das Ergebnis nehmen.
