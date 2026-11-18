@@ -4377,3 +4377,38 @@ schuld, nicht die Logik selbst.
 
 **Der Korpus `mix66`:** `mix46` ohne den alten Logik-Shard plus **20 000 Records** in fuenf
 strukturerhaltenden Formen. Gesamt 59 274 — identisch mit `mix65`, nur die Formen sind andere.
+
+## Runde 264 — Strukturerhaltend hilft (45 auf 57,5), aber nicht genug
+
+| Variante | Antwort | Klasse |
+|---|---|---|
+| `mix65` — Paraphrasen aendern die **Struktur** | 45 | 55 |
+| **`mix66` — Paraphrasen erhalten die Struktur** | **57,5** | **87,5** |
+| Zufall bei Ja/Nein | 50 | — |
+
+**Die Struktur-Hypothese ist bestaetigt — aber schwach.** Strukturerhaltende Formen bringen
+**+12,5 Punkte** gegenueber strukturaendernden. Die Klasse springt von 55 auf **87,5**: das Modell
+hat das Antwortformat jetzt sicher und arbeitet an der Schlussfolgerung.
+
+**Bei 57,5 Prozent liegt die Logik aber weiterhin knapp ueber der Zufallsrate.** Sie ist damit
+**nicht geloest** — im Gegensatz zur Addition, die mit derselben Methode von 0 auf **93,3** sprang.
+
+**Warum die Logik schwerer ist, laesst sich benennen:**
+
+| | Addition | Logik |
+|---|---|---|
+| Schritte | 2 (Ziffern addieren, Uebertrag) | 3–7 (Kette lesen, transitiv schliessen, Frage pruefen) |
+| Nomen/Zahlen | 2 Ziffern | 3–8 Woerter, die **kopiert** werden muessen |
+| Weg | Rechnung | Text, der die Kette nachbildet |
+| Transfer | **93,3** | **57,5** |
+
+**Die Logik verlangt zusaetzlich zum Schluss das KOPIEREN von Woertern in den Weg** — und genau das
+ist die Faehigkeit, die in Runde 255 fuenfmal als Grenze bestaetigt wurde. Bei der Addition genuegt
+es, die **Ziffern** zu halten; bei der Logik muessen die **Namen** im Weg erscheinen.
+
+**Die geschuetzte Familie haelt bei 97,3** (wie in `mix65`) — der kleine Verlust gegenueber 100 ist
+mit 20 000 Logik-Records im Korpus zu erwarten und liegt innerhalb der Toleranz.
+
+**Was daraus folgt:** die Logik braucht **mehr Beispiele pro Form** (nicht mehr Formen) und
+moeglicherweise einen **kuerzeren Weg** (nur die Antwort, nicht die Kette im Weg). Beides ist
+billig zu testen.
