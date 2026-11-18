@@ -4656,3 +4656,44 @@ ist es eine **andere Aufgabe** (drei Stellen statt zwei), und sie verdraengt die
 
 **Der naechste Versuch muesste die beiden Formen *gemeinsam* und *gemischt* trainieren** — mit
 gleichem Gewicht, damit keine die andere verdraengt.
+
+## Runde 272 — Die Interferenz ist reproduzierbar: 73 gegen 100 Prozent
+
+**Die Wiederholung, mit beiden Checkpoints auf denselben 37 Aufgaben:**
+
+| Checkpoint | Weg | Antwort | Klasse |
+|---|---|---|---|
+| `mix46` (Referenz, nur zweistellig) | **100** | **100** | 100 |
+| `mix69` (zweistellig + dreistellig) | 70,3 | **73** | 100 |
+
+**Der Einbruch ist echt, nicht Messfehler.** Dieselben Aufgaben, dieselbe Umgebung, derselbe
+Verifizierer — 27 Punkte Unterschied.
+
+**Damit ist die Kapazitaetsgrenze belegt, die ich in Runde 225 behauptet und in Runde 234
+zurueckgezogen hatte.** Sie ist nicht "das Modell haelt keine acht Familien" — sie ist
+**"das Modell haelt pro Familie eine Form"**.
+
+**Was das praezise bedeutet:**
+
+- **Zwei Formen derselben Faehigkeit konkurrieren** um dieselben Parameter.
+- 6 000 zusaetzliche Beispiele (13 Prozent des Korpus) reichen, um 27 Punkte der alten Form zu
+  kosten — und bringen der neuen nur 1,7 Punkte (13,3 auf 15).
+- Die Rechnung ist **negativ**: fuer +1,7 bei der neuen Form zahlt man −27 bei der alten.
+
+**Warum die Paraphrasen (`mix64`) nicht dasselbe taten:** sie sind **dieselbe Aufgabe** in anderen
+Worten — die Form bleibt `Zahl+Zahl`, nur die Huelle wechselt. Das Modell muss **eine** Rechnung
+lernen und **fuenf** Hullen. Bei zwei- und dreistellig sind es **zwei Rechnungen** mit
+unterschiedlichen Ueberträgen.
+
+**Das ist die Antwort auf die Frage, die seit Runde 190 offen war:** nicht die Datenmenge, nicht
+das Etikett, nicht die Lernrate — **die Kapazitaet pro Form**. Und sie ist bei 24 Mio Parametern
+**eine**.
+
+**Was daraus fuer den Auftrag folgt:** "x-beliebige Stellen inkl. Komma und Minus" verlangt
+**mindestens vier Formen** (einstellig, zweistellig, dreistellig+, Komma, negativ). Bei einer Form
+pro Modell ist das mit 24M **nicht erreichbar** — nicht durch Daten, nicht durch Training, nicht
+durch Formen.
+
+**Der Weg ist damit keine Frage mehr, sondern eine Rechnung:** 100M kostet 135 Dollar und hat
+vermutlich Platz fuer mehrere Formen. Ob vier reichen, ist offen — aber es ist der einzige Weg,
+den die Messungen noch offenlassen.
