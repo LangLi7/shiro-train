@@ -3494,3 +3494,37 @@ funktionierenden Messwerkzeug.
 | **`mix60` (12 000, mit Etikett)** | **48,3** | **100** |
 
 **Der Lauf bleibt bis 3000 Schritte aktiv und wird danach erneut gemessen.**
+
+## Runde 239 — Urteil bei 1000 Schritten: 51,7 Prozent, Klasse 100
+
+| Schritte | Antwort | Klasse |
+|---|---|---|
+| 500 | 48,3 | 98,3 |
+| **1000** | **51,7** | **100** |
+
+**Der Fortschritt ist positiv, aber flach: plus 3,4 Punkte fuer 500 Schritte.** Bei dieser Rate
+waeren fuer 90 Prozent etwa **5000 Schritte** noetig — machbar, aber der Aufwand waechst
+ueberproportional.
+
+**Die Diagnose ist eindeutig:** die **Klasse** ist bei 100 Prozent, die **Antwort** bei 51,7. Das
+Modell erkennt also das Format sicher und verwechselt die drei Antworten nicht — **es liest die
+entscheidende Zahl falsch.**
+
+```
+Urteil: 8x + 18 = 8x + 18   ->  0 = 0    nicht ableitbar
+Urteil: 8x + 18 = 8x + 24   ->  0 = 6    widerlegt
+```
+
+Beide Aufgaben sind bis auf **eine Ziffer** identisch. Genau dieser Schritt — eine Ziffer an einer
+festen Stelle lesen und mit einer anderen vergleichen — ist im Projekt schon zweimal gescheitert:
+bei der dreistelligen Addition (Uebertrag) und bei der fuenfstelligen Multiplikation.
+
+**Die naechste Hypothese, vor dem Test festgelegt:** die Aufgabe muss den Vergleich **sichtbar**
+machen, statt ihn zu verlangen. Statt `0 = 0` gegen `0 = 6` zu lesen, bekommt das Modell die
+Differenz bereits als Zahl:
+
+```
+Urteil: 8x + 18 = 8x + 24.   Links minus rechts ergibt 0 = 6.
+```
+
+Wenn das hilft, ist der Ziffernvergleich die Grenze — nicht das Urteil.
