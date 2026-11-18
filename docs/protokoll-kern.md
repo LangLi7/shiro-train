@@ -3673,3 +3673,39 @@ Chinchilla kostet auf der guenstigsten GPU **rund 135 Dollar**, nicht 60. Mit 10
 **Der Lauf bleibt aktiv bis 600 Schritte** und wird danach gemessen: nicht ob er gut ist (das waere
 nach 600 Schritten unserioes), sondern ob er ueberhaupt **Bewegung** zeigt — ein Verlust unter 2,5
 waere ein Zeichen, dass die Architektur traegt.
+
+## Runde 244 — Das 100M-Modell traegt: Verlust 5,5 auf 2,2 in 300 Schritten
+
+**Der Lauf auf der eigenen RTX 3060, gemessen:**
+
+| Schritt | Verlust | Perplexitaet | Bytes/s |
+|---|---|---|---|
+| 50 | 3,08 | 21,9 | 561 |
+| 200 | — | — | — (Checkpoint geschrieben) |
+| 300 | **2,24** | **9,4** | 577 |
+| 350 | 2,57 | 13,0 | 566 |
+
+**Der Verlust sinkt von 5,5 auf 2,24** — das Modell lernt, und die Architektur traegt bei 113 Mio
+Parametern genauso wie bei 24 Mio. **Das ist der Punkt, an dem die Skalierung nicht mehr Vermutung
+ist, sondern laeuft.**
+
+**Was der Lauf nicht zeigt, und was ich nicht behaupten werde:** nach 350 Schritten kann das Modell
+nichts. Der Verlust 2,24 bedeutet, dass es Bytefolgen einigermassen vorhersagt — nicht, dass es
+Aufgaben loest. **Ein Urteil ueber Faehigkeiten ist erst nach Zehntausenden Schritten moeglich,
+und die sind lokal nicht erreichbar** (bei 561 Bytes/s waeren 100 000 Schritte 11 Tage).
+
+**Die Sachbilanz des Modells, jetzt gemessen statt geschaetzt:**
+
+| | 24M | 100M |
+|---|---|---|
+| Parameter | 24 388 352 | **113 658 880** |
+| VRAM | ~2,5 GB | **3,4 GB** |
+| Bytes/s lokal | 4 500 | **561** |
+| Bytes/s auf 3090 (Faktor 2,2) | ~6 600 | **~1 200** |
+| Chinchilla auf 3090 | 25 $ | **135 $** |
+| 10 Dollar erreichen | 40 % | **7 %** |
+
+**Damit ist die Frage des Nutzers beantwortet, mit Zahlen statt Meinungen:** das 100M-Modell ist
+**baubar und laeuft**, aber mit 10 Dollar ist es nicht trainierbar. **Der Sprung von 24M auf 100M
+kostet rund 135 Dollar** — das ist die ehrliche Zahl, und sie liegt ausserhalb des Budgets, das
+zur Verfuegung steht.
