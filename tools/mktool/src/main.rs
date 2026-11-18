@@ -1232,6 +1232,75 @@ fn logic_record(rng: &mut Rng, force: Option<u64>, world_marker: bool, paraphras
     r
 }
 
+// Random nouns: 130 syllables, 16900 two-syllable words. A model cannot memorise a word it
+// meets once, so it has to learn the transitivity rule instead (round 251: with 30 fixed nouns
+// the model scored 97.5 on training chains and 1.7 on new ones).
+fn rand_noun(rng: &mut Rng) -> String {
+    const KONS: [&str; 13] = ["b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v"];
+    const VOK: [&str; 5] = ["a", "e", "i", "o", "u"];
+    let mut s = String::new();
+    for _ in 0..2 {
+        s.push_str(KONS[rng.below(KONS.len() as u64) as usize]);
+        s.push_str(VOK[rng.below(VOK.len() as u64) as usize]);
+    }
+    s
+}
+
+fn logic_record_rand(rng: &mut Rng) -> Vec<u8> {
+    let l = rng.range(2, 7) as usize;
+    let mut names: Vec<String> = Vec::new();
+    while names.len() < l + 1 {
+        let n = rand_noun(rng);
+        if !names.contains(&n) {
+            names.push(n);
+        }
+    }
+    let kind = rng.below(3);
+    let (f, t) = if kind == 0 {
+        let f = rng.range(0, (l - 1) as i64) as usize;
+        let t = rng.range((f + 1) as i64, l as i64) as usize;
+        (f, t)
+    } else {
+        let f = rng.range(1, l as i64) as usize;
+        let t = rng.range(0, (f - 1) as i64) as usize;
+        (f, t)
+    };
+    let closed = kind == 1;
+    let mut r = Vec::new();
+    r.push(B_TASK);
+    r.extend_from_slice(b" Gegeben: ");
+    for i in 0..l {
+        r.extend_from_slice(format!("({}) Alle {} sind {}. ", i + 1, names[i], names[i + 1]).as_bytes());
+    }
+    if closed {
+        r.extend_from_slice(b"Sonst gilt nichts. ");
+    }
+    let vorwaerts = kind == 0;
+    let antwort = if vorwaerts { "ja" } else { "nein" };
+    r.extend_from_slice(format!("Ist {} ein {}?", names[f], names[t]).as_bytes());
+    r.push(B_THINK);
+    if vorwaerts {
+        r.extend_from_slice(format!(" 1. Erreichbar von {}: {}. 2. {} steht in der Liste, also ja. ", names[f], names[f..=t].join(", "), names[t]).as_bytes());
+    } else {
+        r.extend_from_slice(format!(" 1. Erreichbar von {}: {}. 2. {} steht nicht in der Liste. ", names[f], names[f..].join(", "), names[t]).as_bytes());
+    }
+    r.push(B_ANSWER);
+    r.extend_from_slice(format!(" {} ", antwort).as_bytes());
+    r.push(B_END);
+    r
+}
+
+fn pack_logic_rand(rng: &mut Rng, budget: usize) -> Vec<u8> {
+    let mut out: Vec<u8> = Vec::new();
+    loop {
+        let r = logic_record_rand(rng);
+        if !out.is_empty() && out.len() + r.len() > budget {
+            break;
+        }
+        out.extend_from_slice(&r);
+    }
+    out
+}
 fn pack_logic(rng: &mut Rng, budget: usize) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::new();
     loop {
@@ -5552,7 +5621,17 @@ fn main() {
         println!("logictest k{}: {} -> {}", kind, n, out.display());
         return;
     }
-    if args.len() > 4 && args[1] == "--logicpack" {
+    if args.len() > 4 && args[1] == "--logicrand" {
+        let n: usize = args[2].parse().unwrap();
+        let out = PathBuf::from(&args[3]);
+        let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
+        let mut rng = Rng(seed);
+        let recs: Vec<Vec<u8>> = (0..n).map(|_| pack_logic_rand(&mut rng, 480)).collect();
+        let avg: usize = recs.iter().map(|r| r.len()).sum::<usize>() / n.max(1);
+        write_shard(&out, &recs, seed, "logik-rand");
+        println!("logicrand: {} Saetze, {} B -> {}", n, avg, out.display());
+        return;
+    }    if args.len() > 4 && args[1] == "--logicpack" {
         let n: usize = args[2].parse().unwrap();
         let out = PathBuf::from(&args[3]);
         let seed: u64 = args.get(4).and_then(|s| s.parse().ok()).unwrap_or(1);
@@ -5817,6 +5896,8 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
 
 
 

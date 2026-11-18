@@ -3973,3 +3973,36 @@ konkreten Woerter gelernt, nicht die Regel.
 **Was das fuer das Ziel bedeutet:** die 90-Prozent-Marke auf **Trainingsdaten** ist keine Aussage
 ueber Faehigkeit. Der Auftrag verlangt sie auf **Held-out**, und dort stehen jetzt **drei** Familien
 (100 / 91,9 / 96,7) und **eine** faellt durch (1,7).
+
+## Runde 252 — Logik mit zufaelligen Nomen: der Test gegen das Auswendiglernen
+
+**Die Ursache aus Runde 251, behoben:** der Logik-Generator nutzte **30 feste Nomen** (Aldo, Bento,
+Ciril, ...). Das Modell konnte sie auswendig lernen — und tat es (97,5 auf Trainingsketten,
+1,7 auf neuen).
+
+**Der Fix: zufaellige Nomen aus Silben.** 13 Konsonanten mal 5 Vokale, zwei Silben — **16 900
+moegliche Woerter**, jedes begegnet dem Modell meist nur einmal:
+
+```
+Gegeben: (1) Alle nagi sind rado. (2) Alle rado sind rori. Ist rori ein nagi?
+Gegeben: (1) Alle visi sind kibi. (2) Alle kibi sind dume. ... Ist dume ein vapi?
+```
+
+**Der Korpus `mix62`:** `mix46` **ohne** den alten Logik-Shard (1 500 Aufgaben verworfen) plus
+**4 000** neue Logik-Aufgaben mit zufaelligen Nomen. Gesamt 43 274 Records.
+
+**Hypothese:** die Logik erreicht auf **neuen** Nomen **ueber 90 Prozent** — dann hat das Modell die
+Transitivitaetsregel gelernt statt der Woerter.
+
+**Entscheidungsregel:**
+
+> **Ueber 90** = die Regel ist lernbar, das Modell brauchte nur Daten, an denen Auswendiglernen
+> scheitert. Das waere die wichtigste Korrektur des Projekts: **Auswendiglernen ist eine
+> Eigenschaft der Daten, nicht des Modells.**
+>
+> **Um 50** = das Modell kann die Transitivitaet nicht aus zwei Ziffern-freien Saetzen ableiten.
+> Dann ist es eine echte Grenze bei 24 Mio Parametern.
+
+**Warum dieser Test mehr wert ist als jede andere Zahl des Tages:** er trennt zum ersten Mal
+sauber zwischen "gelernt" und "auswendig gelernt" — nicht durch ein Etikett, sondern durch die
+**Unmoeglichkeit**, die Woerter zu memorieren.
