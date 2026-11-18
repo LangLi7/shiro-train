@@ -3191,3 +3191,29 @@ Speicher und haelt sie, bis das neue Manifest geschrieben ist.
 **Was der Lauf `mix58` trotzdem gezeigt hat:** die Daten waren richtig aufgesetzt (50 774 Records,
 697 Bytes pro Record, Kopie-Anteil 20 Prozent). Er ist **nicht an den Daten gescheitert**, sondern
 am Speicher — das ist ein neuer, behebbarer Fehler und kein Rueckschritt bei der Frage.
+
+## Runde 231 — `data combine` durch Streaming-Merge ersetzt: 57 statt 99 Prozent
+
+**Der Fix zum RAM-Peak aus Runde 230:** statt `shiro data combine` (das alle Records aller
+Quellen in den Speicher laedt) werden die Shards **byteweise kopiert** und nur die Manifeste
+zusammengefuehrt. Ein Skript (`werkzeug/merge-manifest.py`) macht das in Python, ohne die Daten
+anzufassen.
+
+| | `data combine` | **Streaming-Merge** |
+|---|---|---|
+| RAM-Spitze | **99,2 Prozent** | **57 Prozent** |
+| Korpus | 50 774 Records | 50 774 Records (identisch) |
+| Bytes/Record | 697 | 697 |
+
+**Der Korpus ist derselbe, nur der Weg dorthin ist ein anderer.** Damit ist der Speicher keine
+Grenze mehr fuer 100M: der Korpus fuer das 100M-Modell (453 MB) liesse sich mit demselben
+Verfahren bauen.
+
+**Ein Nebenbefund:** `shiro validate-data` meldet fuer den Text-Shard "Spezialbyte 0xFE fehlt" —
+das ist **kein Fehler**, sondern die Erwartung des Pruefers, die nur fuer Aufgaben-Shards gilt.
+Text-Records haben kein `<AUFGABE>`-Byte. Der Trainer akzeptiert sie (er hat `mix46` mit
+denselben Shards trainiert), der Pruefer ist an dieser Stelle zu streng.
+
+**Der Lauf `mix58` (10 000 eigene Kopie-Records, Gesamtkorpus 50 774) laeuft mit stabilem
+Speicher.** Er ist der eigentliche Test der Vielfalt-Regel: der Korpus waechst um 25 Prozent,
+die neue Familie macht 20 Prozent aus, zwei Durchlaeufe statt vierzig.
