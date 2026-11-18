@@ -4099,3 +4099,30 @@ gleich: **das Modell kann Zeichen nicht zuverlaessig aus dem Prompt uebernehmen.
 Ziffern, jetzt sind es Buchstaben.
 
 **Der Lauf wurde gestoppt.** 1000 weitere Schritte haetten dieselbe Rate produziert.
+
+## Runde 256 — Nomen mit verschiedener Laenge: der billigste offene Test
+
+**Die Beobachtung aus Runde 255:** die zufaelligen Nomen waren alle **vier Zeichen** und hatten
+**dieselbe Form** (`nagi`, `rado`, `rori`, `visi`, `kibi`). Das Modell kopierte sie falsch — und
+die Frage war, ob das an der Zeichenbindung liegt oder an der Aehnlichkeit.
+
+**Der Test: genau ein Faktor — die Laenge der Nomen.**
+
+```
+vorher (mix62):  nagi, rado, rori, visi, kibi          (immer 4 Zeichen, 2 Silben)
+nachher (mix63): vadeba, ne, dumakese, lo, pometabo    (1 bis 4 Silben, 2 bis 10 Zeichen)
+```
+
+**Alles andere identisch:** 4 000 Logik-Aufgaben, derselbe Korpus-Aufbau (mix46 ohne den alten
+Logik-Shard), 3 000 Schritte, derselbe Ausgangspunkt.
+
+**Hypothese:** unterscheidbare Nomen heben die Logik deutlich ueber 60 Prozent — dann war die
+Aehnlichkeit das Problem, nicht die Zeichenbindung.
+
+**Entscheidungsregel:**
+
+> **Ueber 80** = das Modell kann Zeichen binden, wenn sie unterscheidbar sind. Dann ist die
+> Grenze aus Runde 255 **zurueckzuziehen** und die Aufgaben muessen nur besser gebaut werden.
+>
+> **Um 60 wie vorher** = die Aehnlichkeit war es nicht. Dann bleibt die Zeichenbindung die Grenze,
+> und sie ist die vierte Bestaetigung derselben Ursache.

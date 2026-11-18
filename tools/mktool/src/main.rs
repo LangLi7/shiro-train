@@ -1239,7 +1239,10 @@ fn rand_noun(rng: &mut Rng) -> String {
     const KONS: [&str; 13] = ["b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v"];
     const VOK: [&str; 5] = ["a", "e", "i", "o", "u"];
     let mut s = String::new();
-    for _ in 0..2 {
+    // 1 to 4 syllables: the nouns must differ in LENGTH too, not only in letters. In round 255
+    // every noun had four characters and the same shape, and the model could not tell them apart.
+    let silben = 1 + rng.below(4);
+    for _ in 0..silben {
         s.push_str(KONS[rng.below(KONS.len() as u64) as usize]);
         s.push_str(VOK[rng.below(VOK.len() as u64) as usize]);
     }
@@ -5896,6 +5899,7 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
 
 
 
