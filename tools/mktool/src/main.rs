@@ -4375,6 +4375,75 @@ fn main() {
         write_shard(&out, &recs, seed, "lex");
         println!("lexpack: {} Aufgaben -> {}", recs.len(), out.display());
         return;
+    }    if args.len() > 4 && args[1] == "--disjunkt" {
+        // Remove test records whose task already appears in a training corpus. The only proof
+        // of a clean split is a set comparison of the task texts - the generator seed cannot
+        // guarantee it (round 246: 38 percent of the addition test tasks were in the training).
+        let test_shard = PathBuf::from(&args[2]);
+        let train_dir = PathBuf::from(&args[3]);
+        let out = PathBuf::from(&args[4]);
+        let mut aufgaben: std::collections::HashSet<u64> = std::collections::HashSet::new();
+        let mut shards = 0usize;
+        for eintrag in fs::read_dir(&train_dir).expect("Trainingsordner lesbar") {
+            let p = eintrag.expect("Eintrag").path();
+            if p.extension().and_then(|s| s.to_str()) != Some("bin") {
+                continue;
+            }
+            let bytes = match fs::read(&p) {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+            shards += 1;
+            let mut i = 32usize;
+            while i + 2 <= bytes.len() {
+                let len = u16::from_le_bytes([bytes[i], bytes[i + 1]]) as usize;
+                let start = i + 2;
+                if start + len > bytes.len() {
+                    break;
+                }
+                let rec = &bytes[start..start + len];
+                // rec begins with B_TASK; the task text runs to the NEXT marker.
+                let erster = rec
+                    .iter()
+                    .skip(1)
+                    .position(|b| *b == B_TASK || *b == B_THINK || *b == B_ANSWER || *b == B_END)
+                    .map(|p| p + 1)
+                    .unwrap_or(rec.len());
+                aufgaben.insert(hash64(&rec[1..erster]));
+                i = start + len;
+            }
+        }
+        let bytes = fs::read(&test_shard).expect("Test-Shard lesbar");
+        let mut recs: Vec<Vec<u8>> = Vec::new();
+        let mut verworfen = 0usize;
+        let mut i = 32usize;
+        while i + 2 <= bytes.len() {
+            let len = u16::from_le_bytes([bytes[i], bytes[i + 1]]) as usize;
+            let start = i + 2;
+            if start + len > bytes.len() {
+                break;
+            }
+            let rec = &bytes[start..start + len];
+            let erster = rec
+                .iter()
+                .skip(1)
+                .position(|b| *b == B_TASK || *b == B_THINK || *b == B_ANSWER || *b == B_END)
+                .map(|p| p + 1)
+                .unwrap_or(rec.len());
+            if aufgaben.contains(&hash64(&rec[1..erster])) {
+                verworfen += 1;
+            } else {
+                recs.push(rec.to_vec());
+            }
+            i = start + len;
+        }
+        let behalten = recs.len();
+        write_shard(&out, &recs, 4242, "disjunkt");
+        println!(
+            "disjunkt: {} Trainings-Shards, {} Aufgaben; {} Tests behalten, {} verworfen -> {}",
+            shards, aufgaben.len(), behalten, verworfen, out.display()
+        );
+        return;
     }    if args.len() > 4 && args[1] == "--teilsatz" {
         // Take only the first N records of a shard: tests whether variety alone is the
         // limiting factor, without adding any new task family.
@@ -5748,6 +5817,8 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
 
 
 

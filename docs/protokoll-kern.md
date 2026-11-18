@@ -3823,3 +3823,37 @@ Regressionstabelle stehen, aber mit dem Vermerk, dass die Trennung nicht gesiche
 **Was das fuer die 124 Runden davor heisst:** die *Richtung* der Befunde bleibt (Etikett hilft,
 mehr Beispiele helfen, Ziffernvergleich ist die Grenze), aber die **absoluten Werte** sind nicht
 belastbar. Das ist ein Unterschied, den ich nicht verwischen werde.
+
+## Runde 248 — Saubere Held-out-Messung: Addition 100, Gleichungen 91,9
+
+**Der Filter (`mktool --disjunkt`) vergleicht die Aufgabentexte als Mengen und entfernt jede
+Testaufgabe, die im Trainingskorpus steht. Ergebnis der Filterung:**
+
+| Familie | Test-Aufgaben | davon im Training | **sauber** |
+|---|---|---|---|
+| Addition | 60 | **23 (38 %)** | **37** |
+| Gleichungen | 40 | **3 (7,5 %)** | **37** |
+
+**Die Messung auf den sauberen Saetzen:**
+
+| Familie | n | Weg | Antwort | Klasse | vorher (verunreinigt) |
+|---|---|---|---|---|---|
+| **Addition** | 37 | **100** | **100** | **100** | 98,3 |
+| **Gleichungen** | 37 | **91,9** | **91,9** | **100** | 92,5 |
+
+**Das ist das beste Ergebnis des Projekts, und es ist diesmal belastbar:** beide Familien liegen
+auf Aufgaben, die das Modell **nachweislich nie gesehen hat**, ueber 90 Prozent. Die Addition
+sogar bei 100 — **sie war nicht auswendig gelernt, sie generalisiert.**
+
+**Was die Filterung ueber die alten Zahlen sagt:** die Addition war mit 98,3 **konservativ**
+geschaetzt (sauber: 100), die Gleichungen mit 92,5 **leicht zu hoch** (sauber: 91,9). Der
+Unterschied ist klein — die Ueberlappung von 38 Prozent hat das Ergebnis also **nicht** getragen.
+Das ist die gute Nachricht: die Rechenfaehigkeiten sind echt.
+
+**Was noch offen ist:** fuer Logik, Sprachlogik, Multiplikation und Ketten gibt es **keine
+brauchbaren Test-Shards** — entweder fehlen sie oder der Dump liest sie nicht. Diese Familien
+bleiben ohne belastbare Zahl, und das steht so im Protokoll.
+
+**Der Fix ist im Werkzeug:** `mktool --disjunkt <test-shard> <trainings-ordner> <ziel>` prueft
+jede Testaufgabe gegen den gesamten Trainingskorpus. **Ab jetzt geht keine Zahl mehr in die
+Regressionstabelle, die nicht durch diesen Filter gegangen ist.**
