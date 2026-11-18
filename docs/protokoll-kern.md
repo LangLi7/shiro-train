@@ -4126,3 +4126,41 @@ Aehnlichkeit das Problem, nicht die Zeichenbindung.
 >
 > **Um 60 wie vorher** = die Aehnlichkeit war es nicht. Dann bleibt die Zeichenbindung die Grenze,
 > und sie ist die vierte Bestaetigung derselben Ursache.
+
+## Runde 257 — Laengere Nomen helfen nicht. Die Zeichenbindung bleibt die Grenze.
+
+**Vergleich der beiden Varianten, gleicher Aufbau, nur die Nomen unterscheiden sich:**
+
+| Schritte | kurze Nomen (mix62) | **lange Nomen (mix63)** |
+|---|---|---|
+| 500 | 36,7 | 26,7 |
+| 1000 | 53,3 | — |
+| 1500 | — | **51,7** |
+| 2000 | 60,0 | — |
+
+**Kein Unterschied im Verlauf.** Die laengeren Nomen starten langsamer (26,7 gegen 36,7), holen
+auf und liegen bei 1500 auf demselben Niveau, das die kurzen bei 1000 hatten.
+
+**Damit ist die Hypothese aus Runde 256 widerlegt:** die Aehnlichkeit der Nomen war **nicht** das
+Problem. Sie zu unterscheiden macht es nicht leichter, weil das Modell sie ohnehin nicht kopieren
+kann.
+
+**Und die Zufallsrate bleibt der Massstab:** bei einer Ja/Nein-Frage sind 50 Prozent kein Koennen.
+Beide Varianten liegen zwischen 50 und 60 — **also im Raten.**
+
+**Die Grenze ist damit zum fuenften Mal bestaetigt, mit einer neuen unabhaengigen Variation:**
+
+| Runde | Variation | Ergebnis |
+|---|---|---|
+| 195 | Ziffern beim Uebertrag | 24 % |
+| 240 | zwei Ziffern vergleichen | 51,7 % |
+| 251 | 30 feste Nomen | 1,7 % auf neuen Ketten |
+| 255 | zufaellige Nomen, 4 Zeichen | 60 % (Zufall 50) |
+| **257** | **zufaellige Nomen, 2–10 Zeichen** | **51,7 % (Zufall 50)** |
+
+**Fuenf Variationen, eine Ursache.** Das Modell bindet keine Zeichen aus dem Prompt — weder Ziffern
+noch Buchstaben, weder kurze noch lange, weder aehnliche noch unterscheidbare.
+
+**Der Lauf wurde gestoppt.** Nach 2000 Schritten waren es mit den kurzen Nomen 60 Prozent; die
+langen liegen bei 1500 auf 51,7 und wuerden denselben Verlauf nehmen. Weitere 1500 Schritte
+haetten keine neue Information gebracht.
