@@ -3528,3 +3528,44 @@ Urteil: 8x + 18 = 8x + 24.   Links minus rechts ergibt 0 = 6.
 ```
 
 Wenn das hilft, ist der Ziffernvergleich die Grenze — nicht das Urteil.
+
+## Runde 240 — Plateau bei 51,7 Prozent. Der Ziffernvergleich ist die Grenze.
+
+| Schritte | Urteil Antwort | Urteil Klasse | Addition |
+|---|---|---|---|
+| 500 | 48,3 | 98,3 | 100 |
+| 1000 | 51,7 | 100 | — |
+| **1500** | **51,7** | **100** | **100** |
+
+**Bei 1000 und 1500 Schritten exakt derselbe Wert.** Das ist kein Zufall, sondern ein **Plateau**:
+mehr Schritte bringen nichts mehr. Der Lauf wurde gestoppt, statt 1500 weitere Schritte zu
+verpulvern, die absehbar dasselbe Ergebnis liefern.
+
+**Was das Plateau bedeutet:** das Modell hat gelernt, was aus den Beispielen lernbar ist —
+das **Format** (Klasse 100 Prozent) und die **haelfte der Faelle** (51,7). Die andere Haelfte
+scheitert an genau einer Stelle:
+
+```
+8x + 18 = 8x + 18   ->  0 = 0    nicht ableitbar
+8x + 18 = 8x + 24   ->  0 = 6    widerlegt
+```
+
+**Zwei Aufgaben, die sich in einer Ziffer unterscheiden.** Das Modell muss diese eine Ziffer an
+einer festen Stelle lesen und mit einer anderen vergleichen. Genau dieser Schritt ist im Projekt
+jetzt zum **dritten Mal** die Grenze: dreistellige Addition (Uebertrag), fuenfstellige
+Multiplikation, und jetzt der Ziffernvergleich beim Urteil.
+
+**Was das nicht ist:** kein Kapazitaetsproblem und kein Datenmengenproblem. Die geschuetzte
+Familie haelt bei 100, das Format sitzt bei 100, und 12 000 Beispiele haben den Wert von 30 auf
+51,7 gehoben. **Es ist eine Faehigkeit, die das Modell bei dieser Groesse nicht ausbildet** — und
+sie ist mit jeder weiteren Aufgabenform, die Ziffern vergleicht, dieselbe.
+
+**Die naechste Hypothese, vor dem Test festgelegt:** wenn die Aufgabe den Vergleich **nicht
+verlangt**, sondern liefert, faellt der Ziffernschritt weg:
+
+```
+Urteil: 8x + 18 = 8x + 24.   Links minus rechts ergibt 0 = 6.
+```
+
+Wenn das ueber 90 Prozent erreicht, ist bewiesen, dass nicht das Urteil, sondern der
+**Vergleich** die Grenze ist. Wenn es ebenfalls bei 51 bleibt, liegt es tiefer.
