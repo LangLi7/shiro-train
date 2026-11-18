@@ -4446,3 +4446,42 @@ Addition genuegte eine einzige Maßnahme (Vielfalt) fuer 93,3.
 **Der Unterschied ist die Zahl der Schritte:** die Addition hat zwei (Ziffer, Uebertrag), die Logik
 hat drei bis sieben (Kette lesen, transitiv schliessen, Frage pruefen). **Bei 24 Mio Parametern und
 8 Schichten ist das offenbar die Grenze** — nicht die Form, nicht das Etikett, nicht die Datenmenge.
+
+## Runde 266 — Auch die zweistellige Multiplikation ist 0 Prozent
+
+**Die Frage:** ist die Multiplikation nur bei fuenfstelligen Zahlen zu schwer? Das Modell hatte
+`10759*3536` nie geloest (0 Prozent auf neuen Aufgaben).
+
+**Der Test:** 200 Aufgaben der Form `98*2`, `73*8`, `40*7` — **zweistellig mal einstellig**.
+Gegen den gesamten Trainingskorpus gefiltert (**0 von 200 verworfen**), dann gemessen.
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **`98*2` (zweistellig)** | 30 | 0 | **0** | 100 |
+
+**Auch die einfachste Multiplikation gelingt nicht.** Die Klasse ist 100 (das Modell gibt eine
+Zahl aus), aber **keine einzige ist richtig**.
+
+**Was das zeigt, und es ist nicht das, was ich erwartet hatte:** das Modell scheitert nicht an der
+**Zahlengroesse**, sondern am **Format des Weges**. Die trainierten Aufgaben haben eine
+Spaltenzerlegung (`1. Zerlege 3536 in 3*1000 + 5*100 + ...`), die zweistelligen eine andere
+(`1. Zerlege 2 in 2*1. 2. 98*2=196.`). **Das Modell hat die eine Form gelernt und kann die andere
+nicht.**
+
+**Damit ist die Multiplikation der vierte Fall derselben Ursache** — und der deutlichste: nicht die
+Schwierigkeit, sondern die **Form des Weges** entscheidet.
+
+**Die vollstaendige Bilanz, alles auf held-out Daten:**
+
+| Familie | Antwort | Verdikt |
+|---|---|---|
+| **Addition** | **100** | generalisiert |
+| **Addition, neue Formulierung** | **93,3** | abstrahiert |
+| **Sprachlogik** | **96,7** | generalisiert |
+| **Gleichungen** | **91,9** | generalisiert |
+| Logik | 62,5 | drei Maßnahmen, keine reicht |
+| Urteil | 61,7 | eine Form |
+| Multiplikation | 0 | andere Wegform, nicht gelernt |
+
+**Vier Familien ueber 90, drei darunter.** Und bei allen drei darunter ist die Ursache jetzt
+dieselbe, die schon die Addition geloest hat: **die Form des Weges**.
