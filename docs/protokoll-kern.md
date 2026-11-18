@@ -3788,3 +3788,38 @@ das ist ein eigener Fehler.
 
 **Was ich nicht mache:** die alten Zahlen weiter als Ergebnis darstellen. Sie bleiben in der
 Regressionstabelle stehen, aber mit dem Vermerk, dass die Trennung nicht gesichert ist.
+
+## Runde 247 — Ueberlappung je Familie: zwei messbar, drei nicht pruefbar
+
+**Die Pruefung aus Runde 246, auf alle Familien ausgedehnt:**
+
+| Familie | Trainings-Aufgaben | Test-Aufgaben | **Ueberlappung** |
+|---|---|---|---|
+| **Addition** | 1 500 | 60 | **23 = 38 %** |
+| **Gleichungen** | 1 410 | 40 | **3 = 7,5 %** |
+| Sprachlogik | — | 60 | **nicht pruefbar** (Dump liefert 0 Zeilen) |
+| Logik | 500 | — | **kein Test-Shard vorhanden** |
+| Multiplikation | 500 | — | **kein Test-Shard vorhanden** |
+
+**Damit sind die bisherigen Zahlen so zu lesen:**
+
+- **Addition 98,3**: **Obergrenze.** Bei 38 Prozent Ueberlappung ist ein erheblicher Teil
+  Auswendiglernen. Der wahre Wert liegt tiefer und ist **unbekannt**.
+- **Gleichungen 92,5**: leicht ueberschaetzt (7,5 Prozent), aber im Wesentlichen belastbar.
+- **Sprachlogik 96,7, Logik 97,5**: **nicht belegt** — fuer diese Familien gibt es entweder keinen
+  Test-Shard oder der Dump liest ihn nicht. Die Zahlen stammen aus frueheren Messungen, deren
+  Trennung nie geprueft wurde.
+
+**Das ist die unbequemste Bilanz des ganzen Projekts:** vier Familien ueber 90 Prozent — und fuer
+**drei davon ist nicht nachgewiesen**, dass die Testaufgaben nicht im Training standen.
+
+**Was als naechstes zwingend ist, vor jedem weiteren Training:**
+
+1. **Ein Testdatensatz, der nachweislich disjunkt ist** — der Mengenvergleich der Aufgabentexte
+   ist der Nachweis, nicht der Generator.
+2. **Fuer jede Familie ein eigener Test-Shard**, der nie in einen Trainingskorpus eingeht.
+3. **Erst dann** sind die Zahlen wieder Aussagen ueber Faehigkeiten statt ueber Auswendiglernen.
+
+**Was das fuer die 124 Runden davor heisst:** die *Richtung* der Befunde bleibt (Etikett hilft,
+mehr Beispiele helfen, Ziffernvergleich ist die Grenze), aber die **absoluten Werte** sind nicht
+belastbar. Das ist ein Unterschied, den ich nicht verwischen werde.
