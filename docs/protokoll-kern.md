@@ -4351,3 +4351,29 @@ kleine Verlust. Bei 59 274 Records und 20 000 Logik-Aufgaben (34 Prozent) ist da
 **Was das fuer die Logik bedeutet:** sie braucht entweder **mehr Formen derselben Struktur** (statt
 fuenf verschiedener Strukturen) oder **mehr Beispiele pro Form**. Der Weg ist nicht verschlossen,
 aber er ist nicht derselbe wie bei der Addition.
+
+## Runde 263 — Strukturerhaltende Paraphrasen fuer die Logik
+
+**Die Lehre aus Runde 262, umgesetzt:** dort hatten die Paraphrasen die **Struktur** geaendert
+(`WENN A zu B gehoert` statt `Alle A sind B`) — und die Logik blieb beim Raten (45 Prozent).
+Bei der Addition hatten sie nur die **Worte um denselben Ausdruck** geaendert, und der Transfer
+sprang auf 93,3.
+
+**Jetzt: dieselbe Struktur, fuenf Hullen.**
+
+| | Form |
+|---|---|
+| 1 | `(1) Alle A sind B. (2) Alle B sind C. Ist A ein C?` |
+| 2 | `Alle A sind B. Alle B sind C. Ist A ein C?` |
+| 3 | `Alle A sind B. Alle B sind C. Frage: Ist A ein C?` |
+| 4 | `Es gilt: Alle A sind B. Alle B sind C. Daraus folgt: Ist A ein C?` |
+| 5 | `Alle A sind B. Alle B sind C. Gilt dann: A ist C?` |
+| **Test** | **`Alle A sind B. Alle B sind C. Stimmt es, dass A ein C ist?`** |
+
+**Nomen bleiben zufaellig** (16 900 moegliche) — Auswendiglernen ist weiter ausgeschlossen.
+
+**Hypothese:** die sechste Form erreicht **ueber 80 Prozent** — dann war die Struktur-Aenderung
+schuld, nicht die Logik selbst.
+
+**Der Korpus `mix66`:** `mix46` ohne den alten Logik-Shard plus **20 000 Records** in fuenf
+strukturerhaltenden Formen. Gesamt 59 274 — identisch mit `mix65`, nur die Formen sind andere.
