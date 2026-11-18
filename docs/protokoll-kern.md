@@ -4509,3 +4509,39 @@ dieselbe Gleichung, derselbe Vergleich, fuenf Hullen.
 **Etikett**, **Beispielzahl** und **gelieferten Vergleich** einzeln geprueft habe — und alle drei
 zusammen nur 61,7 ergaben. Wenn die Formenvielfalt jetzt wirkt, ist sie die vierte und
 entscheidende Maßnahme.
+
+## Runde 268 — Fuenf Formen helfen beim Urteil nicht: 58 Prozent
+
+| Variante | Antwort | Klasse |
+|---|---|---|
+| `mix53` — eine Form, 3 000 Beispiele | 30 | 66,7 |
+| `mix60` — eine Form, 12 000 Beispiele | 51,7 | 100 |
+| `mix61` — Vergleich geliefert | 61,7 | 98,3 |
+| **`mix68` — fuenf Formen, 12 000 Aufgaben** | **58** | **98** |
+
+**Die Formenvielfalt bringt beim Urteil nichts.** 58 Prozent gegen 61,7 mit einer einzigen Form —
+das ist innerhalb der Schwankung, eher schlechter.
+
+**Und die Addition haelt bei 100** — auf denselben 37 held-out Aufgaben, obwohl der Korpus auf
+99 361 Records gewachsen ist.
+
+**Damit ist die Urteils-Familie nach vier unabhaengigen Maßnahmen bei etwa 60 Prozent:**
+
+| Maßnahme | Effekt |
+|---|---|
+| Etikett | +18 (11,7 -> 30) |
+| mehr Beispiele (3 000 -> 12 000) | +21 (30 -> 51,7) |
+| Vergleich liefern | +10 (51,7 -> 61,7) |
+| **fuenf Formen** | **−3,7 (61,7 -> 58)** |
+| **Summe** | **von 11,7 auf 58-62** |
+
+**Was das unterscheidet vom Erfolg bei der Addition:** dort sprang **eine** Maßnahme (Formen) von
+0 auf 93,3. Hier summieren sich drei Maßnahmen muehsam auf 58, und die vierte hilft nicht mehr.
+
+**Die Erklaerung, die alle Befunde zusammenhaelt:** die Addition hat **zwei** Schritte (Ziffer,
+Uebertrag), das Urteil hat **drei** (Differenz bilden, mit 0 vergleichen, Klasse zuordnen). Bei
+24 Mio Parametern und 8 Schichten ist das offenbar die Grenze — **jede zusaetzliche Stufe kostet
+mehr, als die Daten wiedergutmachen.**
+
+**Das Urteil bleibt damit die groesste Luecke im Auftrag** — und sie ist mit 24M nicht zu
+schliessen. Die vierte Maßnahme war die letzte, die auf der Datenseite moeglich war.
