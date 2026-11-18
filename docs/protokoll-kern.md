@@ -4768,3 +4768,39 @@ jede muss einmal mit mehr Schritten nachgeprueft werden, bevor sie als Grenze gi
 
 **Was noch aussteht:** das Urteil (58 bei 500 Schritten) und die Multiplikation (0) sind nach
 derselben Regel noch nicht nachgeprueft.
+
+## Runde 275 — DURCHBRUCH: Das Urteil springt von 58 auf 90 Prozent
+
+**Derselbe Korpus (`mix68`), derselbe Ausgangspunkt, nur mehr Schritte:**
+
+| Schritte | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 500 | 6 | **58** | 98 |
+| **1000** | **68** | **90** | **100** |
+
+**Plus 32 Punkte.** Das Urteil war **untertrainiert**, nicht am Limit.
+
+**Und die Addition haelt bei 100** — auf denselben 37 held-out Aufgaben, trotz 99 361 Records im
+Korpus.
+
+**Damit ist die Regel aus Runde 273 bestaetigt und zum zweiten Mal angewendet:**
+
+> **Keine Zahl ist ein Endstand, bevor sie mit mindestens 1000 Schritten gemessen wurde.**
+
+**Was sich damit aendert:**
+
+| Familie | bei 500 | bei 1000–1500 | Verdikt |
+|---|---|---|---|
+| Addition, zweistellig | 73 | **91,9** | untertrainiert |
+| Addition, dreistellig | 15 | **97,5** | untertrainiert |
+| **Urteil** | **58** | **90** | **untertrainiert** |
+| Logik | 62,5 | 62,5 | **am Limit** (geprueft) |
+
+**Drei von vier "Grenzen" waren Trainingsstaende.** Nur die Logik hat die Nachpruefung nicht
+bestanden.
+
+**Was das fuer das Projekt bedeutet:** die letzten fuenf Runden haben mehr bewegt als die achtzig
+davor — nicht durch neue Daten, sondern durch **laengeres Training und ehrliche Nachmessung**.
+
+**Was noch offen ist:** die **Multiplikation** (0 bei 500 Schritten) ist die letzte Familie, die
+diese Nachpruefung nicht hatte.
