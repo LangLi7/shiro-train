@@ -4164,3 +4164,39 @@ noch Buchstaben, weder kurze noch lange, weder aehnliche noch unterscheidbare.
 **Der Lauf wurde gestoppt.** Nach 2000 Schritten waren es mit den kurzen Nomen 60 Prozent; die
 langen liegen bei 1500 auf 51,7 und wuerden denselben Verlauf nehmen. Weitere 1500 Schritte
 haetten keine neue Information gebracht.
+
+## Runde 258 — Auch die Multiplikation war auswendig: 0 Prozent auf neuen Aufgaben
+
+**Der Test:** 300 Multiplikationsaufgaben frisch erzeugt (fuenfstellig mal vierstellig), gegen den
+gesamten Trainingskorpus gefiltert (**0 von 300 verworfen** — alle neu), dann gemessen.
+
+| Familie | n | Weg | Antwort | Klasse | auf alten Testdaten |
+|---|---|---|---|---|---|
+| **Multiplikation** | 40 | 0 | **0** | 80 | **90** |
+
+**Von 90 auf 0.** Die Klasse bleibt bei 80 (das Format stimmt), aber **keine einzige Antwort ist
+richtig**.
+
+**Die vollstaendige Bilanz, jetzt mit geprueften Testdaten:**
+
+| Familie | Held-out | Verdikt |
+|---|---|---|
+| **Addition** | **100** | generalisiert |
+| **Sprachlogik** | **96,7** | generalisiert |
+| **Gleichungen** | **91,9** | generalisiert |
+| Urteil | 61,7 | unter Ziel |
+| Logik | 60 | raet (Zufall 50) |
+| **Multiplikation** | **0** | **auswendig** |
+
+**Drei von sechs Familien generalisieren, drei nicht.** Und die drei, die es nicht tun, haben
+verschiedene Ursachen:
+
+- **Multiplikation (0)**: die Aufgaben sind zu lang (`10759*3536` mit 9 Schritten im Weg). Das
+  Modell kann die Ziffernfolge nicht halten. **Nicht ueberraschend bei 24 Mio Parametern** — die
+  Aufgabe verlangt, neun Ziffern ueber neun Schritte zu verfolgen.
+- **Logik (60)**: raet bei Ja/Nein, weil es die Nomen nicht kopiert.
+- **Urteil (61,7)**: liest die entscheidende Ziffer nicht.
+
+**Zwei davon sind dieselbe Ursache (Zeichenbindung), eine ist eine andere (Länge der Rechnung).**
+Das ist eine wichtige Unterscheidung: die Multiplikation scheitert nicht am Binden eines Zeichens,
+sondern am **Halten einer ganzen Ziffernfolge ueber viele Schritte**.
