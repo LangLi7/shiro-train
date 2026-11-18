@@ -3933,3 +3933,43 @@ Familie belastbar waren — und es ist der dritte belegte Fall nach Addition (10
 **Drei Familien sind damit sauber ueber 90, eine ist es nicht, drei sind offen.** Die offenen drei
 haben keine eigene Split-Variable im Generator — fuer sie muss der Testdatensatz neu erzeugt und
 gefiltert werden.
+
+## Runde 251 — Die Logik war auswendig gelernt: 1,7 Prozent auf neuen Aufgaben
+
+**Der Test:** 300 Logik-Aufgaben frisch erzeugt (Seed 77001), gegen den gesamten Trainingskorpus
+gefiltert (**0 von 300 verworfen** — alle waren neu), dann gemessen.
+
+| Familie | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Logik, neue Aufgaben** | 60 | 0 | **1,7** | 1,7 |
+| Logik, alte Testdaten (im Training) | 40 | 87,5 | 97,5 | 97,5 |
+
+**Von 97,5 auf 1,7.** Das Modell antwortet auf eine neue Kette mit Kauderwelsch:
+
+```
+Aufgabe: Gegeben: (1) Alle Yaro sind Dorn. (2) Alle Dorn sind Brix. ... Ist Brix ein Jorik?
+Modell : 1. Jorik in Jorie. 2. Kin Ariek. Jorik in Jorik. ... 2. Kein BRUCH. Also Jorik in Fenn.
+Gold   : ja
+```
+
+**Das ist der wichtigste Befund des Tages, und er ist unangenehm:** die Logik-Familie hat **nicht
+die Transitivitaetsregel gelernt**, sondern die **Aufgaben auswendig**. Auf den Testdaten, die im
+Training standen, antwortet sie richtig (97,5) — auf neuen Ketten derselben Form gar nicht (1,7).
+
+**Was das ueber die anderen Familien sagt, ist die eigentliche Frage:**
+
+| Familie | Wert auf alten Testdaten | Wert auf neuen Aufgaben | Verdikt |
+|---|---|---|---|
+| Addition | 98,3 | **100** (37 sauber) | **generalisiert** |
+| Gleichungen | 92,5 | **91,9** (37 sauber) | **generalisiert** |
+| Sprachlogik | 96,7 | **96,7** (60 sauber) | **generalisiert** |
+| **Logik** | **97,5** | **1,7** (60 sauber) | **auswendig** |
+| Urteil | — | 61,7 (60 sauber) | teilweise |
+
+**Drei Familien generalisieren, eine nicht.** Die Logik ist die einzige, deren Aufgaben sich nur in
+**Nomen und Kettenlaenge** unterscheiden — und genau daran scheitert das Modell. Es hat die
+konkreten Woerter gelernt, nicht die Regel.
+
+**Was das fuer das Ziel bedeutet:** die 90-Prozent-Marke auf **Trainingsdaten** ist keine Aussage
+ueber Faehigkeit. Der Auftrag verlangt sie auf **Held-out**, und dort stehen jetzt **drei** Familien
+(100 / 91,9 / 96,7) und **eine** faellt durch (1,7).
