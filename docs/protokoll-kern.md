@@ -4485,3 +4485,27 @@ Schwierigkeit, sondern die **Form des Weges** entscheidet.
 
 **Vier Familien ueber 90, drei darunter.** Und bei allen drei darunter ist die Ursache jetzt
 dieselbe, die schon die Addition geloest hat: **die Form des Weges**.
+
+## Runde 267 — Fuenf Formen fuer das Urteil
+
+**Die Methode, die bei der Addition von 0 auf 93,3 gefuehrt hat**, jetzt auf die Urteils-Familie:
+dieselbe Gleichung, derselbe Vergleich, fuenf Hullen.
+
+| | Form |
+|---|---|
+| 1 | `Urteil: 8x+18=8x+24 Links minus rechts ergibt 0 = 6.` |
+| 2 | `... Die Differenz ist 0 = 6.` |
+| 3 | `... Beide Seiten gegeneinander: 0 = 6.` |
+| 4 | `... Vergleich der Seiten: 0 = 6.` |
+| 5 | `... Links minus rechts: 0 = 6.` |
+| **Test** | **`... Was bleibt uebrig: 0 = 6.`** |
+
+**Der Korpus `mix68`:** `mix46` ohne den Gleichungs-Shard plus **60 000 Records** in fuenf Formen
+(12 000 Aufgaben mal fuenf). Gesamt **99 361** — der groesste Korpus bisher.
+
+**Hypothese:** die sechste Form erreicht **ueber 80 Prozent** (bisher 61,7 bei einer Form).
+
+**Warum das der wichtigste offene Test ist:** das Urteil ist die einzige Familie, bei der ich
+**Etikett**, **Beispielzahl** und **gelieferten Vergleich** einzeln geprueft habe — und alle drei
+zusammen nur 61,7 ergaben. Wenn die Formenvielfalt jetzt wirkt, ist sie die vierte und
+entscheidende Maßnahme.
