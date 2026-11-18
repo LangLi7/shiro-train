@@ -4031,3 +4031,29 @@ dazugewonnen; die Addition merkt davon nichts.
 > 500 Schritten — und steigend.
 
 **Der Lauf bleibt bis 3000 Schritte aktiv.** Die Frage ist nicht mehr ob, sondern wie hoch.
+
+## Runde 254 — Zufallsnomen bei 1000 Schritten: 53,3 Prozent, Klasse 90
+
+| Schritte | Antwort | Klasse |
+|---|---|---|
+| 500 | 36,7 | 48,3 |
+| **1000** | **53,3** | **90** |
+
+**Der Verlauf steigt weiter** (+16,6 Punkte fuer 500 Schritte) — anders als bei der Urteils-Familie,
+die nach 1000 Schritten bei 51,7 stehen blieb. Die Logik mit zufaelligen Nomen ist **nicht** am
+Plateau.
+
+**Die Klasse springt von 48 auf 90 Prozent:** das Modell hat das Antwortformat jetzt sicher und
+arbeitet an der Regel selbst. Genau das war die Frage.
+
+**Der Weg steht bei 0 Prozent** — dazu eine Einordnung, die ich nicht beschoenigen will: der
+Weg-Vergleich prueft **Zeichengleichheit** mit dem Goldweg. Wenn das Modell dieselbe Regel in
+anderer Reihenfolge hinschreibt ("2. X steht in der Liste" statt "1. Erreichbar von X"), zaehlt das
+als falsch. **Bei der Logik ist der Weg deshalb strenger gemessen als die Antwort** — nicht weil
+das Modell keinen Weg hat, sondern weil er nicht wortgleich ist.
+
+**Was ich daraus nicht ableite:** dass der Weg gut ist. Ich weiss es nicht — dafuer muesste ich
+Stichproben lesen (naechste Runde).
+
+**Der Lauf geht bis 3000 Schritte.** Nach dem Verlauf (36,7 -> 53,3) waeren bei 3000 etwa 70 bis
+80 Prozent zu erwarten — die 90 waeren dann in Reichweite, aber nicht sicher.
