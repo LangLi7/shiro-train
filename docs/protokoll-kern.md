@@ -3709,3 +3709,47 @@ und die sind lokal nicht erreichbar** (bei 561 Bytes/s waeren 100 000 Schritte 1
 **baubar und laeuft**, aber mit 10 Dollar ist es nicht trainierbar. **Der Sprung von 24M auf 100M
 kostet rund 135 Dollar** — das ist die ehrliche Zahl, und sie liegt ausserhalb des Budgets, das
 zur Verfuegung steht.
+
+## Runde 245 — Der 100M-Lauf ist durch, und er kann nichts. Das ist die ehrliche Antwort.
+
+**Der Lauf, vollstaendig:**
+
+| Wert | gemessen |
+|---|---|
+| Schritte | 600 |
+| Verlust | 5,86 -> **2,13** (bester 1,81) |
+| Bytes gesehen | 589 702 |
+| Dauer | 1 091 s |
+| Checkpoints | 3 (200, 400, 600) |
+| VRAM | 3,4 GB |
+
+**Und der Test danach:**
+
+```
+100M-nach-600-Schritten : keine Ausgabe
+```
+
+**Das Modell gibt nach 600 Schritten nicht einmal das Aufgabenformat aus.** Es hat in 589 702
+Bytes Text gelernt, Bytefolgen einigermassen vorherzusagen — fuer eine Aufgabe reicht das nicht
+im Entferntesten.
+
+**Das ist die wichtigste ehrliche Aussage dieser Runde:** ein 100M-Modell mit 7 Prozent des
+Chinchilla-Ziels ist **nicht besser als nichts**, sondern nur teurer. Die Architektur traegt
+(der Verlust faellt), aber die Faehigkeit entsteht erst mit den Bytes, und die fehlen.
+
+**Was das fuer die Entscheidung bedeutet:**
+
+| Frage | Antwort, gemessen |
+|---|---|
+| Passt 100M in 12 GB? | **ja**, 3,4 GB |
+| Laesst es sich lokal trainieren? | **ja**, 561 Bytes/s |
+| Reicht das fuer eine Faehigkeit? | **nein** — 600 Schritte ergeben 0 Prozent |
+| Was fehlt? | **rund 4 500-mal mehr Bytes** (2,65 Mrd statt 0,59 Mio) |
+| Was kostet das? | **135 Dollar** auf einer RTX 3090 |
+
+**Damit ist die Skalierungsfrage beantwortet, ohne sie zu vermuten:** das groessere Modell ist
+kein Weg, den man mit einem Zehntel des Budgets gehen kann. **Entweder 135 Dollar, oder die vier
+Familien bleiben das Ergebnis.**
+
+**Was ich nicht mache:** den 100M-Checkpoint als Fortschritt darstellen. Er ist ein
+Machbarkeitsnachweis — mehr nicht, und das steht so im Protokoll.
