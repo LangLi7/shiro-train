@@ -3400,3 +3400,42 @@ wenn das Messwerkzeug nicht geprueft wird.
 bekanntes Ergebnis pruefe, kann stundenlange Arbeit in die falsche Richtung schicken. **Die
 Referenz haette nach jeder Aenderung am Verifizierer erneut gemessen werden muessen — sie ist der
 einzige Anker, den dieses Projekt hat.**
+
+## Runde 236 — Alles neu gemessen: die Laeufe waren Erfolge, keine Ausfaelle
+
+**Mit dem reparierten Verifizierer, alle Checkpoints neu bewertet:**
+
+| Checkpoint | Familie | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|---|
+| `mix46` (Referenz) | Addition | 60 | 98,3 | 98,3 | 100 |
+| `mix46` | Sprachlogik | 60 | 96,7 | 96,7 | 100 |
+| `mix46` | Gleichungen | 40 | 92,5 | 92,5 | 100 |
+| `mix46` | Logik | 40 | 87,5 | 97,5 | 97,5 |
+| **`mix58`** | **Addition (geschuetzt)** | 40 | **100** | **100** | **100** |
+| **`mix58`** | **Kopie (neu gelernt)** | 60 | 28,3 | **45** | **85** |
+| `mix57` | Addition (nur 480 Records) | 40 | **100** | **100** | **100** |
+| `mix52` | Urteil **ohne** Etikett | 60 | 0 | **11,7** | 26,7 |
+| **`mix53`** | Urteil **mit** Etikett | 60 | 0 | **30** | **66,7** |
+| `mix53` | Addition (geschuetzt) | 40 | **100** | **100** | **100** |
+
+**Drei Befunde, die vorher als Totalausfaelle galten und keine sind:**
+
+1. **`mix58` hat funktioniert.** Die Kopie-Familie wurde mit **45 Prozent** gelernt, die Addition
+   blieb bei **100 Prozent**. Genau das war die Frage — und die Antwort ist ja.
+2. **`mix57` (480 Records) bricht nicht ein.** Die Addition haelt bei **100 Prozent**. Die
+   Vielfalt-These aus Runde 228 ist damit **widerlegt** — nicht die Datenmenge war das Problem.
+3. **Das Etikett wirkt.** Urteil ohne Etikett **11,7**, mit Etikett **30 Prozent Antwort** und
+   **66,7 Prozent Klasse** (gegen 26,7). Die Hypothese aus Runde 220 ist damit **bestaetigt** —
+   zum ersten Mal mit einer gueltigen Messung.
+
+**Was das fuer den Auftrag bedeutet:** Die geschuetzten Familien halten bei **jeder** Variante
+(100 Prozent Addition auf `mix53`, `mix57`, `mix58`). Neue Familien lassen sich hinzufuegen, ohne
+sie zu zerstoeren — das war die eigentliche Sorge der letzten Stunden und sie war unbegruendet.
+
+**Die Urteil-Familie ist noch nicht gut** (30 Prozent Antwort), aber sie ist **messbar vorhanden**
+und der Weg dorthin ist bekannt: mehr Beispiele, laenger trainieren. Das ist normale Arbeit, kein
+Prinzipienproblem.
+
+**Was der Tag gekostet hat:** acht Runden, die auf einen Skriptfehler gebaut waren. **Was er
+gebracht hat:** ein Verifizierer, der jetzt gegen ein bekanntes Ergebnis geprueft ist, und die
+Gewissheit, dass `mix46` mit 98,3 / 96,7 / 92,5 / 87,5 genau das kann, was es immer konnte.
