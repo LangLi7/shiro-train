@@ -4909,3 +4909,32 @@ liegen.
 **Warum das die wichtigste Messung des Projekts ist:** alle bisherigen Vergleiche — 58 gegen 90,
 73 gegen 91,9 — beruhen auf je **einem** Lauf. Wenn zwei Seeds bei derselben Aufgabe 20 Punkte
 auseinanderliegen, sind manche dieser Unterschiede Zufall.
+
+## Runde 279 — Die RAM-Wache hat viermal eingegriffen
+
+**Die Ausgabe der Wache, die seit dem fruehen Morgen lief:**
+
+| Zeit | RAM | Aktion |
+|---|---|---|
+| 02:01 | 93,9 % | Trainer gestoppt |
+| 02:10 | **99,2 %** | Trainer gestoppt (war `data combine`) |
+| 06:34 | 94,6 % | Trainer gestoppt |
+| 11:17 | 92,6 % | Trainer gestoppt |
+
+**Das ist ein wichtiger Befund fuer die Einordnung der Abbrueche:** ich habe mehrere
+"beendet"-Faelle dem Harness zugeschrieben ("Windows Job runner exited"). **Mindestens vier
+davon waren die RAM-Wache** — sie hat korrekt gehandelt (die Anforderung war: nie ueber 90 Prozent),
+aber sie hat damit auch Laeufe beendet, deren Ergebnis ich spaeter als Messwert verwendet habe.
+
+**Was das heisst:**
+
+1. **Die Anforderung "RAM nie ueber 90 Prozent" wurde verletzt** — viermal, mit einem Peak von
+   99,2 Prozent. Die Wache hat reagiert, aber erst **nach** dem Ueberschreiten.
+2. **Ein Teil der unerklaerten Abbrueche ist jetzt erklaert.** Nicht jeder "beendet"-Fall war ein
+   Fehler des Harness.
+3. **Die betroffenen Messungen sind nicht automatisch falsch** — aber ein Lauf, der bei 94 Prozent
+   Speicher gestoppt wurde, hat weniger Schritte gesehen als geplant.
+
+**Der Fix fuer die naechste Sitzung:** die Wache frueher warnen lassen (bei 80 Prozent) und den
+Trainer **vor** dem Ueberschreiten bremsen, statt ihn danach zu toeten. Und: `data combine` wird
+nicht mehr benutzt — der Streaming-Merge ersetzt es (Runde 231).
