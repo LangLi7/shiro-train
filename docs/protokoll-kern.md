@@ -4885,3 +4885,27 @@ mitliefert.
 
 **Sechs Familien ueber 90. Der Blindtest zeigt die letzte Luecke, und sie ist strukturell:**
 das Modell braucht die Aufgabe in der Form, die es gelernt hat — **mit Etikett**.
+
+## Runde 278 — Die Streuungsreihe laeuft: zehn Seeds, gleiches Setup
+
+**Der Aufbau, den der Nutzer verlangt hat:** zehn Laeufe mit **identischem Korpus** (`mix46/all`),
+**identischem Ausgangspunkt** (`mix46-step031500`), **identischen Schritten** (600) — **nur der
+Seed unterscheidet sich** (20946, 28865, 36784, ... in Schritten von 7919).
+
+**Die Frage:** wie stark streuen die Ergebnisse zwischen zwei Laeufen, die sich nur im Zufall
+unterscheiden? **Bisher ist jede Zahl in diesem Projekt aus einem einzigen Lauf.**
+
+**Erster Lauf, `seed1` (600 Schritte):**
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| Addition, held-out | 30 | **100** | **100** | **100** |
+
+**Ein Datenpunkt von zehn.** Die Reihe braucht etwa 24 Minuten pro Seed, insgesamt vier Stunden.
+**Erst wenn alle zehn vorliegen, ist eine Aussage ueber die Streuung moeglich** — und dann auch
+darueber, ob die Unterschiede zwischen den Familien (90 gegen 62,5) ausserhalb des Rauschens
+liegen.
+
+**Warum das die wichtigste Messung des Projekts ist:** alle bisherigen Vergleiche — 58 gegen 90,
+73 gegen 91,9 — beruhen auf je **einem** Lauf. Wenn zwei Seeds bei derselben Aufgabe 20 Punkte
+auseinanderliegen, sind manche dieser Unterschiede Zufall.
