@@ -4318,3 +4318,36 @@ Multiplikation (0) sind mit **einer** Formulierung trainiert. **Der Weg ist jetz
 Aufgabe in mehreren Formen, dann kann das Modell die Bedeutung lernen statt der Oberflaeche.
 
 **Das ist der erste Befund des Projekts, der eine echte Faehigkeit zeigt statt einer Form.**
+
+## Runde 262 — Die Logik profitiert nicht: 45 Prozent in der sechsten Form
+
+**Derselbe Aufbau wie bei der Addition, auf die Logik angewandt:** 4 000 Logik-Aufgaben in
+**fuenf Formulierungen** (20 000 Records), Test in einer **sechsten**, die nie vorkam
+(`WENN nagi zu rado gehoert, ... GILT DANN: ...`).
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Logik, sechste Form** | 40 | 0 | **45** | 55 |
+| Addition, held-out | 37 | 97,3 | **97,3** | 100 |
+
+**45 Prozent bei einer Ja/Nein-Frage heisst: Raten (Zufall 50).** Die Paraphrase-Methode hat hier
+**nicht** gewirkt — anders als bei der Addition (0 → 93,3).
+
+**Warum der Unterschied, und das ist der eigentliche Befund:**
+
+- **Bei der Addition** aendern die Paraphrasen nur die **Worte um denselben Ausdruck**:
+  `47+38`, `Was ergibt 47 plus 38?`, `Addiere 47 und 38.` — die **Struktur bleibt**, nur die Huelle
+  wechselt.
+- **Bei der Logik** aendern sie die **Struktur selbst**: `(1) Alle A sind B.` gegen
+  `WENN A zu B gehoert, GILT DANN`. Das ist keine andere Formulierung derselben Sache, sondern
+  eine andere Aufgabe.
+
+**Damit ist die Grenze der Methode benannt:** Paraphrasen helfen, wenn sie **dieselbe Struktur in
+anderen Worten** sind. Aendern sie die Struktur, hilft die Vielfalt nicht.
+
+**Die geschuetzte Familie haelt bei 97,3** (statt 100) — innerhalb der Toleranz, aber der erste
+kleine Verlust. Bei 59 274 Records und 20 000 Logik-Aufgaben (34 Prozent) ist das zu erwarten.
+
+**Was das fuer die Logik bedeutet:** sie braucht entweder **mehr Formen derselben Struktur** (statt
+fuenf verschiedener Strukturen) oder **mehr Beispiele pro Form**. Der Weg ist nicht verschlossen,
+aber er ist nicht derselbe wie bei der Addition.
