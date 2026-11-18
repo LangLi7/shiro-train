@@ -3753,3 +3753,38 @@ Familien bleiben das Ergebnis.**
 
 **Was ich nicht mache:** den 100M-Checkpoint als Fortschritt darstellen. Er ist ein
 Machbarkeitsnachweis — mehr nicht, und das steht so im Protokoll.
+
+## Runde 246 — Der Testdatensatz ist nicht sauber getrennt: 38 Prozent der Addition-Aufgaben stehen im Training
+
+**Die Pruefung, die ich haette frueher machen muessen:** sind die Aufgaben im Test-Shard wirklich
+solche, die das Modell nie gesehen hat?
+
+```
+Trainings-Shard f_add/val : 1500 Aufgaben
+Test-Shard    t_add/val   :   60 Aufgaben
+Ueberlappung              :   23 von 60  =  38 Prozent
+```
+
+Beispiele fuer Aufgaben in **beiden** Shards: `67+88`, `2+47`, `2+9`, `7+3`, `84+9`.
+
+**Was das bedeutet:** die Additions-Zahl 98,3 Prozent ist **zu hoch**. Ein Teil davon ist
+Auswendiglernen, nicht Rechnen. Wie viel, laesst sich ohne sauberen Test nicht sagen — die
+ehrliche Aussage ist: **98,3 ist eine Obergrenze, nicht der wahre Wert.**
+
+**Wie es dazu kam:** die Test-Shards wurden mit einem anderen Seed erzeugt als die
+Trainings-Shards. Der Registry-Mechanismus (FNV-Hashes in `%TEMP%\pmh\seen\...`) verhindert
+Ueberlappung nur **innerhalb desselben Splits** — zwei getrennte Laeufe mit verschiedenen Seeds
+wissen nichts voneinander. **Die Trennung war eine Annahme, keine Zusicherung.**
+
+**Was daraus folgt, und es ist die wichtigste Konsequenz dieser Runde:**
+
+> **Alle Familien muessen mit einem Testdatensatz gemessen werden, dessen Aufgaben nachweislich
+> nicht im Training stehen.** Der Nachweis ist ein Mengenvergleich der Aufgaben-Texte, nicht der
+> Verlass auf den Generator.
+
+**Die anderen Familien sind noch nicht geprueft** — `f_mult`, `f_gleich`, `f_logik` haben je 500
+Aufgaben, aber ob ihre Test-Shards ueberlappen, ist offen. `f_kette` liefert 0 Aufgaben im Dump,
+das ist ein eigener Fehler.
+
+**Was ich nicht mache:** die alten Zahlen weiter als Ergebnis darstellen. Sie bleiben in der
+Regressionstabelle stehen, aber mit dem Vermerk, dass die Trennung nicht gesichert ist.
