@@ -4006,3 +4006,28 @@ Transitivitaetsregel gelernt statt der Woerter.
 **Warum dieser Test mehr wert ist als jede andere Zahl des Tages:** er trennt zum ersten Mal
 sauber zwischen "gelernt" und "auswendig gelernt" — nicht durch ein Etikett, sondern durch die
 **Unmoeglichkeit**, die Woerter zu memorieren.
+
+## Runde 253 — Zufallsnomen: von 1,7 auf 36,7 Prozent, und die Addition haelt bei 100
+
+**Zwischenstand `mix62` nach 500 von 3000 Schritten:**
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Logik mit Zufallsnomen (neu)** | 60 | 0 | **36,7** | **48,3** |
+| **Addition (geschuetzt, held-out)** | 37 | **100** | **100** | **100** |
+
+**Der Sprung bei der Logik: von 1,7 auf 36,7 Prozent, nach einem Sechstel der Schritte.** Das Modell
+lernt die Transitivitaetsregel, sobald man es nicht mehr durch feste Nomen zum Auswendiglernen
+verleiten kann.
+
+**Und die geschuetzte Familie bleibt bei 100** — auf denselben sauberen 37 Aufgaben, die vorher
+100 ergaben. Der Korpus hat den alten Logik-Shard verloren (1 500 Aufgaben) und 4 000 neue
+dazugewonnen; die Addition merkt davon nichts.
+
+**Was das schon jetzt zeigt, unabhaengig vom Endwert:**
+
+> **Auswendiglernen war eine Eigenschaft der Daten, nicht des Modells.** Mit 30 festen Nomen: 97,5
+> auf Trainingsketten, 1,7 auf neuen. Mit 16 900 moeglichen Nomen: 36,7 auf **neuen** Woertern nach
+> 500 Schritten — und steigend.
+
+**Der Lauf bleibt bis 3000 Schritte aktiv.** Die Frage ist nicht mehr ob, sondern wie hoch.
