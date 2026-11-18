@@ -66,3 +66,29 @@ komplementiert, als zwei Ansichten derselben Stelle. **Messbar:** Verlust auf ei
 **Dass Middle-Out die Aufgaben verbessert.** Auf Text ist es gemessen schlechter, und die
 Aufgaben sind Text. **Der Nutzen liegt bei Daten ohne Leserichtung** — und das ist eine andere
 Baustelle als die sechs Familien, die heute über 90 liegen.
+
+## Umsetzung: 2D-Positionskodierung als Option
+
+**Stand:** eingebaut in `model/lm.rs`, `Rope::new`. **Nicht gebaut und nicht getestet** — die GPU
+ist mit der Seed-Reihe belegt.
+
+**Die Änderung, minimal-invasiv über eine Umgebungsvariable:**
+
+```
+SHIRO_ROPE_2D=32     # 32x32 Bild, Spalte in der ersten Hälfte der Kopfbreite, Zeile in der zweiten
+(unset)              # lineare Kodierung wie bisher
+```
+
+**Der Code:** die erste Hälfte der Kopfbreite kodiert die **Spalte**, die zweite die **Zeile**.
+Damit hat ein Pixel seine Position (x, y) statt einer Zeilennummer — genau das, was bei Text fehlt
+und bei Bildern, DNA und Tabellen gebraucht wird.
+
+**Was als nächstes zu tun ist:**
+
+1. **Bauen** (`cargo build --release`), sobald die Seed-Reihe durch ist.
+2. **Bild-Datensatz**: Byte-Matrix 32×32 statt Textzeile.
+3. **Zwei Läufe, gleiche Daten, gleiche Schritte:** mit und ohne `SHIRO_ROPE_2D=32`.
+4. **Vergleich**: Verlust pro Byte. Ein Unterschied von mehr als 2 Prozent wäre ein Befund.
+
+**Was das nicht ist:** kein Beweis, dass Middle-Out hilft. Es ist der erste Test, der die Idee
+dort prüft, wo sie hingehört — bei Daten ohne Leserichtung.
