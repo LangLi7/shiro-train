@@ -3131,3 +3131,30 @@ seltener. Bei 40 Durchlaeufen ueber dieselben 300 Beispiele lernt das Modell sie
 verhindert nicht, dass 300 Beispiele 40 000 verdraengen.
 
 **Referenz bleibt `mix46`.** `mix57` wird nicht uebernommen.
+
+## Runde 229 — Der Test mit der richtigen Menge: 10 000 eigene Records statt 300
+
+**Die Regel aus Runde 228, angewendet:** eine neue Familie muss den Korpus **vergroessern**.
+
+| | mix54/55/56 (gescheitert) | **mix58** |
+|---|---|---|
+| Kopie-Aufgaben | 3 600 | **120 000** |
+| Records nach Verkettung | 300 | **10 000** |
+| Bytes pro Record | 56 / 671 | **703** |
+| Gesamtkorpus | 40 774 → 41 074 | **50 774** |
+| Epochen ueber die neue Familie | 40 | **2** |
+
+**Hypothese:** die geschuetzten Familien halten (**ueber 90**), obwohl eine achte Familie
+dazukommt, und die Kopie-Aufgaben werden gelernt (**ueber 70**).
+
+**Entscheidungsregel:**
+
+> **Addition ueber 90** = die Vielfalt-Erklaerung haelt. Dann ist das Projekt wieder handlungsfaehig:
+> neue Familien sind moeglich, sie brauchen nur genug eigene Beispiele.
+>
+> **Addition unter 60** = die Vielfalt-Erklaerung ist auch falsch, und es bleibt bei der offenen
+> Kapazitaetsfrage (100M).
+
+**Was diesmal anders ist:** der Korpus waechst um 25 Prozent (40 774 → 50 774), die neue Familie
+macht 20 Prozent aus, und es gibt nur zwei Durchlaeufe ueber sie statt vierzig. **Alle drei
+Faktoren, die in Runde 225–228 als Ursache identifiziert wurden, sind damit behoben.**
