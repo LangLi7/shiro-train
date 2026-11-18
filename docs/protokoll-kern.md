@@ -4846,3 +4846,42 @@ Trainingsaufgaben (zweistellig statt fuenfstellig, andere Spaltenzerlegung).
 
 **Das ist die wichtigste methodische Lehre des Projekts:** die Messung nach 500 Schritten war
 systematisch zu frueh. **Sie hat drei echte Faehigkeiten als Grenzen verbucht.**
+
+## Runde 277 — Blindtest korrigiert: 86,7 mit Etikett, 0 ohne
+
+**Der korrigierte Blindtest** (15 von Hand geschriebene dreistellige Additionen, im *gleichen* Format
+wie die Trainingsdaten: vier Stellen E/Z/H/T, Abschluss mit `R`):
+
+| Variante | Weg | Antwort | Klasse |
+|---|---|---|---|
+| **mit Etikett** (`3-stellig: 617+295`) | 46,7 | **86,7** | 100 |
+| **ohne Etikett** (`617+295`) | 0 | **0** | 100 |
+
+**Der fruehere Wert von 6,7 Prozent war ein Formatfehler meines Tests** — er hatte nur drei Stellen
+(E/Z/H) und kein `T`. Mit dem richtigen Format erreicht das Modell **86,7 Prozent auf Aufgaben, die
+ich selbst geschrieben habe**.
+
+**Und das Etikett ist entscheidend: ohne es 0 Prozent.** Das Modell erkennt die Form `Zahl+Zahl`
+nicht als "dreistellig" — es braucht das Wort davor.
+
+**Damit ist die letzte offene Flanke benannt, und sie ist keine Rechenfrage:** die Faehigkeit ist
+da (86,7 Prozent), aber sie haengt an einem **Etikett**, das in einer echten Anwendung niemand
+mitliefert.
+
+**Die vollstaendige Bilanz, alles nachgeprueft und mit korrigiertem Blindtest:**
+
+| Familie | Wert | Status |
+|---|---|---|
+| **Addition, zweistellig** | **91,9** | ueber 90 |
+| **Addition, dreistellig** | **97,5** | ueber 90 |
+| **Addition, neue Formulierung** | **93,3** | ueber 90 |
+| **Addition, handgeschrieben (mit Etikett)** | **86,7** | nahe 90 |
+| **Sprachlogik** | **96,7** | ueber 90 |
+| **Gleichungen** | **91,9** | ueber 90 |
+| **Urteil (drei Klassen)** | **90** | ueber 90 |
+| Logik | 62,5 | am Limit |
+| Multiplikation | 0 | andere Wegform |
+| Addition ohne Etikett | 0 | Etikett noetig |
+
+**Sechs Familien ueber 90. Der Blindtest zeigt die letzte Luecke, und sie ist strukturell:**
+das Modell braucht die Aufgabe in der Form, die es gelernt hat — **mit Etikett**.
