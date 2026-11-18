@@ -4241,3 +4241,39 @@ wichtiger Unterschied, und er steht jetzt im Protokoll.
 Er ist **null**. Kein Modell dieser Groesse, das nur eine Formulierung pro Aufgabe gesehen hat,
 wird eine andere verstehen — **es sei denn, man trainiert die Umformulierungen mit**. Das ist die
 naechste Aufgabe, und sie ist groesser als alles, was heute gemacht wurde.
+
+## Runde 260 — Paraphrasen ins Training: der Test gegen die Formabhaengigkeit
+
+**Die Beobachtung aus Runde 259:** dieselbe Aufgabe in einem Satz statt als Ausdruck ergibt
+**0 Prozent**. Das Modell haengt an der Zeichenform, nicht an der Bedeutung.
+
+**Der Test:** dieselben Additionen in **fuenf Formulierungen** ins Training, dann eine **sechste**
+messen, die nie vorkam.
+
+| | Form |
+|---|---|
+| 1 | `47+38` (wie bisher) |
+| 2 | `Was ergibt 47 plus 38?` |
+| 3 | `Addiere 47 und 38.` |
+| 4 | `Berechne die Summe von 47 und 38.` |
+| 5 | `47 und 38 zusammengezaehlt` |
+| **Test** | **`Plusaufgabe: 47 und 38.`** |
+
+**Der Korpus `mix64`:** `mix46` ohne den alten Additions-Shard (1 500 Aufgaben) plus
+**7 500 Records** in den fuenf Formen. Gesamt 46 774.
+
+**Hypothese:** die nie gesehene sechste Form erreicht **ueber 70 Prozent** — dann hat das Modell
+die **Bedeutung** gelernt und nicht die Form.
+
+**Entscheidungsregel:**
+
+> **Ueber 70** = die Formabhaengigkeit ist behebbar, indem man die Formen vervielfacht. Das waere
+> der Weg zu echten Faehigkeiten — und er ist billig: derselbe Inhalt, fuenf Schreibweisen.
+>
+> **Um 0 wie vorher** = das Modell kann gar nicht abstrahieren, auch nicht mit fuenf Beispielen
+> pro Form. Dann ist die Paraphrase-Faehigkeit bei 24 Mio Parametern nicht erreichbar.
+
+**Ein technischer Befund am Rande, der Zeit gekostet hat:** die Shards, die mein Python-Skript
+schreibt, brauchen einen **32-Byte-Kopf mit 8-Byte-Record-Zahl** (`magic, version, size, count u64,
+reserve u64, vendor`). Mit 4 Byte war der Kopf 28 Byte lang, und der Trainer las den Vendor-String
+als Flags. **Zweimal falsch gefixt, zweimal verschoben** — beim dritten Mal stimmte es.
