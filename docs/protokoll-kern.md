@@ -3635,3 +3635,41 @@ ausbildbar.
 **Die naechste Stufe waere das groessere Modell** (100M), weil jetzt zum ersten Mal eine Grenze
 sichtbar ist, die nicht durch Datenmenge, Etikett oder Aufgabenform behebbar scheint — und genau
 dafuer war die Skalierung gedacht.
+
+## Runde 243 — Das 100M-Modell laeuft lokal: 3,4 GB VRAM bei 561 Bytes pro Sekunde
+
+**Der erste echte Test des groesseren Modells — auf der eigenen RTX 3060, nicht auf RunPod.**
+
+| Wert | gemessen |
+|---|---|
+| Parameter | **113 658 880** (d_model 768, 12 Schichten, 12 Koepfe) |
+| VRAM | **3 448 MiB** von 12 288 |
+| Arbeitsspeicher | 2 358 MB |
+| Durchsatz | **561 Bytes/s** (Batch 2, Sequenz 512) |
+| Verlust bei Schritt 50 | 3,08 (Start ~5,5) |
+
+**Zwei Befunde:**
+
+1. **Das Modell passt bequem in 12 GB.** Mit Batch 2 und Sequenz 512 sind es 3,4 GB — selbst mit
+   Batch 8 und Sequenz 1024 waeren es unter 8 GB. **VRAM ist bei 100M kein Problem.**
+2. **Der Durchsatz ist achtmal niedriger als beim 24M-Modell** (561 gegen 4 500 Bytes/s). Das ist
+   mehr als die 4,7-fache Parameterzahl erklaert — die laengere Sequenz und der kleinere Batch
+   kosten zusaetzlich.
+
+**Was das fuer die Kostenrechnung bedeutet, mit derselben Skalierung auf eine RTX 3090
+(etwa Faktor 2,2 wie beim 24M-Modell):**
+
+| | 24M (gemessen) | **100M (hochgerechnet)** |
+|---|---|---|
+| Bytes/s lokal | 4 500 | **561** |
+| Bytes/s auf 3090 | ~6 600 | **~1 200** |
+| Chinchilla (2,65 Mrd Bytes) | 112 h | **613 h** |
+| Kosten auf 3090 (0,22 $/h) | 25 $ | **135 $** |
+
+**Damit ist die Rechnung aus Runde 213 bestaetigt und praezisiert:** ein 100M-Byte-Modell nach
+Chinchilla kostet auf der guenstigsten GPU **rund 135 Dollar**, nicht 60. Mit 10 Dollar waeren es
+**7 Prozent** des Weges — also nichts, was man als Training bezeichnen sollte.
+
+**Der Lauf bleibt aktiv bis 600 Schritte** und wird danach gemessen: nicht ob er gut ist (das waere
+nach 600 Schritten unserioes), sondern ob er ueberhaupt **Bewegung** zeigt — ein Verlust unter 2,5
+waere ein Zeichen, dass die Architektur traegt.
