@@ -3439,3 +3439,26 @@ Prinzipienproblem.
 **Was der Tag gekostet hat:** acht Runden, die auf einen Skriptfehler gebaut waren. **Was er
 gebracht hat:** ein Verifizierer, der jetzt gegen ein bekanntes Ergebnis geprueft ist, und die
 Gewissheit, dass `mix46` mit 98,3 / 96,7 / 92,5 / 87,5 genau das kann, was es immer konnte.
+
+## Runde 237 — Urteil-Familie mit 12 000 Beispielen und 3000 Schritten
+
+**Was sich gegenueber `mix53` aendert (genau ein Faktor: die Menge):**
+
+| | `mix53` (30 Prozent) | **`mix60`** |
+|---|---|---|
+| Urteil-Aufgaben | 3 000 | **12 000** |
+| Anteil am Korpus | 2,6 % | **23 %** |
+| Gesamtkorpus | 43 774 | **52 774** |
+| Schritte | 2 500 | **3 000** |
+
+**Hypothese:** die Urteil-Familie erreicht **ueber 60 Prozent Antwort** (bisher 30), und die
+geschuetzten Familien bleiben **ueber 90**.
+
+**Der Korpus waechst um 29 Prozent** (40 774 → 52 774 Records). Nach der Regel aus Runde 231 ist
+das der richtige Weg: neue Familie als Zuwachs, nicht als Ersatz.
+
+**Warum die Erwartung vorsichtig bleibt:** die Klasse "nicht ableitbar" ist die schwierigste —
+sie verlangt, dass das Modell erkennt, dass `0 = 0` **alle** x erfuellt, waehrend `0 = 19` gar
+keine Loesung hat. Beides sieht im Prompt fast gleich aus (`8x + 18 = 8x + 18` gegen
+`8x + 18 = 8x + 24`) und unterscheidet sich nur in einer Zahl. Das ist derselbe Ziffern-Leseschritt,
+an dem die dreistellige Addition gescheitert ist.
