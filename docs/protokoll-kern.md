@@ -3290,3 +3290,66 @@ geaendert wird?
 Erklaerung nicht mehr eine neue Hypothese ueber das Modell, sondern ein Fehler in meinem eigenen
 Verfahren. Diesen Fehler zu finden ist billiger als jeder weitere Trainingslauf — und wenn er
 existiert, sind alle vier Messungen wertlos.
+
+## Runde 234 — DER VERIFIZIERER WAR DEFEKT. Alle Nullen der letzten Stunden waren Messfehler.
+
+**Der Beweis, direkt nachgesehen:** `mix46-step31500` (die Referenz, die 98,3 Prozent hatte) wurde
+mit einer einzelnen Aufgabe geprueft:
+
+```
+Prompt : <AUFGABE> 6+89 <DENKWEG>
+Modell : E 6+9=15 -> 5 u1 ; Z 0+8+1=9 -> 9 u0 ; R 95 <ANTWORT> 95 <ENDE>
+Gold   : 95
+```
+
+**Das Modell antwortet richtig. Der Verifizierer zaehlte es als falsch.**
+
+**Die Ursache, gefunden mit einer Debug-Kopie des Skripts:**
+
+```
+$ant = '95 <ENDE><AUFGABE> 4+8'    (statt '95')
+$weg = ''                           (statt des Loesungswegs)
+```
+
+Der Verifizierer suchte das Ende eines Abschnitts am **naechstgroesseren** Marker statt am
+**naechsten**:
+
+```powershell
+if ($pt -gt $pw) { $ende = $pt }        # falsch: nimmt <DENKWEG> statt <ENDE>
+```
+
+Bei `$pw=44` (<ANTWORT>), `$pe=57` (<ENDE>), `$pt=77` (<DENKWEG>) wurde `$ende=77` — die Antwort
+verschlang `<ENDE>`, den naechsten Prompt und die naechste Aufgabe. Der Loesungsweg bekam denselben
+Fehler und wurde dadurch leer.
+
+**Der Fix:**
+
+```powershell
+if ($pt -gt $pw -and $pt -lt $ende) { $ende = $pt }   # nur ein Marker, der WIRKLICH naechste ist
+```
+
+**Messung danach, sofort:**
+
+| Test | vorher (defekt) | **nachher (gefixt)** |
+|---|---|---|
+| Addition, Antwort | 0 % | **100 %** |
+| Addition, Klasse | 0 % | **100 %** |
+
+**Was das bedeutet, und es ist die wichtigste Korrektur des Tages:**
+
+> **Jede Messung seit der Umstellung des Verifizierers auf "order-independent" (Runde 208) war
+> falsch.** Die Totalausfaelle von `mix52`, `mix53`, `mix54`, `mix55`, `mix56`, `mix57`, `mix58`
+> und `mix59` sind **keine** Modellbefunde — sie sind der Fehler eines Skripts, das ich selbst
+> geschrieben habe, um "ordnungunabhaengig" zu messen.
+
+**Damit sind auch alle Erklaerungen hinfaellig, die ich auf diese Nullen gebaut habe:** fehlendes
+Etikett, Lernrate, Record-Laenge, zu wenige Records, Kapazitaetsgrenze, Merge-Fehler. **Keine
+dieser Hypothesen hat je ein Modell gemessen** — sie haben ein kaputtes Skript gemessen.
+
+**Der Fehler war in meinem Verfahren, nicht im Modell.** Das ist die sechste falsche Ursache in
+diesem Projekt und die einzige, die alle anderen erklaert.
+
+**Was der Weg-Wert noch zeigt:** der Loesungsweg steht weiterhin bei 0 Prozent, obwohl die Antwort
+100 erreicht. Das ist ein **zweiter Fehler im selben Skript** (der Weg wird noch immer zu kurz
+gelesen) und wird als naechstes behoben, bevor irgendeine Zahl wieder in die Regressionstabelle
+eingeht.

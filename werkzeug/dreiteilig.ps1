@@ -96,12 +96,12 @@ for ($i = 0; $i -lt $N; $i++) {
     $weg = ""; $ant = ""
     if ($pt -ge 0) {
         $ende = $pe
-        if ($pw -gt $pt) { $ende = $pw }
+        if ($pw -gt $pt -and $pw -lt $ende) { $ende = $pw }
         $weg = (($gen.Substring($pt + 9, [Math]::Max(0, $ende - $pt - 9))) -replace '\s+', ' ').Trim()
     }
     if ($pw -ge 0) {
         $ende = $pe
-        if ($pt -gt $pw) { $ende = $pt }
+        if ($pt -gt $pw -and $pt -lt $ende) { $ende = $pt }
         $ant = (($gen.Substring($pw + 9, [Math]::Max(0, $ende - $pw - 9))) -replace '\s+', ' ').Trim()
     }
 
