@@ -3353,3 +3353,50 @@ diesem Projekt und die einzige, die alle anderen erklaert.
 100 erreicht. Das ist ein **zweiter Fehler im selben Skript** (der Weg wird noch immer zu kurz
 gelesen) und wird als naechstes behoben, bevor irgendeine Zahl wieder in die Regressionstabelle
 eingeht.
+
+## Runde 235 — Zweiter Verifizierer-Fehler behoben: die Referenz steht wieder vollstaendig
+
+**Der zweite Fehler im selben Skript:** `<DENKWEG>` steht **im Prompt**, nicht in der Generierung.
+Der Loesungsweg beginnt deshalb bei Offset 0. Der Verifizierer suchte aber den Marker und wurde
+bei `$pt=77` fuendig — das war der Marker **des naechsten Records**, und der Substring lief
+dadurch ins Leere.
+
+**Der Fix:** `<DENKWEG>` zaehlt nur als Start, wenn es **vor** `<ANTWORT>` liegt.
+
+```powershell
+$ptStart = if ($pt -ge 0 -and $pt -lt $pw) { $pt + 9 } else { 0 }
+```
+
+**Die Referenz `mix46-step31500`, zum ersten Mal seit Runde 208 sauber gemessen:**
+
+| Familie | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| Addition | 60 | **98,3** | **98,3** | 100 |
+| Sprachlogik | 60 | **96,7** | **96,7** | 100 |
+| Gleichungen | 40 | **92,5** | **92,5** | 100 |
+| Logik | 40 | **87,5** | **97,5** | 97,5 |
+
+**Diese Zahlen stimmen mit den historischen Werten ueberein** (98,3 / 96,7 / 92,5 / 100). Das ist
+der Beweis, dass die Messung wieder das misst, was sie messen soll, und dass `mix46` **nie**
+kaputt war.
+
+**Die Regressionstabelle wurde bereinigt:** 18 Zeilen aus den Runden 219–233 sind als
+**"UNGUELTIG-Verifier-Defekt"** markiert. Sie bleiben stehen — als Beleg dafuer, was passiert,
+wenn das Messwerkzeug nicht geprueft wird.
+
+**Was aus den letzten Stunden bleibt, sachlich:**
+
+| Behauptung | Status |
+|---|---|
+| "Kapazitaetsgrenze, das Modell haelt keine achte Familie" | **zurueckgezogen** (Runde 225/234) |
+| "Record-Laenge ist die Ursache" | **zurueckgezogen** |
+| "Vielfalt ist die Ursache" | **zurueckgezogen** |
+| "Lernrate ist die Ursache" | **zurueckgezogen** |
+| "Etikett ist notwendig, aber nicht hinreichend" | **unbelegt** — die Nullen, auf denen es stand, waren Messfehler |
+| Middle-Out 12 Prozent schlechter | **gueltig** — mit den Trainingslogs gemessen, nicht mit dem Verifizierer |
+| Zero-Shot quadratisch scheitert | **gueltig** — am Rohtext geprueft, nicht am Verifizierer |
+
+**Die Lehre, die teurer war als jede Modellfrage:** Ein Werkzeug, das ich nicht gegen ein
+bekanntes Ergebnis pruefe, kann stundenlange Arbeit in die falsche Richtung schicken. **Die
+Referenz haette nach jeder Aenderung am Verifizierer erneut gemessen werden muessen — sie ist der
+einzige Anker, den dieses Projekt hat.**

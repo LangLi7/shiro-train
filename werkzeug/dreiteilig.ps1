@@ -94,10 +94,14 @@ for ($i = 0; $i -lt $N; $i++) {
     $pe = $gen.IndexOf("<ENDE>")
     if ($pe -lt 0) { $pe = $gen.Length }
     $weg = ""; $ant = ""
-    if ($pt -ge 0) {
+    # <DENKWEG> ends the prompt - the generated text starts with the trace itself. So when the
+    # marker is not in the generation, the trace begins at offset 0.
+    $ptStart = if ($pt -ge 0 -and $pt -lt $pw) { $pt + 9 } else { 0 }
+    if ($pt -ge 0 -or $pw -ge 0 -or $pe -ge 0) {
         $ende = $pe
-        if ($pw -gt $pt -and $pw -lt $ende) { $ende = $pw }
-        $weg = (($gen.Substring($pt + 9, [Math]::Max(0, $ende - $pt - 9))) -replace '\s+', ' ').Trim()
+        if ($pt -ge 0 -and $pt -gt $ptStart -and $pt -lt $ende) { $ende = $pt }
+        if ($pw -gt $ptStart -and $pw -lt $ende) { $ende = $pw }
+        $weg = (($gen.Substring($ptStart, [Math]::Max(0, $ende - $ptStart))) -replace '\s+', ' ').Trim()
     }
     if ($pw -ge 0) {
         $ende = $pe
