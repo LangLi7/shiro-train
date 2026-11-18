@@ -1,77 +1,73 @@
 # Stand und Bilanz — Shiro
 
-*Stand: 18. November 2026, nach 131 Runden. Alle Zahlen mit geprüften Held-out-Testdaten.*
+*Stand: 18. November 2026, nach 138 Runden. Alle Zahlen auf held-out Daten.*
 
 ## Was gemessen erreicht ist
 
-| Familie | n (held-out) | Weg | Antwort | Klasse | Verdikt |
+| Familie | n | Weg | Antwort | Klasse | Status |
 |---|---|---|---|---|---|
 | **Addition** | 37 | **100** | **100** | **100** | generalisiert |
+| **Addition, neue Formulierung** | 30 | **93,3** | **93,3** | **100** | **abstrahiert** |
 | **Sprachlogik** | 60 | **96,7** | **96,7** | **100** | generalisiert |
 | **Gleichungen** | 37 | **91,9** | **91,9** | **100** | generalisiert |
-| Logik | 60 | 0 | 60 | 95 | **rät** (Zufall: 50) |
-| Urteil | 60 | 5 | 61,7 | 98,3 | unter Ziel |
+| Logik | 40 | 37,5 | 62,5 | 92,5 | drei Maßnahmen, keine reicht |
+| Urteil | 60 | 5 | 61,7 | 98,3 | eine Form |
+| Multiplikation | 30 | 0 | 0 | 100 | andere Wegform |
 
-**Drei Familien über 90 Prozent, auf Aufgaben die das Modell nachweislich nie gesehen hat.**
-Der Weg ist dort so gut wie die Antwort — das Modell schreibt den Rechenweg hin, nicht nur das
-Ergebnis.
+**Vier Familien über 90 Prozent — auf Aufgaben, die das Modell nachweislich nie gesehen hat.**
 
-## Die eine Grenze, viermal bestätigt
+## Der Durchbruch: Formabhängigkeit ist eine Eigenschaft der Daten
 
-| Runde | Was aus dem Prompt übernommen werden musste | Ergebnis |
-|---|---|---|
-| 195 | Ziffern beim Übertrag (dreistellig) | 24 % |
-| 240 | zwei Ziffern vergleichen | 51,7 % |
-| 251 | 30 feste Nomen (auswendig) | 1,7 % auf neuen Ketten |
-| 255 | zufällige Nomen | Raten (60 % bei 50 % Zufall) |
+Dieselben 1 500 Additionsaufgaben, fünfmal anders geschrieben — und der Transfer auf eine
+**sechste, nie gesehene** Formulierung springt von **0 auf 93,3 Prozent**:
 
-**Das Modell kann Zeichen nicht zuverlässig aus dem Prompt übernehmen.** Es lernt Satzbau und
-Formeln, aber nicht das Binden konkreter Zeichen. Das ist bei einem Byte-Modell mit 8 Schichten
-und 24 Mio Parametern die plausibelste Erklärung für alle vier Befunde.
+| Formulierung | Antwort |
+|---|---|
+| `47+38` (nur diese im Training) | 100 |
+| `Was ergibt 47 plus 38?` | **0** |
+| **`Plusaufgabe: 47 und 38.`** (5 Formen trainiert) | **93,3** |
 
-Was dagegen hilft, ist gemessen:
-- **Etikett** trennt Formen (11,7 → 30 bei der Urteils-Familie)
-- **mehr Beispiele** helfen (30 → 48,3)
-- **mehr Schritte** helfen bis zum Plateau (dann nicht mehr)
-- **Auswendiglernen verhindern** durch Vielfalt (feste Nomen → zufällige: 1,7 → 36,7)
+**Gleiche Parameter, gleiche Datenmenge, gleiches Budget.** Nur die Zahl der Schreibweisen war
+anders. Das Modell kann abstrahieren — es braucht Daten, an denen Auswendiglernen scheitert.
 
-Was nicht hilft: den Vergleich liefern (51,7 → 61,7, aber nicht 90).
+## Was nicht funktioniert, und warum
 
-## Was das 24M-Modell nicht kann
+| Familie | Was half | Was nicht half | Ursache |
+|---|---|---|---|
+| Logik | Vielfalt (+43), Struktur (+12,5), kurzer Weg (+5) | keine über 90 | 3–7 Schritte |
+| Urteil | Etikett (+18), mehr Beispiele (+21) | Plateau bei 51,7 | Ziffernvergleich |
+| Multiplikation | — | — | andere Wegform |
 
-- fremde Wörter: 0 Prozent bei nie gesehenen Nomen
-- fremde Formulierungen: 0 Prozent bei umformulierter Addition
-- quadratische Gleichungen zero-shot: ersetzt die Aufgabe durch eine lineare
-- Transitivität über zufällige Nomen: rät
+**Bei allen drei ist die Ursache dieselbe:** das Modell hält die Wegform, die es gelernt hat, und
+kann eine andere nicht. Bei der Addition wurde das durch fünf Formen gelöst.
+
+## Die vier Werkzeugfehler, die Zeit gekostet haben
+
+1. **Verifizierer las die Antwort falsch** (`'95 <ENDE><AUFGABE> 4+8'`), acht Runden lang.
+2. **Testdaten nicht getrennt**: 38 Prozent der Additions-Testaufgaben standen im Training.
+3. **Feste Nomen im Logik-Generator**: das Modell lernte 30 Wörter auswendig (97,5 auf
+   Trainingsketten, 1,7 auf neuen).
+4. **Shard-Header**: 8-Byte-Record-Zahl statt 4, dreimal falsch gefixt.
+
+**Die Regeln, die daraus folgen:**
+- Nach jeder Änderung am Messwerkzeug wird die Referenz gemessen.
+- Keine Zahl ohne `mktool --disjunkt`.
+- Bei Ja/Nein-Aufgaben wird die Zufallsrate mitgenannt.
+- Jede Familie braucht mehrere Formulierungen im Training.
 
 ## Das 100M-Modell
 
-Gebaut und lokal getestet: **113 658 880 Parameter**, 3,4 GB VRAM, 561 Bytes/s.
-Verlust fällt in 350 Schritten von 5,5 auf 2,24 — die Architektur trägt.
-**Nach 600 Schritten: keine Ausgabe.** Das sind 7 Prozent des Chinchilla-Ziels.
+**113 658 880 Parameter**, 3,4 GB VRAM, 561 Bytes/s auf der RTX 3060, Verlust 5,86 → 2,13 in
+600 Schritten. **Danach: keine Ausgabe** — 7 Prozent des Chinchilla-Ziels sind nichts.
 
 | | 24M | 100M |
 |---|---|---|
 | Chinchilla auf RTX 3090 | 25 $ | **135 $** |
 | 10 Dollar erreichen | 40 % | 7 % |
 
-## Die zwei Werkzeugfehler, die acht Runden gekostet haben
-
-1. **Der Verifizierer las die Antwort falsch** (`'95 <ENDE><AUFGABE> 4+8'` statt `'95'`) und den
-   Lösungsweg als leer. Acht Runden lang meldete er Nullen, wo das Modell richtig antwortete.
-2. **Die Testdaten waren nicht getrennt**: 38 Prozent der Additions-Testaufgaben standen im
-   Training. Auf diesen Nullen standen vier Ursachen-Hypothesen, alle zurückgezogen.
-
-**Die Regeln, die daraus folgen und ab jetzt gelten:**
-- Nach jeder Änderung am Messwerkzeug wird die Referenz gemessen.
-- Keine Zahl ohne `mktool --disjunkt` (Mengenvergleich der Aufgabentexte).
-- Bei Ja/Nein-Aufgaben wird die Zufallsrate mitgenannt.
-
 ## Was als nächstes zu tun ist
 
 1. **Blindtest** mit Aufgaben, die nicht aus den Generatoren stammen — der Auftrag verlangt ihn.
-2. **Zeichenbindung gezielt trainieren**: eine Kopier-Familie mit großer Vielfalt, dann prüfen,
-   ob die Logik davon profitiert.
-3. **Nomen unterscheidbarer machen** (3–4 Silben, verschiedene Längen) — `nagi`, `rado`, `rori`
-   sind zu ähnlich, um sie auseinanderzuhalten.
-4. **Entscheidung über 100M**: 135 Dollar, oder die drei Familien als das Ergebnis nehmen.
+2. **Urteil und Multiplikation** mit fünf strukturerhaltenden Formen (wie die Addition).
+3. **Logik**: mehr Beispiele pro Form; bei 24M ist sie am Limit.
+4. **Entscheidung über 100M**: 135 Dollar, oder vier Familien als Ergebnis.
