@@ -3217,3 +3217,45 @@ denselben Shards trainiert), der Pruefer ist an dieser Stelle zu streng.
 **Der Lauf `mix58` (10 000 eigene Kopie-Records, Gesamtkorpus 50 774) laeuft mit stabilem
 Speicher.** Er ist der eigentliche Test der Vielfalt-Regel: der Korpus waechst um 25 Prozent,
 die neue Familie macht 20 Prozent aus, zwei Durchlaeufe statt vierzig.
+
+## Runde 232 — Auch 10 000 eigene Records helfen nicht. Die Vielfalt-Hypothese ist widerlegt.
+
+**Ergebnis `mix58` (10 000 eigene Kopie-Records, Gesamtkorpus 50 774, 2500 Schritte):**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Addition | 0 | **0** | 0 |
+| Kopie | 0 | **0** | 15 |
+| Sprachlogik | 0 | **27,5** | 27,5 |
+
+**Die Hypothese aus Runde 228 ("eine neue Familie braucht mindestens 10 000 eigene Records") ist
+widerlegt.** Der Korpus war groesser als je zuvor (50 774 statt 40 774 Records), die neue Familie
+machte 20 Prozent aus, es gab zwei Durchlaeufe statt vierzig — **und trotzdem bricht alles ein.**
+
+**Damit sind alle Erklaerungen durchprobiert, die ich fuer belegbar hielt:**
+
+| Hypothese | Test | Ergebnis |
+|---|---|---|
+| Etikett fehlt | mix53 mit `Urteil:` | widerlegt |
+| Lernrate zu hoch | mix55 mit 1/6 | widerlegt |
+| Record-Laenge zu kurz | mix56 verkettet | widerlegt |
+| Zu wenige Records | mix57 (480) | **bestaetigt** |
+| **Genug eigene Records** | **mix58 (10 000)** | **widerlegt** |
+
+**Was jetzt noch als Erklaerung bleibt, und es ist eine andere als alle bisherigen:**
+
+> **Der Streaming-Merge ist fehlerhaft.** `mix58` ist der erste Lauf, der **nicht** mit
+> `data combine` gebaut wurde, sondern mit einem Python-Skript, das Shards kopiert und das
+> Manifest neu schreibt. Der Text-Shard faellt im Pruefer durch ("Spezialbyte 0xFE fehlt") — bei
+> `mix46` hat `data combine` ihn anders behandelt.
+
+**Der Kontrolltest, der das entscheidet, ist billig:** dieselbe Konfiguration, derselbe
+Ausgangspunkt, **kein neuer Korpus** — nur `mix46` erneut 2500 Schritte weiter trainieren. Wenn
+die Familien dann ebenfalls einbrechen, liegt es am Lauf oder am Zustand, nicht an den Daten.
+
+**Referenz bleibt `mix46`.** `mix58` wird nicht uebernommen.
+
+**Bilanz nach vier Totalausfaellen in Folge:** Jede Erklaerung, die ich vor dem Test fuer sicher
+hielt, hat den Test nicht bestanden. Was bleibt, ist eine Messung, die sich wiederholt: **jeder
+Lauf mit veraendertem Korpus bricht ein, jeder Lauf auf `mix46` haelt.** Bis der Kontrolltest das
+Gegenteil zeigt, ist der Verdacht nicht das Modell, sondern **die Art, wie ich den Korpus baue**.
