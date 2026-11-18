@@ -4545,3 +4545,41 @@ mehr, als die Daten wiedergutmachen.**
 
 **Das Urteil bleibt damit die groesste Luecke im Auftrag** — und sie ist mit 24M nicht zu
 schliessen. Die vierte Maßnahme war die letzte, die auf der Datenseite moeglich war.
+
+## Runde 269 — Der Blindtest deckt auf: dreistellige Addition ist bei 13 Prozent
+
+**Der Blindtest, wie der Auftrag ihn verlangt:** 15 Aufgaben von Hand geschrieben, nicht aus einem
+Generator — zehn dreistellige Additionen mit Uebertrag in jeder Stelle (`617+295`, `777+888`,
+`889+123`) und fuenf Gleichungen.
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Blindtest, dreistellig** | 15 | 0 | **13,3** | 86,7 |
+| Addition, Generator (zweistellig) | 37 | **100** | **100** | **100** |
+
+**Was das Modell auf `617+295` antwortet:**
+
+```
+Prompt : 617+295
+Modell : E 7+5=12 -> 2 u1 ; Z 0+2+1=3 -> 3 u0 ; R 32
+Gold   : E 7+5=12 -> 2 u1 ; Z 1+9+1=11 -> 1 u1 ; H 6+2+1=9 -> 9 u0 ; R 912 = 912
+```
+
+**Es liest die Zehnerstelle als `0+2` statt `1+9` und hoert nach zwei Stellen auf.** Die Hunderter
+fehlen ganz — es produziert `R 32` statt `R 912`.
+
+**Damit ist ein Befund korrigiert, den ich stundenlang als Erfolg berichtet habe:** die
+**100 Prozent auf der Addition** galten fuer **zweistellige** Aufgaben (`6+89`, `56+6`). Die
+**dreistellige** Addition — die im Training enthalten war — gelingt auf **handgeschriebenen**
+Aufgaben nur zu **13,3 Prozent**.
+
+**Warum die Held-out-Messung das nicht gezeigt hat:** der Test-Shard `t_add` enthaelt fast nur
+zweistellige Aufgaben. Der Mengenvergleich gegen das Training hat die **Ueberlappung** geprueft,
+aber nicht die **Verteilung** — und die war nicht repraesentativ fuer den trainierten Bereich.
+
+**Das ist der fuenfte Werkzeugfehler und der lehrreichste:** "held-out" heisst nicht "fair". Ein
+Testdatensatz kann disjunkt sein und trotzdem nur den leichten Teil abdecken.
+
+**Was als naechstes zwingend ist:** ein Testdatensatz, der die **Verteilung der Trainingsdaten**
+abdeckt (ein-, zwei- und dreistellig, mit und ohne Uebertrag in jeder Stelle) — und dann eine
+ehrliche Messung je Stellenzahl.
