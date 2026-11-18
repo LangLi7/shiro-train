@@ -3598,3 +3598,40 @@ wegfaellt.
 **Was daran unbequem ist:** die Aufgabe wird dadurch **sehr leicht** — die Antwort steht fast im
 Prompt. Ein hoher Wert beweist deshalb **nicht**, dass das Modell urteilen kann, sondern nur, dass
 der Ziffernschritt die fehlende Faehigkeit war. Genau das ist die Frage.
+
+## Runde 242 — Der gelieferte Vergleich hilft zehn Punkte, nicht dreissig
+
+| Variante | Antwort | Klasse |
+|---|---|---|
+| `mix60` (Vergleich selbst rechnen) | 51,7 | 100 |
+| **`mix61` (Vergleich geliefert)** | **61,7** | 98,3 |
+
+**Die Hypothese ist teilweise bestaetigt:** der Ziffernschritt kostet **zehn Punkte**. Aber der
+Rest — die fehlenden 38 Punkte bis zum Ziel — liegt **tiefer**.
+
+**Was das Modell jetzt noch falsch macht, laesst sich aus den drei Klassen ablesen:**
+
+```
+Links minus rechts ergibt 0 = 0     ->  nicht ableitbar   (jedes x erfuellt sie)
+Links minus rechts ergibt 0 = 5     ->  widerlegt         (kein x erfuellt sie)
+Links minus rechts ergibt -22 = -22 ->  bewiesen          (genau ein x erfuellt sie)
+```
+
+Die Regel ist einfach: **Differenz beidseitig 0** heisst "nicht ableitbar", **einseitig 0** heisst
+"widerlegt", **beide Seiten gleich und nicht 0** heisst "bewiesen". Drei Faelle, zwei Ziffern.
+
+**Bei 61,7 Prozent raet das Modell in etwa vier von zehn Faellen** — es hat die Regel also nicht
+sicher ausgebildet, obwohl sie in den Beispielen steckt und der Vergleich geliefert wird.
+
+**Das ist ein wichtiger Befund gegen die eigene Erwartung:** ich hatte angenommen, dass mit
+geliefertem Vergleich die Aufgabe trivial wird und ueber 90 erreicht. Sie wird leichter, aber das
+Modell nutzt die gelieferte Information nur teilweise.
+
+**Was daraus folgt:** die Grenze ist nicht (nur) das Rechnen und nicht (nur) das Lesen — es ist das
+**Anwenden einer dreistufigen Regel** auf zwei Ziffern. Genau das ist die Faehigkeit, die der
+Auftrag mit "analytischem Denken" meint, und sie ist bei 24 Mio Parametern offenbar nicht sicher
+ausbildbar.
+
+**Die naechste Stufe waere das groessere Modell** (100M), weil jetzt zum ersten Mal eine Grenze
+sichtbar ist, die nicht durch Datenmenge, Etikett oder Aufgabenform behebbar scheint — und genau
+dafuer war die Skalierung gedacht.
