@@ -4619,3 +4619,40 @@ habe, gilt fuer den Bereich, den ich trainiert habe — **nicht fuer den, den de
 
 **Was der Blindtest damit geleistet hat:** er hat in einer Stunde gezeigt, was 140 Runden
 Generator-Messungen nicht gezeigt haben — **dass die Messlatte zu niedrig stand.**
+
+## Runde 271 — Dreistellig ins Training: 15 Prozent, und die zweistelligen brechen ein
+
+**Der Lauf `mix69`:** `mix46` plus **6 000 dreistellige Additionen** (mit dem Etikett `3-stellig:`),
+2 500 Schritte, derselbe Ausgangspunkt.
+
+| Test | n | Weg | Antwort | Klasse | vorher |
+|---|---|---|---|---|---|
+| **Dreistellig (neu trainiert)** | 40 | 15 | **15** | 100 | 13,3 (nie gesehen) |
+| **Zweistellig (geschuetzt)** | 37 | 70,3 | **73** | 100 | **100** |
+| Blindtest handgeschrieben | 15 | 0 | **6,7** | 100 | 13,3 |
+
+**Zwei Befunde, und der zweite ist der wichtigere:**
+
+1. **Die dreistelligen bleiben bei 15 Prozent** — trotz 6 000 Trainingsbeispielen. Das Etikett
+   `3-stellig:` trennt die Form, aber das Modell lernt die Aufgabe nicht.
+2. **Die zweistelligen fallen von 100 auf 73.** Die neue Form **schaedigt die alte**, statt sich
+   dazuzulegen.
+
+**Nach Regel 6 des Auftrags ist dieser Checkpoint nicht zu uebernehmen:** die geschuetzte
+Faehigkeit ist **27 Punkte** gefallen, die Toleranz ist weit ueberschritten. **`mix46` bleibt die
+Referenz, `mix69` wird verworfen.**
+
+**Was das ueber das Modell sagt, ist die wichtigste Erkenntnis des Tages:** es ist **kein
+Multi-Task-Modell**. Zwei Formen derselben Faehigkeit (zwei- und dreistellige Addition)
+**konkurrieren um dieselben Parameter** — was die eine gewinnt, verliert die andere.
+
+**Und es erklaert rueckwirkend die frueheren Einbrueche**, die ich als "Totalausfall" verbucht
+hatte: jedes Mal, wenn eine neue Form dazukam, sank die alte. Was ich fuer einen Messfehler hielt,
+war zum Teil **echte Interferenz**.
+
+**Der Unterschied zu `mix64` (Paraphrasen):** dort **wuchs** die Faehigkeit (0 -> 93,3) und die
+Addition hielt bei 100 — weil die Paraphrasen **dieselbe Aufgabe** in anderen Worten waren. Hier
+ist es eine **andere Aufgabe** (drei Stellen statt zwei), und sie verdraengt die alte.
+
+**Der naechste Versuch muesste die beiden Formen *gemeinsam* und *gemischt* trainieren** — mit
+gleichem Gewicht, damit keine die andere verdraengt.
