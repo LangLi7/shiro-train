@@ -3895,3 +3895,41 @@ zwischendurch geleert wurde.
 **Was nicht belegt ist:** Logik, Sprachlogik, Multiplikation, Ketten. Ihre Werte stehen weiter in
 der Regressionstabelle, aber ohne den Vermerk "held-out geprueft" — und das ist der Unterschied,
 auf den es ankommt.
+
+## Runde 250 — Sprachlogik auf sauberen Daten: 96,7 Prozent, exakt wie vorher
+
+**Der Filter auf den Sprachlogik-Testdaten:**
+
+```
+gegen den eigenen Trainings-Shard :  300 Tests,  0 verworfen
+gegen den gesamten Korpus (12 Shards, 40 007 Aufgaben) : 300 Tests, 0 verworfen
+```
+
+**Die Testdaten der Sprachlogik waren also von Anfang an disjunkt** — der Generator hat hier
+sauber gearbeitet (er hat eine eigene Split-Variable, `SHIRO_SPRACH_SPLIT`).
+
+**Die Messung:**
+
+| Familie | n | Weg | Antwort | Klasse | vorher |
+|---|---|---|---|---|---|
+| **Sprachlogik** | 60 | **96,7** | **96,7** | **100** | 96,7 |
+
+**Exakt derselbe Wert wie vorher.** Das ist der Beweis, dass die frueheren Messungen fuer diese
+Familie belastbar waren — und es ist der dritte belegte Fall nach Addition (100) und Gleichungen
+(91,9).
+
+**Der Stand gegen den Auftrag, jetzt mit geprueften Testdaten:**
+
+| Familie | Wert (held-out) | Status |
+|---|---|---|
+| Addition | **100** | belegt |
+| Sprachlogik | **96,7** | belegt |
+| Gleichungen | **91,9** | belegt |
+| Urteil | 61,7 | belegt, unter Ziel |
+| Logik | 97,5 | **nicht belegt** (kein Test-Shard) |
+| Multiplikation | 90 | **nicht belegt** (kein Test-Shard) |
+| Ketten | 98,3 | **nicht belegt** (kein Test-Shard) |
+
+**Drei Familien sind damit sauber ueber 90, eine ist es nicht, drei sind offen.** Die offenen drei
+haben keine eigene Split-Variable im Generator — fuer sie muss der Testdatensatz neu erzeugt und
+gefiltert werden.
