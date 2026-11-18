@@ -4737,3 +4737,34 @@ erkennen.
 **Was als naechstes zwingend ist:** die Trainingsdaten fuer die dreistelligen **ohne Etikett**
 erzeugen (oder mit beiden Varianten), damit der Blindtest fair wird. Das ist derselbe Gedanke wie
 bei den Paraphrasen: mehrere Formen derselben Sache.
+
+## Runde 274 — Die Logik ist wirklich am Plateau: 62,5 bei 500 und bei 1500 Schritten
+
+**Die Kontrolle des Durchbruchs von Runde 273** (dort loeste mehr Training die Interferenz):
+hilft mehr Training auch der Logik?
+
+| Schritte | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 500 | 37,5 | **62,5** | 92,5 |
+| **1500** | **57,5** | **62,5** | 95 |
+
+**Die Antwort bleibt exakt gleich, der Weg verbessert sich um 20 Punkte.** Das ist ein wichtiger
+Unterschied: das Modell **schreibt den Weg jetzt richtig**, kommt aber **beim Schluss nicht weiter**.
+
+**Damit ist die Logik kein Trainingsartefakt.** Der Durchbruch bei der Addition (73 -> 91,9) hat
+sich hier **nicht** wiederholt — und das ist die richtige Unterscheidung:
+
+| Familie | 500 Schritte | 1500 Schritte | Verdikt |
+|---|---|---|---|
+| Addition, zweistellig | 73 | **91,9** | war untertrainiert |
+| **Logik** | **62,5** | **62,5** | **am Limit** |
+
+**Die geschuetzte Familie (Addition) haelt bei 94,6** — leicht unter den 97,3 der vorigen Messung,
+innerhalb der Toleranz.
+
+**Was das fuer die 24M-Grenze bedeutet, jetzt mit zwei Datenpunkten:** die Addition war
+untertrainiert, die Logik nicht. **Nicht jede schwache Zahl ist ein Trainingsartefakt** — aber
+jede muss einmal mit mehr Schritten nachgeprueft werden, bevor sie als Grenze gilt.
+
+**Was noch aussteht:** das Urteil (58 bei 500 Schritten) und die Multiplikation (0) sind nach
+derselben Regel noch nicht nachgeprueft.
