@@ -3049,3 +3049,45 @@ dazukommt. Und die Kopie-Aufgaben werden zumindest teilweise gelernt.
 >
 > **Addition unter 60** = die Verkettung hilft nicht; dann bleibt die Kapazitaet im Spiel und
 > 100M ist gerechtfertigt.
+
+## Runde 227 — Verkettung allein reicht nicht: zu wenige Records fuehren zum Overfitting
+
+**Ergebnis `mix56` (verkettete Kopie-Records, 671 Bytes pro Record), je 40–60 Aufgaben:**
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Addition | 0 | **0** | 0 |
+| Kopie | 0 | **0** | 45 |
+| Sprachlogik | 0 | 55 | 55 |
+
+**Die Verkettung hat technisch funktioniert** — die Batches waren gross und stabil (6964 Bytes,
+Loss 0,065 statt springend). Aber das Ergebnis ist dasselbe.
+
+**Der Loss verraet die Ursache: 0,065 ist zu gut.** Das Modell sagt die Trainingsdaten fast
+perfekt voraus — **es hat sie auswendig gelernt.** Der Grund:
+
+| Korpus | Records | Epochen in 1500 Schritten |
+|---|---|---|
+| `mix46` (Referenz) | 40 774 | 0,3 |
+| `mix56` (**verkettet**) | **300** | **40** |
+
+**Die Verkettung hat die Record-Zahl von 3000 auf 300 gedrueckt — vierzig Durchlaeufe ueber
+dieselben 300 Beispiele.** Das Modell hat die Kopie-Aufgaben auswendig gelernt und dabei alles
+andere verloren.
+
+**Damit ist auch die zweite Hypothese widerlegt** (Record-Laenge als Ursache). Die erste
+(Lernrate) war es nicht, die zweite (Laenge) auch nicht. **Was bleibt, ist die Vielfalt:**
+40 774 verschiedene Records halten sieben Familien, 300 halten nichts.
+
+**Mein Fehler war die Datenmenge, nicht der Trainer:** ich habe 3600 Kopie-Aufgaben erzeugt und
+durch die Verkettung zu 300 Records gemacht — statt **36 000 Aufgaben zu erzeugen und daraus
+3000 Records** zu bilden. Die Referenz hat 40 774; alles darunter ist zu wenig.
+
+**Entscheidung nach Regel 7 (zwei Runden ohne Zugewinn): die Kopie-Familie wird fallengelassen.**
+`mix54`, `mix55` und `mix56` sind drei Versuche mit derselben Familie und keinem Zugewinn.
+**Referenz bleibt `mix46`.**
+
+**Nebenbefund, vom Nutzer angeregt:** der Arbeitsspeicher lag waehrend aller Laeufe zwischen
+**60 und 62 Prozent** (19,3 von 31,8 GB), nie ueber 90. Eine Wache (`werkzeug/ram-wache.ps1`)
+laeuft und protokolliert jede Minute nach `pmh/ram-verlauf.tsv`; bei ueber 90 Prozent stoppt sie
+den Trainer.
