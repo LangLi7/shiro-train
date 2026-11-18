@@ -3857,3 +3857,41 @@ bleiben ohne belastbare Zahl, und das steht so im Protokoll.
 **Der Fix ist im Werkzeug:** `mktool --disjunkt <test-shard> <trainings-ordner> <ziel>` prueft
 jede Testaufgabe gegen den gesamten Trainingskorpus. **Ab jetzt geht keine Zahl mehr in die
 Regressionstabelle, die nicht durch diesen Filter gegangen ist.**
+
+## Runde 249 — Wie die Testdaten aufgebaut sind, und warum drei Familien keine Zahl haben
+
+**Der Aufbau, nachgesehen statt angenommen:**
+
+```
+mix8/f_add/val      ->  Trainingsdaten (der Trainer liest "val")
+mix8/t_add/val      ->  Testdaten (eigener Ordner, nie im Training)
+mix46/all           ->  der Trainingskorpus, gebaut aus den f_*/val-Ordnern
+```
+
+**Das Problem:** nur `add`, `gleich` (ueber `gleich2/test`), `sprach` und einige wenige haben
+einen **getrennten Test-Ordner**. Fuer **Logik, Multiplikation und Ketten** gibt es keinen — ihre
+Werte (97,5 / 90 / 98,3) stammen aus Messungen auf **denselben Shards, mit denen trainiert wurde**.
+
+**Und selbst wo ein Test-Ordner existiert, war er nicht disjunkt** (23 von 60 bei der Addition).
+Der Grund: die Generatoren fuer `add`, `mult`, `logic`, `gleich` haben **keine eigene
+Split-Variable** — nur `sprach`, `ketten`, `lex`, `urteil`, `kopie`, `bruch`, `ggt`, `fib`,
+`close`, `detek`, `prog` und `def` kennen `SHIRO_*_SPLIT`. Die anderen schreiben immer in denselben
+Registry-Topf, und ob Trainings- und Testlauf disjunkt sind, haengt davon ab, ob die Registry
+zwischendurch geleert wurde.
+
+**Was daraus folgt, und es ist eine klare Arbeitsanweisung:**
+
+> Fuer jede Familie muss der Testdatensatz **neu erzeugt und gegen den gesamten Trainingskorpus
+> gefiltert** werden (`mktool --disjunkt`). Eine Zahl ohne diesen Schritt ist keine Zahl.
+
+**Was heute belegt ist:**
+
+| Familie | n (sauber) | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Addition** | 37 | **100** | **100** | **100** |
+| **Gleichungen** | 37 | **91,9** | **91,9** | **100** |
+| Urteil | 60 | 5 | 61,7 | 98,3 |
+
+**Was nicht belegt ist:** Logik, Sprachlogik, Multiplikation, Ketten. Ihre Werte stehen weiter in
+der Regressionstabelle, aber ohne den Vermerk "held-out geprueft" — und das ist der Unterschied,
+auf den es ankommt.
