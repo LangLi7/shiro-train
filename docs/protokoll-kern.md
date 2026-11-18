@@ -3462,3 +3462,35 @@ sie verlangt, dass das Modell erkennt, dass `0 = 0` **alle** x erfuellt, waehren
 keine Loesung hat. Beides sieht im Prompt fast gleich aus (`8x + 18 = 8x + 18` gegen
 `8x + 18 = 8x + 24`) und unterscheidet sich nur in einer Zahl. Das ist derselbe Ziffern-Leseschritt,
 an dem die dreistellige Addition gescheitert ist.
+
+## Runde 238 — Erster echter Fortschritt: Urteil 48 Prozent, Addition 100 Prozent
+
+**Zwischenstand `mix60` nach 500 Schritten (von 3000):**
+
+| Familie | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Urteil (neu)** | 60 | 0 | **48,3** | **98,3** |
+| **Addition (geschuetzt)** | 30 | **100** | **100** | **100** |
+
+**Der Sprung bei der neuen Familie:** von **30** (mix53, 3000 Beispiele) auf **48,3** (mix60,
+12 000 Beispiele) — und das nach einem Sechstel der geplanten Schritte. **Die Hypothese
+"mehr Beispiele bringen mehr" ist damit bestaetigt.**
+
+**Die Klasse bei 98,3 Prozent** ist der wichtigere Teil: das Modell antwortet im richtigen Format
+(`bewiesen` / `widerlegt` / `nicht ableitbar`) und verwechselt die drei nicht. Was noch fehlt, ist
+die **richtige** der drei — also der Ziffern-Leseschritt (`0 = 0` gegen `0 = 19`).
+
+**Die geschuetzte Familie haelt bei 100 Prozent.** Zum ersten Mal in dieser Session ist eine neue
+Familie **messbar dazugekommen**, ohne etwas zu kosten. Genau das war die Frage hinter allen
+Fehlversuchen der letzten Stunden — und die Antwort ist: es geht, mit genug Beispielen und einem
+funktionierenden Messwerkzeug.
+
+**Was sich seit dem Verifier-Fix geaendert hat, in Zahlen:**
+
+| Lauf | Urteil | Addition |
+|---|---|---|
+| `mix52` (3 000, ohne Etikett) | 11,7 | — |
+| `mix53` (3 000, mit Etikett) | 30,0 | 100 |
+| **`mix60` (12 000, mit Etikett)** | **48,3** | **100** |
+
+**Der Lauf bleibt bis 3000 Schritte aktiv und wird danach erneut gemessen.**
