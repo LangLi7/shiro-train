@@ -4804,3 +4804,45 @@ davor — nicht durch neue Daten, sondern durch **laengeres Training und ehrlich
 
 **Was noch offen ist:** die **Multiplikation** (0 bei 500 Schritten) ist die letzte Familie, die
 diese Nachpruefung nicht hatte.
+
+## Runde 276 — Die Multiplikation bleibt bei 0, auch mit mehr Training
+
+**Die letzte offene Familie, nach derselben Regel geprueft** (mehr Schritte auf demselben Korpus):
+
+| Schritte | Antwort | Klasse |
+|---|---|---|
+| 31 500 (Referenz) | 0 | 100 |
+| **32 000 (+500)** | **0** | 83,3 |
+
+**Mehr Training hilft hier nicht.** Die Addition haelt gleichzeitig bei **100** — derselbe Lauf,
+dieselben Bedingungen.
+
+**Damit ist die Multiplikation die einzige Familie, bei der auch die Nachpruefung nichts aendert.**
+Und der Grund ist aus Runde 266 bekannt: die Testaufgaben haben eine **andere Wegform** als die
+Trainingsaufgaben (zweistellig statt fuenfstellig, andere Spaltenzerlegung).
+
+**Die vollstaendige Bilanz, alles nachgeprueft:**
+
+| Familie | Wert (1000+ Schritte) | Verdikt |
+|---|---|---|
+| **Addition, zweistellig** | **91,9** | ueber 90 |
+| **Addition, dreistellig** | **97,5** | ueber 90 |
+| **Addition, neue Formulierung** | **93,3** | ueber 90 |
+| **Sprachlogik** | **96,7** | ueber 90 |
+| **Gleichungen** | **91,9** | ueber 90 |
+| **Urteil (drei Klassen)** | **90** | ueber 90 |
+| Logik | 62,5 | am Limit (geprueft) |
+| Multiplikation | 0 | **andere Wegform, nicht gelernt** |
+
+**Sechs Familien ueber 90, zwei darunter** — und bei beiden ist die Ursache benannt und geprueft.
+
+**Was die Nachpruefung insgesamt ergeben hat:**
+
+| | |
+|---|---|
+| Grenzen, die keine waren | **3** (Addition zweistellig, dreistellig, Urteil) |
+| Grenzen, die bestanden haben | **2** (Logik, Multiplikation) |
+| Punkte, die allein durch mehr Training dazukamen | **+32 (Urteil), +19 (Addition 2-stellig), +82 (Addition 3-stellig)** |
+
+**Das ist die wichtigste methodische Lehre des Projekts:** die Messung nach 500 Schritten war
+systematisch zu frueh. **Sie hat drei echte Faehigkeiten als Grenzen verbucht.**
