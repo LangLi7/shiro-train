@@ -4498,7 +4498,7 @@ fn main() {
             let b = rng.range(1, 40) as i64;
             let c = rng.range(1, 9) as i64;
             let d = rng.range(1, 40) as i64;
-            let (aufgabe, weg, antwort) = match klasse {
+            let (aufgabe, weg, antwort, vergleich) = match klasse {
                 0 => {
                     // proven: ax + b = cx + d has exactly one solution. Pick x first, then
                     // set d = b + (a-c)*x so that this x solves it.
@@ -4515,6 +4515,7 @@ fn main() {
                         format!("{}x {} {} = {}x {} {}", aa, if bb < 0 { "-" } else { "+" }, bb.abs(), cc, if dd < 0 { "-" } else { "+" }, dd.abs()),
                         format!("{}x - {}x = {} - ({}), also {}x = {}, x = {}. Probe: {} = {}.", aa, cc, dd, bb, aa - cc, dd - bb, x, links, cc * x + dd),
                         "bewiesen".to_string(),
+                        format!("Links minus rechts ergibt {} = {}.", links, cc * x + dd),
                     )
                 }
                 1 => {
@@ -4524,6 +4525,7 @@ fn main() {
                         format!("{}x + {} = {}x + {}", a, b, a, b2),
                         format!("{}x - {}x = {} - {}, also 0 = {}. Falsch fuer jedes x.", a, a, b2, b, b2 - b),
                         "widerlegt".to_string(),
+                        format!("Links minus rechts ergibt 0 = {}.", b2 - b),
                     )
                 }
                 _ => {
@@ -4532,6 +4534,7 @@ fn main() {
                         format!("{}x + {} = {}x + {}", a, b, a, b),
                         format!("{}x - {}x = {} - {}, also 0 = 0. Jedes x erfuellt die Gleichung.", a, a, b, b),
                         "nicht ableitbar".to_string(),
+                        "Links minus rechts ergibt 0 = 0.".to_string(),
                     )
                 }
             };
@@ -4545,7 +4548,15 @@ fn main() {
             // The label is what separates this family from the plain equation family: without
             // it the model sees the same equation and does not know whether a number or a
             // verdict is expected (round 219: 2.6 percent destroyed the model).
-            rec.extend_from_slice(format!(" Urteil: {} ", aufgabe).as_bytes());
+            // SHIRO_URTEIL_DIFF=1 also hands the comparison to the model instead of asking it
+            // to read two digits and subtract them (round 240: that step is the plateau).
+            if std::env::var("SHIRO_URTEIL_DIFF").is_ok() {
+                // Hand the comparison over: the model gets "0 = 6" instead of having to read
+                // two numbers and subtract them.
+                rec.extend_from_slice(format!(" Urteil: {} {}", aufgabe, vergleich).as_bytes());
+            } else {
+                rec.extend_from_slice(format!(" Urteil: {} ", aufgabe).as_bytes());
+            }
             rec.push(B_THINK);
             rec.extend_from_slice(format!(" {} ", weg).as_bytes());
             rec.push(B_ANSWER);
@@ -5737,6 +5748,9 @@ let parity: u64 = args.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
     write_shard(&out, &recs, seed, "rechnen");
     println!("level {level}: {n} -> {}", out.display());
 }
+
+
+
 
 
 

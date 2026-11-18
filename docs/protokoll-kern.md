@@ -3569,3 +3569,32 @@ Urteil: 8x + 18 = 8x + 24.   Links minus rechts ergibt 0 = 6.
 
 Wenn das ueber 90 Prozent erreicht, ist bewiesen, dass nicht das Urteil, sondern der
 **Vergleich** die Grenze ist. Wenn es ebenfalls bei 51 bleibt, liegt es tiefer.
+
+## Runde 241 — Der Vergleich wird geliefert: faellt der Ziffernschritt weg?
+
+**Die Hypothese aus Runde 240, umgesetzt in `mix61`.** Die Aufgabe enthaelt den Vergleich jetzt
+als Text:
+
+```
+vorher (mix60):  Urteil: 7x + 18 = 7x + 23
+nachher (mix61): Urteil: 7x + 18 = 7x + 23 Links minus rechts ergibt 0 = 5.
+```
+
+**Genau ein Faktor: der Vergleich steht im Prompt.** Die Aufgabe selbst, die drei Klassen, die
+Zahl der Beispiele (12 000), der Ausgangspunkt und die Schritte sind identisch mit `mix60`.
+
+**Hypothese:** die Urteil-Familie erreicht **ueber 90 Prozent**, weil der Ziffernvergleich
+wegfaellt.
+
+**Entscheidungsregel:**
+
+> **Ueber 90** = der Ziffernvergleich war die Grenze. Dann ist bewiesen, dass das Modell die
+> **Bedeutung** der drei Klassen versteht und nur die Arithmetik fehlt — und die Konsequenz waere,
+> Aufgaben so zu bauen, dass sie den Vergleich liefern.
+>
+> **Um 51 wie `mix60`** = es liegt tiefer. Dann versteht das Modell die Aufgabe nicht, sondern
+> raet — und die Klasse "nicht ableitbar" ist prinzipiell nicht erreichbar.
+
+**Was daran unbequem ist:** die Aufgabe wird dadurch **sehr leicht** — die Antwort steht fast im
+Prompt. Ein hoher Wert beweist deshalb **nicht**, dass das Modell urteilen kann, sondern nur, dass
+der Ziffernschritt die fehlende Faehigkeit war. Genau das ist die Frage.
