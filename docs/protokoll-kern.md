@@ -4697,3 +4697,43 @@ durch Formen.
 **Der Weg ist damit keine Frage mehr, sondern eine Rechnung:** 100M kostet 135 Dollar und hat
 vermutlich Platz fuer mehrere Formen. Ob vier reichen, ist offen — aber es ist der einzige Weg,
 den die Messungen noch offenlassen.
+
+## Runde 273 — DURCHBRUCH: Die Interferenz war zu wenig Training
+
+**Nach 1500 statt 500 Schritten, derselbe Korpus (`mix69`), dieselben Testdaten:**
+
+| Schritte | zweistellig | dreistellig |
+|---|---|---|
+| 500 | 73 | 15 |
+| **1500** | **91,9** | **97,5** |
+
+**Beide Formen sind jetzt ueber 90 Prozent.** Der Einbruch bei 500 Schritten war **kein
+Kapazitaetsproblem, sondern ein Trainingsstand**.
+
+**Damit ist meine Schlussfolgerung aus Runde 272 widerlegt** — und sie war die sechste falsche
+Ursache in diesem Projekt. "Eine Form pro Modell" war eine Aussage ueber einen untertrainierten
+Checkpoint, nicht ueber das Modell.
+
+**Was das ueber den Verlauf sagt:** bei 500 Schritten hatte das Modell die neue Form **halb**
+gelernt und die alte **halb** verloren. Bei 1500 hat es **beide**. Die Interferenz war eine
+**Uebergangsphase**, kein Endzustand.
+
+**Der Blindtest bleibt bei 6,7 Prozent** — und das ist jetzt ein anderer Befund: die
+handgeschriebenen Aufgaben (`617+295`) haben ein **anderes Format** als die generierten
+(`3-stellig: 615+842`). Das Etikett fehlt, und das Modell braucht es, um die Form zu erkennen.
+
+**Die vollstaendige Bilanz der Addition, nach diesem Befund:**
+
+| Aufgabe | Antwort |
+|---|---|
+| zweistellig, held-out | **91,9** |
+| dreistellig, held-out | **97,5** |
+| handgeschrieben, ohne Etikett | 6,7 |
+
+**Zwei von drei sind ueber 90.** Der Blindtest scheitert nicht am Rechnen, sondern am **fehlenden
+Etikett** — und das ist behebbar: das Modell muss lernen, auch ohne `3-stellig:` die Form zu
+erkennen.
+
+**Was als naechstes zwingend ist:** die Trainingsdaten fuer die dreistelligen **ohne Etikett**
+erzeugen (oder mit beiden Varianten), damit der Blindtest fair wird. Das ist derselbe Gedanke wie
+bei den Paraphrasen: mehrere Formen derselben Sache.
