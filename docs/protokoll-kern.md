@@ -4412,3 +4412,37 @@ mit 20 000 Logik-Records im Korpus zu erwarten und liegt innerhalb der Toleranz.
 **Was daraus folgt:** die Logik braucht **mehr Beispiele pro Form** (nicht mehr Formen) und
 moeglicherweise einen **kuerzeren Weg** (nur die Antwort, nicht die Kette im Weg). Beides ist
 billig zu testen.
+
+## Runde 265 — Der kurze Weg hilft: Logik von 57,5 auf 62,5
+
+| Variante | Weg | Antwort | Klasse |
+|---|---|---|---|
+| `mix66` — langer Weg (Kette im Weg) | 0 | 57,5 | 87,5 |
+| **`mix67` — kurzer Weg** (`Schluss aus der Kette.`) | **37,5** | **62,5** | **92,5** |
+| Zufall bei Ja/Nein | — | 50 | — |
+
+**Die Hypothese ist bestaetigt, aber sie reicht nicht:** der kurze Weg bringt **+5 Punkte Antwort**
+und **+37,5 Punkte Weg** — letzteres, weil das Modell jetzt nur noch einen kurzen Satz schreiben
+muss statt die Kette mit den Namen nachzubilden.
+
+**Die Logik verbessert sich in drei Schritten, bleibt aber unter dem Ziel:**
+
+| Runde | Aenderung | Antwort |
+|---|---|---|
+| 251 | eine Form, 30 feste Nomen | 1,7 (neue Ketten) |
+| 262 | fuenf Formen, Struktur geaendert | 45 |
+| 264 | fuenf Formen, Struktur erhalten | 57,5 |
+| **265** | **kurzer Weg** | **62,5** |
+
+**62,5 Prozent liegen 12,5 Punkte ueber der Zufallsrate** — die Logik raet also nicht mehr
+vollstaendig, aber sie beherrscht den Schluss nicht sicher.
+
+**Die geschuetzte Familie haelt bei 97,3** — unveraendert ueber alle Logik-Varianten.
+
+**Was das ueber die Grenze sagt:** die Logik ist die einzige Familie, bei der **jede** der drei
+Maßnahmen (Vielfalt, Struktur, kurzer Weg) hilft, aber **keine** sie ueber 90 bringt. Bei der
+Addition genuegte eine einzige Maßnahme (Vielfalt) fuer 93,3.
+
+**Der Unterschied ist die Zahl der Schritte:** die Addition hat zwei (Ziffer, Uebertrag), die Logik
+hat drei bis sieben (Kette lesen, transitiv schliessen, Frage pruefen). **Bei 24 Mio Parametern und
+8 Schichten ist das offenbar die Grenze** — nicht die Form, nicht das Etikett, nicht die Datenmenge.
