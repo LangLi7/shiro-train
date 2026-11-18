@@ -4200,3 +4200,44 @@ verschiedene Ursachen:
 **Zwei davon sind dieselbe Ursache (Zeichenbindung), eine ist eine andere (Länge der Rechnung).**
 Das ist eine wichtige Unterscheidung: die Multiplikation scheitert nicht am Binden eines Zeichens,
 sondern am **Halten einer ganzen Ziffernfolge ueber viele Schritte**.
+
+## Runde 259 — Paraphrase-Transfer: 0, 5 und 0 Prozent
+
+**Die Pruefung, die der Auftrag in Schritt 2 verlangt und die ich nie gemacht habe:**
+
+Dieselben 30 Additionsaufgaben, vier Formulierungen, die **nie im Training** waren:
+
+| Formulierung | Weg | Antwort | Klasse |
+|---|---|---|---|
+| `47+38` (wie im Training) | 100 | **100** | 100 |
+| `Was ergibt 47 plus 38?` | 0 | **0** | 25 |
+| `Addiere 47 und 38.` | 0 | **5** | 100 |
+| `Berechne die Summe von 47 und 38.` | 0 | **0** | 60 |
+
+**Das Modell rechnet 47+38 fehlerfrei — und erkennt dieselbe Aufgabe nicht wieder, sobald sie in
+einem Satz steht.**
+
+**Was das bedeutet, und es ist die schaerfste Aussage des ganzen Projekts:**
+
+> Die 100 Prozent auf der Addition sind **kein Rechnen**, sondern das Erkennen einer **Zeichenform**
+> (`Zahl+Zahl`). Wird die Form auch nur leicht veraendert, faellt die Leistung auf null.
+
+**Damit relativiert sich das beste Ergebnis des Projekts.** Die Addition war die einzige Familie,
+die auf neuen Aufgaben 100 erreichte — aber "neue Aufgabe" hiess dort nur "neue Ziffern in
+derselben Form". **Eine Umformulierung ist fuer das Modell keine neue Aufgabe, sondern eine
+unbekannte.**
+
+**Und es erklaert rueckwirkend die anderen Befunde:**
+
+- **Logik (60, raet)**: die Aufgaben sind in Prosa ("Gegeben: ... Ist X ein Y?"). Das Modell kann
+  die Prosa nicht auf die Regel abbilden — es hat die Form gelernt, nicht den Inhalt.
+- **Urteil (61,7)**: dieselbe Prosa-Schwaeche.
+- **Multiplikation (0)**: die Form stimmt, aber neun Ziffern sind zu viele.
+
+**Die drei Familien, die "generalisieren", tun es nur innerhalb ihrer Form.** Das ist ein
+wichtiger Unterschied, und er steht jetzt im Protokoll.
+
+**Was das fuer den Auftrag heisst:** Paraphrase-Transfer war eine der vier geforderten Messungen.
+Er ist **null**. Kein Modell dieser Groesse, das nur eine Formulierung pro Aufgabe gesehen hat,
+wird eine andere verstehen — **es sei denn, man trainiert die Umformulierungen mit**. Das ist die
+naechste Aufgabe, und sie ist groesser als alles, was heute gemacht wurde.
