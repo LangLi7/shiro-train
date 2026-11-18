@@ -4057,3 +4057,45 @@ Stichproben lesen (naechste Runde).
 
 **Der Lauf geht bis 3000 Schritte.** Nach dem Verlauf (36,7 -> 53,3) waeren bei 3000 etwa 70 bis
 80 Prozent zu erwarten — die 90 waeren dann in Reichweite, aber nicht sicher.
+
+## Runde 255 — Die 60 Prozent sind Raten, nicht Koennen. Der Weg zeigt es.
+
+**Die Stichprobe, die den Wert entlarvt:**
+
+```
+Modell: 1. Erreichbar von fode: der Akor gosi. 2. sori steht nicht in der Liste. -> nein
+Gold  : 1. Erreichbar von rori: rori.          2. nagi steht nicht in der Liste. -> nein
+```
+
+**Die Formel ist identisch. Die Nomen sind falsch.** Das Modell schreibt "Erreichbar von fode",
+waehrend die Aufgabe von "rori" handelt — und "sori steht nicht in der Liste", waehrend nach
+"nagi" gefragt war. Es hat den **Satzbau** gelernt, nicht die **Namen**.
+
+**Damit sind die 60 Prozent Antwort ein Ratergebnis:**
+
+- Die Aufgabe ist eine **Ja/Nein-Frage** — ohne Koennen liegt die Rate bei **50 Prozent**.
+- 60 Prozent sind also **10 Punkte ueber Zufall**, nicht 60 Prozent Koennen.
+- Die Klasse (95 Prozent) bestaetigt es: das Modell antwortet **immer** "ja" oder "nein" — es
+  verweigert nie, also hat es keine Moeglichkeit zu zeigen, dass es unsicher ist.
+
+**Der Verlauf, jetzt richtig gelesen:**
+
+| Schritte | Antwort | Klasse | Einordnung |
+|---|---|---|---|
+| 500 | 36,7 | 48,3 | unter Zufall |
+| 1000 | 53,3 | 90 | **auf Zufall** |
+| 2000 | **60** | 95 | **10 Punkte ueber Zufall** |
+
+**Was das ueber die Logik sagt:** die Transitivitaetsregel wird **nicht** gelernt. Was gelernt wird,
+ist die **Form des Weges** ("Erreichbar von X: ... steht nicht in der Liste") — und die Antwort
+dann geraten.
+
+**Der Grund ist derselbe wie bei den Ziffern:** die zufaelligen Nomen muessen **gelesen und
+kopiert** werden, und genau das scheitert. Mit 30 festen Nomen war das kein Problem (man kannte
+sie), mit 16 900 ist es eines.
+
+**Damit ist die Hypothese aus Runde 252 widerlegt** — und die Grenze heisst zum **vierten Mal**
+gleich: **das Modell kann Zeichen nicht zuverlaessig aus dem Prompt uebernehmen.** Erst waren es
+Ziffern, jetzt sind es Buchstaben.
+
+**Der Lauf wurde gestoppt.** 1000 weitere Schritte haetten dieselbe Rate produziert.
