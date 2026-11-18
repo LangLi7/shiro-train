@@ -4583,3 +4583,39 @@ Testdatensatz kann disjunkt sein und trotzdem nur den leichten Teil abdecken.
 **Was als naechstes zwingend ist:** ein Testdatensatz, der die **Verteilung der Trainingsdaten**
 abdeckt (ein-, zwei- und dreistellig, mit und ohne Uebertrag in jeder Stelle) — und dann eine
 ehrliche Messung je Stellenzahl.
+
+## Runde 270 — Die dreistellige Addition war nie trainiert
+
+**Die Pruefung, die den Blindtest einordnet:** welche Stellenzahlen stehen in den Trainingsdaten?
+
+```
+Verteilung in 300 Aufgaben des Additions-Shards:
+  1+1 : 84
+  1+2 : 65
+  2+1 : 77
+  2+2 : 74
+  drei- oder mehrstellig: 0
+```
+
+**Die Trainingsdaten enthalten ausschliesslich ein- und zweistellige Additionen.** Die dreistellige
+Aufgabe `617+295` aus dem Blindtest war **nie im Training** — das Modell hat sie nie gesehen.
+
+**Damit ist der Blindtest-Befund richtig eingeordnet:**
+
+| | |
+|---|---|
+| 13,3 Prozent auf dreistelligen Aufgaben | **kein Defekt**, sondern **Zero-Shot** |
+| 100 Prozent auf zweistelligen Aufgaben | **gilt fuer den trainierten Bereich** |
+| Der Auftrag verlangt | **"x-beliebige Stellen inkl. Komma und Minus"** |
+
+**Und damit ist die eigentliche Luecke benannt, und sie ist gross:** der Auftrag verlangt
+**beliebige Stellenzahlen**, das Modell kennt **zwei**. Was ich als "Addition geloest" berichtet
+habe, gilt fuer den Bereich, den ich trainiert habe — **nicht fuer den, den der Auftrag nennt.**
+
+**Das ist keine Entschuldigung, sondern die Aufgabenstellung fuer die naechsten Runden:**
+1. **Dreistellige und laengere Additionen ins Training** (mit Uebertrag in jeder Stelle).
+2. **Negative Zahlen und Komma** — im Auftrag ausdruecklich genannt, im Training nicht vorhanden.
+3. **Ein Testdatensatz, der die Verteilung abdeckt**, nicht nur die leichte Haelfte.
+
+**Was der Blindtest damit geleistet hat:** er hat in einer Stunde gezeigt, was 140 Runden
+Generator-Messungen nicht gezeigt haben — **dass die Messlatte zu niedrig stand.**
