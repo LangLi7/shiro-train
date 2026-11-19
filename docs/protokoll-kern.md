@@ -4973,3 +4973,39 @@ an einem Punkt entstanden, an dem der Rechner am Limit war.**
 3. **Der Trainer bekommt ein Speicherlimit** (`SHIRO_MAX_RAM_MB`), das er selbst einhaelt.
 
 **Alle Prozesse sind gestoppt.** RAM bei 57 Prozent, GPU bei 474 MiB.
+
+## Runde 281 — Bruch-Familie gebaut, und ein Build-Fehler gefunden
+
+**Die Bruch-Familie** (Dezimal rein, gekuerzter Bruch raus, Rechenweg mit ggT):
+
+```
+Aufgabe : 9.19
+Weg     : 1. 2 Nachkommastellen. 2. 9.19 = 919/100. 3. ggT 1. 4. 919/100.
+Antwort : 919/100
+```
+
+4 000 Trainings-Aufgaben, 200 Test-Aufgaben (disjunkt geprueft), 15 Prozent mit ausdruecklicher
+Dezimal-Ansage. Korpus `mix72`: 44 774 Records.
+
+**Der Build-Fehler, der eine Stunde gekostet hat:** Ich hatte nach dem 5D-Einbau
+`cargo build --release` **ohne `--features cuda`** gebaut. Das Binary kannte danach kein CUDA mehr
+und brach mit einer klaren Meldung ab — die ich zwei Messungen lang als "Modell gibt nichts aus"
+fehlgedeutet habe.
+
+> `FEHLER: Backend 'cuda' verlangt, aber das Binary kennt kein CUDA.`
+> `Bauen mit: cargo build --release --features cuda`
+
+**Die Lehre:** nach jedem Neubau eine **Bekannte Probe** messen (`mix46` auf `6+89`), bevor
+irgendein Ergebnis als Modellbefund gilt. Das ist dieselbe Regel wie beim Verifizierer — sie gilt
+auch fuer das Binary.
+
+**Der erste Messwert bei 1 000 Schritten:**
+
+| | |
+|---|---|
+| Aufgabe | `9.19` |
+| Modell | `1. 2 Nachkommastellen. 2. 9.119 = 9199/1000. ... 91999/1000` |
+| Gold | `919/100` |
+
+**Das Format sitzt, die Ziffern nicht** — dasselbe Muster wie bei der Multiplikation. Bei
+1 000 Schritten ist das erwartbar; der Lauf geht bis 3 000.
