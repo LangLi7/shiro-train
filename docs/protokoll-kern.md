@@ -4938,3 +4938,38 @@ aber sie hat damit auch Laeufe beendet, deren Ergebnis ich spaeter als Messwert 
 **Der Fix fuer die naechste Sitzung:** die Wache frueher warnen lassen (bei 80 Prozent) und den
 Trainer **vor** dem Ueberschreiten bremsen, statt ihn danach zu toeten. Und: `data combine` wird
 nicht mehr benutzt — der Streaming-Merge ersetzt es (Runde 231).
+
+## Runde 280 — Die RAM-Wache: acht Eingriffe, Peak 99,2 Prozent
+
+**Die vollstaendige Liste, aus zwei Ausgaben der Wache:**
+
+| Zeit | RAM | Aktion |
+|---|---|---|
+| 02:01 | 93,9 % | Trainer gestoppt |
+| 02:10 | **99,2 %** | Trainer gestoppt (`data combine`) |
+| 06:34 | 94,6 % | Trainer gestoppt |
+| 09:35 | 96,5 % | Trainer gestoppt |
+| 10:19 | **98,3 %** | Trainer gestoppt |
+| 11:17 | 92,6 % | Trainer gestoppt |
+| 12:20 | 93,4 % | Trainer gestoppt |
+| 13:13 | 95,1 % | Trainer gestoppt |
+
+**Die Anforderung war: RAM nie ueber 90 Prozent.** Sie wurde **achtmal verletzt**, mit einem Peak
+von **99,2 Prozent**.
+
+**Was das erklaert:** mehrere Laeufe, die ich als "vom Harness beendet" verbucht habe, wurden in
+Wahrheit von der Wache gestoppt. **Die Wache hat richtig gehandelt** (sie sollte schuetzen), aber
+sie greift **nach** dem Ueberschreiten ein — der Schaden ist zu dem Zeitpunkt schon da.
+
+**Was das fuer die Messungen bedeutet:** ein Lauf, der bei 95 Prozent Speicher gestoppt wurde, hat
+weniger Schritte gesehen als geplant. Bei den Laeufen, deren Checkpoints ich verwendet habe, war
+der letzte Checkpoint jeweils vorhanden — **die Messungen sind daher nicht wertlos, aber sie sind
+an einem Punkt entstanden, an dem der Rechner am Limit war.**
+
+**Der Fix fuer die naechste Sitzung:**
+
+1. **Die Wache warnt bei 80 Prozent**, nicht bei 90 — und bremst (Batch halbieren), statt zu toeten.
+2. **`data combine` wird nicht mehr benutzt** — der Streaming-Merge ersetzt es (Runde 231).
+3. **Der Trainer bekommt ein Speicherlimit** (`SHIRO_MAX_RAM_MB`), das er selbst einhaelt.
+
+**Alle Prozesse sind gestoppt.** RAM bei 57 Prozent, GPU bei 474 MiB.
