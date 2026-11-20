@@ -5436,3 +5436,37 @@ der Mittelwert bei **80**, die Spanne bei **66 bis 90**.
 **Nach Regel 7 des Auftrags:** das Urteil hat jetzt **zwei Runden ohne Zugewinn** hinter sich
 (Runde 294: keine Verbesserung durch explizite Begruendung; Runde 296: Bestaetigung). **Es wird
 nicht weiter verfolgt** — die Grenze ist benannt, und sie liegt unter 90.
+
+## Runde 297 — Drei Familien mit vier bis fuenf Seeds belegt: keine Streuung
+
+**Die kostenlose Messung:** die vier Seed-Checkpoints (`s1`–`s4`, 600 Schritte auf `mix46`) lagen
+noch da. Statt neue Laeufe zu starten, wurden sie auf **allen** Test-Saetzen gemessen.
+
+| Familie | Seed 1 | Seed 2 | Seed 3 | Seed 4 | Streuung |
+|---|---|---|---|---|---|
+| **Addition** | 100 | 100 | 100 | 100 | **0** |
+| **Sprachlogik** | 96,7 | 96,7 | 96,7 | 96,7 | **0** |
+| **Gleichungen** | 91,9 | 91,9 | 91,9 | 91,9 | **0** |
+
+**Drei Familien, vier Laeufe, jeweils identische Werte.** Die Messungen sind **belastbar** — sie
+haengen nicht am Zufallsstart.
+
+**Damit sind fuenf Familien mit Streuung belegt:**
+
+| Familie | Wert | Laeufe | Streuung |
+|---|---|---|---|
+| **Addition** | **100** | 5 | 0 |
+| **Sprachlogik** | **96,7** | 4 | 0 |
+| **Gleichungen** | **91,9** | 4 | 0 |
+| **Logik** | **62,5** | 2 | 0 |
+| **Urteil** | **80** | 6 | **20** |
+
+**Vier von fuenf sind stabil, eine streut.** Und die streuende ist die mit den drei Antwortklassen.
+
+**Was noch ohne Streuungsmessung ist:** die dreistellige Addition (97,5), die neue Formulierung
+(93,3), der kurze Bruch (22,5) und die Multiplikation (0). Fuer die ersten beiden waere die Messung
+guenstig (dieselben Seeds, andere Test-Saetze); fuer Bruch und Multiplikation braucht es Laeufe mit
+den jeweiligen Korpus.
+
+**Der Stand ist damit deutlich belastbarer als vor zehn Runden:** vier Familien mit 0 Streuung,
+eine mit benannter Streuung.
