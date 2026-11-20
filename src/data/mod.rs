@@ -32,6 +32,7 @@ pub mod prozent;
 pub mod quant;
 pub mod semantics;
 pub mod seq;
+pub mod si;
 pub mod seqgen;
 pub mod textimport;
 pub mod bruch;
