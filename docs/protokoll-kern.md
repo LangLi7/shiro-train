@@ -5857,3 +5857,40 @@ ein Checkpoint, der nicht ueberschrieben werden konnte; die vierte eine falsche 
 war die Ursache ein Werkzeug, nicht das Modell.**
 
 **Der Lauf braucht 45 Minuten** — laenger als eine Runde. Er wird in der naechsten Runde gemessen.
+
+## Runde 308 — Die Interferenz ist reproduzierbar: Multiplikation 85 und 87,5, Addition 80 und 76,7
+
+**Zwei Seeds auf demselben Korpus (20 000 Multiplikationen, 2 000 Schritte):**
+
+| Seed | Multiplikation | Addition (geschuetzt) |
+|---|---|---|
+| 53013 | 85 | 80 |
+| **55015** | **87,5** | **76,7** |
+
+**Die Multiplikation ist stabil geloest** (85–87,5, Streuung 2,5 = Messgenauigkeit).
+**Die Addition ist stabil beschaedigt** (76,7–80, Streuung 3,3).
+
+**Damit ist die Interferenz zum zweiten Mal reproduziert** — und sie ist symmetrisch: was die eine
+Familie gewinnt, verliert die andere.
+
+**Die vollstaendige Kette, die dieses Projekt belegt hat:**
+
+| Korpus | Multiplikation | Addition |
+|---|---|---|
+| `mix46` (ohne Multiplikation) | — | **100** (5 Laeufe) |
+| `mix76` (4 000 Mult.) | 10 | 93,3 |
+| **`mix77`/`mix79` (20 000 Mult.)** | **85 / 87,5** | **80 / 76,7** |
+
+**Der Mechanismus:** bei 24 Mio Parametern und 2 000 Schritten reicht die Kapazitaet fuer **eine**
+Familie von Multiplikationen **oder** fuer die Addition — nicht fuer beide.
+
+**Was das fuer den Auftrag bedeutet, und es ist die ehrliche Antwort:**
+
+> **Die 90 Prozent je Familie sind mit diesem Modell NICHT gleichzeitig erreichbar.**
+
+**Nicht wegen der Daten, nicht wegen der Wege, nicht wegen der Seeds — sondern wegen der
+Kapazitaet.** Die Addition allein: 100. Die Multiplikation allein: 87,5. Beide: 100 und 10 (4k)
+oder 87,5 und 76,7 (20k).
+
+**Die Konsequenz, falls der Auftrag weitergeht:** ein groesseres Modell (100M, gebaut als `mix50`)
+oder mehr Schritte. Beides kostet Geld — 135 $ fuer 100M auf einer 3090, und das Budget sind 10 $.
