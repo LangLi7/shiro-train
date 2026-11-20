@@ -223,6 +223,34 @@ fn aufgabentext(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht) -> String
     }
 }
 
+/// Die Rechnung, die **die gesuchte** Groesse herleitet - als `(a, op, b)` mit `a op b`
+/// gleich dem gesuchten Wert.
+///
+/// Warum nicht immer die dritte Groesse: gefragt ist je nach Aufgabe eine andere. Ein Weg,
+/// der `s = v * t` rechnet, obwohl `v` gesucht ist, beantwortet die Frage nicht - und
+/// genau das hat der Weg-Verifier in Runde 323 aufgedeckt.
+fn rechne(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht) -> (u64, char, u64) {
+    let idx = match gesucht {
+        Gesucht::Erste => 0,
+        Gesucht::Zweite => 1,
+        Gesucht::Dritte => 2,
+    };
+    match szenario {
+        // Beziehung: werte[2] = werte[0] / werte[1]
+        Szenario::Zeit => match idx {
+            2 => (werte[0], '/', werte[1]),
+            0 => (werte[1], '*', werte[2]),
+            _ => (werte[0], '/', werte[2]),
+        },
+        // Beziehung: werte[2] = werte[0] * werte[1]
+        _ => match idx {
+            2 => (werte[0], '*', werte[1]),
+            0 => (werte[2], '/', werte[1]),
+            _ => (werte[2], '/', werte[0]),
+        },
+    }
+}
+
 fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -> Vec<u8> {
     let idx = match gesucht {
         Gesucht::Erste => 0,
@@ -247,12 +275,17 @@ fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -
         .map(|i| format!("{} = {}", symbol(szenario, i), werte[i]))
         .collect::<Vec<_>>()
         .join(", ");
+    // Das Einsetzen muss als **Rechnung** im Weg stehen, nicht als Zuweisung: sonst ist
+    // der Weg nicht nachpruefbar. Und sie muss die gesuchte Groesse ergeben.
+    let (a, op, b) = rechne(szenario, werte, gesucht);
     let weg = format!(
-        "1. Bekannt: {}. 2. Gesucht: {}. 3. Formel: {}. 4. {} = {}.",
+        "1. Bekannt: {}. 2. Gesucht: {}. 3. Formel: {}. 4. Einsetzen: {} {} {} = {}.",
         bekannt,
         symbol(szenario, idx),
         formel(szenario),
-        symbol(szenario, idx),
+        a,
+        op,
+        b,
         werte[idx]
     );
     baue(&text, &weg, &werte[idx].to_string())
@@ -357,6 +390,8 @@ pub fn verify(record: &[u8]) -> Result<bool> {
 struct Teile {
     weg: Option<String>,
     antwort: Option<String>,
+    /// Alle vier Marken in der richtigen Reihenfolge gesehen.
+    format: bool,
 }
 
 fn zerlege(record: &[u8]) -> Result<Teile> {
@@ -364,27 +399,198 @@ fn zerlege(record: &[u8]) -> Result<Teile> {
     let mut antwort = None;
     let mut buf = String::new();
     let mut abschnitt = 0u8;
+    let mut reihenfolge = 0u8;
     for b in record {
         match *b {
-            B_TASK => abschnitt = 1,
+            B_TASK => {
+                if reihenfolge == 0 {
+                    reihenfolge = 1;
+                }
+                abschnitt = 1;
+            }
             B_THINK => {
+                if reihenfolge == 1 {
+                    reihenfolge = 2;
+                }
                 buf.clear();
                 abschnitt = 2;
             }
             B_ANSWER => {
+                if reihenfolge == 2 {
+                    reihenfolge = 3;
+                }
                 weg = Some(buf.trim().to_string());
                 buf.clear();
                 abschnitt = 3;
             }
-            B_END => antwort = Some(buf.trim().to_string()),
+            B_END => {
+                if reihenfolge == 3 {
+                    reihenfolge = 4;
+                }
+                antwort = Some(buf.trim().to_string());
+            }
             _ => {
-                if abschnitt >= 2 && abschnitt <= 3 {
+                if (2..=3).contains(&abschnitt) {
                     buf.push(*b as char);
                 }
             }
         }
     }
-    Ok(Teile { weg, antwort })
+    Ok(Teile {
+        weg,
+        antwort,
+        format: reihenfolge == 4,
+    })
+}
+
+/// Eine Bewertung in **drei unabhaengigen Dimensionen**.
+///
+/// Anlass: das Ziel verlangt Ergebnis **und** ueberpruefbaren Weg. Eine richtige Antwort
+/// mit falschem Weg darf nicht als Erfolg zaehlen. Die drei Dimensionen sind getrennt,
+/// weil sie verschiedene Fehler zeigen:
+///
+/// - [`Bewertung::antwort`] — stimmt das Ergebnis?
+/// - [`Bewertung::weg`] — ist jeder Rechenschritt im Denkweg arithmetisch korrekt und
+///   wird die Formel des Szenarios benutzt?
+/// - [`Bewertung::konsistenz`] — folgt die Antwort aus dem letzten Schritt des Weges?
+///
+/// Getrennt gezaehlt entlarven sie genau die Faelle, die eine Exact-Match-Zahl verbirgt:
+/// richtige Antwort bei gebrochenem Weg (`antwort` wahr, `weg` falsch) und richtiger Weg
+/// mit falscher Antwort (`weg` wahr, `konsistenz` falsch).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Bewertung {
+    pub format: bool,
+    pub weg: bool,
+    pub antwort: bool,
+    pub konsistenz: bool,
+}
+
+impl Bewertung {
+    /// Alle drei inhaltlichen Dimensionen erfuellt.
+    pub fn vollstaendig(&self) -> bool {
+        self.format && self.weg && self.antwort && self.konsistenz
+    }
+}
+
+/// Bewertet eine erzeugte Aufgabe gegen die Goldaufgabe derselben Aufgabe.
+pub fn bewerte(generiert: &[u8], gold: &[u8]) -> Result<Bewertung> {
+    let g = zerlege(generiert)?;
+    let gold_t = zerlege(gold)?;
+    let weg = g.weg.clone().unwrap_or_default();
+    let antwort = g.antwort.clone().unwrap_or_default();
+
+    let staende = rechenstaende(&weg);
+    let arithmetik_ok = !staende.is_empty() && staende.iter().all(|s| s.ist_korrekt());
+    let formel_ok = match (formel_aus(&weg), formel_aus(&gold_t.weg.unwrap_or_default())) {
+        (Some(x), Some(y)) => x == y,
+        _ => false,
+    };
+
+    let letztes = staende.last().and_then(|s| s.ergebnis);
+    let konsistenz = match (letztes, antwort.parse::<u64>().ok()) {
+        (Some(c), Some(a)) => c == a,
+        _ => false,
+    };
+
+    Ok(Bewertung {
+        format: g.format,
+        weg: arithmetik_ok && formel_ok,
+        antwort: antwort == gold_t.antwort.unwrap_or_default(),
+        konsistenz,
+    })
+}
+
+/// Ein Rechenschritt `a op b = c`, wie er im Denkweg steht.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Schritt {
+    pub a: u64,
+    pub op: char,
+    pub b: u64,
+    pub ergebnis: Option<u64>,
+}
+
+impl Schritt {
+    fn ist_korrekt(&self) -> bool {
+        match self.ergebnis {
+            Some(c) => {
+                let soll = match self.op {
+                    '+' => self.a.checked_add(self.b),
+                    '-' => self.a.checked_sub(self.b),
+                    '*' => self.a.checked_mul(self.b),
+                    '/' => {
+                        if self.b == 0 || self.a % self.b != 0 {
+                            None
+                        } else {
+                            Some(self.a / self.b)
+                        }
+                    }
+                    _ => None,
+                };
+                soll == Some(c)
+            }
+            // Ein Schritt ohne Ergebnis ist unvollstaendig, nicht korrekt.
+            None => false,
+        }
+    }
+}
+
+/// Liest alle Rechenschritte der Form `zahl op zahl = zahl` aus einem Text.
+///
+/// Schrittnummern (`4.`) und Zuweisungen an Symbole (`s = 300`) sind bewusst **keine**
+/// Rechenschritte und werden uebersprungen.
+pub fn rechenstaende(text: &str) -> Vec<Schritt> {
+    let tokens: Vec<&str> = text
+        .split_whitespace()
+        .map(|t| t.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '+' && c != '-' && c != '*' && c != '/' && c != '='))
+        .filter(|t| !t.is_empty())
+        .collect();
+    // Zahlen stehen im Text mit Satzpunkt am Ende ("340.") - der Punkt gehoert nicht
+    // zur Zahl. Schrittnummern ("3.") werden dadurch ebenfalls zu Zahlen, fallen aber
+    // im Muster unten heraus, weil auf sie kein Operator folgt.
+    let zahl = |t: &str| -> Option<u64> { t.trim_matches('.').parse::<u64>().ok() };
+    let ist_op = |t: &str| -> Option<char> {
+        let mut it = t.chars();
+        match (it.next(), it.next()) {
+            (Some(c @ ('+' | '-' | '*' | '/')), None) => Some(c),
+            _ => None,
+        }
+    };
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i + 4 < tokens.len() {
+        let (t0, t1, t2, t3, t4) = (
+            tokens[i],
+            tokens[i + 1],
+            tokens[i + 2],
+            tokens[i + 3],
+            tokens[i + 4],
+        );
+        if let (Some(a), Some(op), Some(b), true, Some(c)) =
+            (zahl(t0), ist_op(t1), zahl(t2), t3 == "=", zahl(t4))
+        {
+            out.push(Schritt {
+                a,
+                op,
+                b,
+                ergebnis: Some(c),
+            });
+            i += 5;
+            continue;
+        }
+        i += 1;
+    }
+    out
+}
+
+/// Die Formel hinter `Formel:` - der Vergleichswert fuer die Weg-Dimension.
+fn formel_aus(weg: &str) -> Option<String> {
+    let rest = weg.split("Formel:").nth(1)?;
+    let formel: String = rest
+        .chars()
+        .take_while(|c| *c != '.')
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    if formel.is_empty() { None } else { Some(formel) }
 }
 
 #[cfg(test)]
@@ -457,5 +663,48 @@ mod tests {
         // Und mit der richtigen Antwort muss derselbe Weg durchgehen.
         let echt = baue("egal", &weg, &richtig.to_string());
         assert!(verify(&echt).expect("Zerlegung"), "richtige Antwort abgelehnt");
+    }
+
+    #[test]
+    fn richtiger_weg_mit_falscher_antwort_ist_konsistenzbruch() {
+        // Claudes Beispiel: der Weg rechnet 391, die Antwort sagt 381.
+        let weg = "1. 17 * 20 = 340. 2. 17 * 3 = 51. 3. 340 + 51 = 391. Formel: a * b = c.";
+        let gold = baue("17 * 23", weg, "391");
+        let kaputt = baue("17 * 23", weg, "381");
+        let b = bewerte(&kaputt, &gold).expect("Bewertung");
+        assert!(b.format, "Format in Ordnung");
+        assert!(b.weg, "der Weg ist arithmetisch korrekt");
+        assert!(!b.antwort, "die Antwort ist falsch");
+        assert!(!b.konsistenz, "die Antwort folgt nicht aus dem Weg");
+    }
+
+    #[test]
+    fn richtige_antwort_bei_gebrochenem_weg_zaehlt_nicht() {
+        let gold_weg = "1. 17 * 20 = 340. 2. 17 * 3 = 51. 3. 340 + 51 = 391. Formel: a * b = c.";
+        let gold = baue("17 * 23", gold_weg, "391");
+        // Schritt 2 falsch gerechnet, die Antwort ist trotzdem 391.
+        let kaputt_weg = "1. 17 * 20 = 340. 2. 17 * 3 = 50. 3. 340 + 51 = 391. Formel: a * b = c.";
+        let kaputt = baue("17 * 23", kaputt_weg, "391");
+        let b = bewerte(&kaputt, &gold).expect("Bewertung");
+        assert!(!b.weg, "gebrochener Weg muss auffallen");
+        assert!(b.antwort, "die Antwort ist zufaellig richtig");
+        assert!(b.konsistenz, "die Antwort passt zum letzten Schritt");
+        assert!(!b.vollstaendig(), "darf nicht als Erfolg zaehlen");
+    }
+
+    #[test]
+    fn eigene_aufgaben_sind_in_allen_dimensionen_erfuellt() {
+        let aufgaben = generate(&opts(30)).expect("Erzeugung");
+        for a in &aufgaben {
+            let b = bewerte(&a.record, &a.record).expect("Bewertung");
+            assert!(b.format && b.antwort, "Format/Antwort: {b:?}");
+            if !a.luecke {
+                assert!(
+                    b.weg && b.konsistenz,
+                    "Weg/Konsistenz: {b:?} in {}",
+                    String::from_utf8_lossy(&a.record)
+                );
+            }
+        }
     }
 }
