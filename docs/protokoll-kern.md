@@ -7276,3 +7276,47 @@ trainiert. Die 54-Vorlagen-Fassung ist noch in keinem Lauf gewesen. Der naechste
 testet also genau den Faktor, den diese Messung als fehlend identifiziert hat.
 
 **Kosten:** 0,02 $ (CPU-Pod, 7 Minuten).
+
+## Runde 343 — Vorregistrierung: 500M weiter trainieren, mit achtmal so vielen Daten
+
+**Die Entscheidung des Nutzers:** mindestens 300M, besser die vorhandenen 500M - **weiter
+trainieren**, nicht auf ein kleines Modell ausweichen. Das wird so umgesetzt; die Zahlen
+erlauben es, weil der Unterschied die Datenmenge ist und nicht die Groesse.
+
+| Groesse | gescheiterter Lauf | dieser Lauf |
+|---|---|---|
+| Modell | 509 Mio. | **gleich** (fortgesetzt aus `step001000`) |
+| Daten | 7,77 MB, 18 Vorlagen | **~60 MB, 54 Vorlagen** |
+| Byte je Parameter | 0,015 | **~0,12** (8x) |
+| Schritte | 1 800 (abgebrochen) | **15 000** (~1,5 Epochen) |
+| Zeit | 0,8 h | **~6,5 h** |
+| Kosten | 1,94 $ | **~8,80 $** (Community Cloud, 1,39 $/h) |
+
+**Vorhersage, widerlegbar:** der Held-out-EM liegt nach 15 000 Schritten **ueber 12,22 %**
+(der gemessene Zufallswert). Nullhypothese: er bleibt darunter.
+
+**Zusatzbedingung:** Train-EM muss ueber 60 % liegen; sonst ist der Lauf gescheitert, nicht
+die Hypothese.
+
+**Was die Hypothese wirklich prueft:** ob der Unterschied zwischen 0 % und etwas
+Brauchbarem an der **Datenmenge und Vielfalt** liegt. Bleibt der Held-out-Wert bei achtmal
+so vielen Daten und dreimal so vielen Vorlagen am Boden, ist der Engpass **nicht** die
+Datenmenge - dann sind Architektur oder Aufgabenform dran, und ein groesseres Modell hilft
+erst recht nicht.
+
+**Abbruchregel, vor dem Start festgelegt:** Messung nach **5 000 Schritten** (~2,2 h,
+~3,10 $). Ist der Held-out-Wert dort 0 %, wird abgebrochen und der naechste Faktor gewaehlt,
+statt die restlichen 5,70 $ zu verbrennen.
+
+**Fortsetzen statt neu beginnen:** der Lauf startet aus `step001000.state`, das auf dem
+Volume liegt und in HuggingFace gesichert ist. Damit ist der Checkpoint aus dem
+gescheiterten Lauf nicht verloren, sondern Ausgangspunkt - genau der Fall, fuer den die
+Quittung aus Runde 330 gedacht war.
+
+**Kosten bis hierher:** 0,04 $ (CPU-Pod fuer Bau und Korpus).
+
+**Unsicherheit:** ob 60 MB reichen, um aus einem 509M-Modell mehr als Auswendiglernen
+herauszuholen. Bei 0,12 Byte je Parameter ist das immer noch **170x** unter dem
+Chinchilla-Richtwert. Der Lauf beantwortet damit nicht „ist 500M gut", sondern „aendert
+achtmal mehr Daten das Verhalten" - und das ist die Frage, die vor jeder weiteren
+Investition geklaert sein muss.
