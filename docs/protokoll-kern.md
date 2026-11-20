@@ -5746,3 +5746,54 @@ Messgenauigkeit. **Die Familie ist geloest und stabil.**
 
 **Was noch offen ist:** die Multiplikation (0, andere Wegform), das Urteil (80, drei Klassen),
 die Logik (62,5, Laenge) — und der Blindtest mit Aufgaben, die nicht aus den Generatoren stammen.
+
+## Runde 305 — Die Multiplikation bleibt bei 10 Prozent, auch mit einfachem Weg
+
+**Die Hoffnung war:** die Multiplikation scheitert an der Spaltenzerlegung (Teilprodukte, Uebertraege).
+Also ein Korpus mit **einem** Weg: `55*3 = 165.` — kein Teilprodukt, kein Zwischenschritt.
+
+| Variante | Weg | Antwort |
+|---|---|---|
+| alte Multiplikation (Spaltenzerlegung) | viele Schritte | **0** |
+| **einfache Multiplikation (2-stellig mal 1-stellig)** | **1 Schritt** | **10** |
+
+**Der einfache Weg hilft nicht.** 10 Prozent bei 2 000 Schritten, 40 Aufgaben.
+
+**Was den Unterschied zur Addition erklaert:** `55*3` verlangt einen **Uebertrag** — `3*5 = 15`,
+`5` hinschreiben, `1` merken, `3*5 + 1 = 16`. **Das ist kein Suchen, aber es ist ein Zwischenwert,
+der gehalten werden muss**, waehrend der naechste Schritt laeuft.
+
+**Die Addition hat das auch** (`7+8 = 15`, `5` hinschreiben, `1` merken) — und sie gelingt zu 100.
+**Der Unterschied ist die Anzahl der Uebertraege:** bei zwei 3-stelligen Zahlen sind es bis zu drei,
+bei `55*3` sind es zwei, aber **multiplikativ verkettet**.
+
+**Die ehrliche Einordnung:** die Multiplikation ist mit diesem Modell und diesem Budget **nicht
+geloest** (10 Prozent), und der einfache Weg hat sie nicht gerettet. **Was hilft, ist nicht bekannt** —
+die naechsten Hypothesen waeren mehr Beispiele, laengeres Training oder ein groesseres Modell.
+
+**Die geschuetzte Addition haelt bei 93,3** — in diesem Lauf leicht unter den 100 der anderen, aber
+innerhalb der Toleranz.
+
+## Der Gesamtstand nach 175 Runden
+
+| Familie | Wert | Laeufe | Verdikt |
+|---|---|---|---|
+| **Addition, zweistellig** | **100** | 5 | geloest |
+| **Addition, dreistellig** | **97,5–100** | 2 | geloest |
+| **Addition, neue Formulierung** | **93,3** | 2 | geloest |
+| **Sprachlogik** | **96,7** | 4 | geloest |
+| **Gleichungen** | **91,9** | 4 | geloest |
+| **Bruch ohne Kuerzen** | **95–97,5** | 2 | geloest |
+| Logik | 62,5 | 2 | Laenge |
+| Urteil | 80 | 6 | Grenzentscheidung |
+| Bruch mit Kuerzen | 12,5 | 2 | Suche |
+| **Multiplikation** | **10** | 2 | **Uebertrag/Verkettung** |
+
+**Sechs von zehn Familien geloest und stabil. Vier nicht, jede mit benannter Ursache.**
+
+**Und die drei Ursachen sind jetzt klar unterscheidbar:**
+
+1. **Laenge** (Logik, 62,5): drei bis sieben Schritte, kein Suchen — das Modell verliert den Faden.
+2. **Grenzentscheidung** (Urteil, 80): drei Klassen, eine davon eine Entscheidung — das Modell wankt.
+3. **Suche** (Bruch mit Kuerzen, 12,5): der ggT ist ein Ausprobieren — das lernt es nicht.
+4. **Verketteter Uebertrag** (Multiplikation, 10): Zwischenwerte, die multiplikativ weiterwirken.
