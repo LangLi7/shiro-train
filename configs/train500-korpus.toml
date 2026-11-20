@@ -20,7 +20,9 @@ name = "mix500-korpus"
 seed = 53013
 steps = 8000
 log_every = 100
-checkpoint_every = 1000
+# **Enger seit Runde 348:** der Pod ist heute dreimal neu gestartet und hat dabei bis zu
+# 1 000 Schritte verloren. 250 Schritte kosten 6 Minuten, sparen aber bis zu 26.
+checkpoint_every = 250
 output_dir = "/workspace/ckpt"
 log_dir = "/workspace/logs"
 
