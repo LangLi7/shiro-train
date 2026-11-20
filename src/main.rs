@@ -3001,6 +3001,14 @@ pub struct AnswerOutcome {
     pub asked: usize,
     /// Davon nach der gewaehlten Auswertungsregel richtig.
     pub correct: usize,
+    /// Davon mit **richtigem Loesungsweg** (nur im Modus M1 gemessen).
+    ///
+    /// **Warum das getrennt gezaehlt wird (Runde 363).** Der Auftrag bewertet drei
+    /// Komponenten: Aufgabe, **Weg**, Antwort. Vorher prueften wir nur die Antwort -
+    /// ein Modell, das den richtigen Weg schreibt und dann raet, war von einem, das
+    /// beides kann, nicht zu unterscheiden. Der Weg gilt als richtig, wenn er dem
+    /// Referenzweg entspricht; bei unseren Familien ist er deterministisch.
+    pub path_correct: usize,
     /// Beispiele mit Abweichung: `(Datensatznummer, erwartet, erzeugt)`.
     pub fehler: Vec<(usize, String, String)>,
 }
@@ -3012,6 +3020,15 @@ impl AnswerOutcome {
             0.0
         } else {
             self.correct as f64 * 100.0 / self.asked as f64
+        }
+    }
+
+    /// Trefferquote des Loesungswegs in Prozent.
+    pub fn path_percent(&self) -> f64 {
+        if self.asked == 0 {
+            0.0
+        } else {
+            self.path_correct as f64 * 100.0 / self.asked as f64
         }
     }
 }
@@ -3160,6 +3177,7 @@ pub fn answers_core(
     let stride = (records.len() / limit.max(1)).max(1);
     let mut asked = 0usize;
     let mut correct = 0usize;
+    let mut path_correct = 0usize;
     let mut fehler = Vec::new();
     for i in (0..records.len()).step_by(stride).take(limit) {
         let rec = &records[i];
@@ -3197,6 +3215,26 @@ pub fn answers_core(
                 .collect(),
         };
         asked += 1;
+        // **Den Weg getrennt bewerten (Runde 363).** Die Fortsetzung nach `<THINK>`
+        // enthaelt Weg und Antwort; getrennt wird an `<ANSWER>`. Der Referenzweg steht
+        // im Datensatz zwischen `<THINK>` und `<ANSWER>`.
+        if matches!(mode, cli::AnswersMode::M1) {
+            let think_pos = rec.iter().position(|b| *b == shiro::data::bytes::B_THINK);
+            let soll_pfad: Vec<u8> = match think_pos {
+                Some(p) => rec[p + 1..answer_pos].to_vec(),
+                None => Vec::new(),
+            };
+            if !soll_pfad.is_empty() {
+                let pfad_got: Vec<u8> = completion
+                    .iter()
+                    .copied()
+                    .take_while(|b| *b != shiro::data::bytes::B_ANSWER)
+                    .collect();
+                if trim_ascii_bytes(&pfad_got) == trim_ascii_bytes(&soll_pfad) {
+                    path_correct += 1;
+                }
+            }
+        }
         let is_correct = match mode {
             cli::AnswersMode::M1 => trim_ascii_bytes(&got) == trim_ascii_bytes(&soll),
             cli::AnswersMode::M2 => got == soll,
@@ -3215,6 +3253,7 @@ pub fn answers_core(
         AnswerOutcome {
             asked,
             correct,
+            path_correct,
             fehler,
         },
         stride,
@@ -3370,6 +3409,13 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             o.asked,
             o.correct,
             o.percent()
+        );
+        // **Die zweite Komponente des Auftrags (Runde 363).** Getrennt genannt, weil
+        // "Antwort richtig, Weg falsch" eine andere Aussage ist als "beides richtig".
+        println!(
+            "Loesungsweg   : richtig bei {} ({:.1} %) - nur im Modus m1 gemessen",
+            o.path_correct,
+            o.path_percent()
         );
         if !o.fehler.is_empty() {
             println!("Beispiele mit Abweichung:");
