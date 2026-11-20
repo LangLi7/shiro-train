@@ -335,7 +335,23 @@ fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -
         b,
         werte[idx]
     );
-    baue(&text, &weg, &werte[idx].to_string())
+    // Die Antwort traegt ihre Einheit. "300" sagt nicht, ob die Dimension verstanden
+    // wurde; "300 km" sagt es, und der Vergleich bleibt trotzdem exakt.
+    baue(
+        &text,
+        &weg,
+        &format!("{} {}", werte[idx], einheit(szenario, idx)),
+    )
+}
+
+/// Die Zahl am Anfang einer Antwort (`"300 km"` wird zu `300`).
+///
+/// Die Einheit gehoert zur Antwort; die Zahl bleibt trotzdem eindeutig lesbar.
+pub fn zahl_aus_antwort(antwort: &str) -> Option<u64> {
+    antwort
+        .split_whitespace()
+        .next()
+        .and_then(|t| t.trim_matches('.').parse::<u64>().ok())
 }
 
 fn baue(text: &str, weg: &str, antwort: &str) -> Vec<u8> {
@@ -423,7 +439,7 @@ pub fn verify(record: &[u8]) -> Result<bool> {
         // Zulaessig nur, wenn der Weg den fehlenden Wert benennt.
         return Ok(weg.contains("fehlt"));
     }
-    let Ok(soll) = antwort.parse::<u64>() else {
+    let Some(soll) = zahl_aus_antwort(&antwort) else {
         return Ok(false);
     };
     // Die letzte Zahl im Weg ist das Ergebnis; sie muss zur Antwort passen.
@@ -591,7 +607,7 @@ pub fn bewerte(generiert: &[u8], gold: &[u8]) -> Result<Bewertung> {
     };
 
     let letztes = staende.last().and_then(|s| s.ergebnis);
-    let konsistenz = match (letztes, antwort.parse::<u64>().ok()) {
+    let konsistenz = match (letztes, zahl_aus_antwort(&antwort)) {
         (Some(c), Some(a)) => c == a,
         _ => false,
     };
@@ -761,7 +777,7 @@ mod tests {
             .expect("mindestens eine ohne Luecke");
         let teile = zerlege(&a.record).expect("Zerlegung");
         let weg = teile.weg.expect("Weg");
-        let richtig: u64 = teile.antwort.expect("Antwort").parse().expect("Zahl");
+        let richtig: u64 = zahl_aus_antwort(&teile.antwort.expect("Antwort")).expect("Zahl");
 
         // Derselbe Weg, Antwort um eins daneben - der Verifier muss widersprechen.
         let gefaelscht = baue("egal", &weg, &(richtig + 1).to_string());
