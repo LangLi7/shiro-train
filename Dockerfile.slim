@@ -1,0 +1,43 @@
+# Shiro-Trainer als fertiges Image: baut in einer Stage, liefert nur die Binaries.
+# Der Pod muss dann nichts mehr kompilieren (Start in Sekunden statt Minuten).
+#
+# Bauen:  docker build -f Dockerfile.slim -t ghcr.io/langli7/shiro-trainer:2 .
+# Nutzen: image = "ghcr.io/langli7/shiro-trainer:2", args = "bash /work/scripts/pod-start.sh mix77 3000"
+
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS bau
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_TERM_COLOR=never \
+    PATH=/root/.cargo/bin:/usr/local/cuda/bin:$PATH
+
+RUN apt-get update -qq \
+ && apt-get install -y -qq --no-install-recommends \
+      curl ca-certificates build-essential pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+
+WORKDIR /work
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --release --features cuda
+
+COPY tools/mktool/Cargo.toml ./tools/mktool/Cargo.toml
+COPY tools/mktool/src ./tools/mktool/src
+RUN cd tools/mktool && cargo build --release
+
+# --- Laufzeit: nur CUDA-Runtime, kein Compiler, kein Rust ---
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -qq \
+ && apt-get install -y -qq --no-install-recommends \
+      ca-certificates curl git python3 python3-pip wget \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=bau /work/target/release/shiro /usr/local/bin/shiro
+COPY --from=bau /work/tools/mktool/target/release/mktool /usr/local/bin/mktool
+
+WORKDIR /work
+CMD ["shiro", "--help"]
