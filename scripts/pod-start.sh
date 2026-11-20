@@ -98,26 +98,32 @@ fi
 
 echo "=== 5. Korpus holen ==="
 mkdir -p "$DATEN"
+# **Der Korpuspfad ist konfigurierbar** (Runde 333). Vorher stand hier ueberall
+# `$DATEN/corpus`: die Pruefung sah nur dort nach, und das `sed` weiter unten schrieb
+# `dir` hart auf diesen Pfad. Ein Korpus, der auf dem Volume unter `korpus-neu/train`
+# liegt, waere damit ignoriert und stattdessen `mix77` heruntergeladen worden - auf
+# A100-Zeit, fuer die falschen Daten.
+KORPUS_DIR="${KORPUS_DIR:-$DATEN/corpus}"
 # Vorhandensein an den DATEIEN pruefen, nicht an einem Namen: der Korpus auf
 # HuggingFace heisst merged-*.bin, nicht shard-*.bin. Die alte Pruefung auf
 # shard-0000.bin war immer falsch, also lief bei JEDEM Start der Download, und
 # tar scheiterte am Volume (kein utime, kein chown) - der Pod startete neu, und
 # die A100 baute 13 Minuten erneut.
-if ! ls "$DATEN"/corpus/*.bin >/dev/null 2>&1; then
+if ! ls "$KORPUS_DIR"/*.bin >/dev/null 2>&1; then
   wget -q -O "$DATEN/corpus.tar.gz" \
     "https://huggingface.co/datasets/ChangChi7/shiro-korpora/resolve/main/${KORPUS}/all.tar.gz"
-  mkdir -p "$DATEN/corpus"
+  mkdir -p "$KORPUS_DIR"
   # --no-same-owner/--no-same-permissions: das Volume erlaubt kein chown/utime.
   # Ein Fehler dabei ist harmlos, solange die .bin-Dateien ankommen.
-  tar xzf "$DATEN/corpus.tar.gz" -C "$DATEN/corpus" --strip-components=1 \
+  tar xzf "$DATEN/corpus.tar.gz" -C "$KORPUS_DIR" --strip-components=1 \
       --no-same-owner --no-same-permissions 2>/dev/null || true
   rm -f "$DATEN/corpus.tar.gz"
 fi
-if ! ls "$DATEN"/corpus/*.bin >/dev/null 2>&1; then
-  echo "FEHLER: Korpus fehlt in $DATEN/corpus - Download oder Entpacken gescheitert."
+if ! ls "$KORPUS_DIR"/*.bin >/dev/null 2>&1; then
+  echo "FEHLER: Korpus fehlt in $KORPUS_DIR - Download oder Entpacken gescheitert."
   exit 4
 fi
-echo "Korpus: $(ls "$DATEN"/corpus/*.bin | wc -l) Shards"
+echo "Korpus: $(ls "$KORPUS_DIR"/*.bin | wc -l) Shards in $KORPUS_DIR"
 
 echo "=== 6. Training ==="
 mkdir -p "$DATEN/ckpt" "$DATEN/logs"
@@ -126,7 +132,7 @@ mkdir -p "$DATEN/ckpt" "$DATEN/logs"
 # wurde daraus `warmup_steps = 6000` - die Warmup-Phase waere halb so lang wie der
 # ganze Lauf gewesen. Gefunden in Runde 317.
 sed -e "s|^steps = .*|steps = ${SCHRITTE}|" \
-    -e "s|^dir = .*|dir = \"${DATEN}/corpus\"|" \
+    -e "s|^dir = .*|dir = \"${KORPUS_DIR}\"|" \
     -e "s|^output_dir = .*|output_dir = \"${DATEN}/ckpt\"|" \
     -e "s|^log_dir = .*|log_dir = \"${DATEN}/logs\"|" \
     /work/$KONFIG > "$DATEN/train.toml"
