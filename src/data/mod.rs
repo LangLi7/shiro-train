@@ -29,6 +29,7 @@ pub mod loader;
 pub mod logic;
 pub mod manifest;
 pub mod mathverify;
+pub mod mix;
 pub mod orthographie;
 pub mod potenzen;
 pub mod preflight;
