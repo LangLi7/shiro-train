@@ -33,6 +33,14 @@ pub enum Command {
     GenerateLogic {
         opts: LogicGenOptions,
     },
+    /// Text als Korpus importieren (Sprachschicht).
+    ///
+    /// Gegenstueck zu den Aufgabengeneratoren: reiner Text (Wikipedia, Buecher,
+    /// Dokumentation) wird in Stuecke bis `chunk` Bytes zerlegt und im
+    /// Projektformat abgelegt. Siehe [`crate::data::textimport`].
+    ImportText {
+        opts: crate::data::textimport::Options,
+    },
     /// Korpus "Programm-Semantik und Fehlerort" (Familie 1, **D-024**).
     /// **Mehrere Familien in EINEM Manifest** (n5, D-051): kopiert die Shards
     /// mehrerer Quellkorpora in einen Zielordner und schreibt ein gemeinsames
@@ -668,6 +676,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_algebra = false;
     let mut want_formel = false;
     let mut want_games = false;
+    // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
+    let mut want_import_text = false;
+    let mut import_inputs: Vec<PathBuf> = Vec::new();
+    let mut import_chunk: usize = 2048;
+    let mut import_max: Option<usize> = None;
+    let mut import_per_shard: usize = 4096;
     // Agentischer Loop: drei Woerter (`agent capability run`) plus Positional.
     let mut saw_agent = false;
     let mut saw_capability = false;
@@ -762,6 +776,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 want_combine = true;
                 command_set = true;
                 saw_data = false;
+            }
+            "import-text" => {
+                want_import_text = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "--in" => import_inputs.push(PathBuf::from(take_value(&mut iter, "--in")?)),
+            "--chunk" => import_chunk = take_value(&mut iter, "--chunk")?.parse()?,
+            "--max-records" => {
+                import_max = Some(take_value(&mut iter, "--max-records")?.parse()?);
+            }
+            "--records-per-shard" => {
+                import_per_shard = take_value(&mut iter, "--records-per-shard")?.parse()?;
             }
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             // **Die Antwortform des Zielkorpus** (D-052). Sie ist ein
@@ -1227,7 +1254,22 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     }
 
-    if want_logic {
+    if want_import_text {
+        if import_inputs.is_empty() {
+            bail!("`data import-text` braucht mindestens ein `--in <pfad>`");
+        }
+        out.command = Command::ImportText {
+            opts: crate::data::textimport::Options {
+                paths: import_inputs,
+                out: out_dir.unwrap_or_else(|| PathBuf::from("data/text")),
+                chunk: import_chunk,
+                max_records: import_max,
+                // Der Seed geht nur ins Manifest; der Import zieht nichts zufaellig.
+                seed: 1337,
+                records_per_shard: import_per_shard,
+            },
+        };
+    } else if want_logic {
         out.command = Command::GenerateLogic { opts: logic };
     } else if want_gen_sample {
         // `--out` hat Vorrang; sonst der Standardordner der Beispieldaten.

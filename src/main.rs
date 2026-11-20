@@ -56,6 +56,7 @@ fn real_main() -> Result<()> {
         Command::Info => cmd_info(&args),
         Command::GenSample { records, out_dir } => cmd_gen_sample(records, &out_dir),
         Command::GenerateLogic { opts } => cmd_generate_logic(&opts),
+        Command::ImportText { opts } => cmd_import_text(&opts),
         Command::GenerateSemantics { opts } => cmd_generate_semantics(&opts),
         Command::GenerateGames { opts } => cmd_generate_games(&opts),
         Command::GenerateFormat { opts } => cmd_generate_format(&opts),
@@ -323,6 +324,30 @@ fn cmd_gen_sample(records: usize, out_dir: &Path) -> Result<()> {
     if let Some(first) = shard.records.first() {
         println!("  {}", shiro::data::bytes::to_display(first));
     }
+    Ok(())
+}
+
+/// Importiert beliebigen Text als Korpus (Sprachschicht).
+///
+/// Gegenstueck zu den Aufgabengeneratoren: hier entsteht kein Aufgabenformat,
+/// sondern Stuecke echten Textes (Wikipedia, Buecher, Dokumentation). Der
+/// Importer zerlegt ihn und schreibt Shards plus Manifest - mehr nicht.
+fn cmd_import_text(opts: &shiro::data::textimport::Options) -> Result<()> {
+    let r = shiro::data::textimport::import(opts)?;
+    println!("Dateien       : {}", r.files);
+    println!("Datensaetze   : {}", r.records);
+    println!(
+        "Nutzbytes     : {} ({:.1} MiB)",
+        r.payload_bytes,
+        r.payload_bytes as f64 / (1024.0 * 1024.0)
+    );
+    println!("Shards        : {}", r.shards);
+    println!("Kuerzester    : {} B", r.shortest);
+    println!("Laengster     : {} B", r.longest);
+    if r.skipped_files > 0 {
+        println!("Uebersprungen : {} (Binaerdateien oder nicht lesbar)", r.skipped_files);
+    }
+    println!("Ziel          : {}", opts.out.display());
     Ok(())
 }
 
