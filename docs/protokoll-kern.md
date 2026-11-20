@@ -6804,3 +6804,38 @@ Ergebnis gebunden. Ab jetzt gilt: der Commit steht **hinter** der Pruefung im se
 und bei rotem Ergebnis wird nicht committet.
 
 **Kosten:** 0 $.
+
+## Runde 330 — Modelle werden nur mit Quittung geloescht
+
+**Regel des Nutzers, woertlich uebernommen:** Modelle und Checkpoints werden **nie**
+geloescht, ohne dass vorher eine Kopie in HuggingFace und/oder `O:\shiro` liegt. Sie gilt
+fuer die **RunPod-Modelle** - dort ist der Verlust passiert (8,15 GB, Runde 327).
+
+**Warum ein Skript und keine Regel im Kopf:** der Fehler entstand in einem Aufraeumbefehl
+auf dem Volume. Genau dort muss die Sperre sitzen.
+
+| Skript | Zweck |
+|---|---|
+| `scripts/sichere-checkpoint.sh` | laedt hoch und schreibt eine **Quittung** (Repo, Bytes, sha256, Zeitpunkt) |
+| `scripts/loesche-checkpoint.sh` | loescht **nur** mit gueltiger Quittung: Bytes und sha256 muessen stimmen |
+| `scripts/pod-cleanup.sh` | raeumt das Volume: Regenerierbares frei, Modelle nur ueber die Quittung |
+
+**Belegt, nicht behauptet** (lokal ausgefuehrt):
+
+| Fall | Ergebnis |
+|---|---|
+| keine Quittung | **Exit 1**, „VERWEIGERT: keine Quittung" |
+| Quittung mit falscher Groesse | **Exit 1**, „Groesse weicht ab (Quittung 999, Datei 8)" |
+| gueltige Quittung | geloescht, **Quittung bleibt als Nachweis** |
+| Trockenlauf auf einem nachgestellten Volume | 2 Modelle **verweigert**, Regenerierbares freigegeben, Exit 1 |
+
+**O:\shiro als zweites Ziel:** vorhanden, beschreibbar, **253,8 GB frei**. Fuer Modelle auf
+dem Pod ist HuggingFace der automatisierte Weg; eine Kopie nach `O:\shiro` braucht einen
+Transfer, den diese Werkzeuge nicht leisten (`runpodctl`, SCP). `O:\shiro` traegt daher die
+lokalen Artefakte - Korpora, Konfigurationen, heruntergeladene Staende.
+
+**Kosten:** 0 $.
+
+**Unsicherheit:** ob der Upload im Pod-Image ohne `python3` laeuft. `sichere-checkpoint.sh`
+bricht ohne Uploader ab, statt eine Quittung ohne Kopie zu schreiben - der Fall ist damit
+laut, aber noch nicht auf einem Pod erprobt.
