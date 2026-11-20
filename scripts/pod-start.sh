@@ -172,7 +172,37 @@ fi
 rm -f "$FEHLERMARKE"
 
 # shellcheck disable=SC2086
-"$BIN" train --config "$DATEN/train.toml" --backend cuda $RESUME
+#
+# **Wiederaufnahme-Schleife (Runde 356).** Die GPU-Klassen sind knapp (A100-80GB: LOW in
+# allen Zonen, A100-40GB gar nicht in Secure), und ein Pod kann jederzeit verdraengt oder
+# neu gestartet werden. Vorher endete damit der Lauf. Jetzt versucht das Skript es bis zu
+# `VERSUCHE` Mal, jedes Mal aus dem **neuesten** Checkpoint - so kostet ein Abbruch
+# hoechstens die Schritte seit dem letzten Checkpoint (250, rund 6 Minuten).
+VERSUCHE="${VERSUCHE:-5}"
+VERSUCH=1
+while [ "$VERSUCH" -le "$VERSUCHE" ]; do
+  NEUESTER=$(ls -t "$DATEN"/ckpt/*.state 2>/dev/null | head -1 || true)
+  if [ -n "${NEUESTER:-}" ]; then
+    RESUME="--resume $NEUESTER"
+    echo "Versuch $VERSUCH/$VERSUCHE, fortsetzen aus: $NEUESTER"
+  else
+    RESUME=""
+    echo "Versuch $VERSUCH/$VERSUCHE, von vorn (kein Stand)"
+  fi
+  # shellcheck disable=SC2086
+  "$BIN" train --config "$DATEN/train.toml" --backend cuda $RESUME
+  STATUS=$?
+  if [ "$STATUS" -eq 0 ]; then
+    echo "Training sauber beendet nach Versuch $VERSUCH"
+    break
+  fi
+  echo "Versuch $VERSUCH endete mit Code $STATUS - neuer Anlauf"
+  VERSUCH=$((VERSUCH + 1))
+  sleep 5
+done
+if [ "$VERSUCH" -gt "$VERSUCHE" ]; then
+  echo "Alle $VERSUCHE Versuche gescheitert - der Aufseher muss neu starten."
+fi
 
 echo "=== 7. Modell nach HuggingFace ==="
 ls -la "$DATEN/ckpt"
