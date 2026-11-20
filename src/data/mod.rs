@@ -32,4 +32,5 @@ pub mod semantics;
 pub mod seq;
 pub mod seqgen;
 pub mod textimport;
+pub mod detektiv;
 pub mod zahl;
