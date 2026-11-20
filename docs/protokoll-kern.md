@@ -6685,3 +6685,34 @@ ausdruecklich benennen.
 **Unsicherheit:** ob die zehn Stellen dasselbe Verhalten zeigen, ist ungeprueft. Jede
 bekommt ihre Umstellung einzeln, und erst wenn alle zehn gruen sind, kommt der gemeinsame
 Prueftest ueber die Nutzbytes aller Familien - vorher waere er ein Dauerrot.
+
+## Runde 327 — Ein geloeschter Checkpoint ohne Kopie
+
+**Ein Fehler, festgehalten statt beschrieben.** Beim Speicheraufraeumen (Runde 322) wurden
+`mix500-step001000.state` (6,11 GB) und `mix500-step1000.safetensors` (2,04 GB) geloescht.
+Beide sind **unwiederbringlich**.
+
+**Der Beleg, dass keine Kopie existierte:** die Umgebung des Pods war
+`CARGO_TARGET_DIR`, `POD_CONFIG`, `POD_KORPUS`, `POD_STEPS` - **kein `HF_TOKEN`**.
+`scripts/pod-start.sh` laedt nur hoch, wenn `HF_TOKEN` gesetzt ist, und meldet sonst
+„HF_TOKEN fehlt - Modell bleibt im Volume". Es gab also nie eine Kopie ausserhalb des
+Volume, und das Loeschen war endgueltig.
+
+**Die Regel, die daraus folgt:** ein Checkpoint wird erst geloescht, wenn eine Kopie
+**belegt** ist - nicht angenommen, nicht geplant. Beleg heisst: der Upload ist gelaufen
+und in HuggingFace nachgesehen. Sonst bleibt der Checkpoint liegen, und kostet er 8 GB.
+
+**Was das kostet:** der Nullpunkt fuer den 500M-Lauf ist weg. Der Zero-Shot-Boden laeuft
+deshalb gegen ein **frisch initialisiertes** Modell gleicher Form - sachlich der sauberere
+Nullpunkt, aber er verlangt einen Weg, ohne Checkpoint-Datei zu messen.
+
+**Die Luecke im CLI, genau umrissen:** `cmd_eval` kennt drei Faelle, und der dritte fehlt.
+`answers_core` (main.rs) baut das Modell mit `Lm::new(...)` und ruft immer
+`.load_safetensors(checkpoint)`; `--answers` und `--probe` verlangen `--checkpoint`.
+Fuer den Nullpunkt braucht `checkpoint` ein `Option`: bei `None` bleibt das Modell bei
+seiner Zufallsinitialisierung. Das ist ein kleiner Eingriff an **einer** Stelle, nicht ein
+Umbau.
+
+**Unsicherheit:** ob `Lm::new` allein schon ein benutzbares Modell mit Zufallsgewichten
+liefert oder nur eine Huelle, deren Gewichte `load_safetensors` setzt. Das entscheidet, ob
+der Eingriff bei `answers_core` reicht oder ein Konstruktor in `lm.rs` dazukommt.
