@@ -7029,3 +7029,34 @@ Koennen; bleibt sie am Boden, gilt die Regel aus Runde 332 und der Lauf wird nic
 uebernommen.
 
 **Kosten dieser Runde:** 0 $; der Pod laeuft weiter.
+
+## Runde 336 — Der Blindtest existiert und ist geprueft
+
+**Gebaut:** sechs Aufgabentypen mit **Seed 99991** (verschieden vom Trainingskorpus),
+zusammengefuehrt zu `/workspace/blindtest` - 200 Datensaetze.
+
+**Geprueft, nicht angenommen.** Ein Vergleich ueber sha256 aller Nutzbytes zeigte:
+
+| Menge | Datensaetze |
+|---|---|
+| Training | 26 089 (eindeutig) |
+| Held-out | 2 771 |
+| Blindtest | 200 |
+| davon im **Training** | **0** |
+| davon im **Held-out** | **12** |
+
+Der Blindtest war also nicht vollstaendig unabhaengig: zwoelf Datensaetze teilte er mit dem
+Held-out. Ursache sind kurze Aufgabensaetze (etwa Algebra mit denselben Zahlen), die bei
+verschiedenem Seed zufaellig gleich ausfallen.
+
+**Behoben:** die zwoelf Datensaetze wurden entfernt, der Satz neu geschrieben
+(`/workspace/blindtest-sauber`, 188 Datensaetze, 58 178 Bytes Nutzlast, eigenes Manifest).
+Nachgeprueft: **0 Ueberschneidung** mit Training und Held-out, `data preflight` bestanden.
+
+**Ein Werkzeugfehler, der dabei auffiel:** `data combine` scheitert auf dem Global Volume mit
+`Operation not permitted (os error 1)` - es kopiert Shards mit erhaltenen Rechten und
+Zeitstempeln, und das Volume erlaubt weder `chown` noch `utime` (dieselbe Ursache wie beim
+`tar`-Problem in Runde 333). Umweg: auf der Container-Disk bauen, dann mit `cp` kopieren.
+Das ist eine echte Luecke: jeder Aufruf auf dem Volume kostet einen Fehlversuch.
+
+**Kosten:** 0 $ - reine CPU-Arbeit auf dem ohnehin bezahlten Pod.
