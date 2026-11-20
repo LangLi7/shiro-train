@@ -7614,3 +7614,37 @@ ausgeschlossen, Host und Rechenzentrum sind die Kandidaten.
 entstanden ist, ist Vorarbeit: gemischter Korpus, zwei neue Familien mit erschöpfender
 Pruefung, gehaltene Formulierungen, Uebergabenotiz. **Der Auftrag ist nicht erfuellt** -
 und ohne laufende GPU-Messung wird er es auch nicht.
+
+## Runde 354 — Die Isolationsmatrix: es ist die GPU-Klasse, nicht das Image
+
+**Die Frage des Nutzers war die richtige:** *"Liegt es nicht einfach an unserem Image?
+Vorher ging es ja alles ohne Probleme?"* Beides traf zu - und beides fuehrte zum Ziel.
+
+**Die Zellen, gemessen an diesem Abend:**
+
+| Pod | Image | Volume | Ergebnis |
+|---|---|---|---|
+| CPU | `runpod/pytorch` | **ohne** | **laeuft** (235 s) |
+| CPU | `runpod/pytorch` | **mit** | **laeuft** (94 s) |
+| GPU A100-80GB | `nvidia/cuda:12.4.1-devel` | mit | **3x gestorben** in 1-2 min |
+| GPU A100-80GB | `runpod/pytorch`, Startskript als PID 1 | mit | **gestorben** |
+| GPU A100-80GB | `runpod/pytorch`, **US-KS-2** | mit | **gestorben** |
+
+Gleiches Image, gleiches Volume, gleiches Rechenzentrum - **nur die GPU unterscheidet.**
+Damit sind Image, Volume und Rechenzentrum **ausgeschlossen**.
+
+**Und der zweite Teil der Frage stimmt auch:** um 18:08 lief dieselbe Kombination aus Image,
+Volume und A100 **53 Minuten** durch, um 19:45 noch einmal 19 Minuten. Es hat also
+funktioniert - bis etwa 20:07. Seither stirbt jeder A100-80GB-Pod in ein bis zwei Minuten.
+
+**Was daraus folgt:** der Bestand dieser GPU-Klasse ist seit ~20:07 instabil, oder das Konto
+hat ein Problem mit ihr. Beides ist von innen nicht reparierbar.
+
+**Der naechste Schritt:** eine **andere GPU-Klasse** mit demselben Volume - L40S (48 GB,
+reicht fuer Batch 3) oder A100 40 GB. Laeuft sie, ist die Klasse bestaetigt und es gibt einen
+Weg. Laeuft sie nicht, ist es das Konto und gehoert zum Support.
+
+**Was ich nicht mehr tue:** einen fuenften A100-80GB-Versuch. Vier Fehlschlaege mit
+identischem Muster sind Beleg genug, und jeder kostet 2,19 $/h fuer nichts.
+
+**Kosten dieser Runde:** 0,04 $ (zwei Test-Pods, 5 Minuten).
