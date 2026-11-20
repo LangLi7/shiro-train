@@ -5100,3 +5100,32 @@ ordnet sich die Bruch-Familie dort ein, wo Logik (62,5) und Urteil (90) stehen: 
 
 **Der Lauf geht bis 3 000 Schritte.** Bei 1 500 waren es 15 Prozent; ob 3 000 etwas aendert, ist
 offen — bei der Addition und beim Urteil hat mehr Training geholfen, bei der Logik nicht.
+
+## Runde 285 — Bruch kurz bei 2000 Schritten: 22,5 Prozent
+
+| Schritte | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 1 500 | 15 | 15 | 97,5 |
+| **2 000** | **20** | **22,5** | 97,5 |
+
+**Es steigt langsam** (15 -> 22,5), waehrend die Addition bei 100 bleibt. Fuer einen Vergleich:
+die Logik stand bei 500 und 1500 Schritten **exakt gleich** (62,5) — hier bewegt sich etwas, aber
+in kleinen Schritten.
+
+**Die Einordnung bleibt:** vier Schritte (zaehlen, umrechnen, ggT, kuerzen), davon einer ein
+Suchen. Die Addition hat zwei. Bei 24 Mio Parametern ist das die Klasse der mehrstufigen Aufgaben —
+und dort lagen Logik (62,5) und Urteil (90 nach 1000 Schritten).
+
+## Runde 286 — Die Seed-Reihe laeuft wieder, zum dritten Mal gestartet
+
+**Was dreimal schiefging und warum:**
+
+1. **Erster Start:** die Prozesse hingen am Tool-Job und starben mit ihm.
+2. **Zweiter Start (ueber schtasks):** zwei Laeufe gleichzeitig -> RAM 93 Prozent -> beide standen
+   still.
+3. **Dritter Start:** der alte Bruch-Lauf lief noch -> RAM 96,9 Prozent -> wieder gestoppt.
+
+**Jetzt:** ein Lauf, RAM 42 Prozent, `seed2` von neun.
+
+**Die Regel, die daraus endgueltig gilt:** ein Trainer gleichzeitig. Die RTX 3060 hat 12 GB, der
+Rechner 31,8 GB, ein 24M-Modell braucht 9 GB WorkingSet — **zwei passen nicht.**
