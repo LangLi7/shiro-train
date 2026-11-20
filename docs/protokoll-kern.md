@@ -7060,3 +7060,51 @@ Zeitstempeln, und das Volume erlaubt weder `chown` noch `utime` (dieselbe Ursach
 Das ist eine echte Luecke: jeder Aufruf auf dem Volume kostet einen Fehlversuch.
 
 **Kosten:** 0 $ - reine CPU-Arbeit auf dem ohnehin bezahlten Pod.
+
+## Runde 337 — Warum „gesaettigt" das falsche Wort war
+
+**Die Frage des Nutzers, und sie war berechtigt:** wie kann ein Korpus gesaettigt sein, wenn
+Mathematik und Logik unendlich viel Stoff bieten?
+
+**Die Antwort: nicht der Stoff ist endlich, der Korpus ist zu klein fuer das Modell.**
+
+| Groesse | Wert |
+|---|---|
+| Modellparameter | 509 298 176 |
+| Korpus | 7 769 374 Byte |
+| **Byte je Parameter** | **0,015** |
+| Chinchilla-Richtwert (~20 Token/Parameter) | ~10,2 Mrd. Byte |
+| Fehlfaktor | **~1 300x** |
+
+Ein 509M-Modell hat bei 7,77 MB Text mehr als genug Kapazitaet, die 26 089 Datensaetze
+fast auswendig zu lernen - und genau das zeigt der Verlust von 0,067. Das ist keine
+Saettigung der Domaene, sondern ein **Missverhaeltnis von Modell und Datenmenge**.
+
+**Folge fuer die Reihenfolge:** erst Datenmenge, dann bf16. bf16 macht einen Lauf doppelt so
+schnell; 1 300x mehr Daten machen ihn erst sinnvoll.
+
+**Der Lauf, abgeschlossen und bewertet:**
+
+| Punkt | Ergebnis |
+|---|---|
+| Verlauf | 2,85 (100) → 0,44 (500) → Plateau 0,07-0,55 ab Schritt 600 |
+| Gestoppt | bei etwa Schritt 1800, von Hand - mehr Schritte waeren Auswendiglernen |
+| Checkpoint 1000 | **gesichert** nach `ChangChi7/shiro-checkpoints`, Quittung mit sha256 `9a695467...`, 2 037 221 000 Byte |
+| Entscheidung | **nicht uebernommen** - keine Held-out-Zahl, und der Trainingsverlust belegt nur das Fitten eines festen Satzes |
+| Kosten | **~1,94 $** (53 Minuten A100), davon rund 1,30 $ fuer den Lauf selbst |
+
+**Was die Nebenher-Validierung gezeigt hat, und das ist ein Messfehler meinerseits:**
+20 Fragen im Modus m1 auf der CPU brauchen **ueber 22 Minuten** (2,14 GB RAM, ~3 Kerne,
+~1 Minute je Frage). Das ist fuer eine Entscheidung zu langsam. Beim naechsten Mal: weniger
+Fragen (5 statt 20) oder kuerzerer Kontext - die Messung soll eine Entscheidung tragen,
+nicht selbst zum Engpass werden.
+
+**Zur Anregung „Daten mit der GPU erzeugen":** die Generatoren bauen Schablonen zusammen,
+das ist Textformatierung und keine Rechenarbeit - eine GPU saehe dabei zu. Gemessen:
+200 000 Datensaetze in Sekunden auf einem Kern. GPU-Arbeit waere erst *modellgenerierter*
+Text (braucht ein Lehrer-Modell) oder Self-Play mit Pruefung (braucht ein kompetentes
+Modell). Beides fehlt.
+
+**Naechster Schritt, in dieser Reihenfolge:** Korpus auf 2-4 Mrd. Byte vergroessern
+(CPU-Pod, Minuten bis Stunden), `preflight` als Tor, dann ein neuer Lauf mit demselben
+Modell. bf16 kommt danach als eigener Faktor.
