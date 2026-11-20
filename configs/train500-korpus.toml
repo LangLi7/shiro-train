@@ -1,0 +1,57 @@
+# Erster Lauf auf dem neuen Aufgabenkorpus (Runde 332).
+#
+# **Ein Faktor gegenüber dem 500M-Lauf aus Runde 322:** die Zusammensetzung des Korpus.
+# Vorher: 35 % Aufgaben, 65 % Podcast-Text. Jetzt: 100 % Aufgaben aus sechs Typen
+# (Kontext, Logik, Quantoren, Zahlenfolgen, Formel, Algebra), echte deutsche Orthographie.
+#
+# Gleich bleiben: Modellform (509 Mio, 32 Schichten), Seed 53013, Batch 6, seq_len 1024,
+# Lernrate 3e-4, Cosine, fp32. Deshalb ist eine Aenderung der Messwerte dem Korpus
+# zuzurechnen und nicht der Architektur.
+#
+# **Schritte 8000 statt 16000, und das ist eine Kostenentscheidung.** Bei 1,55 s je
+# Schritt sind 8000 Schritte rund 3,4 h (etwa 7,50 $). Der Checkpoint faellt alle 1000
+# Schritte, damit nach 2000 Schritten (etwa 52 min, 1,90 $) gemessen und abgebrochen
+# werden kann, falls nichts gelernt wird. Nicht auf gut Glueck durchlaufen.
+#
+# Abbruchregel steht im Protokoll, Runde 332.
+
+[run]
+name = "mix500-korpus"
+seed = 53013
+steps = 8000
+log_every = 100
+checkpoint_every = 1000
+output_dir = "/workspace/ckpt"
+log_dir = "/workspace/logs"
+
+[data]
+dir = "/workspace/korpus-neu/train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 400
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

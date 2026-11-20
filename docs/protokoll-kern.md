@@ -6874,3 +6874,45 @@ Richtig ist deshalb die Kette, die es schon gibt (`pod-prep.sh`):
 Erzeugung selbst dauert Sekunden, der Punkt ist allein, dass sie nicht zur GPU-Miete wird.
 
 **Kosten dieser Runde:** 0 $.
+
+## Runde 332 — Hypothese vor dem Lauf (Vorregistrierung)
+
+**Diese Runde kostet noch nichts.** Sie legt fest, was gemessen wird, bevor der erste Cent
+fuer GPU-Zeit ausgegeben ist - sonst ist jede Zahl danach eine nachtraegliche Deutung.
+
+**Der eine Faktor:** die Zusammensetzung des Korpus.
+
+| | Runde 322 (gescheitert) | Runde 332 |
+|---|---|---|
+| Aufgabenanteil | 35 % | **100 %** |
+| Fremdtext | 65 % Podcast | **0 %** |
+| Aufgabentypen | 8, gemischt mit Text | 6 (Kontext, Logik, Quantoren, Folgen, Formel, Algebra) |
+| Orthographie | Umschrift in den Aufgaben, echte im Text | **echt, ueberall** |
+| Modell | 509 Mio dense, 32 Schichten | **gleich** |
+| Seed, Batch, seq_len, lr | 53013, 6, 1024, 3e-4 | **gleich** |
+| Schritte | 16 000 | **8 000** |
+
+**Vorhersage, widerlegbar:** der Held-out-EM im Modus m1 liegt nach 8000 Schritten
+**ueber 25 %**. Nullhypothese: **unter 12,22 %** (gemessenes Zufallsniveau). Bleibt er
+darunter, liegt es nicht am Korpus, und der naechste Faktor ist die Lernrate.
+
+**Zusatzbedingung, die vorher feststeht:** Train-EM muss **ueber 60 %** liegen. Steigt nur
+Train-EM und bleibt Held-out am Boden, gilt der Lauf als Auswendiglernen und wird nicht
+uebernommen.
+
+**Abbruchregel, vor dem Start festgelegt:** nach **2000 Schritten** (etwa 52 min, 1,90 $)
+wird gemessen. Ist dann Train-EM 0 % **und** Held-out 0 %, wird abgebrochen - nicht auf
+gut Glueck durchgelaufen. Das spart bis zu 5,60 $ gegenueber dem vollen Lauf.
+
+**Woran der Kollaps zu erkennen waere, bevor die Zahlen da sind:** wiederholt sich im
+`<DENKWEG>` desselben Datensatzes eine Wortgruppe ueber Dutzende Bytes, ist es derselbe
+Repetitionskollaps wie in Runde 321 - dann ist die Lernrate der naechste Faktor, nicht der
+Korpus.
+
+**Budget:** CPU-Vorbereitung rund 0,02 $ (Bauen und Erzeugen), GPU hoechstens 7,50 $
+(8000 Schritte), Abbruch nach 1,90 $ moeglich. Gesamtdeckel **7,52 $**.
+
+**Unsicherheit:** ob sechs Aufgabentypen in einem Korpus einander helfen oder stoeren. Ein
+Modell, das zwischen sechs Formaten wechseln muss, kann an Formatwechsel scheitern, obwohl
+es jede Form einzeln koennte. Getrennt wird das erst durch einen Lauf pro Typ - der aber
+das Vielfache kostet und deshalb erst nach diesem hier.
