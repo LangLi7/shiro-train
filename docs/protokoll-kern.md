@@ -5334,3 +5334,36 @@ ist eine **Entscheidung**, die das Modell einmal so und einmal so trifft.
 
 **Was das fuer die Bilanz bedeutet:** das Urteil ist **nicht geloest**, sondern liegt bei **82 im
 Mittel** und schwankt. Es gehoert zu den verfehlten Familien, nicht zu den geloesten.
+
+## Runde 294 — Die Streuung hat eine Ursache: die Grenze zwischen „widerlegt" und „nicht ableitbar"
+
+**Die Verwechslungsmatrix von `urteilB` (25 Aufgaben, 72 Prozent richtig — die 74 des Verifizierers
+auf 50 Aufgaben, hier 25):**
+
+| Gold | Vorhersage | Anzahl |
+|---|---|---|
+| widerlegt | **widerlegt** | 8 |
+| nicht ableitbar | **nicht ableitbar** | 5 |
+| bewiesen | **bewiesen** | 5 |
+| **nicht ableitbar** | **widerlegt** | **4** |
+| bewiesen | widerlegt | 2 |
+| bewiesen | nicht ableitbar | 1 |
+
+**Vier von sieben Fehlern sind dieselbe Verwechslung: `nicht ableitbar` -> `widerlegt`.**
+
+**Das bestaetigt die Vermutung aus Runde 293:** die drei Klassen sind nicht gleich schwer. Zwei
+sind eindeutig (eine Gleichung, die aufgeht oder nicht), **eine ist eine Grenzentscheidung** — naemlich
+ob eine Gleichung „fuer kein x" oder „fuer nicht alle x" gilt. **Dort wackelt das Modell, und dort
+kommt die Streuung her.**
+
+**Was das fuer den Auftrag bedeutet:** der Auftrag verlangt ausdruecklich die drei Klassen
+„bewiesen / widerlegt / nicht ableitbar" — und die dritte ist die, die das Modell nicht sicher
+unterscheidet. **Die 82 im Mittel sind damit kein Zufall, sondern eine benannte Schwaeche.**
+
+**Ein Werkzeugfund:** mein erster Auswertungsversuch las nur das erste Wort der Antwort
+(`nicht` statt `nicht ableitbar`) und kam auf 52 Prozent. Mit dem vollen Text waren es 72. **Der
+Verifizierer (`dreiteilig.ps1`) hat den Fehler nicht** — er vergleicht den ganzen Text.
+
+**Was helfen koennte:** die beiden Grenzfaelle im Training **stärker trennen** — zum Beispiel die
+Begruendung mitliefern („0 = 6, also fuer kein x: widerlegt" gegen „0 = 0, also jedes x: nicht
+ableitbar"). Die Beispiele sind da; sie sind nur nicht deutlich genug unterschieden.
