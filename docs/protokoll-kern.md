@@ -7753,6 +7753,69 @@ keine Quittung ohne Gegenstueck in HuggingFace geben.
 Messung nicht durch einen Zwischeneingriff verfaelscht wird): Schritt 1 400, Checkpoint
 `step1250` gesichert, `ckpt` bei 7,6 GB.
 
+## Runde 377 — "Eingefroren" heisst meistens: es schreibt
+
+**Der Befund, zweimal hintereinander beobachtet.** Das Telemetrie-Panel zeigte GPU 0 % und
+der Nutzer fragte, ob der Lauf haengt. Beide Male war das Gegenteil der Fall:
+
+| Zeit | Ereignis | Anzeige |
+|---|---|---|
+| 21:46:18 | `step2000.safetensors` fertig (1,9 GB) | 0 % |
+| 21:46:41 | Prozess `Rl`, CPU 157 %, schreibt den `.state` (5,7 GB) | 0 % |
+| 21:46:50 | `step002000.state` fertig | 0 % |
+| 21:46:52 | **GPU wieder 100 %** | 100 % |
+
+Ein Checkpoint kostet **7,6 GB Schreiblast** auf das Netz-Volume. In dieser Zeit steht die
+GPU, und das Panel sieht aus wie ein Haenger. **Der Unterschied ist messbar:** Prozess-Zustand
+(`Rl` = rechnend), CPU-Zeit und die Dateizeitstempel. Wer nur die GPU-Kurve ansieht, zieht
+den falschen Schluss - ich habe das zweimal getan.
+
+## Runde 378 — Der Aufraeumer war falsch gebaut
+
+**Der Fehler.** Meine Regel verlangte fuer **jede** Loeschung eine Quittung. Quittungen
+entstehen aber nur fuer `.safetensors`, weil nur die nach HuggingFace gehen. Die
+`.state`-Dateien (5,7 GB je Stueck) konnten damit **nie** geloescht werden und stapelten
+sich: `ckpt` stand bei **21 GB** und wuchs um 5,7 GB je 250 Schritte.
+
+**Die Korrektur, mit zwei getrennten Regeln:**
+
+| Datei | Was sie ist | Regel |
+|---|---|---|
+| `.safetensors` | **das Modell** | loeschen nur mit Quittung, nie die zwei neuesten |
+| `.state` | **Wiederaufnahmehilfe** (Gewichte + Optimierer) | **nur der neueste bleibt**, aeltere sofort weg |
+
+Das ist auch sachlich richtig: der `.state` ist ein Zwischenstand, der durch Weiterrechnen
+wieder entsteht - kein Ergebnis, das verloren gehen darf. Das Modell dagegen ist einmalig.
+
+**Wirkung:** `ckpt` fiel von **21 GB auf 9,5 GB** und bleibt dort.
+
+**Ein zweiter Fehler derselben Runde, der sich selbst bestrafte:** `pkill -f 'prune.sh'`
+traf die **eigene** Kommandozeile, weil dort derselbe Text stand - der Befehl killte sich
+selbst (Exit 143). Danach per PID beendet statt per Muster.
+
+## Runde 379 — Praefixe sind eine eigene Tabelle
+
+**Der Einwand des Nutzers:** *"k, mm usw. gibt es doch - dafuer gibt es eine Tabelle zum
+Auswendiglernen, k = 1000."* Das ist richtig und meine erste Fassung war zu kurz: sie hatte
+`km`, `cm`, `mm` als **eigene Einheiten** eingetragen.
+
+**Jetzt sind es zwei Tabellen:**
+
+| Tabelle | Inhalt | Zeilen |
+|---|---|---|
+| Einheiten | 40 Symbole mit Dimension und Faktor | 40 |
+| **Praefixe** | T, G, M, k, h, da, d, c, m, u, n, p mit Zehnerpotenz | **12** |
+
+**12 + 40 = 52 Zeilen ergeben 480 Kombinationen.** `kW`, `MWh`, `kPa`, `mA`, `nm` folgen
+aus den Tabellen statt aus Einzeleintraegen.
+
+**Der Test deckte die Vorrangregel auf:** `km` steht **in** der Einheitentabelle, also
+liefert die Zerlegung den Tabelleneintrag und nicht `k` + `m`. Das ist richtig (sonst wuerde
+`m` als "Milli ohne Basis" gelesen), aber mein Test hatte das Gegenteil behauptet. Er prueft
+jetzt das Eigentliche: **beide Wege ergeben denselben Faktor.**
+
+**429 Tests gruen.**
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
