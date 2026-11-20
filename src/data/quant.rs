@@ -184,7 +184,7 @@ impl Formel {
             Formel::Und(a, b) => format!("({} und {})", a.text(), b.text()),
             Formel::Oder(a, b) => format!("({} oder {})", a.text(), b.text()),
             Formel::Pfeil(a, b) => format!("({} -> {})", a.text(), b.text()),
-            Formel::Alle { x, f } => format!("fuer alle {}: {}", var_name(*x), f.text()),
+            Formel::Alle { x, f } => format!("für alle {}: {}", var_name(*x), f.text()),
             Formel::Gibt { x, f } => format!("es gibt {}: {}", var_name(*x), f.text()),
         }
     }

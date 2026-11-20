@@ -280,7 +280,18 @@ fn cmd_info(args: &cli::Args) -> Result<()> {
 /// Der Eintrag wird **aus der geschriebenen Datei** gebildet, nicht aus den
 /// Eingabedaten: nur so koennen Manifest und Datei nicht auseinanderlaufen.
 /// Genau diese Kopplung prueft `Dataset::load` bzw. `Dataset::verify`.
+///
+/// **Hier liegt die Orthographie-Umstellung.** Jeder Generator schreibt ueber diese
+/// Funktion; statt 78 Zeichenketten in zehn Dateien einzeln anzufassen, wird jeder
+/// Datensatz beim Schreiben an seinen Marken zerlegt und in echte deutsche Schreibweise
+/// gebracht (`orthographie::record_nach_umlaut`). Die Tabelle in `orthographie.rs` ist
+/// damit die einzige Quelle der Zuordnung, und kein Generator kann sie vergessen.
 fn write_shard_with_entry(path: &Path, records: &[Vec<u8>], note: &str) -> Result<ShardEntry> {
+    let umgestellt: Vec<Vec<u8>> = records
+        .iter()
+        .map(|r| shiro::data::orthographie::record_nach_umlaut(r))
+        .collect();
+    let records = &umgestellt[..];
     let file_size = format::write_shard(path, records, note)?;
     let raw = std::fs::read(path)?;
     let shard = format::read_shard(path)?;
