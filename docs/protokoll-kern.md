@@ -5206,3 +5206,33 @@ Zwei weitere folgen mit anderen Seeds.
 
 **Die Frage, die es beantwortet:** liegen zwei Laeufe mit verschiedenen Seeds bei 62,5 und 62,5 —
 oder bei 50 und 75? **Bei 50 waere die Logik reines Raten, bei 75 eine Faehigkeit.**
+
+## Runde 290 — Der Logik-Seed ist nicht konvergiert, nicht gestreut
+
+**Der Lauf `logikA`** (mix67/all, 1500 Schritte, Seed 41001):
+
+| | |
+|---|---|
+| Antwort | **15 %** (statt 62,5 bei mix67) |
+| Klasse | 27,5 % |
+| Verlust am Ende | **2,54** (mix67: 0,06) |
+
+**Die Ausgabe ist Kauderwelsch:**
+```
+Modell: Amo din dein Schlost. Alle Alle sind teich Schlost. ... <ANTWORT> nein
+```
+
+**Das ist kein Streuungsbefund.** Ein Modell mit Verlust 2,54 hat die Sprache nicht gelernt — es
+produziert zufaellige Silben. **Ein Streuungsvergleich setzt zwei konvergierte Laeufe voraus.**
+
+**Was schiefging:** der Lauf hat 1500 Schritte gemacht (wie geplant), aber der Verlust blieb hoch.
+Die Lernrate war mit 6,8e-7 am Ende **extrem klein** — der Warmup und der Cosine-Abfall des
+Original-Laufs waren auf **3500 Schritte** ausgelegt, nicht auf 1500.
+
+**Die Lehre:** die Schrittzahl zu aendern aendert den **Lernratenverlauf**. Ein Lauf mit halbierter
+Schrittzahl ist kein halber Lauf, sondern ein anderer.
+
+**Was als naechstes noetig ist:** entweder 3500 Schritte (wie der Original-Lauf) oder ein
+angepasster Lernratenverlauf. **Der Seed allein war nicht die Ursache.**
+
+**Die geschuetzte Addition haelt bei 96,7** — auch dieser Lauf hat ihr nicht geschadet.
