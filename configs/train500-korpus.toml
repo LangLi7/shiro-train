@@ -22,7 +22,12 @@ steps = 8000
 log_every = 100
 # **Enger seit Runde 348:** der Pod ist heute dreimal neu gestartet und hat dabei bis zu
 # 1 000 Schritte verloren. 250 Schritte kosten 6 Minuten, sparen aber bis zu 26.
-checkpoint_every = 250
+# **Intervall 2000 seit Runde 369.** Ein Checkpoint kostet 8,1 GB (2,0 Gewichte +
+# 6,1 Optimiererzustand). Bei 250 Schritten waeren das 54 Staende = 432 GB und damit
+# das Vierfache der 100-GB-Grenze. Bei 2000 sind es 7 Staende = 57 GB: **alle passen
+# ins Limit**, und der Regel "erst messen, dann loeschen" muss nicht widersprochen
+# werden. Preis: bei einer Verdraengung gehen bis zu 2000 Schritte verloren (~24 min).
+checkpoint_every = 2000
 output_dir = "/workspace/ckpt"
 log_dir = "/workspace/logs"
 

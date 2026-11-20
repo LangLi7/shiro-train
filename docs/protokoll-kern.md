@@ -7711,6 +7711,48 @@ eine plausible Geschichte statt einer Zahl.
 
 **Kosten dieser Runde:** 0 $ (reine Rechnung, lokal).
 
+## Runde 369 — Was "validieren" heisst, und warum die Grenze das Intervall bestimmt
+
+**Die Korrektur des Nutzers.** Ich hatte "validieren" fuer den SHA-256-Vergleich der Kopie
+verwendet. Das ist eine **Kopiepruefung** - sie zeigt, dass die Datei nicht abgeschnitten
+ist, und sagt **nichts** darueber, ob das Modell rechnet. **Validieren heisst messen:**
+`eval` auf dem Held-out, Antwort-EM und Weg-EM. Erst danach darf geloescht werden.
+
+**Der Konflikt zwischen zwei Vorgaben, ausgerechnet:**
+
+| Vorgabe | Folge |
+|---|---|
+| "erst nach Validierung loeschen" | alle Staende bis zur Messung behalten |
+| "Storage nicht ueber 100 GB" | 8,1 GB je Checkpoint → hoechstens 12 Staende |
+
+Ein Checkpoint kostet **8,1 GB** (2,0 Gewichte + 6,1 Optimiererzustand), nicht 2 GB wie
+zunaechst angenommen. Ueber 13 700 Schritte:
+
+| Intervall | Checkpoints | Storage | passt unter 100 GB |
+|---|---|---|---|
+| 250 | 54 | **432 GB** | nein (4x zu viel) |
+| 1 000 | 14 | 113 GB | knapp nein |
+| **2 000** | **7** | **57 GB** | **ja** |
+
+**Entscheidung: Intervall 2 000.** Damit passen **alle** Checkpoints unter die Grenze, und
+der Regel "erst messen, dann loeschen" muss nicht widersprochen werden. Preis: bei einer
+Verdraengung gehen bis zu 2 000 Schritte verloren (~24 Minuten bei 0,72 s je Schritt).
+
+**Zwei Schutzstufen, die jetzt im Pod laufen:**
+
+| Stufe | Skript | Regel |
+|---|---|---|
+| Sichern | `/root/upload.sh` | neuester Stand nach HuggingFace, **Quittung mit SHA-256** danach |
+| Aufraeumen | `/root/prune.sh` | loescht nur **mit** Quittung und nie die zwei neuesten |
+
+Ohne Quittung loescht der Waechter nichts - das ist die Absicherung gegen meinen eigenen
+Fehler. Der Uploader schreibt die Quittung erst nach erfolgreichem Upload, also kann es
+keine Quittung ohne Gegenstueck in HuggingFace geben.
+
+**Der Stand des laufenden Laufs** (Intervall bleibt hier bei 250, damit die vorregistrierte
+Messung nicht durch einen Zwischeneingriff verfaelscht wird): Schritt 1 400, Checkpoint
+`step1250` gesichert, `ckpt` bei 7,6 GB.
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
