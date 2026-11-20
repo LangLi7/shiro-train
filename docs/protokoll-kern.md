@@ -7648,3 +7648,35 @@ Weg. Laeuft sie nicht, ist es das Konto und gehoert zum Support.
 identischem Muster sind Beleg genug, und jeder kostet 2,19 $/h fuer nichts.
 
 **Kosten dieser Runde:** 0,04 $ (zwei Test-Pods, 5 Minuten).
+
+## Runde 355 — Es ist Verknappung, nicht Fehlkonfiguration
+
+**Die Katalogabfrage beendet die Suche nach dem Fehler bei uns.** Stand jetzt:
+
+| GPU | Verfuegbarkeit | Secure-Preis |
+|---|---|---|
+| A100-SXM4-80GB | **LOW** in US-MD-1, US-KS-2, US-WA-1 | 2,19 $/h |
+| A100-SXM4-40GB | **NONE**, in Secure Cloud **nicht angeboten** | - |
+| L40S | LOW (Anfrage scheiterte an Kapazitaet) | 1,09 $/h |
+| H200 | **MEDIUM** - die einzige entspannte Klasse | 5,29 $/h |
+
+**Damit ist die Ursache klar und keine meiner drei Hypothesen:** die Pods werden **verdraengt**,
+weil der Bestand dieser Klassen knapp ist. Nicht Image, nicht Anker, nicht Rechenzentrum,
+nicht das Volume, nicht der Code.
+
+**Was das praktisch bedeutet:** ein Pod kann jederzeit verschwinden. Der Lauf muss damit
+umgehen koennen, statt darauf zu hoffen, dass er durchlaeuft. Was dafuer schon steht:
+
+| Massnahme | Stand |
+|---|---|
+| Checkpoint alle **250** Schritte | ✓ (Runde 348) |
+| Fortsetzen aus `.state` | ✓ im Startskript |
+| Gewichte + Optimierer in HuggingFace | ✓ mit Quittung |
+| **Automatisches Wiederaufnehmen** nach Verdraengung | **fehlt** |
+
+**Der naechste Schritt ist deshalb kein neuer Pod-Versuch, sondern ein Aufseher:** ein
+Waechter, der den Lauf neu startet, wenn der Pod verschwindet - oder ein Pod, der beim
+Verdraengen nicht stirbt. Solange das fehlt, kostet jeder Versuch im schlechtesten Fall
+eine Anlaufzeit und ein paar Schritte.
+
+**Kosten dieser Runde:** 0 $ (nur eine Abfrage).
