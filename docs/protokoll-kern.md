@@ -5991,3 +5991,33 @@ fuer die 10 Dollar.**
 
 **Der Stand bleibt:** Korpora und fuenf Modelle auf HuggingFace, Pod-Skript fertig, Aufruf
 geprueft. **Es fehlt eine freie GPU — nicht der Code, nicht die Daten, nicht die Konfiguration.**
+
+## Runde 312 — Der Blindtest: 90 Prozent mit nie gesehenen Formulierungen
+
+**Die Aufgabe:** 40 zweistellige Additionen, deren Frage **im Training nie vorkam** — „Was ergibt
+47 plus 85?", „Berechne die Summe von 93 und 45.", „Addiere 39 zu 95.", „78 und 29
+zusammengezaehlt", „Wie viel ist 38 plus 91?".
+
+**Der Rechenweg blieb der Trainingsweg** (aus `mix46` uebernommen), damit der Test die
+**Formulierung** prueft und nicht den Weg.
+
+| Test | Weg | Antwort | Klasse |
+|---|---|---|---|
+| **Blindtest, neue Formulierung** | **90** | **90** | **97,5** |
+| Kontrolle, alte Formulierung | 100 | 100 | 100 |
+
+**Meine Vorhersage war falsch.** Ich hatte erwartet, dass das Modell an der neuen Formulierung
+scheitert — der Befund aus Runde 273 (Form-Abhaengigkeit) legte das nahe. **Es scheitert nicht.**
+
+**Was das korrigiert:** Die Form-Abhaengigkeit aus Runde 273 war eine Eigenschaft der
+**Trainingsdaten-Verteilung** (fuenf Formulierungen, eine sechste fehlte). **Das Modell kann neue
+Formulierungen verarbeiten, wenn sie nah genug an der Trainingsform bleiben.** Die 10 Punkte
+Unterschied sind der Preis der Umformulierung, nicht ein Zusammenbruch.
+
+**Was weiterhin gilt:** Der Blindtest ist **kein** Test mit fremden Aufgaben — er nutzt dieselben
+Zahlen und denselben Weg, nur andere Fragewoerter. **Ein echter Fremdtest mit Aufgaben, die nicht
+aus meinen Generatoren stammen, bleibt offen.**
+
+**Nebenbefund:** Der Verifier braucht einen `.safetensors`-Checkpoint. Die `.state`-Dateien
+(279 MB) sind ein eigenes Format und werden von `shiro chat` abgelehnt („header too large").
+**Der erste Messversuch scheiterte daran, nicht am Modell.**
