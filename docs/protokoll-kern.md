@@ -6758,3 +6758,49 @@ den man haette loeschen koennen.
 **Unsicherheit:** das Tor prueft den Korpus, nicht das Lernvermoegen. Es kann nicht sagen,
 ob ein Lauf nach 800 Schritten etwas gelernt hat - das bleibt der Messung vorbehalten. Es
 verhindert nur den sicher sinnlosen Lauf, nicht den erfolglosen.
+
+## Runde 329 — Eine Stelle statt 78 Literale, und ein Tor mit demselben blinden Fleck
+
+**Kein Trainingsfaktor geaendert.** Die Orthographie-Umstellung des ganzen Korpus.
+
+**Der Weg, den ich zuerst gehen wollte, war falsch.** Gezaehlt: **78** transliterierte
+Zeichenketten ueber neun Generator-Dateien (`logic` 19, `seq` 15, `formel` 14, `games` 12,
+`seqgen` 9, `algebra` 4, `quant` 4, `generate` 3, `formatgen` 2). 78 Literale einzeln
+anzufassen waere eine dauerhafte Quelle fuer Abweichung. Stattdessen greift die Umstellung
+an **einer** Stelle: `write_shard_with_entry` in `main.rs` ist der Pfad, durch den jeder
+Generator schreibt. Dort wird jeder Datensatz an seinen Marken zerlegt, der Text durch die
+Tabelle in `orthographie.rs` umgestellt und wieder zusammengesetzt. Die Marken selbst sind
+ungueltiges UTF-8 und wuerden eine Umstellung des ganzen Puffers zerstoeren - deshalb
+abschnittsweise.
+
+**Der Fund, der wichtiger ist als die Umstellung:** der erste Logik-Korpus enthielt
+**beides** - `Naechste` und `nächste` - und `data preflight` meldete „Umschrift: keine
+Funde". Tabelle und Pruefung hatten **denselben blinden Fleck**: nur Kleinschreibung. Ein
+Tor, das den blinden Fleck des Umstellers erbt, ist wertlos - es zeigt gruen, waehrend der
+Korpus halb umgestellt ist.
+
+Behoben in beide Richtungen: `nach_umlaut` und `umschrift_formen` behandeln Gross- und
+Kleinschreibung. Ein Test haelt es fest (`grossschreibung_wird_ebenfalls_erkannt_und_umgestellt`).
+
+**Belegt am Logik-Korpus** (der Saetze mit `Naechste` beginnt):
+
+| Form | vorher | nachher |
+|---|---|---|
+| `Naechste` / `naechste` | vorhanden | **weg** |
+| `Nächste` / `nächste` | teilweise | vorhanden |
+| `fuer` | vorhanden | **weg** |
+| `für` | teilweise | vorhanden |
+
+`data preflight` auf diesem Korpus: bestanden, 0 gemeinsame Datensaetze.
+
+**Ein Fehler, den die Suite gefunden hat:** die direkte Aenderung am Renderer in `quant.rs`
+(`fuer alle` zu `für alle`) brach den Parser, der noch `fuer` erwartete - `formel_roundtrip`
+fiel. Der Parser akzeptiert jetzt **beide** Schreibweisen, weil er auch alte Korpora lesen
+sollen muss.
+
+**Ein Prozessfehler, der nicht passieren darf:** ich habe `4cefe1e` committet, waehrend die
+Suite rot war - Test und Commit liefen in einem Befehl, und der Commit war nicht an das
+Ergebnis gebunden. Ab jetzt gilt: der Commit steht **hinter** der Pruefung im selben Befehl,
+und bei rotem Ergebnis wird nicht committet.
+
+**Kosten:** 0 $.

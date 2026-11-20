@@ -280,7 +280,9 @@ impl Parser {
                 let f = self.formel()?;
                 Some(Formel::Nicht(Box::new(f)))
             }
-            "fuer" => {
+            // Beide Schreibweisen: der Renderer schreibt seit Runde 329 `für`, der
+            // Parser muss den alten Korpus (Umschrift) weiterhin lesen koennen.
+            "fuer" | "für" => {
                 self.next();
                 self.erwarte("alle")?;
                 let v = self.next()?;
