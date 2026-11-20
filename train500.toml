@@ -1,17 +1,24 @@
 # 500M-Lauf: gleiche Daten wie der 113M-Lauf (mix77), gleicher Seed, mehr Kapazitaet.
 #
-# Ein Faktor gegenueber train100.toml: die Modellgroesse. Daten, Schritte in Token
-# und Seed bleiben gleich, damit die Messung zurechenbar ist.
+# Ein Faktor gegenueber train100.toml: die Modellgroesse. Daten, Tokenmenge und Seed
+# bleiben gleich, damit die Messung zurechenbar ist.
 #
-# Batch 16 statt 32: 32 Layer mit 1280 Dimensionen erzeugen bei 32 x 1024 Token
-# etwa 50 GB Aktivierungen; mit 16 bleibt es bei rund 27 GB und passt sicher auf
-# eine 80-GB-Karte. Die halbe Batch-Groesse wird durch doppelte Schritte
-# ausgeglichen (6000 x 16 x 1024 = 98,3 Mio Token, wie beim 113M-Lauf).
+# Nachgemessen in den Runden 317 bis 319, nicht geschaetzt:
+#
+#   - Batch 16 und Batch 8 laufen in einen OOM. Die naive Attention materialisiert ihre
+#     Score-Matrix in f32 (16 x 20 x 1024 x 1024 x 4 B = 1,34 GB je Kopie); bei 32
+#     Layern sprengt das die 80 GB. Batch 6 belegt 71 bis 80 GB und laeuft.
+#   - `pack = true` legt die Zeilen voll. Die alte Aufteilung liess im Mittel 58,2 % der
+#     Positionen als Fuellbytes liegen und schnitt jeden Datensatz ueber `seq_len` ab -
+#     bei langen Aufgaben also das Ende mit ANTWORT und ENDE.
+#   - Die Schrittzeit faellt mit dem Geraete-AdamW von 5 523,6 ms auf 1 545,5 ms.
+#
+# 16000 Schritte x 6 x 1024 = 98,3 Mio echte Zielbytes (vorher: 41,8 % davon).
 
 [run]
 name = "mix500"
 seed = 53013
-steps = 6000
+steps = 16000
 log_every = 100
 checkpoint_every = 1000
 output_dir = "/data/ckpt"
@@ -20,9 +27,11 @@ log_dir = "/data/logs"
 [data]
 dir = "/data/corpus"
 manifest = "manifest.json"
-batch_size = 16
+batch_size = 6
 seq_len = 1024
 shuffle = false
+# Zeilenfuellung: der Korpus wird als durchgehender Strom gelesen (Runde 319).
+pack = true
 
 [model]
 name = "mix500"
@@ -41,9 +50,13 @@ dropout = 0.0
 lr = 0.0003
 weight_decay = 0.1
 grad_clip = 1.0
-warmup_steps = 300
+# 5 % der 16000 Schritte. Der bisherige Wert 300 galt fuer 6000 Schritte; bei
+# unveraendertem Wert waere die Warmup-Phase auf 1,9 % geschrumpft.
+warmup_steps = 800
 schedule = "cosine"
 
 [precision]
 weights = "fp32"
+# Wirkungslos: burn-0.22 hat keinen Autocast, alle Werte sind f32 (Runde 317
+# nachgeprueft). Der Eintrag bleibt, damit die Datei den Sollzustand beschreibt.
 autocast = "bf16"
