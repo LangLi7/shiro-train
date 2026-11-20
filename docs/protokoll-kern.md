@@ -7108,3 +7108,45 @@ Modell). Beides fehlt.
 **Naechster Schritt, in dieser Reihenfolge:** Korpus auf 2-4 Mrd. Byte vergroessern
 (CPU-Pod, Minuten bis Stunden), `preflight` als Tor, dann ein neuer Lauf mit demselben
 Modell. bf16 kommt danach als eigener Faktor.
+
+## Runde 338 — Nicht die Menge fehlt, die Vielfalt
+
+**Zwei Messungen, die den Plan umwerfen.**
+
+**1. Erzeugung gegen Verbrauch** (lokal gemessen, kostenlos):
+
+| Groesse | Wert |
+|---|---|
+| Erzeugung | 180 000 Datensaetze in **1,5 s** = 120 000/s |
+| Datenrate | 21,5 MB/s (179 Byte je Datensatz) |
+| Verbrauch im Training | 3 960 Byte/s |
+| Verhaeltnis | **~5 400 : 1** |
+
+Eine Sekunde Erzeugung deckt also 1,5 Stunden Training. **Asynchronitaet loest hier kein
+Problem**, weil der Produzent dem Verbraucher fuenfhundertfach voraus ist. Die Frage des
+Nutzers nach paralleler Erzeugung ist damit beantwortet: technisch moeglich, praktisch
+gegenstandslos.
+
+**2. Die Vielfalt, und das ist der eigentliche Befund:**
+
+| Groesse | Wert |
+|---|---|
+| Datensaetze | 180 000 |
+| **verschiedene Vorlagen** (Ziffern entfernt, gehasht) | **18** |
+| Datensaetze je Vorlage | **10 000** |
+
+**Damit ist die Diagnose aus Runde 337 praeziser:** es fehlen nicht 1 300x Daten, es fehlt
+**Vielfalt**. 4 GB aus 18 Vorlagen waeren 4 GB desselben Musters mit anderen Zahlen. Der
+Verlust von 0,067 ist genau das: 18 Skelette gelernt, danach ist fast jedes Byte
+vorhersagbar.
+
+**Folge fuer den Plan, und die aendert die Reihenfolge erneut:** erst **mehr Vorlagen**
+(mehr Formulierungen, mehr Szenarien, mehr Einheiten, mehr Stoerungen), dann skalieren.
+Mehr Datensaetze aus denselben 18 Schablonen bringen nichts - sie kosten nur Speicher und
+Trainingszeit.
+
+**Was das kostet:** 0 $. Es ist Code-Arbeit am Generator, keine GPU-Zeit.
+
+**Unsicherheit:** ob 18 die richtige Zahl ist. Die Messung entfernt nur Ziffern; zwei
+Vorlagen, die sich in einem Wort unterscheiden, zaehlen als zwei. Die Groessenordnung
+stimmt, die genaue Zahl ist eine Obergrenze der Vielfalt.
