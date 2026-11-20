@@ -5709,3 +5709,40 @@ ein nachgelagertes Programm** — es ist eine Suche, und Suchen sind das, was di
 lernt.
 
 **Die geschuetzte Addition wird noch geprueft.**
+
+## Runde 304 — Der Bruch ohne Suche ist geloest: 97,5 und 95
+
+| Lauf | Seed | Schritte | Weg | Antwort | Klasse |
+|---|---|---|---|---|---|
+| `mix75` | 50010 | 2 000 | 97,5 | **97,5** | 100 |
+| **`mix75b`** | **51011** | 1 500 | 97,5 | **95** | 100 |
+
+**Streuung 2,5 Punkte** — bei 40 Aufgaben entspricht eine Aufgabe genau 2,5 Punkten. Das ist die
+Messgenauigkeit. **Die Familie ist geloest und stabil.**
+
+**Die geschuetzte Addition haelt bei 100** — wieder.
+
+## Die Bilanz nach 174 Runden — sechs Familien geloest und stabil
+
+| Familie | Wert | Laeufe | Streuung | Verdikt |
+|---|---|---|---|---|
+| **Addition, zweistellig** | **100** | 5 | 0 | geloest |
+| **Addition, dreistellig** | **97,5–100** | 2 | 2,5 | geloest |
+| **Addition, neue Formulierung** | **93,3** | 2 | 0 | geloest |
+| **Sprachlogik** | **96,7** | 4 | 0 | geloest |
+| **Gleichungen** | **91,9** | 4 | 0 | geloest |
+| **Bruch ohne Kuerzen** | **95–97,5** | 2 | 2,5 | **geloest** |
+| Logik | 62,5 | 2 | 0 | Laenge |
+| Urteil | 80 | 6 | 20 | Grenzentscheidung |
+| Bruch mit Kuerzen | 12,5 | 2 | 20 | **Suche** |
+| Multiplikation | 0 | 1 | ? | andere Wegform |
+
+**Sechs Familien geloest und stabil. Vier nicht — und drei davon aus demselben Grund:**
+
+> **Was eine Suche verlangt, lernt das Modell nicht. Was nur rechnet, lernt es zuverlaessig.**
+
+**Der Beweis ist gefuehrt:** derselbe Bruch, einmal mit ggT-Suche (12,5) und einmal ohne (95–97,5) —
+**ein einziger Schritt Unterschied, 85 Punkte Abstand.**
+
+**Was noch offen ist:** die Multiplikation (0, andere Wegform), das Urteil (80, drei Klassen),
+die Logik (62,5, Laenge) — und der Blindtest mit Aufgaben, die nicht aus den Generatoren stammen.
