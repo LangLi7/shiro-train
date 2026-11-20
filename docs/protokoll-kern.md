@@ -5894,3 +5894,32 @@ oder 87,5 und 76,7 (20k).
 
 **Die Konsequenz, falls der Auftrag weitergeht:** ein groesseres Modell (100M, gebaut als `mix50`)
 oder mehr Schritte. Beides kostet Geld — 135 $ fuer 100M auf einer 3090, und das Budget sind 10 $.
+
+## Runde 309 — RunPod: was funktioniert hat, was nicht, und was es gekostet hat
+
+**Was funktioniert hat:**
+
+| Schritt | Ergebnis |
+|---|---|
+| Korpora nach HuggingFace | `ChangChi7/shiro-korpora`, `mix46/all.tar.gz` und `mix77/all.tar.gz`, je ~8 MB |
+| Zwei Checkpoints nach HF | Bruch-ohne-Kuerzen, Paraphrasen |
+| Pod mit Startskript | klont, baut, holt den Korpus, trainiert, laedt das Modell hoch |
+
+**Was nicht funktioniert hat — und jede Zeile hat Zeit gekostet:**
+
+1. **`git clone` in ein vorhandenes `/work`** → `fatal: destination path '/work' already exists`, 8 Container-Neustarts. **Fix:** `if [ -d /work/.git ]; then git pull; else git clone; fi`.
+2. **`hf upload` ohne `--repo-type dataset`** → die Dateien landeten im Model-Repo, das Dataset-Repo blieb leer, der Pod lief in einen **404** und crashte im Setup. **Fix:** `--repo-type dataset`.
+3. **Korpus-Pruefung auf das falsche Verzeichnis** → nach dem Entpacken gab es kein `all/`, der Pod haette ewig neu geladen. **Fix:** auf `shard-0000.bin` pruefen.
+4. **Kapazitaet:** vier Anlaeufe (A40 EU-SE-1, A40 CA-MTL-1, A100 US-MD-1, L4 EU-RO-1) — **alle „no instances available"**, obwohl die Kapazitaetsliste „Low" meldet.
+
+**Die Lektion, die der Nutzer formuliert hat und die stimmt:** *Zeit ist Geld.*
+10 Minuten Build fuer ein Training, das noch nicht laeuft, sind bei 0,59 bis 1,39 $/h **0,10 bis 0,23 $ pro Start** — und bei jedem Neustart wieder.
+
+**Was das naechste Mal anders laeuft:**
+
+1. **Build-Cache ins Volume** (`CARGO_TARGET_DIR=/workspace/target`) — steht im Skript, spart beim zweiten Start ~5 Minuten.
+2. **Fertiges Image statt Build im Pod** — der `Dockerfile.runpod` liegt im Repo; ein Image mit vorkompiliertem Trainer wuerde den Start auf Sekunden druecken. Das braucht Docker (lokal oder CI), nicht den Pod.
+3. **Korpus-Link vor dem Pod testen** (ein `HEAD`-Request reicht) — der 404 haette vor dem Start auffallen muessen.
+4. **`--repo-type dataset` bei jedem HF-Upload.**
+
+**Der Stand:** Korpora und zwei Modelle sind auf HuggingFace gesichert. **Das 100M-Training ist nicht gelaufen** — es scheiterte an der Kapazitaet, nicht am Code: Build, Korpus, Skript und Upload sind geprueft und funktionieren.
