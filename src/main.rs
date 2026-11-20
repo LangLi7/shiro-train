@@ -23,6 +23,7 @@ use shiro::data::preflight;
 use shiro::data::quant;
 use shiro::data::semantics;
 use shiro::data::seq;
+use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::zahl;
 use shiro::error::Result;
@@ -80,6 +81,7 @@ fn real_main() -> Result<()> {
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
         Command::GenerateZahl { opts } => cmd_generate_zahl(&opts),
         Command::GenerateDetektiv { opts } => cmd_generate_detektiv(&opts),
+        Command::GenerateBruch { opts } => cmd_generate_bruch(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
             capability,
@@ -1493,6 +1495,41 @@ fn cmd_data_combine(
 /// Drei Verdaechtige, genau ein Taeter, die Unschuldigen sagen die Wahrheit. Die Antwort
 /// entsteht durch erschoepfende Pruefung aller Welten - "nicht ableitbar" ist ein
 /// gueltiges Ergebnis, wenn mehrere passen.
+/// Korpus "Bruchrechnung" (Familie 9, `src/data/bruch.rs`).
+fn cmd_generate_bruch(opts: &cli::BruchGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = bruch::generate(&bruch::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Bruchrechnung (Familie 9)");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : Kuerzen, Addieren, Vergleichen");
+    println!("Baender      : Nenner 2-9 im Training, 11-97 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "bru-trai")?;
+    let mut tm = Manifest::new(opts.seed, format!("Bruchrechnung - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "bru-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Bruchrechnung - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
 fn cmd_generate_detektiv(opts: &cli::DetektivGenOptions) -> Result<()> {
     use shiro::data::manifest::Manifest;
 

@@ -92,6 +92,11 @@ pub enum Command {
     GenerateDetektiv {
         opts: DetektivGenOptions,
     },
+    /// Korpus 'Bruchrechnung' (Familie 9, `src/data/bruch.rs`):
+    /// Kuerzen, Addieren, Vergleichen - exakt, ohne Naeherung.
+    GenerateBruch {
+        opts: BruchGenOptions,
+    },
     GenerateSeq {
         opts: SeqGenOptions,
     },
@@ -455,6 +460,20 @@ pub struct DetektivGenOptions {
     pub val_percent: usize,
 }
 
+/// Optionen fuer `shiro data generate-bruch` (Familie 9, `src/data/bruch.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BruchGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for BruchGenOptions {
+    fn default() -> Self {
+        Self { records: 512, out_dir: PathBuf::from("data/bruch"), seed: 1337, val_percent: 10 }
+    }
+}
 impl Default for DetektivGenOptions {
     fn default() -> Self {
         Self {
@@ -786,6 +805,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_algebra = false;
     let mut want_zahl = false;
     let mut want_detektiv = false;
+    let mut want_bruch = false;
     let mut want_formel = false;
     let mut want_games = false;
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
@@ -881,6 +901,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-detektiv" => {
                 want_detektiv = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-bruch" => {
+                want_bruch = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1207,6 +1232,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_algebra,
         want_zahl,
         want_detektiv,
+        want_bruch,
         want_formel,
     ]
     .iter()
@@ -1358,7 +1384,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             },
         };
     }
-    if want_formel {
+
+    if want_bruch {
+        out.command = Command::GenerateBruch {
+            opts: BruchGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/bruch")),
+            },
+        };
+    }    if want_formel {
         out.command = Command::GenerateFormel {
             opts: FormelGenOptions {
                 records: logic.records,
