@@ -31,6 +31,7 @@ pub mod preflight;
 pub mod prozent;
 pub mod quant;
 pub mod semantics;
+pub mod regel;
 pub mod seq;
 pub mod si;
 pub mod seqgen;
