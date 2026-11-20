@@ -20,6 +20,7 @@ pub mod formats;
 pub mod formel;
 pub mod games;
 pub mod generate;
+pub mod kontext;
 pub mod loader;
 pub mod logic;
 pub mod manifest;

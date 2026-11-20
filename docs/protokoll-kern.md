@@ -6451,3 +6451,73 @@ Ausserdem ist die CPU-Auswertung mit 30 s je Datensatz zu langsam fuer 200 Stich
 
 **Kosten:** keine zusaetzlichen; die Auswertung lief auf der ohnehin bezahlten CPU des
 A100-Pods und hat den Schritt von 1,545 auf 1,561 ms verlangsamt (gemessen, +1 %).
+
+## Runde 322 — Der Korpus ist zu zwei Dritteln Podcast-Text
+
+**Kein Faktor geaendert.** Eine Messung am Korpus selbst, ausgeloest durch die Ausgabe des
+Modells.
+
+**Der Befund.** Alle 12 Shards einzeln gelesen (Trennung an den Marken `0xFE`/`0xFF`):
+
+| Familie | MB | Anteil |
+|---|---|---|
+| **Podcast-Transkript** (`typ.text`, 20 067 Datensaetze) | **17,90** | **65,0 %** |
+| Logik positiv + mit Bruch | 2,67 | 9,7 % |
+| Ketten (2 Shards) | 1,72 | 6,3 % |
+| Addition mit Uebertrag | 1,46 | 5,3 % |
+| Gleichungen | 1,34 | 4,9 % |
+| Arithmetische Reihen (3 Shards) | 1,05 | 3,8 % |
+| Sprachlogik (Kasus) | 0,83 | 3,0 % |
+| Multiplikation | 0,59 | 2,1 % |
+
+Der erste Datensatz aus `merged-0010.bin` lautet woertlich: „Vom Abendland uebersehen: Der
+arabische Gelehrte al-Biruni WDR ZeitZeichen vom 4. September 2023."
+
+**Damit erklaeren sich die Ausgaben aus Runde 321.** `Artemisia in Sibjega ist Artemisia in
+Silo in Silo in Silo` ist keine misslungene Rechnung, sondern **nachgeahmte Podcast-Prosa**.
+Und der Loss von 0,26 kam aus einem Fenster in genau diesem vorhersagbaren Text. Alle
+Aufgabenfamilien zusammen sind **35 %** der Bytes.
+
+**Fakten der beiden Messungen**
+
+| Messung | Wert | Null-Baseline |
+|---|---|---|
+| Train-EM (13 Datensaetze) | **0 von 13 = 0,0 %** | — |
+| Held-out-EM (20 Datensaetze) | **1 von 20 = 5,0 %** | 12,22 % Zufall |
+| Erwartete Treffer bei Zufall | 2,44 | — |
+| P(hoechstens 1 Treffer bei Zufall) | **27,9 %** | — |
+| Erwartete Treffer bei Mehrheitsantwort (38,1 %) | 7,62 | — |
+| P(hoechstens 1 Treffer bei Mehrheitsantwort) | **0,09 %** | — |
+
+Die Ausgabe war ein **Repetitionskollaps**: `4x + 4 = 4. 3. 3x + 4 = 4. 4. 4. …` ueber
+hunderte Bytes. Dasselbe Muster ist im Projekt schon notiert
+(`docs/recursive-self-improvement/08-gewichtraum.md`).
+
+**Die Auswendiglern-Hypothese ist damit erledigt, bevor sie geprueft werden konnte.** Ein
+Modell mit Train-EM 0 % hat nichts gespeichert. Der Loss von 0,26 war ein einzelnes Fenster.
+
+**Nebenbefund, der die Messung selbst betrifft.** Bei n = 20 ist ein Treffer gegen 2,44
+erwartete nicht von Zufall zu unterscheiden (27,9 %). Meine 5-%-Zahl aus Runde 321 war also
+kein Messwert, sondern Rauschen — und das Repo hat mit `add_test.py`, `--mode m1/m2` und
+**11 051 nie trainierten Aufgaben** samt gemessenen Baselines laengst das bessere Instrument.
+Ab jetzt laeuft die Auswertung ueber diesen Pfad, nicht ueber Ad-hoc-Stichproben.
+
+**Checkpoint-Entscheidung: nicht uebernommen**, und der Lauf wurde gestoppt. Begruendung:
+ein Korpus mit 65 % fachfremdem Text kann das Ziel nicht tragen, und jede weitere Stunde
+kostet 2,19 $ fuer ein Modell, das Radiotext nachahmt. Gestoppt bei Schritt ~1 300.
+
+**Kosten:** 2 961 s Laufzeit = **1,64 $**. Die Hochrechnung von 14 $ fuer den Rest ist
+damit hinfaellig. Der Stand `.state` bei Schritt 1 000 liegt auf dem Volume, ein Fortsetzen
+ist moeglich.
+
+**Hypothese fuer Runde 323, vor dem Lauf festgelegt**
+
+> Wird der Anteil der Aufgabenfamilien von 35 % auf ueber 80 % erhoeht (Sprache bleibt als
+> Beimischung), steigt der Held-out-EM im selben Modus bei gleicher Schrittzahl von 5 % auf
+> ueber 25 %. Nullhypothese: unter 12,22 % (Zufallsniveau) — dann liegt es nicht am
+> Mischungsverhaeltnis.
+
+**Unsicherheit:** ob der Repetitionskollaps allein vom Mischungsverhaeltnis kommt oder
+zusaetzlich von der Lernrate (2,97e-4 bei Schritt 1 000, Warmup 800). Beide Erklaerungen
+sagen denselben ersten Schritt voraus. Getrennt werden sie erst, wenn der neue Korpus bei
+gleicher Lernrate laeuft und der Kollaps bleibt.
