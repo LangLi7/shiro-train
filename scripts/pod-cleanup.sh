@@ -5,9 +5,13 @@
 # ohne dass eine Kopie existierte. Der Pod hatte kein HF_TOKEN, `pod-start.sh` hat also
 # nie hochgeladen. Danach war der Stand endgueltig weg.
 #
-# Regel: **Modelle und Checkpoints werden nur mit Quittung geloescht.** Alles, was
-# regenerierbar ist (Build-Verzeichnis, generierte Korpora, halbe Downloads), darf ohne
-# Quittung weg - dafuer gibt es keinen Grund, Speicher zu bezahlen.
+# **Aufbewahrungsregel (Runde 331):** auf dem Volume bleibt **genau eine** Modellfassung -
+# die neueste. Alles davor wird gesichert (HuggingFace, lokal `O:\shiro`) und danach
+# geloescht. Ein unbrauchbarer Lauf wird nicht als „Vergleichsschnitt" aufgehoben: er
+# kostet Speicher und sagt nichts, was nicht im Protokoll steht.
+#
+# Was regenerierbar ist (Build-Verzeichnis, generierte Korpora, halbe Downloads), darf
+# ohne Quittung weg - dafuer gibt es keinen Grund, Speicher zu bezahlen.
 #
 # Aufruf:  pod-cleanup.sh [--trocken]
 set -euo pipefail
@@ -31,11 +35,24 @@ for p in "$DATEN/target" "$DATEN/gen" "$DATEN/gen-logs" "$DATEN/zim"; do
   [ -e "$p" ] && loesche "$p"
 done
 
-echo "=== Modelle und Checkpoints (nur mit Quittung) ==="
+echo "=== Modelle: die neueste Fassung bleibt ==="
+# Nach Aenderungszeit sortiert, neueste zuerst.
+MODELLE=()
+while IFS= read -r zeile; do
+  MODELLE+=("${zeile#* }")
+done < <(find "$DATEN" -maxdepth 2 \( -name '*.safetensors' -o -name '*.state' -o -name '*.bckpt' \) \
+           -printf '%T@ %p\n' 2>/dev/null | sort -nr)
+
+BLEIBT="${MODELLE[0]:-}"
+if [ -n "$BLEIBT" ]; then
+  echo "  bleibt: $(basename "$BLEIBT")"
+else
+  echo "  keine Modelle auf dem Volume"
+fi
+
 VERWEIGERT=0
 GELOESCHT=0
-# `-print0` und `read -d ''`: Dateinamen mit Leerzeichen sind auf diesem Volume normal.
-while IFS= read -r -d '' datei; do
+for datei in "${MODELLE[@]:1}"; do
   quittung="${datei}.quittung"
   if [ ! -f "$quittung" ]; then
     echo "  VERWEIGERT: $(basename "$datei") hat keine Quittung" >&2
@@ -48,9 +65,10 @@ while IFS= read -r -d '' datei; do
   else
     VERWEIGERT=$((VERWEIGERT + 1))
   fi
-done < <(find "$DATEN" -maxdepth 2 \( -name '*.safetensors' -o -name '*.state' -o -name '*.bckpt' \) -print0 2>/dev/null)
+done
 
 echo "=== Ergebnis ==="
+echo "  behalten      : 1 ($(basename "${BLEIBT:-<keins>}"))"
 echo "  geloescht     : $GELOESCHT"
 echo "  verweigert    : $VERWEIGERT"
 du -sh "$DATEN" 2>/dev/null || true

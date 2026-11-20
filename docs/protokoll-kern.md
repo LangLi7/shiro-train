@@ -6839,3 +6839,38 @@ lokalen Artefakte - Korpora, Konfigurationen, heruntergeladene Staende.
 **Unsicherheit:** ob der Upload im Pod-Image ohne `python3` laeuft. `sichere-checkpoint.sh`
 bricht ohne Uploader ab, statt eine Quittung ohne Kopie zu schreiben - der Fall ist damit
 laut, aber noch nicht auf einem Pod erprobt.
+
+## Runde 331 — Eine Fassung bleibt, und Bauen gehoert auf die CPU
+
+**Aufbewahrungsregel, vom Nutzer praezisiert:** auf dem Volume bleibt **genau eine**
+Modellfassung, die neueste. Alles davor wird gesichert (HuggingFace, lokal `O:\shiro`,
+GitHub) und dann geloescht. Ein unbrauchbarer Lauf wird **nicht** als „Vergleichsschnitt"
+aufgehoben - er kostet Speicher und sagt nichts, was nicht im Protokoll steht.
+
+`pod-cleanup.sh` setzt das um: Modelle werden nach Aenderungszeit sortiert, die neueste
+Fassung bleibt, jede weitere braucht eine Quittung.
+
+**Belegt** (Trockenlauf auf einem nachgestellten Volume mit drei Staenden):
+
+| Datei | Datum | Ergebnis |
+|---|---|---|
+| `neu.safetensors` | 20.11. | **bleibt** |
+| `alt.safetensors` | 01.11. | verweigert, keine Quittung |
+| `aelter.state` | 15.10. | verweigert, keine Quittung |
+
+**Eine Korrektur an mir selbst.** Ich hatte vorgeschlagen, den Korpus auf dem GPU-Pod
+waehrend des Builds zu erzeugen, um einen CPU-Pod zu sparen. Das ist falsch gerechnet:
+der GPU-Pod zahlt **GPU-Tarif ab dem Start**, auch waehrend `cargo build` nur die CPU
+belastet. 5,3 Minuten Bauzeit kosten dort rund **0,19 $** (A100 zu 2,19 $/h), auf einem
+CPU-Pod rund **0,01 $** (0,12 $/h) - Faktor 18.
+
+Richtig ist deshalb die Kette, die es schon gibt (`pod-prep.sh`):
+
+1. **CPU-Pod** (nur wenn in den naechsten Minuten keine GPU laeuft): bauen **und** Korpus
+   erzeugen, beides aufs Volume, `preflight` als Tor.
+2. **GPU-Pod**: findet Binary und fertigen Korpus vor und beginnt sofort zu trainieren.
+
+`scripts/korpus-bauen.sh` gehoert damit auf den CPU-Pod, nicht auf den GPU-Pod - die
+Erzeugung selbst dauert Sekunden, der Punkt ist allein, dass sie nicht zur GPU-Miete wird.
+
+**Kosten dieser Runde:** 0 $.
