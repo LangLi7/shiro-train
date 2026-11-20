@@ -7816,6 +7816,41 @@ jetzt das Eigentliche: **beide Wege ergeben denselben Faktor.**
 
 **429 Tests gruen.**
 
+## Runde 381 — Die Datenmenge ist durch die Vorlagen begrenzt, nicht durch die CPU
+
+**Der Befund, der den naechsten Schritt bestimmt.** Die Erzeugung schafft 21 MB/s, das
+klingt nach beliebig viel Daten. Aber die Generatoren **weigern sich, Duplikate zu
+erzeugen**: `seq` brach bei 190 000 angeforderten Datensaetzen nach 38 050 001 Versuchen
+mit nur 126 052 eindeutigen ab. Jede Familie hat damit einen **endlichen Raum**.
+
+| Familie | Vorlagen (gemessen) | Folge |
+|---|---|---|
+| kontext | 54 | begrenzt |
+| algebra | 98 | klein |
+| formel | 390 | begrenzt |
+| seq | 452 | **bei 100 000 Datensaetzen Ende** |
+| logik | 11 605 | gross |
+| quant | 14 923 | gross |
+| zahl, detektiv, bruch, prozent, einheit | neu, **noch nicht im Korpus** | unbekannt |
+
+**84 MB sind bereits 272 400 Datensaetze.** Fuer 3,8 GB braeuchte es **~12 Millionen**.
+Das ist mit elf Familien nicht erreichbar, egal wie schnell die CPU rechnet.
+
+**Damit ist die Rechnung aus Runde 380 praezisiert:** "mehr Daten" heisst nicht "laenger
+laufen lassen", sondern **mehr Familien und mehr Varianten je Familie**. Genau das sind die
+fuenf neuen Familien - sie sind gebaut, aber **noch nicht im Korpus**, weil der laufende
+Lauf den alten liest.
+
+**Was daraus folgt, und was ich mir selbst verbiete:** keine Empfehlung zur Modellgroesse,
+bevor gemessen ist, wie gross der Korpus mit allen elf Familien wirklich wird. Diesen Fehler
+habe ich in Runde 45 mit der RTX 4090 gemacht (empfohlen, ohne zu rechnen: 26 $ statt 12,90 $).
+
+**Der naechste Schritt nach der Messung, in dieser Reihenfolge:**
+
+1. Binary mit den fuenf neuen Familien bauen (CPU-Pod, ~40 Minuten)
+2. Alle elf Familien erzeugen, Korpusgroesse **messen**
+3. Erst dann entscheiden, ob 189M oder 509M zur Datenmenge passt
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
