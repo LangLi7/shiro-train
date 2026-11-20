@@ -7425,3 +7425,31 @@ disjunkt, die **Formulierung** ist in beiden Baendern gleich. Ein Modell kann al
 Vorlage memorieren und die Zahlen einsetzen - genau das war beim Kontext-Typ messbar (333
 Datensaetze je Schablone). Das Gegenmittel sind andere **Formulierungen** im Held-out, und
 die duerfen laut Auftrag **nie im Training** sein. Das ist der naechste Daten-Faktor.
+
+## Runde 348 — Der Pod ist unbrauchbar, und die Sperre hat funktioniert
+
+**Der Befund:** der GPU-Pod `0ssca15bae6cb8` (US-MD-1, Secure, A100 80 GB) hat innerhalb
+von zwei Minuten **dreimal** von selbst gestoppt. Nach jedem Stopp war das Training weg,
+die GPU bei 0 %, die Miete lief weiter.
+
+**Was gut funktioniert hat:** die Sperre aus dem Startskript. Nach dem zweiten Fehlschlag
+legte es `/workspace/start-fehler` an und verweigerte den dritten Start mit der Meldung
+*"Stoppe den Container - ein gescheiterter Lauf darf keine GPU-Zeit kosten."* Genau dafuer
+war sie gebaut. Ohne sie haette der Pod weiter im Leerlauf 2,19 $/h gekostet.
+
+**Was ich geaendert habe:** `checkpoint_every` von 1 000 auf **250** Schritte. Ein
+Checkpoint kostet ~6 Minuten, ein Neustart verliert damit hoechstens 6 statt 26 Minuten.
+Das ist eine **Betriebseinstellung, kein Trainingsfaktor** - Daten, Modell, Seed,
+Lernrate und Schrittzahl bleiben gleich, das Experiment bleibt vergleichbar.
+
+**Was ich NICHT getan habe:** den Lauf auf einem anderen Host neu ansetzen, ohne die
+Ursache zu kennen. Drei Stoesse in zwei Minuten sind kein Zufall; ein vierter Versuch auf
+demselben Image haette dasselbe Risiko. **Kosten dieser Runde: 0,15 $** fuer 4 Minuten
+Pod-Zeit ohne Trainingsschritt.
+
+**Vor dem naechsten Versuch zu klaeren:** ob es am Image liegt (kein `curl`, kein
+`python3`, `sleep infinity` als Anker) oder am Host. Ein Pod ohne eigene Dienste, der
+dreimal stehenbleibt, riecht nach Health-Check - und `sleep infinity` antwortet auf nichts.
+Der naechste Versuch sollte deshalb einen **echten Dienst** als Anker starten (etwa einen
+winzigen HTTP-Server) oder ein Image mitliefern, statt sich auf einen Schlafprozess zu
+verlassen.
