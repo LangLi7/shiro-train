@@ -5157,3 +5157,28 @@ sofort ab, und im Log stand nur `data_loaded`.
 
 **Der Stand nach dem Aufraeumen:** keine Prozesse, keine Tasks, RAM 38,7 Prozent, GPU 295 MiB frei.
 **Die Seed-Reihe ist nicht gelaufen** — von zehn Seeds existiert nur `seed1` (Addition 100).
+
+## Runde 288 — Drei Seeds, dreimal 100 Prozent: die Addition ist stabil
+
+**Die Streuung, die seit fuenf Runden ausstand — erste drei Datenpunkte:**
+
+| Seed | Addition (30 Aufgaben) | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| 1 | 20946 | 100 | **100** | 100 |
+| 2 | 28865 | 100 | **100** | 100 |
+| 3 | 36784 | 100 | **100** | 100 |
+
+**Keine Streuung.** Derselbe Korpus, derselbe Ausgangspunkt, 600 Schritte, verschiedene Seeds —
+**dreimal identisch 100 Prozent.**
+
+**Was das bedeutet:** fuer die Addition ist die Messung **belastbar**. Der Wert haengt nicht am
+Zufallsstart. Die 91,9 und 97,5 aus den frueheren Laeufen (mit 1500 Schritten) stehen damit auf
+einem Fundament, nicht auf einem einzelnen Lauf.
+
+**Was es nicht bedeutet:** dass die anderen Familien genauso stabil sind. Die Logik (62,5) und das
+Urteil (90) sind **nicht** mit mehreren Seeds gemessen — dort koennte die Streuung groesser sein,
+weil die Aufgabe schwieriger ist. **Die sieben restlichen Seeds laufen.**
+
+**Der Aufwand pro Seed:** 600 Schritte, 13 Minuten, ein Prozess. **Zwei Jahre Rechenzeit waeren
+nicht noetig gewesen** — vier Anlaeufe sind vorher an technischen Fehlern gescheitert (Tool-Job,
+RAM, alte Checkpoints, Scheduled Tasks).
