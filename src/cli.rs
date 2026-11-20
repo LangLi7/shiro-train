@@ -102,6 +102,12 @@ pub enum Command {
     GenerateKontext {
         opts: KontextGenOptions,
     },
+    /// Vorflugpruefung: verweigert den Lauf, wenn der Korpus nicht taugt.
+    Preflight {
+        dir: PathBuf,
+        manifest: String,
+        max_fremd: f64,
+    },
     /// Agentischer Capability-Loop (Spec §12): `agent capability run <id>`.
     ///
     /// Misst eine Faehigkeit, klassifiziert die Fehler, erzeugt **gezielte**
@@ -467,6 +473,12 @@ pub struct Args {
     /// `verify-checkpoint`. Bewusst ein Feld statt drei: die Option ist fuer den
     /// Nutzer eine einzige.
     pub checkpoint: Option<PathBuf>,
+    /// Nullpunkt: mit **frisch initialisierten** Gewichten messen, ohne Checkpoint.
+    ///
+    /// Fuer den Zero-Shot-Boden. `Lm::new` erzeugt alle Gewichte gleichverteilt nach
+    /// Seed, `load_safetensors` ueberschreibt sie nur - ein untrainiertes Modell ist
+    /// damit ein vollstaendiges Modell, keine Huelle.
+    pub untrained: bool,
     /// Prompt fuer `chat` (Bytes, UTF-8).
     pub prompt: String,
     /// Anzahl neuer Bytes fuer `chat`.
@@ -509,6 +521,7 @@ impl Default for Args {
             seed: None,
             resume: None,
             checkpoint: None,
+            untrained: false,
             // Der Prompt der Messkette: eine Aufgabe aus dem Additionskorpus, damit
             // ein untrainiertes und ein trainiertes Modell vergleichbar antworten.
             prompt: "2+2=".to_string(),
@@ -569,6 +582,9 @@ OPTIONEN:
                           Konfiguration kommen dann **dazu**, und die Lernrate laeuft
                           mit der globalen Schrittnummer weiter
     --checkpoint <PFAD>   Modellordner-Datei: Eingabe fuer chat und eval (Pflicht
+                          fuer chat; bei eval auch ohne --untrained moeglich)
+    --untrained           Nullpunkt: mit frisch initialisierten Gewichten messen,
+                          ohne Checkpoint (nur eval; fuer den Zero-Shot-Boden)
                           bei chat), Quelle fuer export, Datei fuer verify-checkpoint
 
 OPTIONEN FUER gen-sample:
@@ -699,6 +715,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut games: GamesGenOptions = GamesGenOptions::default();
     let mut out_dir: Option<PathBuf> = None;
     let mut ckpt: Option<PathBuf> = None;
+    let mut untrained = false;
     // Zwei Subkommandos bilden zusammen `data generate-logic`. Beide werden
     // gemerkt, damit die Reihenfolge egal ist und ein alleinstehendes `data`
     // sauber abgelehnt werden kann.
@@ -709,6 +726,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_quant = false;
     let mut want_seq = false;
     let mut want_kontext = false;
+    let mut want_preflight = false;
+    let mut max_fremd: f64 = 20.0;
+    let mut preflight_dir: Option<PathBuf> = None;
     let mut want_algebra = false;
     let mut want_formel = false;
     let mut want_games = false;
@@ -813,6 +833,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "preflight" => {
+                want_preflight = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "--max-fremd" => {
+                let v = take_value(&mut iter, "--max-fremd")?;
+                max_fremd = v
+                    .parse()
+                    .map_err(|_| crate::error::anyhow!("--max-fremd: {v} ist keine Zahl"))?;
+            }
+            "--dir" => preflight_dir = Some(PathBuf::from(take_value(&mut iter, "--dir")?)),
             "combine" => {
                 want_combine = true;
                 command_set = true;
@@ -1016,6 +1048,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "--out" => out_dir = Some(PathBuf::from(take_value(&mut iter, "--out")?)),
             "--checkpoint" => ckpt = Some(PathBuf::from(take_value(&mut iter, "--checkpoint")?)),
+            "--untrained" => untrained = true,
             "--prompt" => out.prompt = take_value(&mut iter, "--prompt")?,
             "--max-new" => {
                 let v = take_value(&mut iter, "--max-new")?;
@@ -1091,6 +1124,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     // `--checkpoint` ist eine einzige Option fuer drei Verwendungen und steht
     // deshalb im `Args`, nicht im Subkommando.
     out.checkpoint = ckpt.clone();
+    out.untrained = untrained;
 
     // Genau ein Subkommando. Die beiden Generatoren werden ausdruecklich
     // unterschieden, damit nicht versehentlich der Beispieldatensatz statt des
@@ -1265,6 +1299,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/kontext")),
             },
+        };
+    }
+
+    if want_preflight {
+        out.command = Command::Preflight {
+            dir: preflight_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("data/corpus")),
+            manifest: "manifest.json".to_string(),
+            max_fremd,
         };
     }
 

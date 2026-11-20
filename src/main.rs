@@ -19,6 +19,7 @@ use shiro::data::loader::Dataset;
 use shiro::data::logic;
 use shiro::data::kontext;
 use shiro::data::manifest::{Manifest, ShardEntry, checksum_hex};
+use shiro::data::preflight;
 use shiro::data::quant;
 use shiro::data::semantics;
 use shiro::data::seq;
@@ -69,6 +70,11 @@ fn real_main() -> Result<()> {
         } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::GenerateKontext { opts } => cmd_generate_kontext(&opts),
+        Command::Preflight {
+            dir,
+            manifest,
+            max_fremd,
+        } => cmd_preflight(&dir, &manifest, max_fremd),
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
@@ -1905,6 +1911,61 @@ fn cmd_generate_kontext(opts: &cli::KontextGenOptions) -> Result<()> {
     Ok(())
 }
 
+fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
+    // Ein Korpusordner traegt entweder direkt die Shards (kombiniert) oder `train/` und
+    // `val/` (aus einem Generator).
+    let (train, val) = {
+        let t = dir.join("train");
+        if t.is_dir() {
+            (t, Some(dir.join("val")))
+        } else {
+            (dir.to_path_buf(), None)
+        }
+    };
+    let b = preflight::pruefe(&train, manifest)?;
+
+    println!("Vorflugpruefung");
+    println!("Korpus       : {}", train.display());
+    println!("Shards       : {}", b.shards);
+    println!("Datensaetze  : {}", b.records);
+    println!("Aufgaben     : {} Bytes", b.aufgaben_bytes);
+    println!(
+        "Fremdtext    : {} Bytes ({:.1} %, Schwelle {:.1} %)",
+        b.fremd_bytes,
+        b.fremdanteil(),
+        max_fremd
+    );
+    if b.umschrift.is_empty() {
+        println!("Umschrift    : keine gefunden");
+    } else {
+        let liste: Vec<String> = b
+            .umschrift
+            .iter()
+            .take(6)
+            .map(|(f, n)| format!("{f} ({n}x)"))
+            .collect();
+        println!("Umschrift    : {}", liste.join(", "));
+    }
+
+    if let Some(v) = val {
+        if v.is_dir() {
+            let gemeinsam = preflight::trennung(&train, &v, manifest)?;
+            println!(
+                "Trennung     : {gemeinsam} gemeinsame Datensaetze zwischen Training und Held-out"
+            );
+            if gemeinsam > 0 {
+                shiro::error::bail!(
+                    "Training und Held-out teilen {gemeinsam} Datensaetze - die Messung waere wertlos"
+                );
+            }
+        }
+    }
+
+    preflight::erzwinge(&b, max_fremd)?;
+    println!("Ergebnis     : bestanden");
+    Ok(())
+}
+
 fn cmd_generate_seq(opts: &cli::SeqGenOptions) -> Result<()> {
     let gen_opts = seq::Options {
         train_records: opts.records,
@@ -2531,6 +2592,7 @@ pub fn chat_core(
     // RoPE bis zur vollen Kontextlaenge: `generate` schneidet sein Fenster selbst
     // auf `rope.seq_len`, deshalb ist die Obergrenze hier richtig.
     let rope = Rope::new(&arch, cfg.max_seq_len);
+    // `chat` braucht ein trainiertes Modell; der Nullpunkt gilt nur fuer `eval`.
     let model = Lm::new(cfg, seed, &device)?.load_safetensors(checkpoint)?;
     let trainer = Trainer::for_inference(model, arch, rope, device, seed);
     let all = trainer.generate(prompt.as_bytes(), max_new, temperature, top_k, seed)?;
@@ -2894,7 +2956,7 @@ pub fn answers_core(
     seed: u64,
     data_dir: &Path,
     manifest: &str,
-    checkpoint: &Path,
+    checkpoint: Option<&Path>,
     limit: usize,
     mode: cli::AnswersMode,
 ) -> Result<(AnswerOutcome, usize)> {
@@ -2913,7 +2975,13 @@ pub fn answers_core(
     let arch = Arch::from_config(cfg)?;
     let device = shiro::backend::geraet()?.0;
     let rope = Rope::new(&arch, cfg.max_seq_len);
-    let model = Lm::new(cfg, seed, &device)?.load_safetensors(checkpoint)?;
+    let model = Lm::new(cfg, seed, &device)?;
+    // Ohne Checkpoint bleibt es bei der Zufallsinitialisierung aus `Lm::new` - das ist
+    // der Nullpunkt (Zero-Shot ohne Training), kein Sonderfall mit halbem Modell.
+    let model = match checkpoint {
+        Some(p) => model.load_safetensors(p)?,
+        None => model,
+    };
     let trainer = Trainer::for_inference(model, arch, rope, device, seed);
 
     // Ueber den ganzen Shard streuen, nicht die ersten N nehmen: die Datensaetze
@@ -3103,9 +3171,12 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         let Some(limit) = args.answers else {
             shiro::error::bail!("--answers-mode m1 braucht --answers <N>");
         };
-        let Some(ckpt) = args.checkpoint.as_deref() else {
-            shiro::error::bail!("--answers-mode m1 braucht --checkpoint");
-        };
+        let ckpt = args.checkpoint.as_deref();
+        if ckpt.is_none() && !args.untrained {
+            shiro::error::bail!(
+                "--answers-mode m1 braucht --checkpoint oder --untrained"
+            );
+        }
         let (o, stride) = answers_core(
             &cfg.model,
             cfg.run.seed,
@@ -3117,7 +3188,10 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         )?;
         println!("Konfiguration : {}", args.config.display());
         println!("Datenordner   : {}", cfg.data.dir.display());
-        println!("Modell        : {}", ckpt.display());
+        match ckpt {
+            Some(p) => println!("Modell        : {}", p.display()),
+            None => println!("Modell        : frisch initialisiert (Nullpunkt, kein Training)"),
+        }
         println!("Messmodus     : m1 (Denkweg und Antwort frei erzeugt)");
         println!("Auswahl       : jeder {stride}. Datensatz des Shards");
         println!(
@@ -3215,7 +3289,7 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             cfg.run.seed,
             &cfg.data.dir,
             &cfg.data.manifest,
-            ckpt,
+            Some(ckpt),
             limit,
             args.answers_mode,
         )?;

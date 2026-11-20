@@ -4,6 +4,22 @@
 # Daten liegen unter /workspace (Global Volume), damit Checkpoints einen Neustart ueberleben.
 set -euo pipefail
 
+# --- Tore vor dem ersten Trainingsschritt ------------------------------------
+# Zwei Fehler aus Runde 327 duerfen sich nicht wiederholen:
+#
+#   1. Der Lauf startete, obwohl der Korpus zu 65 % aus Fachfremdem bestand.
+#   2. Der Checkpoint blieb ohne Kopie im Volume, weil HF_TOKEN fehlte - und wurde
+#      beim Aufraeumen geloescht. Er war danach endgueltig weg.
+#
+# Beides prueft dieses Skript VOR dem Training. Ohne Token startet nichts.
+if [ -z "${HF_TOKEN:-}" ]; then
+  echo "FEHLER: HF_TOKEN fehlt." >&2
+  echo "  Ohne Token bleibt der Checkpoint ausschliesslich im Volume und ist beim" >&2
+  echo "  Loeschen endgueltig verloren (Runde 327: 8,15 GB vernichtet)." >&2
+  echo "  Abbruch vor dem Training - so kostet es keine GPU-Zeit." >&2
+  exit 1
+fi
+
 KORPUS="${1:-mix77}"
 SCHRITTE="${2:-3000}"
 # Welche Modellkonfiguration trainiert wird. Der 500M-Lauf nutzt dieselben Daten
