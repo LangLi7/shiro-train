@@ -145,6 +145,16 @@ pub fn import(opts: &Options) -> Result<Report> {
             skipped += 1;
             continue;
         }
+        // Nur gueltiges UTF-8. Das ist keine Vorsicht, sondern eine Bedingung:
+        // die Marker des Korpusformats sind Bytes, die in UTF-8 **nicht kodierbar**
+        // sind (0xC0, 0xC1, 0xF5..0xFF - Ueberlang-Kodierungen bzw. jenseits von
+        // U+10FFFF). Waere die Eingabe selbst kein gueltiges UTF-8, koennte eine
+        // falsch kodierte Datei (etwa Latin-1) genau solche Bytes mitbringen und
+        // damit Marker einschmuggeln. Also: ablehnen statt raten.
+        if std::str::from_utf8(&raw).is_err() {
+            skipped += 1;
+            continue;
+        }
         used_files += 1;
         for piece in split_chunks(&raw, chunk) {
             records.push(piece.to_vec());
