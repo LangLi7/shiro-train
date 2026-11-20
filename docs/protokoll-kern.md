@@ -7320,3 +7320,25 @@ herauszuholen. Bei 0,12 Byte je Parameter ist das immer noch **170x** unter dem
 Chinchilla-Richtwert. Der Lauf beantwortet damit nicht „ist 500M gut", sondern „aendert
 achtmal mehr Daten das Verhalten" - und das ist die Frage, die vor jeder weiteren
 Investition geklaert sein muss.
+
+**Nachtrag beim Start (Runde 344), drei Zahlen korrigiert:**
+
+| Groesse | Vorregistriert | Tatsaechlich |
+|---|---|---|
+| Daten | ~60 MB | **84 MB** (276 000 Datensaetze, 0 % Fremdtext) |
+| Byte je Parameter | 0,12 | **0,165** (10,8x statt 8x) |
+| Schritte je Epoche | ~9 800 | **13 700** |
+| Preis | 1,39 $/h (Community) | **2,19 $/h** - Community hatte keine Kapazitaet |
+
+Die Abweichung beim Preis ist eine Kapazitaetsfrage, keine Entscheidung: Community-Cloud
+war nicht verfuegbar, und ohne Pod gibt es keinen Fortschritt. Der fruehe Messpunkt bei
+5 000 Schritten kostet damit **~4,60 $** statt 2,90 $.
+
+**Der Start selbst lief ohne Reibung:** Binary vom Volume uebernommen (kein Neubau),
+Korpus mit 6 Shards gefunden, **fortgesetzt aus `step001000.state`** - der Checkpoint aus
+dem gescheiterten Lauf ist damit Ausgangspunkt statt Verlust.
+
+**Was der Korpus an Vielfalt mitbringt:** 54 Vorlagen im Kontext-Typ (dreimal so viele wie
+vorher), dazu die unveraenderten Typen. Der Korpus wurde mit **Seed 4242** gebaut, der
+Lauf nutzt **Seed 53013** - zwei verschiedene Seeds, damit die Datenreihenfolge nicht mit
+dem Modell-Seed korreliert.
