@@ -7966,7 +7966,44 @@ dass **kein einziger Weg** stimmt.
 etwa 3 bis 38 %. Die Aussage "besser als der 509M" traegt (0 von 60 gegen 3 von 20 ist
 statistisch klar), die Aussage "15 %" ist eine Schaetzung, kein Wert.
 
-**Kosten des Kontrollversuchs:** ~1,7 $ - die erste Kausalantwort der Sitzung fuer unter 2 $.|
+**Kosten des Kontrollversuchs:** ~1,7 $ - die erste Kausalantwort der Sitzung fuer unter 2 $.
+
+## Runde 430 — Der Verlauf ueber vier Staende, und warum "Auswendiglernen" gemessen wird
+
+**Der 32M-Lauf ueber eine Epoche.** Korpus `korpus-mix` (84 MB), 7 000 Schritte, Batch 12 x
+1024. Gemessen wurde je 20 Beispiele im Modus m1 (Denkweg und Antwort frei erzeugt),
+Antwort und Weg **getrennt**.
+
+| Schritt | gesehener Korpus | Trainingsverlust | **Antwort-EM** | **Weg-EM** |
+|---|---|---|---|---|
+| 1 000 | 15 % | 0,43-0,09 | **3 / 20 = 15 %** | **0 / 20 = 0 %** |
+| 2 000 | 29 % | 0,26 | **1 / 20 = 5 %** | **1 / 20 = 5 %** |
+| 5 000 | 88 % | 0,04-0,19 | **4 / 20 = 20 %** | **3 / 20 = 15 %** |
+| 509M, 3 200 | 23 % | 0,06 | **0 / 60 = 0 %** | nicht messbar |
+
+**Die drei Aussagen, die dieser Verlauf traegt:**
+
+1. **Das 32M-Modell lernt, das 509M nicht.** Bei gleichem Korpus und gleicher Auswertung
+   hat das kleine Modell Treffer, wo das grosse bei 60 Versuchen keinen hatte. Die
+   Ueberparametrisierung war eine Ursache - 509M an 84 MB hat die Kapazitaet, den Korpus
+   auswendig zu lernen, statt zu rechnen.
+2. **Der Weg bewegt sich spaeter als die Antwort.** Bis Schritt 2 000 war der Weg
+   praktisch null: das Modell erkannte die Form und riet die Zahl. Erst bei 5 000, nach
+   88 % des Korpus, entstehen 3 von 20 Wegen. Wer nur die Antwort misst, haette bei 20 %
+   "Fortschritt" gemeldet, ohne zu sehen, dass die Rechnung fehlt.
+3. **Der Verlust ist kein Faehigkeitsmass.** 0,04 bedeutet fast exakte Vorhersage der
+   Trainingsdaten. Bei Aufgaben aus Vorlagen ist das erreichbar, **ohne zu rechnen** - der
+   Verlust misst Vorlagenkenntnis. Deshalb entscheidet nicht der Verlust, sondern das
+   Held-out mit **getrennten** Zahlenbereichen.
+
+**Die Grenze dieser Zahlen:** je 20 Beispiele sind grob. 3 Treffer haben ein 95-Intervall
+von etwa 3 bis 38 %. Die Aussage "kleiner lernt, grosser nicht" traegt (0 von 60 gegen
+3+ von 20 ist statistisch klar); die Aussage "15 % Weg" ist eine Schaetzung.
+
+**Was daraus folgt:** nicht Modellgroesse, sondern **Zuschnitt der Daten**. Die neue
+Familie `regel.rs` legt die Regel in den Aufgabentext und benutzt im Held-out Steigungen,
+die im Training nie vorkommen - dort kann Auswendiglernen die Pruefung nicht bestehen.
+|
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
