@@ -146,7 +146,7 @@ fn einheit(szenario: Szenario, index: usize) -> &'static str {
         (Szenario::Weg, 1) => "Stunden",
         (Szenario::Weg, 2) => "km",
         (Szenario::Preis, 0) => "Euro",
-        (Szenario::Preis, 1) => "Stueck",
+        (Szenario::Preis, 1) => "Stück",
         (Szenario::Preis, 2) => "Euro",
         (Szenario::Zeit, 0) => "km",
         (Szenario::Zeit, 1) => "km/h",
@@ -188,43 +188,43 @@ fn texte(szenario: Szenario, gesucht: Gesucht) -> (&'static str, &'static str, u
     match (szenario, gesucht) {
         // (v, t) bekannt, s gesucht
         (Szenario::Weg, Gesucht::Dritte) => (
-            "Ein Fahrzeug faehrt {} km/h und braucht dafuer {} Stunden. Wie weit kommt es?",
-            "Ein Fahrzeug faehrt {} km/h. Wie weit kommt es?",
+            "Ein Fahrzeug fährt {} km/h und braucht dafür {} Stunden. Wie weit kommt es?",
+            "Ein Fahrzeug fährt {} km/h. Wie weit kommt es?",
             0,
             1,
         ),
         // (s, t) bekannt, v gesucht
         (Szenario::Weg, Gesucht::Erste) => (
-            "Ein Fahrzeug faehrt {} km in {} Stunden. Wie schnell ist es?",
-            "Ein Fahrzeug faehrt {} km. Wie schnell ist es?",
+            "Ein Fahrzeug fährt {} km in {} Stunden. Wie schnell ist es?",
+            "Ein Fahrzeug fährt {} km. Wie schnell ist es?",
             2,
             1,
         ),
         // (s, v) bekannt, t gesucht
         (Szenario::Weg, Gesucht::Zweite) => (
-            "Ein Fahrzeug faehrt {} km mit {} km/h. Wie lange dauert das?",
-            "Ein Fahrzeug faehrt {} km. Wie lange dauert das?",
+            "Ein Fahrzeug fährt {} km mit {} km/h. Wie lange dauert das?",
+            "Ein Fahrzeug fährt {} km. Wie lange dauert das?",
             2,
             0,
         ),
         // (p, n) bekannt, g gesucht
         (Szenario::Preis, Gesucht::Dritte) => (
-            "Ein Stueck kostet {} Euro. Es werden {} Stueck gekauft. Was kostet das?",
-            "Ein Stueck kostet {} Euro. Was kostet das?",
+            "Ein Stück kostet {} Euro. Es werden {} Stück gekauft. Was kostet das?",
+            "Ein Stück kostet {} Euro. Was kostet das?",
             0,
             1,
         ),
         // (n, g) bekannt, p gesucht
         (Szenario::Preis, Gesucht::Erste) => (
-            "{} Stueck kosten zusammen {} Euro. Was kostet ein Stueck?",
-            "{} Stueck werden gekauft. Was kostet ein Stueck?",
+            "{} Stück kosten zusammen {} Euro. Was kostet ein Stück?",
+            "{} Stück werden gekauft. Was kostet ein Stück?",
             1,
             2,
         ),
         // (p, g) bekannt, n gesucht
         (Szenario::Preis, Gesucht::Zweite) => (
-            "Ein Stueck kostet {} Euro, zusammen {} Euro. Wie viele Stueck sind es?",
-            "Ein Stueck kostet {} Euro. Wie viele Stueck sind es?",
+            "Ein Stück kostet {} Euro, zusammen {} Euro. Wie viele Stück sind es?",
+            "Ein Stück kostet {} Euro. Wie viele Stück sind es?",
             0,
             2,
         ),
@@ -237,7 +237,7 @@ fn texte(szenario: Szenario, gesucht: Gesucht) -> (&'static str, &'static str, u
         ),
         // (v, t) bekannt, s gesucht
         (Szenario::Zeit, Gesucht::Erste) => (
-            "Gefahren wird {} km/h fuer {} Stunden. Wie weit ist die Strecke?",
+            "Gefahren wird {} km/h für {} Stunden. Wie weit ist die Strecke?",
             "Gefahren wird {} km/h. Wie weit ist die Strecke?",
             1,
             2,
@@ -842,6 +842,41 @@ mod tests {
         // Dieselbe Aufgabe mit den echten Werten besteht alle Dimensionen.
         let b_ok = bewerte(&gold, &gold).expect("Bewertung");
         assert!(b_ok.entnahme && b_ok.vollstaendig(), "{b_ok:?}");
+    }
+
+    #[test]
+    fn records_are_valid_utf8_and_use_real_german_orthography() {
+        // Die Marken sind absichtlich ungueltiges UTF-8; fuer die Pruefung fallen sie weg.
+        // Was uebrig bleibt, muss echte deutsche Schreibweise sein - eine Umschrift wie
+        // "faehrt" zwingt das Modell, jede Vokabel in einer Form zu lernen, die niemand
+        // schreibt, und ist spaeter nur durch Neulernen zu korrigieren.
+        let aufgaben = generate(&opts(300)).expect("Erzeugung");
+        let mut mit_umlaut = 0;
+        let mut alles = String::new();
+        for a in &aufgaben {
+            let nutz: Vec<u8> = a
+                .record
+                .iter()
+                .copied()
+                .filter(|b| !matches!(*b, B_TASK | B_THINK | B_ANSWER | B_END))
+                .collect();
+            let s = String::from_utf8(nutz).expect("Nutzbytes muessen gueltiges UTF-8 sein");
+            if s.chars().any(|c| "äöüÄÖÜ".contains(c)) {
+                mit_umlaut += 1;
+            }
+            alles.push_str(&s);
+        }
+        assert!(
+            mit_umlaut > aufgaben.len() / 2,
+            "nur {mit_umlaut} von {} Datensaetzen tragen Umlaute",
+            aufgaben.len()
+        );
+        for falsch in ["faehrt", "dafuer", "Stueck", "fuer "] {
+            assert!(
+                !alles.contains(falsch),
+                "Umschrift `{falsch}` ist zurueckgefallen"
+            );
+        }
     }
 
     #[test]
