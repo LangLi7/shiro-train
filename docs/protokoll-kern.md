@@ -8037,6 +8037,34 @@ Daten zu bauen.
 **Kosten:** Der A100-Pod wurde gestoppt, nachdem das Training fertig war und nur noch
 CPU-Arbeit lief (2,19 $/h fuer 0 % GPU). Gesamtkosten der Sitzung: **~20,6 $**.
 
+## Runde 450 — Was der 32M-Lauf NICHT gesehen hat
+
+**Ein Befund, der die 15 % Weg-EM anders einordnet.** Der 32M-Lauf trainierte auf
+`korpus-mix` - und dieser Korpus enthaelt **sechs Familien**:
+
+| Korpus des 32M | Familien |
+|---|---|
+| `korpus-mix` | kontext, logik, quant, seq, formel, algebra |
+
+**Die Regel-Familie war nicht dabei.** `src/data/regel.rs` entstand in Runde 425, der
+Lauf startete in Runde 71. Die Familie, die den Loesungsweg **erzwingt** - Regel im
+Aufgabentext, disjunkte Steigungen im Held-out - existierte noch gar nicht, als das
+Modell lernte.
+
+**Damit ist die Ausgangslage praezise:** die 15 % Weg-EM sind **ohne** die Familie
+entstanden, die den Weg verlangt. Sie sind der **Boden**, nicht das Ergebnis.
+
+**Die Hypothese wird damit schaerfer und pruefbar:**
+
+> Steigt die Weg-EM mit 16 Familien (inklusive Regel, Gleichung, Potenzen, Geometrie,
+> Folgen) ueber **30 %**, entscheidet der **Zuschnitt der Daten**. Bleibt sie unter
+> 20 %, ist der Weg eine Frage von Kapazitaet oder Trainingsverfahren.
+
+**Ein zweiter Punkt, der beim Aufraeumen auffiel:** fuenf Familien (`zahl`, `detektiv`,
+`bruch`, `prozent`, `einheit`) sind **gebaut und getestet, aber nicht verdrahtet** -
+`shiro help` kennt sie nicht. Der Korpus mit 11 Familien nutzt sie daher nicht. Das ist
+der naechste billige Gewinn: Code vorhanden, nur die Anbindung fehlt.
+
 |
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
