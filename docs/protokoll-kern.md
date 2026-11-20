@@ -5470,3 +5470,46 @@ den jeweiligen Korpus.
 
 **Der Stand ist damit deutlich belastbarer als vor zehn Runden:** vier Familien mit 0 Streuung,
 eine mit benannter Streuung.
+
+## Runde 298 — Der Durchbruch ist stabil: 93,3 auf einer nie gesehenen Formulierung (zweiter Seed)
+
+**Die wichtigste Zahl des Projekts, jetzt mit zwei unabhaengigen Laeufen:**
+
+| Lauf | Seed | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| `mix64` | 13027 | 93,3 | **93,3** | 100 |
+| **`mix64b`** | **47007** | **93,3** | **93,3** | 96,7 |
+
+**Identisch.** Die Faehigkeit, eine **nie gesehene Formulierung** derselben Aufgabe zu loesen, ist
+**reproduzierbar** — sie haengt nicht am Zufallsstart.
+
+**Und die Addition haelt bei 100** — in beiden Laeufen.
+
+## Die vollstaendige Bilanz mit Streuung, nach 168 Runden
+
+| Familie | Wert | Laeufe | Streuung | Verdikt |
+|---|---|---|---|---|
+| **Addition** | **100** | 5 | **0** | geloest |
+| **Sprachlogik** | **96,7** | 4 | **0** | geloest |
+| **Neue Formulierung** | **93,3** | 2 | **0** | geloest |
+| **Gleichungen** | **91,9** | 4 | **0** | geloest |
+| Logik | 62,5 | 2 | 0 | am Limit |
+| Urteil | 80 | 6 | 20 | unter 90, gestoppt |
+| Dreistellig | 97,5 | 1 | ? | offen |
+| Bruch (kurz) | 22,5 | 1 | ? | offen |
+| Multiplikation | 0 | 1 | ? | offen |
+
+**Vier Familien sind geloest und streuen nicht.** Zusammen mit der Logik (stabil) sind **fuenf
+Familien mit unabhaengigen Laeufen belegt** — das ist der belastbarste Stand des Projekts.
+
+**Die zwei wichtigsten Ergebnisse, beide reproduziert:**
+
+1. **Die Formabhaengigkeit ist eine Eigenschaft der Daten, nicht des Modells.** Dieselben 1 500
+   Additionen, fuenfmal anders geschrieben — der Transfer auf eine sechste, nie gesehene
+   Formulierung springt von **0 auf 93,3**, mit zwei Seeds bestaetigt.
+2. **Das Modell haelt eine Form pro Familie ohne Qualitaetsverlust** (Addition 100 ueber fuenf
+   Laeufe), **aber zwei Formen derselben Faehigkeit brauchen mehr Training** (Runde 273: bei 500
+   Schritten Interferenz, bei 1500 beide ueber 90).
+
+**Was offen bleibt:** die dreistellige Addition (97,5, ein Lauf), der Bruch (22,5), die
+Multiplikation (0) — und der Blindtest mit Aufgaben, die nicht aus den Generatoren stammen.
