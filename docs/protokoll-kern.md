@@ -5271,3 +5271,33 @@ im Korpus.
 Das ist **reproduzierbar mehr als Raten, aber weit von 90 entfernt.** Die Logik ist damit die
 Familie, bei der die Grenze am klarsten benannt ist — und sie ist mit zwei unabhaengigen Laeufen
 belegt.
+
+## Runde 292 — Das Urteil streut: 82 gegen 90
+
+**Derselbe Korpus, derselbe Lernratenverlauf (4000 Schritte geplant, nach 1000 gestoppt), anderer Seed:**
+
+| Lauf | Seed | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| `mix68` (Original) | 13027 | 68 | **90** | 100 |
+| **`urteilA`** | **43003** | **68** | **82** | 100 |
+
+**Acht Punkte Unterschied.** Der Weg ist identisch (68), die Klasse identisch (100) — **nur die
+Antwort schwankt.**
+
+**Was das bedeutet, und es ist wichtig:**
+
+Die **90** aus Runde 275 war **am oberen Rand der Streuung**. Der ehrliche Wert des Urteils liegt
+bei **82 bis 90** — und damit **unter der 90er-Grenze**, wenn man den unteren Rand nimmt.
+
+**Das ist der erste Fall, in dem die Streuung eine Aussage korrigiert.** Bei der Addition war sie
+null (fuenf Laeufe, fuenfmal 100), bei der Logik null (zwei Laeufe, beide 62,5). **Beim Urteil
+nicht.**
+
+**Die Konsequenz nach Regel 6 des Auftrags:** ein Checkpoint wird nur uebernommen, wenn die
+Zielwerte erreicht sind. **Bei 82 ist das nicht der Fall** — das Urteil gehoert damit **nicht** in
+die Liste der geloesten Familien, sondern zu den **knapp verfehlten**.
+
+**Die geschuetzte Addition haelt bei 100** (Weg 96,7, Antwort 100).
+
+**Was jetzt offen ist:** ein dritter Urteil-Lauf wuerde zeigen, ob 82 oder 90 der Mittelwert ist.
+Bei zwei Laeufen ist die Spanne 82–90; **die Wahrheit liegt wahrscheinlich dazwischen.**
