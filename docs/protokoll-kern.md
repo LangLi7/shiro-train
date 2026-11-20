@@ -5043,3 +5043,30 @@ ueber 15 Stellen ist jetzt eingebaut; solche Ausgaben werden als Text verglichen
 
 **Was als naechstes kaeme:** die Bruch-Familie mit **kuerzeren** Dezimalzahlen (2-3 Nachkommastellen
 statt 2-6) — dann bleibt die Ziffernfolge kurz genug fuer das, was das Modell nachweislich kann.
+
+## Runde 283 — Zwei Laeufe gleichzeitig ersticken den Rechner (RAM 93 Prozent)
+
+**Der Befund, der eine Stunde gekostet hat:** zwei Trainer parallel zu starten sieht nach
+Auslastung aus, ist aber **Selbstblockade**.
+
+| | ein Lauf | zwei Laeufe |
+|---|---|---|
+| RAM | 40 % | **93 %** |
+| Fortschritt | 200 Schritte / 5 min | **0 Schritte / 25 min** |
+| WorkingSet je Prozess | 9 GB | 9 GB + 9 GB |
+
+**Beide Prozesse standen nach `data_loaded` still** — sie rechneten (CPU 1661 s), kamen aber nicht
+voran, weil das System swappte. **Der Log zeigte keinen einzigen Schritt.**
+
+**Was ich daraus mitnehme:**
+
+1. **Nur ein Trainer gleichzeitig.** Die RTX 3060 hat 12 GB, der Rechner 31,8 GB — **zwei 24M-Modelle
+   mit je 9 GB WorkingSet passen nicht.**
+2. **Die RAM-Wache war Teil des Problems:** sie setzt bei ueber 80 Prozent die Prioritaet auf
+   `BelowNormal` — das macht die Laeufe langsam, ohne den Speicher zu senken. **Bremse war die
+   falsche Reaktion, Stoppen waere richtig gewesen.**
+3. **Ein haengender Lauf sieht aus wie ein laufender.** Erst der Blick in den Log (letzte Zeile
+   `data_loaded`, kein `step`) zeigt den Unterschied.
+
+**Ab jetzt:** ein Lauf, RAM-Beobachtung, und nach 10 Minuten ohne `step` im Log wird abgebrochen
+statt gewartet.
