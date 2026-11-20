@@ -55,51 +55,64 @@ mkdir -p "$TRAIN" "$VAL"
 
 # --- Text auf die Zielgroesse begrenzen und in Shards schreiben -----------------
 echo "--- Text ---"
-python3 - "$BASE" "$TRAIN" "$TEXT_MAX_GB" <<'PY'
-import glob, os, sys, hashlib, struct
+TEXT_BASE="$BASE" TEXT_ZIEL="$TRAIN" TEXT_GB="$TEXT_MAX_GB" python3 - <<'PY'
+import glob, os, struct
 
-base, ziel, max_gb = sys.argv[1], sys.argv[2], float(sys.argv[3])
-grenze = int(max_gb * 1024**3)
-SHARD = 64 * 1024 * 1024          # 64 MB je Shard
+base   = os.environ["TEXT_BASE"]
+ziel   = os.environ["TEXT_ZIEL"]
+grenze = int(float(os.environ["TEXT_GB"]) * 1024**3)
+
+# Shard-Format wie in `src/data/format.rs`: Kopf 32 Byte, ab 32 je Datensatz
+# 2 Byte Laenge (LE) + Daten. Der Text wird in Bloecke von 8 KB zerlegt - ein
+# Block ist ein Datensatz, damit der Loader sie einzeln lesen kann.
 MAGIC = b"BSHD"
+KOPF = 32
+BLOCK = 8192
+SHARD_DATEN = 64 * 1024 * 1024
 
-geschrieben = 0
-shard_nr = 0
-puffer = bytearray()
-stuecke = []
+def schreibe(pfad, records):
+    kopf = bytearray(KOPF)
+    kopf[0:4] = MAGIC
+    kopf[4:6] = struct.pack("<H", 1)
+    kopf[6:8] = struct.pack("<H", KOPF)
+    kopf[8:16] = struct.pack("<Q", len(records))
+    with open(pfad, "wb") as f:
+        f.write(bytes(kopf))
+        for r in records:
+            f.write(struct.pack("<H", len(r)))
+            f.write(r)
+
+rest = bytearray()
+records, nr, bytes_raus = [], 0, 0
+fertig = False
 
 for f in sorted(glob.glob(os.path.join(base, "sauber-*.txt"))):
+    if fertig:
+        break
     with open(f, "rb") as fh:
         while True:
-            block = fh.read(1 << 20)
-            if not block:
+            stueck = fh.read(1 << 20)
+            if not stueck:
                 break
-            if geschrieben + len(puffer) + len(block) > grenze:
-                block = block[: max(0, grenze - geschrieben - len(puffer))]
-            puffer += block
-            while len(puffer) >= SHARD:
-                stuecke.append(bytes(puffer[:SHARD]))
-                del puffer[:SHARD]
-            if geschrieben + sum(len(s) for s in stuecke) >= grenze:
+            rest += stueck
+            while len(rest) >= BLOCK:
+                records.append(bytes(rest[:BLOCK]))
+                del rest[:BLOCK]
+                bytes_raus += BLOCK
+                if bytes_raus >= grenze:
+                    fertig = True
+                    break
+            if fertig:
                 break
-    if geschrieben + sum(len(s) for s in stuecke) >= grenze:
-        break
 
-if puffer:
-    stuecke.append(bytes(puffer))
+if rest and not fertig:
+    records.append(bytes(rest))
+    bytes_raus += len(rest)
+if records:
+    schreibe(os.path.join(ziel, "shard-0000.bin"), records)
+    nr = 1
 
-for i, s in enumerate(stuecke):
-    p = os.path.join(ziel, f"shard-{i:04d}.bin")
-    with open(p, "wb") as out:
-        out.write(MAGIC)
-        out.write(struct.pack("<I", 0))          # Version
-        out.write(struct.pack("<I", len(s)))     # Nutzbytes
-        out.write(struct.pack("<Q", 0))          # reserviert
-        out.write(struct.pack("<Q", 0))          # reserviert
-        out.write(s)
-    geschrieben += len(s)
-
-print(f"Textshards: {len(stuecke)}  Bytes: {geschrieben:,}  ({geschrieben/1024**3:.2f} GB)")
+print(f"Textshards: {nr}  Datensaetze: {len(records)}  Bytes: {bytes_raus:,}  ({bytes_raus/1024**3:.2f} GB)")
 PY
 
 # --- Aufgaben aus allen Familien, jede in ihr eigenes Verzeichnis ----------------
@@ -130,75 +143,94 @@ du -sh "$TRAIN" "$ZIEL/aufgaben" 2>/dev/null
 # **N-mal** ueber den Text verteilt, damit sie waehrend des ganzen Trainings
 # vorkommen. Der Text bleibt vollstaendig erhalten.
 echo "--- Mischen ---"
-python3 - "$TRAIN" "$ZIEL/aufgaben" "$ZIEL/mix" "${AUFGABEN_WIEDERHOLUNG:-20}" <<'PY'
+TEXT_DIR="$TRAIN" AUFG_DIR="$ZIEL/aufgaben" MIX_DIR="$ZIEL/mix" \
+AUFG_WDH="${AUFGABEN_WIEDERHOLUNG:-20}" \
+python3 - <<'PY'
 import glob, os, sys, struct, random
 
-text_dir, aufg_dir, ziel, n_wdh = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+text_dir = os.environ["TEXT_DIR"]
+aufg_dir = os.environ["AUFG_DIR"]
+ziel     = os.environ["MIX_DIR"]
+n_wdh    = int(os.environ["AUFG_WDH"])
 os.makedirs(ziel, exist_ok=True)
 
-def lies_shard(p):
-    with open(p, "rb") as fh:
-        d = fh.read()
-    if d[:4] != b"BSHD":
-        return []
-    n = struct.unpack("<I", d[12:16])[0]
-    return d[32:32 + n]
+# **Shard-Format wie in `src/data/format.rs`** (Runde 467):
+#   0-4 Magic, 4-6 Version, 6-8 Kopf, **8-16 record_count**, 24-32 reserviert
+#   ab 32 je Datensatz: 2 Byte Laenge (LE), dann die Daten.
+# Ein erster Versuch las einen Block ab Offset 12 - das ergab null Bytes und
+# haette einen leeren Korpus gebaut.
+MAGIC = b"BSHD"
+KOPF = 32
 
-def schreibe(p, daten):
-    with open(p, "wb") as out:
-        out.write(b"BSHD")
-        out.write(struct.pack("<I", 0))
-        out.write(struct.pack("<I", len(daten)))
-        out.write(struct.pack("<Q", 0))
-        out.write(struct.pack("<Q", 0))
-        out.write(daten)
+def lies_records(pfad):
+    d = open(pfad, "rb").read()
+    if len(d) < KOPF or d[:4] != MAGIC:
+        raise ValueError(f"kein Shard: {pfad}")
+    (anzahl,) = struct.unpack("<Q", d[8:16])
+    raus, off = [], KOPF
+    for _ in range(anzahl):
+        if off + 2 > len(d):
+            break
+        (n,) = struct.unpack("<H", d[off : off + 2])
+        off += 2
+        raus.append(d[off : off + n])
+        off += n
+    return raus
 
-# Aufgaben einsammeln (train-Shards aller Familien)
-aufg = bytearray()
+def schreibe(pfad, records):
+    kopf = bytearray(KOPF)
+    kopf[0:4] = MAGIC
+    kopf[4:6] = struct.pack("<H", 1)
+    kopf[6:8] = struct.pack("<H", KOPF)
+    kopf[8:16] = struct.pack("<Q", len(records))
+    with open(pfad, "wb") as f:
+        f.write(bytes(kopf))
+        for r in records:
+            f.write(struct.pack("<H", len(r)))
+            f.write(r)
+
+# Aufgaben einsammeln
+aufg = []
 for f in sorted(glob.glob(os.path.join(aufg_dir, "*", "train", "*.bin"))):
-    aufg += lies_shard(f)
-print(f"Aufgabenbytes: {len(aufg):,}")
+    aufg += lies_records(f)
+print(f"Aufgaben: {len(aufg):,} Datensaetze")
 
 # Textbloecke einsammeln
 bloecke = []
 for f in sorted(glob.glob(os.path.join(text_dir, "*.bin"))):
-    bloecke.append(lies_shard(f))
-print(f"Textbloecke: {len(bloecke)}")
+    bloecke += lies_records(f)
+print(f"Textbloecke: {len(bloecke):,} Datensaetze")
 
 if not bloecke or not aufg:
     print("FEHLER: Text oder Aufgaben fehlen")
     sys.exit(1)
 
-# **Verschraenken:** nach jedem Textblock ein Stueck Aufgaben.
-# Die Aufgaben werden n_wdh-mal durchlaufen, gleichmaessig verteilt.
-stueck = max(1, len(aufg) // max(1, len(bloecke)))
-teile = [bytes(aufg[i:i+stueck]) for i in range(0, len(aufg), stueck)]
-
+# **Verschraenken:** nach jedem Textblock Aufgaben, n_wdh-mal durchlaufen.
 gemischt = []
+rng = random.Random(461)
 for i, b in enumerate(bloecke):
     gemischt.append(b)
     for _ in range(n_wdh):
-        if teile:
-            gemischt.append(teile[i % len(teile)])
+        gemischt.append(aufg[rng.randrange(len(aufg))])
 
-random.Random(461).shuffle(teile)   # Aufgabenreihenfolge durchmischen
+gesamt = sum(len(r) + 2 for r in gemischt) + KOPF
+print(f"Aufgaben-Anteil: {100*sum(len(r)+2 for r in gemischt if r in aufg)/max(gesamt,1):.1f} %")
 
-gesamt = sum(len(x) for x in gemischt)
 SHARD = 64 * 1024 * 1024
-puffer = bytearray()
-nr = 0
-for x in gemischt:
-    puffer += x
-    while len(puffer) >= SHARD:
-        schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), bytes(puffer[:SHARD]))
-        del puffer[:SHARD]
+puffer, nr, bytes_raus = [], 0, 0
+for r in gemischt:
+    puffer.append(r)
+    if sum(len(x) + 2 for x in puffer) >= SHARD:
+        schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), puffer)
         nr += 1
+        bytes_raus += sum(len(x) + 2 for x in puffer)
+        puffer = []
 if puffer:
-    schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), bytes(puffer))
+    schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), puffer)
     nr += 1
+    bytes_raus += sum(len(x) + 2 for x in puffer)
 
-print(f"Shards: {nr}  Bytes: {gesamt:,}  ({gesamt/1024**3:.2f} GB)")
-print(f"Aufgaben-Wiederholungen je Textblock: {n_wdh}")
+print(f"Shards: {nr}  Bytes: {bytes_raus:,}  ({bytes_raus/1024**3:.2f} GB)")
 PY
 
 echo
