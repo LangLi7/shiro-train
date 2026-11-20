@@ -5009,3 +5009,37 @@ auch fuer das Binary.
 
 **Das Format sitzt, die Ziffern nicht** — dasselbe Muster wie bei der Multiplikation. Bei
 1 000 Schritten ist das erwartbar; der Lauf geht bis 3 000.
+
+## Runde 282 — Bruch-Familie: Format gelernt, Ziffern nicht (2,5 Prozent)
+
+**Nach 2 000 Schritten `mix72`:**
+
+| Test | n | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| **Bruch (Dezimal -> gekuerzter Bruch)** | 40 | 2,5 | **2,5** | **87,5** |
+| Addition, held-out (geschuetzt) | 30 | 100 | **100** | 100 |
+
+**Die Klasse ist 87,5** — das Modell gibt fast immer etwas aus, das wie ein Bruch aussieht.
+**Die Antwort ist 2,5** — fast nie der richtige.
+
+**Was das Modell ausgibt** (Beispiel bei 1 000 Schritten):
+```
+Aufgabe : 9.19
+Modell  : 1. 2 Nachkommastellen. 2. 9.119 = 9199/1000. 3. ggT 1. 4. 9199/1000. = 91999/1000
+Gold    : 919/100
+```
+**Es liest `9.19` als `9.119`** — eine Ziffer zu viel — und rechnet dann mit der falschen Zahl
+korrekt weiter. **Der Weg stimmt in der Form, die Eingabe wird falsch gelesen.**
+
+**Und das ist derselbe Befund wie bei der Multiplikation** (0 Prozent auf neuen Aufgaben): nicht die
+Rechnung, sondern **das Halten der Ziffernfolge** ist die Grenze. Bei der Addition (zwei bis drei
+Ziffern) gelingt es, bei Bruch und Multiplikation (fuenf bis acht Ziffern) nicht.
+
+**Ein Werkzeugfund am Rande:** der Verifizierer stuerzte bei einer Ausgabe mit **192 Ziffern** ab
+(`Int64`-Ueberlauf) — das Modell kann Ziffern in Schleife wiederholen. Ein Schutz gegen Folgen
+ueber 15 Stellen ist jetzt eingebaut; solche Ausgaben werden als Text verglichen statt als Zahl.
+
+**Die geschuetzte Familie haelt bei 100** — die Bruch-Familie hat der Addition nicht geschadet.
+
+**Was als naechstes kaeme:** die Bruch-Familie mit **kuerzeren** Dezimalzahlen (2-3 Nachkommastellen
+statt 2-6) — dann bleibt die Ziffernfolge kurz genug fuer das, was das Modell nachweislich kann.
