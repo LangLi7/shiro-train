@@ -27,6 +27,7 @@ pub mod manifest;
 pub mod mathverify;
 pub mod orthographie;
 pub mod preflight;
+pub mod prozent;
 pub mod quant;
 pub mod semantics;
 pub mod seq;
