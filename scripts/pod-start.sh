@@ -13,7 +13,7 @@ DATEN="${DATEN:-/workspace}"
 export DEBIAN_FRONTEND=noninteractive
 export PATH=/root/.cargo/bin:/usr/local/cuda/bin:$PATH
 # Build-Cache im Volume: ein Neustart kompiliert nicht erneut (spart ~5 Minuten).
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/workspace/target}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/root/target}"
 
 echo "=== 1. Werkzeuge ==="
 apt-get update -qq
@@ -34,11 +34,32 @@ else
   git clone --depth 1 https://github.com/LangLi7/shiro-train.git /work
 fi
 
-echo "=== 4. Trainer bauen ==="
+echo "=== 4. Trainer bereitstellen ==="
 cd /work
-cargo build --release --features cuda
-cd /work/tools/mktool && cargo build --release
-cd /work
+
+# Das Binary liegt als DATEI auf dem Volume, wird aber von der Container-Disk
+# ausgefuehrt: das Global Volume ist noexec, ein Start von dort scheitert mit
+# "Permission denied". Kopieren kostet Sekunden, neu kompilieren 3-13 Minuten
+# A100-Zeit. Genau diese Minuten waren der teuerste Teil jedes Starts.
+BIN=/root/shiro
+GEBAUT=0
+if [ -f "$DATEN/bin/shiro" ]; then
+  cp "$DATEN/bin/shiro" "$BIN" && chmod +x "$BIN"
+  if "$BIN" version >/dev/null 2>&1; then
+    echo "Binary aus dem Volume uebernommen ($(du -h "$BIN" | cut -f1)) - kein Neubau"
+    GEBAUT=1
+  else
+    echo "Binary aus dem Volume laeuft nicht (andere CUDA-Laufzeit?) - baue neu"
+  fi
+fi
+
+if [ "$GEBAUT" = 0 ]; then
+  cargo build --release --features cuda
+  BIN="${CARGO_TARGET_DIR:-/root/target}/release/shiro"
+  mkdir -p "$DATEN/bin"
+  cp "$BIN" "$DATEN/bin/shiro" && chmod +x "$DATEN/bin/shiro"
+  echo "Binary gesichert nach $DATEN/bin/shiro"
+fi
 
 echo "=== 5. Korpus holen ==="
 mkdir -p "$DATEN"
@@ -73,7 +94,7 @@ else
 fi
 
 # shellcheck disable=SC2086
-"${CARGO_TARGET_DIR:-/workspace/target}/release/shiro" train --config "$DATEN/train.toml" --backend cuda $RESUME
+"$BIN" train --config "$DATEN/train.toml" --backend cuda $RESUME
 
 echo "=== 7. Modell nach HuggingFace ==="
 ls -la "$DATEN/ckpt"
