@@ -5556,3 +5556,46 @@ Kapazitaetsproblem).
 
 **Fuenf Familien ueber 90, vier davon ohne nennenswerte Streuung.** Die Logik ist stabil am Limit,
 das Urteil streut unter der Schwelle, Bruch und Multiplikation sind offen.
+
+## Runde 300 — Der Bruch ist instabil und weit unter dem Ziel: 2,5 gegen 22,5
+
+| Lauf | Seed | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| `mix73` | 13027 | 20 | **22,5** | 97,5 |
+| **`mix73b`** | **49009** | **2,5** | **2,5** | 97,5 |
+
+**Streuung 20 Punkte, beide Werte weit unter 90.** Die Klasse bleibt hoch (97,5): das Modell gibt
+fast immer etwas aus, das wie ein Bruch aussieht.
+
+**Die geschuetzte Addition haelt bei 100** — wieder.
+
+**Damit ist der Bruch nach vier Laeufen eingeordnet:**
+
+| Variante | Ziffern | Werte | Mittel |
+|---|---|---|---|
+| lang (2–6 Stellen) | 5–8 | 3,3 | — |
+| **kurz (1–3 Stellen)** | **3–5** | **22,5 · 2,5** | **12,5** |
+
+**Der Bruch ist nicht geloest, und die kurzen Ziffern haben ihn nicht gerettet.** Die Hypothese aus
+Runde 282 („kürzere Ziffern helfen") galt fuer einen Lauf — der zweite zeigt 2,5.
+
+**Was uebrig bleibt als Erklaerung:** die vier Schritte (zaehlen, umrechnen, ggT, kuerzen), davon
+einer ein **Suchen** ist. Bei 24 Mio Parametern reicht das nicht — und die Streuung zeigt, dass der
+Lauf mal teilweise und mal gar nicht konvergiert.
+
+## Die Bilanz nach 170 Runden — sieben Familien mit Streuung belegt
+
+| Familie | Wert | Laeufe | Streuung | Verdikt |
+|---|---|---|---|---|
+| **Addition, zweistellig** | **100** | 5 | 0 | geloest |
+| **Addition, dreistellig** | **97,5–100** | 2 | 2,5 | geloest |
+| **Addition, neue Formulierung** | **93,3** | 2 | 0 | geloest |
+| **Sprachlogik** | **96,7** | 4 | 0 | geloest |
+| **Gleichungen** | **91,9** | 4 | 0 | geloest |
+| Logik | 62,5 | 2 | 0 | am Limit |
+| Urteil | 80 | 6 | 20 | unter 90, gestoppt |
+| **Bruch (kurz)** | **12,5** | 2 | **20** | **nicht geloest** |
+| Multiplikation | 0 | 1 | ? | nicht geloest |
+
+**Fuenf Familien geloest und stabil. Vier nicht — davon drei mit benannter Ursache (Schrittzahl,
+drei Klassen, Ziffernlaenge/Suchen) und eine (Multiplikation) mit anderer Wegform.**
