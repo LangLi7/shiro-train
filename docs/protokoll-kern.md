@@ -8141,6 +8141,34 @@ Text achtmal - `iterparse` liest immer von vorn. Das haette 128 GB doppelte Date
 Die richtige Loesung ist **ein** Durchlauf, der die Artikel **reihum** auf acht Dateien
 verteilt.
 
+## Runde 465 — Der 500M-Lauf, vorregistriert
+
+**Was gegenueber dem widerlegten 509M-Lauf anders ist** - drei Faktoren, **vor** dem Start
+festgelegt:
+
+| Faktor | 509M (widerlegt) | 500M (dieser Lauf) |
+|---|---|---|
+| Korpus | 84 MB | **10,2 GB** (121x) |
+| Satzmuster je Familie | **1** | **20** (`vielfalt.rs`) |
+| Aufgaben im Korpus | gesammelt | **20x verschraenkt** |
+| Batch-Modus | `packed_batch` | `packed_batch` (100 % Ausbeute) |
+
+**Die vorregistrierte Abbruchregel.** Messpunkt bei **Schritt 2 000** (5,7 % des Laufs,
+~2,2 GPU-Stunden, ~4,80 $):
+
+| Weg-EM bei Schritt 2 000 | Entscheidung |
+|---|---|
+| **< 2 %** | **Abbruch** - der Zuschnitt traegt nicht |
+| **2-10 %** | weiter bis 10 000, dann erneut entscheiden |
+| **> 10 %** | weiter bis 85 000 (eine Epoche) |
+
+**Diese Regel steht vor dem Start fest.** Sie nachtraeglich zu lockern waere genau der
+Fehler, den der Auftrag verbietet.
+
+**Rechnung:** 10,2 GB bei 6 x 1024 Byte je Schritt sind 1 660 156 Schritte fuer eine
+Epoche. Bei 3 960 Byte/s und 2,19 $/h kostet die volle Epoche **~1 570 $**; der Messpunkt
+bei 2 000 Schritten kostet **~4,80 $**.
+
 |
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
