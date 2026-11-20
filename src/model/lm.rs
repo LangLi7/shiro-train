@@ -409,10 +409,16 @@ pub struct StepOutcome {
 /// Trainingszustand: Modell, Optimierer, Architektur, RoPE.
 pub struct Trainer {
     pub model: Lm,
-    /// Erste AdamW-Momentenschaetzung, gleiche Reihenfolge wie `Lm::flat_params`.
-    pub m: Vec<f32>,
-    /// Zweite AdamW-Momentenschaetzung.
-    pub v: Vec<f32>,
+    /// Erste AdamW-Momentenschaetzung, **je Parameter ein Tensor auf dem Geraet**.
+    ///
+    /// Reihenfolge identisch zu `Lm::flat_params`. Bis Runde 317 lag der Zustand als
+    /// `Vec<f32>` auf dem Host. Das erzwang je Schritt rund 6 GB PCIe-Verkehr
+    /// (Gradienten herunter, Parameter herunter, Parameter hinauf) und eine
+    /// einthreadige AdamW-Schleife ueber 509 Mio Werte: gemessen 5 523,6 ms je
+    /// Schritt bei 15-48 % GPU-Auslastung.
+    pub m: Vec<Tensor<1>>,
+    /// Zweite AdamW-Momentenschaetzung, gleiche Aufteilung wie [`Trainer::m`].
+    pub v: Vec<Tensor<1>>,
     pub cfg: AdamCfg,
     pub arch: Arch,
     pub rope: Rope,
@@ -427,11 +433,14 @@ impl Trainer {
         // einem Autodiff-Geraet entstehen, koennen `backward()`.
         let device = device.clone().autodiff();
         let arch = Arch::from_config(cfg)?;
-        let n = cfg.param_count();
+        let model = Lm::new(cfg, seed, &device)?;
+        let numels = param_numels(&model)?;
+        let m: Vec<Tensor<1>> = numels.iter().map(|n| Tensor::zeros([*n], &device)).collect();
+        let v: Vec<Tensor<1>> = numels.iter().map(|n| Tensor::zeros([*n], &device)).collect();
         Ok(Self {
-            model: Lm::new(cfg, seed, &device)?,
-            m: vec![0.0; n],
-            v: vec![0.0; n],
+            model,
+            m,
+            v,
             cfg: AdamCfg::default(),
             rope: Rope::new(&arch, seq_len),
             arch,
@@ -501,19 +510,50 @@ impl Trainer {
         // in **meiner** Parameterreihenfolge und ueberlebt einen Neuaufbau des Modells
         // (Burn's OptimizerRecord indiziert ueber ParamId). Ausserdem entfaellt der
         // Modell-Klon je Schritt, den `ModuleOptimizer::step` erzwingt.
+        //
+        // Gerechnet wird **auf dem Geraet**. Bis Runde 317 lagen `m` und `v` auf dem
+        // Host und jeder Schritt schob rund 6 GB ueber PCIe; der Host sah nur den Loss.
         let grads = GradientsParams::from_grads(loss.backward(), &self.model);
-        let g = grads_flat(&self.model, &grads)?;
-        let mut params = self.model.flat_params()?;
-        adamw_step(
-            &mut params,
-            &g,
-            &mut self.m,
-            &mut self.v,
-            self.step as u64 + 1,
-            lr as f32,
-            &self.cfg,
-        )?;
-        self.model.set_flat_params(&params, &self.device)?;
+        let gs = grads_device(&self.model, &grads)?;
+
+        // Globales Norm-Clipping wie in `adamw_step`: die Summen bleiben Tensoren,
+        // gelesen wird einmal statt je Parameter.
+        let scale = if self.cfg.grad_clip > 0.0 {
+            let mut acc = (gs[0].clone() * gs[0].clone()).sum();
+            for g in &gs[1..] {
+                acc = acc + (g.clone() * g.clone()).sum();
+            }
+            let norm_sum: f32 = acc.into_scalar::<f32>();
+            let norm = norm_sum.sqrt();
+            if norm > self.cfg.grad_clip {
+                self.cfg.grad_clip / (norm + 1e-6)
+            } else {
+                1.0
+            }
+        } else {
+            1.0
+        };
+
+        let n_step = self.step as u64 + 1;
+        let args = AdamArgs {
+            scale,
+            lr: lr as f32,
+            beta1: self.cfg.beta1,
+            beta2: self.cfg.beta2,
+            eps: self.cfg.eps,
+            wd: self.cfg.weight_decay,
+            bc1: 1.0 - self.cfg.beta1.powi(n_step as i32),
+            bc2: 1.0 - self.cfg.beta2.powi(n_step as i32),
+        };
+        let mut k = 0usize;
+        adam_all(&mut self.model, &gs, &mut self.m, &mut self.v, &mut k, &args)?;
+        if k != gs.len() || k != self.m.len() {
+            crate::error::bail!(
+                "AdamW: {k} Parameter aktualisiert, {} Gradienten und {} Zustandsteile erwartet",
+                gs.len(),
+                self.m.len()
+            );
+        }
         self.step += 1;
 
         Ok(StepOutcome {
@@ -1014,52 +1054,205 @@ pub fn adamw_step(
     Ok(())
 }
 
-/// Gradienten in **derselben Reihenfolge** wie `Lm::flat_params`.
-fn grads_flat(model: &Lm, grads: &GradientsParams) -> Result<Vec<f32>> {
-    let mut out: Vec<f32> = Vec::new();
-    gread2(&model.emb.weight, grads, &mut out)?;
+/// Anzahl Werte eines Tensors.
+fn numel<const D: usize>(t: &Tensor<D>) -> usize {
+    t.dims().iter().product()
+}
+
+/// Anzahl Werte je Parameter, in der Reihenfolge von `Lm::flat_params`.
+fn param_numels(model: &Lm) -> Result<Vec<usize>> {
+    let mut out: Vec<usize> = Vec::new();
+    out.push(numel(&model.emb.weight.val()));
     for l in &model.layers {
-        gread1(&l.norm_attn.gamma, grads, &mut out)?;
-        gread2(&l.wq.weight, grads, &mut out)?;
-        gread2(&l.wk.weight, grads, &mut out)?;
-        gread2(&l.wv.weight, grads, &mut out)?;
-        gread2(&l.wo.weight, grads, &mut out)?;
-        gread1(&l.norm_ffn.gamma, grads, &mut out)?;
-        gread2(&l.w_gate.weight, grads, &mut out)?;
-        gread2(&l.w_up.weight, grads, &mut out)?;
-        gread2(&l.w_down.weight, grads, &mut out)?;
+        out.push(numel(&l.norm_attn.gamma.val()));
+        out.push(numel(&l.wq.weight.val()));
+        out.push(numel(&l.wk.weight.val()));
+        out.push(numel(&l.wv.weight.val()));
+        out.push(numel(&l.wo.weight.val()));
+        out.push(numel(&l.norm_ffn.gamma.val()));
+        out.push(numel(&l.w_gate.weight.val()));
+        out.push(numel(&l.w_up.weight.val()));
+        out.push(numel(&l.w_down.weight.val()));
     }
-    gread1(&model.norm_final.gamma, grads, &mut out)?;
-    gread2(&model.head.weight, grads, &mut out)?;
+    out.push(numel(&model.norm_final.gamma.val()));
+    out.push(numel(&model.head.weight.val()));
     match &model.head.bias {
-        Some(b) => gread1(b, grads, &mut out)?,
+        Some(b) => out.push(numel(&b.val())),
+        None => crate::error::bail!("Ausgabekopf ohne Bias - Parameterreihenfolge unvollstaendig"),
+    }
+    Ok(out)
+}
+
+/// Gradienten je Parameter als flacher Tensor **auf dem Geraet**, in derselben
+/// Reihenfolge wie `Lm::flat_params`.
+fn grads_device(model: &Lm, grads: &GradientsParams) -> Result<Vec<Tensor<1>>> {
+    let mut out: Vec<Tensor<1>> = Vec::new();
+    out.push(gflat(&model.emb.weight, grads)?);
+    for l in &model.layers {
+        out.push(gflat(&l.norm_attn.gamma, grads)?);
+        out.push(gflat(&l.wq.weight, grads)?);
+        out.push(gflat(&l.wk.weight, grads)?);
+        out.push(gflat(&l.wv.weight, grads)?);
+        out.push(gflat(&l.wo.weight, grads)?);
+        out.push(gflat(&l.norm_ffn.gamma, grads)?);
+        out.push(gflat(&l.w_gate.weight, grads)?);
+        out.push(gflat(&l.w_up.weight, grads)?);
+        out.push(gflat(&l.w_down.weight, grads)?);
+    }
+    out.push(gflat(&model.norm_final.gamma, grads)?);
+    out.push(gflat(&model.head.weight, grads)?);
+    match &model.head.bias {
+        Some(b) => out.push(gflat(b, grads)?),
         None => crate::error::bail!("Ausgabekopf ohne Bias - Gradientenreihenfolge unvollstaendig"),
     }
     Ok(out)
 }
 
-fn gread1(p: &Param<Tensor<1>>, grads: &GradientsParams, out: &mut Vec<f32>) -> Result<()> {
+fn gflat<const D: usize>(p: &Param<Tensor<D>>, grads: &GradientsParams) -> Result<Tensor<1>> {
+    let n = numel(&p.val());
     let t = grads
-        .get::<1>(p.id)
+        .get::<D>(p.id)
         .ok_or_else(|| crate::error::anyhow!("Kein Gradient fuer Parameter {}", p.id.val()))?;
-    let v: Vec<f32> = t
-        .into_data()
-        .try_to_vec::<f32>()
-        .map_err(|e| crate::error::anyhow!("Gradient nicht lesbar: {e}"))?;
-    out.extend_from_slice(&v);
+    Ok(t.reshape([n]))
+}
+
+/// Hyperparameter eines AdamW-Schritts auf dem Geraet.
+struct AdamArgs {
+    scale: f32,
+    lr: f32,
+    beta1: f32,
+    beta2: f32,
+    eps: f32,
+    wd: f32,
+    bc1: f32,
+    bc2: f32,
+}
+
+/// AdamW fuer **einen** Parameter, vollstaendig auf dem Geraet.
+///
+/// Rechnet dieselbe Formel wie [`adamw_step`] (entkoppeltes Weight Decay,
+/// Bias-Korrektur), nur ohne Umweg ueber den Host.
+fn adam_one<const D: usize>(
+    p: &mut Param<Tensor<D>>,
+    g: &Tensor<1>,
+    m: &mut Tensor<1>,
+    v: &mut Tensor<1>,
+    a: &AdamArgs,
+) -> Result<()> {
+    let dims = p.val().dims();
+    let n = numel(&p.val());
+    if g.dims()[0] != n || m.dims()[0] != n || v.dims()[0] != n {
+        crate::error::bail!(
+            "AdamW: Parameter {}, Gradient {}, m {}, v {}",
+            n,
+            g.dims()[0],
+            m.dims()[0],
+            v.dims()[0]
+        );
+    }
+    let g = g.clone() * a.scale;
+    let pv = p.val().reshape([n]);
+    let pv = pv.clone() - pv.clone() * (a.lr * a.wd);
+    let m_new = m.clone() * a.beta1 + g.clone() * (1.0 - a.beta1);
+    let v_new = v.clone() * a.beta2 + (g.clone() * g) * (1.0 - a.beta2);
+    let upd = (m_new.clone() / a.bc1) / ((v_new.clone() / a.bc2).sqrt() + a.eps);
+    let p_new = pv - upd * a.lr;
+    *m = m_new;
+    *v = v_new;
+    // `detach()` ist Pflicht: `Param::from_tensor` setzt require_grad und bricht bei
+    // einem verfolgten Nicht-Blatt-Tensor ab ("Can't convert a non leaf tensor into a
+    // tracked tensor"). Der neue Wert ist das Ergebnis einer Rechnung, also verfolgt.
+    *p = Param::from_tensor(p_new.detach().reshape(dims));
     Ok(())
 }
 
-fn gread2(p: &Param<Tensor<2>>, grads: &GradientsParams, out: &mut Vec<f32>) -> Result<()> {
-    let t = grads
-        .get::<2>(p.id)
-        .ok_or_else(|| crate::error::anyhow!("Kein Gradient fuer Parameter {}", p.id.val()))?;
-    let v: Vec<f32> = t
-        .into_data()
-        .try_to_vec::<f32>()
-        .map_err(|e| crate::error::anyhow!("Gradient nicht lesbar: {e}"))?;
-    out.extend_from_slice(&v);
+/// Holt den naechsten Parameter aus `gs`/`m`/`v` und aktualisiert ihn.
+fn adv<const D: usize>(
+    p: &mut Param<Tensor<D>>,
+    gs: &[Tensor<1>],
+    m: &mut [Tensor<1>],
+    v: &mut [Tensor<1>],
+    k: &mut usize,
+    a: &AdamArgs,
+) -> Result<()> {
+    let i = *k;
+    if i >= gs.len() || i >= m.len() || i >= v.len() {
+        crate::error::bail!("AdamW: Index {i} ausserhalb von Gradienten oder Zustand");
+    }
+    adam_one(p, &gs[i], &mut m[i], &mut v[i], a)?;
+    *k += 1;
     Ok(())
+}
+
+/// AdamW ueber alle Parameter, in der Reihenfolge von `Lm::flat_params`.
+fn adam_all(
+    model: &mut Lm,
+    gs: &[Tensor<1>],
+    m: &mut [Tensor<1>],
+    v: &mut [Tensor<1>],
+    k: &mut usize,
+    a: &AdamArgs,
+) -> Result<()> {
+    adv(&mut model.emb.weight, gs, m, v, k, a)?;
+    for i in 0..model.layers.len() {
+        let l = &mut model.layers[i];
+        adv(&mut l.norm_attn.gamma, gs, m, v, k, a)?;
+        adv(&mut l.wq.weight, gs, m, v, k, a)?;
+        adv(&mut l.wk.weight, gs, m, v, k, a)?;
+        adv(&mut l.wv.weight, gs, m, v, k, a)?;
+        adv(&mut l.wo.weight, gs, m, v, k, a)?;
+        adv(&mut l.norm_ffn.gamma, gs, m, v, k, a)?;
+        adv(&mut l.w_gate.weight, gs, m, v, k, a)?;
+        adv(&mut l.w_up.weight, gs, m, v, k, a)?;
+        adv(&mut l.w_down.weight, gs, m, v, k, a)?;
+    }
+    adv(&mut model.norm_final.gamma, gs, m, v, k, a)?;
+    adv(&mut model.head.weight, gs, m, v, k, a)?;
+    match model.head.bias.as_mut() {
+        Some(b) => adv(b, gs, m, v, k, a)?,
+        None => crate::error::bail!("Ausgabekopf ohne Bias - Aktualisierung unvollstaendig"),
+    }
+    Ok(())
+}
+
+/// AdamW-Zustand als flacher Host-Vektor, fuer die Standdatei.
+fn flat_host(parts: &[Tensor<1>]) -> Result<Vec<f32>> {
+    let mut out: Vec<f32> = Vec::new();
+    for t in parts {
+        let v: Vec<f32> = t
+            .clone()
+            .into_data()
+            .try_to_vec::<f32>()
+            .map_err(|e| crate::error::anyhow!("AdamW-Zustand nicht lesbar: {e}"))?;
+        out.extend_from_slice(&v);
+    }
+    Ok(out)
+}
+
+/// Baut den AdamW-Zustand aus einem flachen Host-Vektor; die Laengen kommen aus `templates`.
+fn device_from_flat(
+    templates: &[Tensor<1>],
+    values: &[f32],
+    device: &Device,
+) -> Result<Vec<Tensor<1>>> {
+    let mut cur = 0usize;
+    let mut out: Vec<Tensor<1>> = Vec::with_capacity(templates.len());
+    for t in templates {
+        let n = t.dims()[0];
+        if cur + n > values.len() {
+            crate::error::bail!("AdamW-Zustand zu kurz bei Offset {cur}");
+        }
+        let td = TensorData::new(values[cur..cur + n].to_vec(), [n]);
+        out.push(Tensor::from_data(td, device));
+        cur += n;
+    }
+    if cur != values.len() {
+        crate::error::bail!(
+            "AdamW-Zustand hat {} Werte, verbraucht wurden {cur}",
+            values.len()
+        );
+    }
+    Ok(out)
 }
 
 /// Speichern und Fortsetzen (Blocker **B6**).
@@ -1072,8 +1265,10 @@ impl Trainer {
             lr,
             schedule: schedule.to_string(),
             params: self.model.flat_params()?,
-            m: self.m.clone(),
-            v: self.v.clone(),
+            // Der Zustand liegt auf dem Geraet und wird nur hier heruntergeholt:
+            // einmal je Checkpoint, nicht einmal je Schritt.
+            m: flat_host(&self.m)?,
+            v: flat_host(&self.v)?,
         }
         .save(path)
     }
@@ -1099,8 +1294,10 @@ impl Trainer {
         }
         let mut t = Self::new(cfg, state.seed, device, seq_len)?;
         t.model.set_flat_params(&state.params, &t.device)?;
-        t.m = state.m;
-        t.v = state.v;
+        let m_new = device_from_flat(&t.m, &state.m, &t.device)?;
+        let v_new = device_from_flat(&t.v, &state.v, &t.device)?;
+        t.m = m_new;
+        t.v = v_new;
         t.step = state.step as usize;
         Ok(t)
     }
