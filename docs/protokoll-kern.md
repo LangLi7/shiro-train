@@ -7710,3 +7710,41 @@ heute (nach der Image-Vermutung in Runde 351) - und beide Male war der Fehler de
 eine plausible Geschichte statt einer Zahl.
 
 **Kosten dieser Runde:** 0 $ (reine Rechnung, lokal).
+
+## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
+
+**Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
+Drei Aufgabentypen mit exakten Antworten: Kuerzen ueber den ggT, Addieren ueber den
+gemeinsamen Nenner, Vergleichen ueber das Kreuzprodukt.
+
+**Die drei Lehren der vorigen Runden sind diesmal von Anfang an eingebaut**, nicht
+nachtraeglich geflickt:
+
+| Regel | Umsetzung |
+|---|---|
+| disjunkte Zahlenbaender | Nenner 2-9 im Training, **11-97** im Held-out |
+| gehaltene Formulierung | Held-out fragt anders ("Bringe ... auf die einfachste Form"), nie im Training |
+| unabhaengig nachgerechnet | Test prueft jede Summe zweitens und dass das Ergebnis teilerfremd ist |
+
+**Was bei der Verdrahtung schiefging, und es ist ein Muster:** drei Reparaturen waehrend des
+Builds. Meine Text-Ersetzungen haben zweimal benachbarten Code beschaedigt - das
+`impl`-Schluesselwort der Nachbar-Implementierung und das `use` vor dem Detektiv-Import.
+Beide Male hat der Compiler es gefangen, und ich habe die Zeilen dann exakt neu geschrieben
+statt noch eine Ersetzung zu versuchen. Neun Zeilen Code mit drei Reparaturen sind ein
+schlechter Schnitt; der richtige Weg waere gewesen, die Stellen zu lesen und einzeln zu
+aendern.
+
+**Stand der Familien:**
+
+| Familie | Modul | CLI | Tor |
+|---|---|---|---|
+| Zahlentheorie | ✓ | ✓ | ✓ |
+| Detektivisch | ✓ | ✓ | ✓ |
+| Brueche | ✓ | ✓ | ✓ |
+| Prozent, Potenzen, Gleichungen, Funktionen, Geometrie, Folgen, Kombinatorik, Lineare Algebra | offen | - | - |
+
+**Der Blocker, unveraendert:** A100-80GB steht in allen fuenf Zonen auf **LOW**, sechs Pods
+sind in vier Zonen und zwei Clouds gestorben. Die Kapazitaetsabfrage in Runde 358 zeigt
+denselben Stand. Ohne GPU kein Held-out-Wert, ohne Messung kein Checkpoint-Entscheid.
+
+**Kosten:** 0 $ (Code-Arbeit, kein Pod).
