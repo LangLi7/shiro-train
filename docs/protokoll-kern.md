@@ -8003,6 +8003,40 @@ von etwa 3 bis 38 %. Die Aussage "kleiner lernt, grosser nicht" traegt (0 von 60
 **Was daraus folgt:** nicht Modellgroesse, sondern **Zuschnitt der Daten**. Die neue
 Familie `regel.rs` legt die Regel in den Aufgabentext und benutzt im Held-out Steigungen,
 die im Training nie vorkommen - dort kann Auswendiglernen die Pruefung nicht bestehen.
+
+## Runde 440 — Wo die Materialbeschaffung steht, in Zahlen
+
+**Der Stand am Ende des Abends, alles auf dem Volume (`shiro-projekt`, 20 GB):**
+
+| Posten | Groesse | Zustand |
+|---|---|---|
+| **Aufgaben, 11 Familien** | **98 MB** | erzeugt, je 30 000 Datensaetze, eigenes Held-out |
+| **Wikipedia-Text** | **3,15 GB** | extrahiert (Abbruch bei einem Viertel des Moeglichen) |
+| Wikipedia-Dump (gepackt) | 7,5 GB | vollstaendig, Text jederzeit nachziehbar |
+| 32M-Checkpoints | 3,4 GB | 5 Staende, Verlauf gemessen |
+| 509M-Belege | 3,8 GB | 2 Staende des widerlegten Laufs |
+
+**Zwei Fehler bei der Erzeugung, beide behoben und jetzt im Skript verhindert:**
+
+1. **Familien ueberschrieben sich.** Alle Generatoren schrieben ihre Shards unter
+   demselben Namen in dasselbe Verzeichnis; nach 15 Laeufen lagen 1,7 MB statt ~90 MB.
+   Jetzt bekommt jede Familie ihr eigenes Unterverzeichnis.
+2. **Zwei Kommandonamen gab es nicht.** `generate-logik` heisst `generate-logic`, und
+   `generate-prozent` existiert gar nicht - die Familien `zahl`, `detektiv`, `bruch`,
+   `prozent`, `einheit` sind **gebaut, aber nicht verdrahtet**. Fuenf fertige Familien
+   sind damit unerreichbar; das ist die naechste Luecke.
+
+**`scripts/korpus-mischen.sh` prueft jetzt vor der Erzeugung**, ob jedes Kommando
+existiert, und bricht mit der Liste der verfuegbaren Namen ab, statt still weniger
+Daten zu bauen.
+
+**Die Mengenrechnung, die damit belegt ist:** 15 Familien x 30 000 Datensaetze ergeben
+**~100 MB**, nicht Gigabyte. Die Vorlagen sind der Deckel - fuer 10 GB braucht es
+**Fliesstext**, und der kommt aus Wikipedia (7,5 GB gepackt, 16-20 GB Text moeglich).
+
+**Kosten:** Der A100-Pod wurde gestoppt, nachdem das Training fertig war und nur noch
+CPU-Arbeit lief (2,19 $/h fuer 0 % GPU). Gesamtkosten der Sitzung: **~20,6 $**.
+
 |
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
