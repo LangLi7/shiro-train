@@ -178,88 +178,185 @@ fn formel(szenario: Szenario) -> &'static str {
     }
 }
 
-/// Satzschablone je (Szenario, Gesuchtes): `(vollstaendig, mit Luecke, index_a, index_b)`.
+
+/// Welche zwei Groessen im Text stehen, in dieser Reihenfolge: `(a, b)`.
 ///
-/// Wichtig: der Text nennt **genau** die beiden bekannten Groessen und sonst keine. Vorher
-/// stand dort immer dasselbe Paar, und bei gesuchtem `v` behauptete der Weg dann, `s` aus
-/// dem Text zu entnehmen, obwohl `s` im Text nicht vorkam - der Entnahme-Verifier hat das
-/// aufgedeckt.
-fn texte(szenario: Szenario, gesucht: Gesucht) -> (&'static str, &'static str, usize, usize) {
+/// **Die Reihenfolge ist bindend**: jeder Satz in [`phrasen`] setzt zuerst `werte[a]` und
+/// dann `werte[b]` ein. Wer sie vertauscht, bekommt eine Aufgabe mit vertauschten Zahlen -
+/// und der Verifier wuerde sie fangen, aber erst nach dem Erzeugen.
+fn indizes(szenario: Szenario, gesucht: Gesucht) -> (usize, usize) {
     match (szenario, gesucht) {
-        // (v, t) bekannt, s gesucht
-        (Szenario::Weg, Gesucht::Dritte) => (
-            "Ein Fahrzeug fährt {} km/h und braucht dafür {} Stunden. Wie weit kommt es?",
-            "Ein Fahrzeug fährt {} km/h. Wie weit kommt es?",
-            0,
-            1,
-        ),
-        // (s, t) bekannt, v gesucht
-        (Szenario::Weg, Gesucht::Erste) => (
-            "Ein Fahrzeug fährt {} km in {} Stunden. Wie schnell ist es?",
-            "Ein Fahrzeug fährt {} km. Wie schnell ist es?",
-            2,
-            1,
-        ),
-        // (s, v) bekannt, t gesucht
-        (Szenario::Weg, Gesucht::Zweite) => (
-            "Ein Fahrzeug fährt {} km mit {} km/h. Wie lange dauert das?",
-            "Ein Fahrzeug fährt {} km. Wie lange dauert das?",
-            2,
-            0,
-        ),
-        // (p, n) bekannt, g gesucht
-        (Szenario::Preis, Gesucht::Dritte) => (
-            "Ein Stück kostet {} Euro. Es werden {} Stück gekauft. Was kostet das?",
-            "Ein Stück kostet {} Euro. Was kostet das?",
-            0,
-            1,
-        ),
-        // (n, g) bekannt, p gesucht
-        (Szenario::Preis, Gesucht::Erste) => (
-            "{} Stück kosten zusammen {} Euro. Was kostet ein Stück?",
-            "{} Stück werden gekauft. Was kostet ein Stück?",
-            1,
-            2,
-        ),
-        // (p, g) bekannt, n gesucht
-        (Szenario::Preis, Gesucht::Zweite) => (
-            "Ein Stück kostet {} Euro, zusammen {} Euro. Wie viele Stück sind es?",
-            "Ein Stück kostet {} Euro. Wie viele Stück sind es?",
-            0,
-            2,
-        ),
-        // (s, v) bekannt, t gesucht
-        (Szenario::Zeit, Gesucht::Dritte) => (
-            "Eine Strecke von {} km wird mit {} km/h gefahren. Wie lange dauert das?",
-            "Eine Strecke von {} km wird gefahren. Wie lange dauert das?",
-            0,
-            1,
-        ),
-        // (v, t) bekannt, s gesucht
-        (Szenario::Zeit, Gesucht::Erste) => (
-            "Gefahren wird {} km/h für {} Stunden. Wie weit ist die Strecke?",
-            "Gefahren wird {} km/h. Wie weit ist die Strecke?",
-            1,
-            2,
-        ),
-        // (s, t) bekannt, v gesucht
-        (Szenario::Zeit, Gesucht::Zweite) => (
-            "Eine Strecke von {} km dauert {} Stunden. Wie schnell?",
-            "Eine Strecke von {} km wird gefahren. Wie schnell?",
-            0,
-            2,
-        ),
+        // Weg = (v, t, s)
+        (Szenario::Weg, Gesucht::Dritte) => (0, 1),
+        (Szenario::Weg, Gesucht::Erste) => (2, 1),
+        (Szenario::Weg, Gesucht::Zweite) => (2, 0),
+        // Preis = (p, n, g)
+        (Szenario::Preis, Gesucht::Dritte) => (0, 1),
+        (Szenario::Preis, Gesucht::Erste) => (1, 2),
+        (Szenario::Preis, Gesucht::Zweite) => (0, 2),
+        // Zeit = (s, v, t)
+        (Szenario::Zeit, Gesucht::Dritte) => (0, 1),
+        (Szenario::Zeit, Gesucht::Erste) => (1, 2),
+        (Szenario::Zeit, Gesucht::Zweite) => (0, 2),
     }
 }
 
-/// Der Aufgabentext: **nur die Beschreibung**, ohne "Bekannt:" und "Gesucht:".
+/// Die Formulierungen je (Szenario, Gesuchtes): `(mit beiden Angaben, mit Luecke)`.
+///
+/// **Warum mehrere (Runde 339).** Gemessen waren es 18 Vorlagen hinter 180 000
+/// Datensaetzen - 10 000 Wiederholungen je Vorlage. Ein Modell lernt dann die Schablone
+/// und sagt den Rest voraus; der Verlust fiel auf 0,067 und die Aufgabe war geloest, ohne
+/// dass etwas verstanden war. Die Formulierungen sind der billigste Weg zu echter Vielfalt:
+/// gleiche Semantik, gleicher Verifier, andere Oberflaeche.
+///
+/// Drei Varianten je Paar ergeben 27 statt 9 Schablonen. Die Variante wird aus den Zahlen
+/// selbst bestimmt, damit ein Datensatz bei gleichem Seed immer gleich aussieht.
+fn phrasen(szenario: Szenario, gesucht: Gesucht) -> &'static [(&'static str, &'static str)] {
+    match (szenario, gesucht) {
+        (Szenario::Weg, Gesucht::Dritte) => &[
+            (
+                "Ein Fahrzeug fährt {} km/h und braucht dafür {} Stunden. Wie weit kommt es?",
+                "Ein Fahrzeug fährt {} km/h. Wie weit kommt es?",
+            ),
+            (
+                "Ein Zug ist {} km/h schnell und fährt {} Stunden lang. Welche Strecke legt er zurück?",
+                "Ein Zug ist {} km/h schnell. Welche Strecke legt er zurück?",
+            ),
+            (
+                "Mit {} km/h unterwegs, {} Stunden lang. Wie viele Kilometer sind es?",
+                "Mit {} km/h unterwegs. Wie viele Kilometer sind es?",
+            ),
+        ],
+        (Szenario::Weg, Gesucht::Erste) => &[
+            (
+                "Ein Fahrzeug fährt {} km in {} Stunden. Wie schnell ist es?",
+                "Ein Fahrzeug fährt {} km. Wie schnell ist es?",
+            ),
+            (
+                "Ein Bus legt {} km in {} Stunden zurück. Wie hoch ist die Geschwindigkeit?",
+                "Ein Bus legt {} km zurück. Wie hoch ist die Geschwindigkeit?",
+            ),
+            (
+                "{} km in {} Stunden geschafft. Wie schnell war das?",
+                "{} km geschafft. Wie schnell war das?",
+            ),
+        ],
+        (Szenario::Weg, Gesucht::Zweite) => &[
+            (
+                "Ein Fahrzeug fährt {} km mit {} km/h. Wie lange dauert das?",
+                "Ein Fahrzeug fährt {} km. Wie lange dauert das?",
+            ),
+            (
+                "Eine Fahrt über {} km bei {} km/h. Wie viele Stunden dauert sie?",
+                "Eine Fahrt über {} km. Wie viele Stunden dauert sie?",
+            ),
+            (
+                "{} km bei {} km/h. Wie lange ist man unterwegs?",
+                "{} km. Wie lange ist man unterwegs?",
+            ),
+        ],
+        (Szenario::Preis, Gesucht::Dritte) => &[
+            (
+                "Ein Stück kostet {} Euro. Es werden {} Stück gekauft. Was kostet das?",
+                "Ein Stück kostet {} Euro. Was kostet das?",
+            ),
+            (
+                "Pro Stück {} Euro, gekauft werden {} Stück. Wie hoch ist der Gesamtpreis?",
+                "Pro Stück {} Euro. Wie hoch ist der Gesamtpreis?",
+            ),
+            (
+                "{} Euro je Stück, {} Stück im Wagen. Was steht auf der Rechnung?",
+                "{} Euro je Stück. Was steht auf der Rechnung?",
+            ),
+        ],
+        (Szenario::Preis, Gesucht::Erste) => &[
+            (
+                "{} Stück kosten zusammen {} Euro. Was kostet ein Stück?",
+                "{} Stück werden gekauft. Was kostet ein Stück?",
+            ),
+            (
+                "Für {} Stück werden {} Euro bezahlt. Wie teuer ist eines?",
+                "{} Stück werden gekauft. Wie teuer ist eines?",
+            ),
+            (
+                "{} Stück, zusammen {} Euro. Was kostet eines davon?",
+                "{} Stück. Was kostet eines davon?",
+            ),
+        ],
+        (Szenario::Preis, Gesucht::Zweite) => &[
+            (
+                "Ein Stück kostet {} Euro, zusammen {} Euro. Wie viele Stück sind es?",
+                "Ein Stück kostet {} Euro. Wie viele Stück sind es?",
+            ),
+            (
+                "Je {} Euro, insgesamt {} Euro. Wie viele Stück wurden gekauft?",
+                "Je {} Euro. Wie viele Stück wurden gekauft?",
+            ),
+            (
+                "{} Euro je Stück, {} Euro zusammen. Wie viele sind es?",
+                "{} Euro je Stück. Wie viele sind es?",
+            ),
+        ],
+        (Szenario::Zeit, Gesucht::Dritte) => &[
+            (
+                "Eine Strecke von {} km wird mit {} km/h gefahren. Wie lange dauert das?",
+                "Eine Strecke von {} km wird gefahren. Wie lange dauert das?",
+            ),
+            (
+                "{} km bei {} km/h. Wie viele Stunden sind das?",
+                "{} km. Wie viele Stunden sind das?",
+            ),
+            (
+                "Über {} km mit {} km/h. Wie lange dauert die Fahrt?",
+                "Über {} km. Wie lange dauert die Fahrt?",
+            ),
+        ],
+        (Szenario::Zeit, Gesucht::Erste) => &[
+            (
+                "Gefahren wird {} km/h für {} Stunden. Wie weit ist die Strecke?",
+                "Gefahren wird {} km/h. Wie weit ist die Strecke?",
+            ),
+            (
+                "{} km/h, {} Stunden lang. Welche Strecke ergibt das?",
+                "{} km/h. Welche Strecke ergibt das?",
+            ),
+            (
+                "Bei {} km/h über {} Stunden. Wie viele Kilometer?",
+                "Bei {} km/h. Wie viele Kilometer?",
+            ),
+        ],
+        (Szenario::Zeit, Gesucht::Zweite) => &[
+            (
+                "Eine Strecke von {} km dauert {} Stunden. Wie schnell?",
+                "Eine Strecke von {} km wird gefahren. Wie schnell?",
+            ),
+            (
+                "{} km in {} Stunden. Welche Geschwindigkeit?",
+                "{} km. Welche Geschwindigkeit?",
+            ),
+            (
+                "{} km, {} Stunden. Wie schnell war man?",
+                "{} km. Wie schnell war man?",
+            ),
+        ],
+    }
+}
 ///
 /// Das ist der Kern dieser Familie. Vorher stand die Zuordnung der Groessen im
 /// Aufgabentext, und dann war der Denkweg nur Abschreiben statt Verstehen. Jetzt muss das
 /// Modell selbst erkennen, welche Zahlen im Text stehen und welche Rolle sie haben - und
 /// bei der Luecke selbst merken, dass eine Angabe fehlt.
 fn aufgabentext(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -> String {
-    let (zwei, eins, a, b) = texte(szenario, gesucht);
+    let (a, b) = indizes(szenario, gesucht);
+    // Die Variante folgt aus den Zahlen selbst: derselbe Datensatz bekommt bei gleichem
+    // Seed immer dieselbe Formulierung, und ueber viele Datensaetze streuen alle Varianten.
+    let varianten = phrasen(szenario, gesucht);
+    let misch = werte[0]
+        .wrapping_mul(1_000_003)
+        .wrapping_add(werte[1])
+        .wrapping_mul(1_000_003)
+        .wrapping_add(werte[2]);
+    let (zwei, eins) = varianten[(misch as usize) % varianten.len()];
     if luecke {
         eins.replace("{}", &werte[a].to_string())
     } else {
@@ -302,7 +399,7 @@ fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -
         Gesucht::Zweite => 1,
         Gesucht::Dritte => 2,
     };
-    let (_, _, a_idx, fehlt_idx) = texte(szenario, gesucht);
+    let (a_idx, fehlt_idx) = indizes(szenario, gesucht);
     let text = aufgabentext(szenario, werte, gesucht, luecke);
     if luecke {
         // Die Entnahme steht jetzt im Weg, nicht im Aufgabentext: das Modell muss selbst
