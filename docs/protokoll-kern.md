@@ -5400,3 +5400,39 @@ plus `mix46` ohne Gleichungs-Shard. Gesamt 51 361.
 richtigen Antworten** (`nicht ableitbar`, `bewiesen`, `widerlegt`), die Matrix sagt 16 Prozent.
 **Der Verifizierer ist die Referenz, nicht mein Skript.** Das Skript wird nicht weiter verwendet,
 bis es geprueft ist.
+
+## Runde 296 — Die explizite Begruendung hilft nicht: 66 gegen 86
+
+**Zwei Laeufe mit demselben Korpus (`mix74`, explizite Begruendung), verschiedene Seeds:**
+
+| Lauf | Seed | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| `mix74` | 45005 | 64 | **86** | 100 |
+| **`mix74b`** | **46006** | **42** | **66** | 100 |
+
+**Spanne 20 Punkte.** Die explizite Begruendung hat die Streuung **nicht verkleinert** — sie ist
+genauso gross wie vorher (74–90 gegen 66–86).
+
+**Damit ist die Hypothese aus Runde 294 widerlegt:** die Grenze zwischen „widerlegt" und „nicht
+ableitbar" laesst sich **nicht durch eine klarere Formulierung im Weg** beheben. Das Modell liest
+die Begruendung, aber es entscheidet trotzdem unstet.
+
+**Die ehrliche Zusammenfassung des Urteils nach sechs Laeufen:**
+
+| Korpus | Werte | Mittel |
+|---|---|---|
+| `mix68` (Original) | 90, 82, 74 | **82** |
+| `mix74` (explizit) | 86, 66 | **76** |
+
+**Die explizite Begruendung ist im Mittel sogar schlechter** (76 gegen 82) — innerhalb der
+Streuung, aber ohne Nutzen.
+
+**Was das fuer den Auftrag bedeutet:** die drei Antwortklassen „bewiesen / widerlegt / nicht
+ableitbar" sind bei 24 Mio Parametern **nicht zuverlaessig zu trennen**. Bei sechs Laeufen liegt
+der Mittelwert bei **80**, die Spanne bei **66 bis 90**.
+
+**Die geschuetzte Addition haelt bei 96,7** (Weg) und **96,7** (Antwort) — innerhalb der Toleranz.
+
+**Nach Regel 7 des Auftrags:** das Urteil hat jetzt **zwei Runden ohne Zugewinn** hinter sich
+(Runde 294: keine Verbesserung durch explizite Begruendung; Runde 296: Bestaetigung). **Es wird
+nicht weiter verfolgt** — die Grenze ist benannt, und sie liegt unter 90.
