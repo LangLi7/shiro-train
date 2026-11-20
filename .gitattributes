@@ -1,0 +1,15 @@
+# Zeilenenden: Der Pod ist Linux. Ein Shell-Skript mit CRLF bricht dort an
+# jedem Zeilenende ("$'\r': command not found"), und zwar erst im Container -
+# also nachdem die GPU schon bezahlt wird. Deshalb sind Skripte im Repository
+# fest auf LF, unabhaengig von core.autocrlf auf dem Entwicklungsrechner.
+*.sh text eol=lf
+*.bash text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.rs text eol=lf
+*.py text eol=lf
+
+# Bilder und Archive bleiben binaer.
+*.png binary
+*.jpg binary
+*.svg text eol=lf
