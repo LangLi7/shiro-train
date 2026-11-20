@@ -6136,3 +6136,41 @@ und ueberlebt keinen Neustart. Jede Konfigurationsaenderung kostet rund 13 Minut
 
 **Unsicherheit:** ob 7,1 GB Zustaende plus Aktivierungen bei Batch 16 ohne Speicherfehler laufen,
 ist erst nach dem ersten Schritt belegt. Bei OOM wird der Batch halbiert und die Schritte verdoppelt.
+
+## Runde 316 — Vier Neustarts ohne einen Trainingsschritt: die Ursache war eine Namenspruefung
+
+**Was passiert ist**
+
+Der Pod startete viermal neu, jedes Mal mit einem vollen Rust-Build von rund fuenf Minuten auf
+einer A100 (1,39 $/h). Kein einziger Trainingsschritt ist gelaufen. Das waren etwa **0,50 $ und
+eine Stunde** fuer nichts.
+
+**Die Ursache, in drei Stufen**
+
+1. Das Skript prueft `corpus/shard-0000.bin`. Der Korpus auf HuggingFace heisst aber
+   **`merged-*.bin`**. Die Pruefung war also **immer falsch**, und bei jedem Start lief der
+   Download erneut.
+2. `tar` scheitert auf dem Global Volume an `utime` und `chown` (das Volume erlaubt beides nicht).
+   Mit `set -e` beendet das das Skript.
+3. RunPod startet einen beendeten Container neu — also: neuer Build, neuer Download, neuer
+   `tar`-Fehler. Eine Schleife, die sich selbst bezahlt.
+
+**Die Gegenmassnahmen, alle im Repo**
+
+| Massnahme | Wirkung |
+|---|---|
+| Korpuspruefung auf `*.bin` statt auf einen Namen | Download laeuft nur, wenn wirklich nichts da ist |
+| `tar --no-same-owner --no-same-permissions`, Fehler toleriert, danach harte Pruefung | Entpacken scheitert nicht mehr an Volume-Rechten |
+| Binary als Datei auf dem Volume, beim Start nach `/root/shiro` kopiert und mit `version` geprueft | Neustart kostet Sekunden statt Minuten; Neubau nur bei nicht lauffaehigem Binary |
+| Abbruchsperre: `trap ... ERR` schreibt `start-fehler` aufs Volume, der naechste Start wartet statt zu bauen | eine Fehlerschleife kostet ab jetzt **null** GPU-Zeit |
+| `.gitattributes` mit `*.sh text eol=lf` | ein CRLF-Skript wuerde im Linux-Pod an jedem Zeilenende scheitern |
+
+**Die Regel, die daraus folgt**
+
+> **Kein Konfigurationswechsel und kein Skriptwechsel, solange kein geprueftes Binary auf dem
+> Volume liegt.** Jeder Wechsel kostet sonst einen vollen Build auf der teuersten Ressource, die
+> das Projekt hat.
+
+**Kostenrechnung, damit sie nicht wiederholt wird:** ein Build auf der A100 = 5 min x 1,39 $/h
+= **0,12 $**. Vier davon sind 0,50 $. Ein Build auf einem CPU-Pod derselben Bauzeit kostet rund
+**0,01 $** — der Unterschied ist der Grund, warum das Binary ab jetzt gecacht wird.
