@@ -1,8 +1,6 @@
 #!/bin/bash
-# Pod-Start fuer Shiro: baut den Trainer, holt den Korpus, startet das Training.
+# Pod-Start fuer Shiro: baut den Trainer, holt den Korpus, trainiert, laedt das Modell hoch.
 # Aufruf im Pod: bash /work/scripts/pod-start.sh <korpus> <schritte>
-#   korpus : mix46 | mix77
-#   schritte: Anzahl Trainingsschritte (Default 3000)
 set -euo pipefail
 
 KORPUS="${1:-mix77}"
@@ -45,5 +43,31 @@ sed -e "s|steps = .*|steps = ${SCHRITTE}|" \
     /work/train100.toml > /data/train.toml
 /work/target/release/shiro train --config /data/train.toml --backend cuda
 
-echo "=== fertig ==="
+echo "=== 6. Modell nach HuggingFace ==="
 ls -la /data/ckpt
+if [ -n "${HF_TOKEN:-}" ]; then
+  pip install -q huggingface_hub
+  python - <<'PY'
+import glob, os
+from huggingface_hub import HfApi
+api = HfApi(token=os.environ["HF_TOKEN"])
+files = sorted(glob.glob("/data/ckpt/*.safetensors"))
+if not files:
+    print("kein Checkpoint gefunden")
+else:
+    neueste = files[-1]
+    name = os.path.basename(neueste)
+    print("lade hoch:", neueste)
+    api.upload_file(
+        path_or_fileobj=neueste,
+        path_in_repo=f"modelle/100m-{name}",
+        repo_id="ChangChi7/shiro-korpora",
+        repo_type="dataset",
+    )
+    print("hochgeladen:", name)
+PY
+else
+  echo "HF_TOKEN fehlt - Modell bleibt im Pod"
+fi
+
+echo "=== fertig ==="
