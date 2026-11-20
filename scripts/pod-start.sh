@@ -37,7 +37,7 @@ cd /work
 
 echo "=== 5. Korpus holen ==="
 mkdir -p "$DATEN"
-if [ ! -d "$DATEN/corpus/all" ]; then
+if [ ! -f "$DATEN/corpus/shard-0000.bin" ]; then
   wget -q -O "$DATEN/corpus.tar.gz" \
     "https://huggingface.co/datasets/ChangChi7/shiro-korpora/resolve/main/${KORPUS}/all.tar.gz"
   mkdir -p "$DATEN/corpus"
@@ -82,3 +82,4 @@ else
 fi
 
 echo "=== fertig ==="
+
