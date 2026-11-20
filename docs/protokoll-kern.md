@@ -7893,6 +7893,47 @@ Ein Pruefungsarchiv, keine Muellecke.
 Volume, damit die vorregistrierte Messung bei Schritt 5 000 nicht durch einen Umbau
 verfaelscht wird. Die Pruefungsordnung gilt ab dem naechsten Lauf.
 
+## Runde 404 — Die Hypothese ist widerlegt, der Lauf wird gestoppt
+
+**Die Messung, die den Lauf beendet.** Drei Checkpoints im RAM gemessen, je 20 Beispiele,
+waehrend der GPU-Lauf weiterlief:
+
+| Checkpoint | Antwort-EM | Trainingsverlust |
+|---|---|---|
+| 1 250 | **0 / 20** | — |
+| 2 000 | **0 / 20** | 0,086 |
+| 2 250 | **0 / 20** | — |
+| 2 500 | (lief noch) | — |
+| Lauf bei 3 200 | — | **0,061** |
+
+**Die Statistik.** Die vorregistrierte Schwelle war 12,22 % Antwort-EM bei Schritt 5 000.
+Bei echter Faehigkeit von 12,22 % waeren in 60 Versuchen im Schnitt 7,3 Treffer zu erwarten;
+null Treffer haben die Wahrscheinlichkeit **(1 - 0,1222)^60 = 0,0004**. Das ist keine
+Stichprobenstreuung mehr.
+
+**Der Befund:** der Trainingsverlust faellt (0,32 -> 0,061), das Held-out bleibt bei null.
+Genau das Muster, das der Auftrag als **Auswendiglernen** definiert. Die Hypothese
+"84 MB genuegen einem 509M-Modell fuer messbare Faehigkeit" ist **widerlegt**.
+
+**Die Entscheidung, und sie spart Geld:** Lauf bei Schritt 3 200 gestoppt, Pod geloescht.
+Die restlichen 10 500 Schritte haetten **~1,65 $** gekostet und den Befund nicht geaendert.
+
+**Was daraus folgt, und es ist die wichtigste Erkenntnis des Tages:**
+
+| Weg | Modell | Daten | Aussicht |
+|---|---|---|---|
+| **A** | **4-5M** | 84 MB (vorhanden) | **90 %+ erreichbar** - das Mikro erreichte 84 % |
+| **B** | 300M+ | **6-10 GB echter Text** | dein Ziel, aber Daten zuerst |
+
+**Generierte Aufgaben sind zu eintoenig fuer ein grosses Modell.** Sie sind gut fuer
+strukturierte Aufgaben mit pruefbarer Antwort - aber die Vorlagen begrenzen den Korpus auf
+wenige hundert MB, waehrend 509M Parameter rund 10 GB brauchen.
+
+**Der naechste Schritt ist deshalb Weg A:** ein kleines Modell, das zu den Daten passt,
+trainiert in Minuten, beweist Held-out, Weg-EM und Blindtest **end-to-end** - und liefert
+die Messinfrastruktur fuer Weg B. Ohne A waere bei B nicht unterscheidbar, ob die Pipeline
+oder das Modell versagt.
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
