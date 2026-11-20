@@ -7342,3 +7342,43 @@ dem gescheiterten Lauf ist damit Ausgangspunkt statt Verlust.
 vorher), dazu die unveraenderten Typen. Der Korpus wurde mit **Seed 4242** gebaut, der
 Lauf nutzt **Seed 53013** - zwei verschiedene Seeds, damit die Datenreihenfolge nicht mit
 dem Modell-Seed korreliert.
+
+## Runde 346 — Der Lauf sah nur zwei von sechs Familien
+
+**Der Fund, und er beendet den Lauf.** Der Loader mischt nicht: `batch()` verbraucht die
+Datensaetze in Korpusreihenfolge, und `data combine` haengt die Shards **hintereinander**.
+Der Korpus ist damit nach Familie sortiert:
+
+| Shard | Datensaetze | kumuliert |
+|---|---|---|
+| kontext | 36 000 | 36 000 |
+| logik | 60 000 | 96 000 |
+| quant | 60 000 | 156 000 |
+| seq | 40 000 | 196 000 |
+| formel | 40 000 | 236 000 |
+| algebra | 40 000 | 276 000 |
+
+13 700 Schritte zu 6 Datensaetzen sind **82 200** Datensaetze. Der Lauf haette also den
+ganzen Kontext-Typ und 46 200 von 60 000 Logik-Datensaetzen gesehen - **quant, seq, formel
+und algebra nie**. Die vorregistrierte Frage („generalisieren 84 MB ueber sechs Familien?")
+war mit diesem Lauf **nicht beantwortbar**.
+
+**Entscheidung:** Lauf bei Schritt ~1 800 gestoppt, Pod geloescht. Kosten **1,12 $** statt
+der veranschlagten 8,80 $. Der Checkpoint aus Schritt 1 000 bleibt auf dem Volume und ist
+in HuggingFace gesichert.
+
+**Was das ueber die bisherigen Laeufe sagt:** auch der erste 500M-Lauf (7,77 MB, 1 800
+Schritte = 10 800 Datensaetze) sah nur den Anfang des Korpus. Die Familien waren dort
+aehnlich sortiert. **Kein bisheriger Lauf hat alle Familien gleichmaessig gesehen** - was
+den niedrigen Held-out-Wert von 0 % miterklaert, ohne ihn zu entschuldigen.
+
+**Die Reparatur, die daraus folgt:** ein Werkzeug, das Datensaetze **mischt** statt
+Shards zu verketten (`data mix`, Round-Robin ueber die Quellen), damit jeder Abschnitt des
+Korpus alle Familien enthaelt. Zusaetzlich gehoert ins Training ein Mischen je Epoche,
+sonst wiederholt sich die Reihenfolge bei mehreren Epochen.
+
+**Nebenbefund aus derselben Runde:** der neue Befehl `data generate-zahl` ist angeschlossen
+und schreibt Manifeste. Der erste Lauf durch das Tor zeigte **zwei gemeinsame Datensaetze**
+zwischen Training und Held-out, weil das Held-out-Band kleine Zahlen erzeugen konnte. Die
+Baender beginnen jetzt bei disjunkten Werten (Held-out ab 1 000, Training bis 212), und ein
+Test prueft die Invariante direkt statt der Reichweiten. Tor bestanden, 14 Tests gruen.
