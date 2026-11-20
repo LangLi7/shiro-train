@@ -178,48 +178,93 @@ fn formel(szenario: Szenario) -> &'static str {
     }
 }
 
-/// Der Aufgabentext. Bewusst ohne Umlaute (ASCII-transliteriert wie der uebrige Korpus).
-fn aufgabentext(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht) -> String {
-    let idx = match gesucht {
-        Gesucht::Erste => 0,
-        Gesucht::Zweite => 1,
-        Gesucht::Dritte => 2,
-    };
-    let bekannt: Vec<String> = (0..3)
-        .filter(|i| *i != idx)
-        .map(|i| format!("{} = {} {}", symbol(szenario, i), werte[i], einheit(szenario, i)))
-        .collect();
-    let frage = format!(
-        "Gesucht: {} in {}.",
-        symbol(szenario, idx),
-        einheit(szenario, idx)
-    );
-    match szenario {
-        Szenario::Weg => format!(
-            "Ein Fahrzeug faehrt {} {} und braucht dafuer {} {}. Wie weit kommt es? Bekannt: {}. {}",
-            werte[0],
-            einheit(szenario, 0),
-            werte[1],
-            einheit(szenario, 1),
-            bekannt.join(", "),
-            frage
+/// Satzschablone je (Szenario, Gesuchtes): `(vollstaendig, mit Luecke, index_a, index_b)`.
+///
+/// Wichtig: der Text nennt **genau** die beiden bekannten Groessen und sonst keine. Vorher
+/// stand dort immer dasselbe Paar, und bei gesuchtem `v` behauptete der Weg dann, `s` aus
+/// dem Text zu entnehmen, obwohl `s` im Text nicht vorkam - der Entnahme-Verifier hat das
+/// aufgedeckt.
+fn texte(szenario: Szenario, gesucht: Gesucht) -> (&'static str, &'static str, usize, usize) {
+    match (szenario, gesucht) {
+        // (v, t) bekannt, s gesucht
+        (Szenario::Weg, Gesucht::Dritte) => (
+            "Ein Fahrzeug faehrt {} km/h und braucht dafuer {} Stunden. Wie weit kommt es?",
+            "Ein Fahrzeug faehrt {} km/h. Wie weit kommt es?",
+            0,
+            1,
         ),
-        Szenario::Preis => format!(
-            "Ein Stueck kostet {} {}. Es werden {} {} gekauft. Was kostet das? Bekannt: {}. {}",
-            werte[0],
-            einheit(szenario, 0),
-            werte[1],
-            einheit(szenario, 1),
-            bekannt.join(", "),
-            frage
+        // (s, t) bekannt, v gesucht
+        (Szenario::Weg, Gesucht::Erste) => (
+            "Ein Fahrzeug faehrt {} km in {} Stunden. Wie schnell ist es?",
+            "Ein Fahrzeug faehrt {} km. Wie schnell ist es?",
+            2,
+            1,
         ),
-        Szenario::Zeit => format!(
-            "Eine Strecke von {} km wird mit {} km/h gefahren. Wie lange dauert das? Bekannt: {}. {}",
-            werte[0],
-            werte[1],
-            bekannt.join(", "),
-            frage
+        // (s, v) bekannt, t gesucht
+        (Szenario::Weg, Gesucht::Zweite) => (
+            "Ein Fahrzeug faehrt {} km mit {} km/h. Wie lange dauert das?",
+            "Ein Fahrzeug faehrt {} km. Wie lange dauert das?",
+            2,
+            0,
         ),
+        // (p, n) bekannt, g gesucht
+        (Szenario::Preis, Gesucht::Dritte) => (
+            "Ein Stueck kostet {} Euro. Es werden {} Stueck gekauft. Was kostet das?",
+            "Ein Stueck kostet {} Euro. Was kostet das?",
+            0,
+            1,
+        ),
+        // (n, g) bekannt, p gesucht
+        (Szenario::Preis, Gesucht::Erste) => (
+            "{} Stueck kosten zusammen {} Euro. Was kostet ein Stueck?",
+            "{} Stueck werden gekauft. Was kostet ein Stueck?",
+            1,
+            2,
+        ),
+        // (p, g) bekannt, n gesucht
+        (Szenario::Preis, Gesucht::Zweite) => (
+            "Ein Stueck kostet {} Euro, zusammen {} Euro. Wie viele Stueck sind es?",
+            "Ein Stueck kostet {} Euro. Wie viele Stueck sind es?",
+            0,
+            2,
+        ),
+        // (s, v) bekannt, t gesucht
+        (Szenario::Zeit, Gesucht::Dritte) => (
+            "Eine Strecke von {} km wird mit {} km/h gefahren. Wie lange dauert das?",
+            "Eine Strecke von {} km wird gefahren. Wie lange dauert das?",
+            0,
+            1,
+        ),
+        // (v, t) bekannt, s gesucht
+        (Szenario::Zeit, Gesucht::Erste) => (
+            "Gefahren wird {} km/h fuer {} Stunden. Wie weit ist die Strecke?",
+            "Gefahren wird {} km/h. Wie weit ist die Strecke?",
+            1,
+            2,
+        ),
+        // (s, t) bekannt, v gesucht
+        (Szenario::Zeit, Gesucht::Zweite) => (
+            "Eine Strecke von {} km dauert {} Stunden. Wie schnell?",
+            "Eine Strecke von {} km wird gefahren. Wie schnell?",
+            0,
+            2,
+        ),
+    }
+}
+
+/// Der Aufgabentext: **nur die Beschreibung**, ohne "Bekannt:" und "Gesucht:".
+///
+/// Das ist der Kern dieser Familie. Vorher stand die Zuordnung der Groessen im
+/// Aufgabentext, und dann war der Denkweg nur Abschreiben statt Verstehen. Jetzt muss das
+/// Modell selbst erkennen, welche Zahlen im Text stehen und welche Rolle sie haben - und
+/// bei der Luecke selbst merken, dass eine Angabe fehlt.
+fn aufgabentext(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -> String {
+    let (zwei, eins, a, b) = texte(szenario, gesucht);
+    if luecke {
+        eins.replace("{}", &werte[a].to_string())
+    } else {
+        zwei.replacen("{}", &werte[a].to_string(), 1)
+            .replacen("{}", &werte[b].to_string(), 1)
     }
 }
 
@@ -257,15 +302,17 @@ fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -
         Gesucht::Zweite => 1,
         Gesucht::Dritte => 2,
     };
-    let text = aufgabentext(szenario, werte, gesucht);
+    let (_, _, a_idx, fehlt_idx) = texte(szenario, gesucht);
+    let text = aufgabentext(szenario, werte, gesucht, luecke);
     if luecke {
-        // Eine Angabe fehlt: der Weg bricht ab, die Antwort ist die Klasse.
+        // Die Entnahme steht jetzt im Weg, nicht im Aufgabentext: das Modell muss selbst
+        // bemerken, dass eine Angabe fehlt.
         let weg = format!(
-            "1. Bekannt: nur {} und {}. 2. Gesucht: {}. 3. Die Angabe {} fehlt, also ist die Formel {} nicht anwendbar.",
-            symbol(szenario, (idx + 1) % 3),
-            symbol(szenario, (idx + 2) % 3),
+            "1. Aus dem Text: {} = {}. 2. Gesucht: {}. 3. Die Angabe {} fehlt im Text, also ist {} nicht anwendbar.",
+            symbol(szenario, a_idx),
+            werte[a_idx],
             symbol(szenario, idx),
-            symbol(szenario, (idx + 1) % 3),
+            symbol(szenario, fehlt_idx),
             formel(szenario)
         );
         return baue(&text, &weg, "nicht ableitbar");
@@ -279,7 +326,7 @@ fn render(szenario: Szenario, werte: [u64; 3], gesucht: Gesucht, luecke: bool) -
     // der Weg nicht nachpruefbar. Und sie muss die gesuchte Groesse ergeben.
     let (a, op, b) = rechne(szenario, werte, gesucht);
     let weg = format!(
-        "1. Bekannt: {}. 2. Gesucht: {}. 3. Formel: {}. 4. Einsetzen: {} {} {} = {}.",
+        "1. Aus dem Text: {}. 2. Gesucht: {}. 3. Formel: {}. 4. Einsetzen: {} {} {} = {}.",
         bekannt,
         symbol(szenario, idx),
         formel(szenario),
@@ -388,6 +435,7 @@ pub fn verify(record: &[u8]) -> Result<bool> {
 }
 
 struct Teile {
+    aufgabe: Option<String>,
     weg: Option<String>,
     antwort: Option<String>,
     /// Alle vier Marken in der richtigen Reihenfolge gesehen.
@@ -395,9 +443,11 @@ struct Teile {
 }
 
 fn zerlege(record: &[u8]) -> Result<Teile> {
+    let mut aufgabe = None;
     let mut weg = None;
     let mut antwort = None;
     let mut buf = String::new();
+    let mut buf_aufgabe = String::new();
     let mut abschnitt = 0u8;
     let mut reihenfolge = 0u8;
     for b in record {
@@ -412,6 +462,7 @@ fn zerlege(record: &[u8]) -> Result<Teile> {
                 if reihenfolge == 1 {
                     reihenfolge = 2;
                 }
+                aufgabe = Some(buf_aufgabe.trim().to_string());
                 buf.clear();
                 abschnitt = 2;
             }
@@ -430,17 +481,65 @@ fn zerlege(record: &[u8]) -> Result<Teile> {
                 antwort = Some(buf.trim().to_string());
             }
             _ => {
-                if (2..=3).contains(&abschnitt) {
+                if abschnitt == 1 {
+                    buf_aufgabe.push(*b as char);
+                } else if (2..=3).contains(&abschnitt) {
                     buf.push(*b as char);
                 }
             }
         }
     }
     Ok(Teile {
+        aufgabe,
         weg,
         antwort,
         format: reihenfolge == 4,
     })
+}
+
+/// Alle Zahlen eines Textes in der Reihenfolge des Auftretens.
+fn zahlen_im_text(text: &str) -> Vec<u64> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if (bytes[i] as char).is_ascii_digit() {
+            let start = i;
+            while i < bytes.len() && (bytes[i] as char).is_ascii_digit() {
+                i += 1;
+            }
+            if let Ok(v) = text[start..i].parse::<u64>() {
+                out.push(v);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Die Werte, die der Denkweg als "aus dem Text" ausgibt.
+///
+/// Gelesen wird nur der Teil vor `Gesucht:`; dort steht je Groesse `symbol = zahl`.
+fn werte_aus_weg(weg: &str) -> Vec<u64> {
+    let Some(rest) = weg.split("Aus dem Text:").nth(1) else {
+        return Vec::new();
+    };
+    let entnahme = rest.split("Gesucht:").next().unwrap_or(rest);
+    entnahme
+        .split(',')
+        .filter_map(|stueck| stueck.split('=').nth(1))
+        .filter_map(|rest| {
+            // Nur die Ziffern direkt nach dem Gleichheitszeichen: danach folgen Satzpunkt
+            // und Schrittnummern, die nicht zur Groesse gehoeren.
+            let start = rest.find(|c: char| c.is_ascii_digit())?;
+            let ziffern: String = rest[start..]
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
+            ziffern.parse::<u64>().ok()
+        })
+        .collect()
 }
 
 /// Eine Bewertung in **drei unabhaengigen Dimensionen**.
@@ -460,15 +559,20 @@ fn zerlege(record: &[u8]) -> Result<Teile> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Bewertung {
     pub format: bool,
+    /// Die Werte, die der Weg als bekannt ausgibt, stehen wirklich im Aufgabentext.
+    ///
+    /// Das ist die Dimension, die Verstehen von Abschreiben trennt: erfindet das Modell
+    /// eine Zahl, ist sie hier falsch, auch wenn die Rechnung danach stimmt.
+    pub entnahme: bool,
     pub weg: bool,
     pub antwort: bool,
     pub konsistenz: bool,
 }
 
 impl Bewertung {
-    /// Alle drei inhaltlichen Dimensionen erfuellt.
+    /// Alle inhaltlichen Dimensionen erfuellt.
     pub fn vollstaendig(&self) -> bool {
-        self.format && self.weg && self.antwort && self.konsistenz
+        self.format && self.entnahme && self.weg && self.antwort && self.konsistenz
     }
 }
 
@@ -492,8 +596,14 @@ pub fn bewerte(generiert: &[u8], gold: &[u8]) -> Result<Bewertung> {
         _ => false,
     };
 
+    // Entnahme: stehen die als bekannt ausgegebenen Werte wirklich im Aufgabentext?
+    let aufgabe_zahlen = zahlen_im_text(g.aufgabe.as_deref().unwrap_or_default());
+    let entnommen = werte_aus_weg(&weg);
+    let entnahme = !entnommen.is_empty() && entnommen.iter().all(|v| aufgabe_zahlen.contains(v));
+
     Ok(Bewertung {
         format: g.format,
+        entnahme,
         weg: arithmetik_ok && formel_ok,
         antwort: antwort == gold_t.antwort.unwrap_or_default(),
         konsistenz,
@@ -693,11 +803,37 @@ mod tests {
     }
 
     #[test]
+    fn erfundene_bekanntwerte_fallen_bei_der_entnahme_auf() {
+        let text = "Ein Fahrzeug faehrt 100 km/h und braucht dafuer 3 Stunden. Wie weit kommt es?";
+        let gold = baue(
+            text,
+            "1. Aus dem Text: v = 100, t = 3. 2. Gesucht: s. 3. Formel: s = v * t. 4. Einsetzen: 100 * 3 = 300.",
+            "300",
+        );
+        // Der Weg behauptet t = 7 - im Text steht 3. Rechnung und Antwort sind in sich
+        // stimmig, aber der Wert ist erfunden.
+        let erfunden = baue(
+            text,
+            "1. Aus dem Text: v = 100, t = 7. 2. Gesucht: s. 3. Formel: s = v * t. 4. Einsetzen: 100 * 7 = 700.",
+            "700",
+        );
+        let b = bewerte(&erfunden, &gold).expect("Bewertung");
+        assert!(!b.entnahme, "erfundener Wert muss auffallen");
+        assert!(b.weg, "die Rechnung selbst ist korrekt");
+        assert!(b.konsistenz, "die Antwort folgt aus dem erfundenen Weg");
+        assert!(!b.vollstaendig(), "darf nicht als Erfolg zaehlen");
+
+        // Dieselbe Aufgabe mit den echten Werten besteht alle Dimensionen.
+        let b_ok = bewerte(&gold, &gold).expect("Bewertung");
+        assert!(b_ok.entnahme && b_ok.vollstaendig(), "{b_ok:?}");
+    }
+
+    #[test]
     fn eigene_aufgaben_sind_in_allen_dimensionen_erfuellt() {
         let aufgaben = generate(&opts(30)).expect("Erzeugung");
         for a in &aufgaben {
             let b = bewerte(&a.record, &a.record).expect("Bewertung");
-            assert!(b.format && b.antwort, "Format/Antwort: {b:?}");
+            assert!(b.format && b.antwort && b.entnahme, "Format/Antwort/Entnahme: {b:?}");
             if !a.luecke {
                 assert!(
                     b.weg && b.konsistenz,
