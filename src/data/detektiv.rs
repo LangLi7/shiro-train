@@ -42,11 +42,24 @@ use crate::data::generate::Rng;
 use crate::error::{Result, bail};
 
 /// Groesste Nutzlast eines Datensatzes.
+/// Zahl der moeglichen Aussagenmuster: je Verdaechtigem 3 Adressaten mal 2 Richtungen,
+/// hoch drei Verdaechtige = 216. Jedes vierte Muster gehoert **nur** dem Held-out, damit
+
 pub const RECORD_MAX: usize = 3500;
 
 /// Hoechste Zahl Verdaechtiger. Drei reichen fuer eindeutige Faelle und halten den
 /// Suchraum bei acht Welten - klein genug, um jeden Fall zu pruefen.
 pub const MAX_VERDAECHTIGE: usize = 3;
+
+/// Zahl der moeglichen Aussagenmuster: je Verdaechtigem 3 Adressaten mal 2 Richtungen,
+/// hoch drei Verdaechtige = 216. Jedes vierte Muster gehoert **nur** dem Held-out, damit
+/// die Struktur gehalten wird und nicht nur die Zahlen.
+pub const MUSTER_RAUM: usize = 216;
+
+/// Zahl der moeglichen Aussagenmuster: je Verdaechtigem 3 Adressaten mal 2 Richtungen,
+/// hoch drei Verdaechtige = 216.
+///
+/// **Jedes vierte Muster gehoert nur dem Held-out** - so wird die Struktur gehalten,
 
 /// Eine Aussage: "Beschuldigter war es" (`true`) oder "war es nicht" (`false`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,27 +157,41 @@ pub fn generate(opts: &Options) -> Result<Data> {
     }
     let mut rng = Rng::new(opts.seed);
     let val_n = (opts.train_records * opts.val_percent as usize / 100).max(1);
+    // **Muster trennen, nicht nur Zahlen (Runde 350).** Der Raum hat 216 Aussagenmuster
+    // (je Verdaechtigem: 3 Adressaten mal 2 Richtungen, hoch 3). Wuerden Training und
+    // Held-out aus demselben Topf ziehen, laege jeder Held-out-Fall auch im Training -
+    // preflight hat genau das gefunden (150 von 150). Jedes vierte Muster bleibt deshalb
+    // **nur** dem Held-out vorbehalten: die Struktur wird gehalten, nicht nur die Zahlen.
+    let mut train_muster: Vec<usize> = (0..MUSTER_RAUM).filter(|i| i % 4 != 0).collect();
+    let mut val_muster: Vec<usize> = (0..MUSTER_RAUM).filter(|i| i % 4 == 0).collect();
     let mut train = Vec::with_capacity(opts.train_records);
     for _ in 0..opts.train_records {
-        train.push(baue(&mut rng)?);
+        let idx = rng.below(train_muster.len());
+        train.push(baue(train_muster[idx])?);
     }
     let mut val = Vec::with_capacity(val_n);
     for _ in 0..val_n {
-        val.push(baue(&mut rng)?);
+        let idx = rng.below(val_muster.len());
+        val.push(baue(val_muster[idx])?);
     }
     Ok(Data { train, val })
 }
 
 /// Baut einen Fall. Die Aussagen werden zufaellig gezogen; **ob** der Fall entschieden
 /// ist, entscheidet die erschoepfende Pruefung - nicht der Generator.
-fn baue(rng: &mut Rng) -> Result<Aufgabe> {
+fn baue(muster: usize) -> Result<Aufgabe> {
     let k = MAX_VERDAECHTIGE;
-    // Jeder Verdaechtige macht eine Aussage ueber einen zufaelligen Verdaechtigen.
+    // Das Muster wird in Basis 6 zerlegt: je Verdaechtigem 3 Adressaten mal 2 Richtungen.
     let mut aussagen = Vec::with_capacity(k);
+    let mut rest = muster % MUSTER_RAUM;
     for von in 0..k {
-        let ueber = rng.below(k);
-        let beschuldigt = rng.below(2) == 0;
-        aussagen.push(Aussage { von, ueber, beschuldigt });
+        let code = rest % 6;
+        rest /= 6;
+        aussagen.push(Aussage {
+            von,
+            ueber: code / 2,
+            beschuldigt: code % 2 == 0,
+        });
     }
     let antwort = loese(&aussagen, k);
 

@@ -87,6 +87,11 @@ pub enum Command {
     GenerateZahl {
         opts: ZahlGenOptions,
     },
+    /// Korpus 'Detektivisches Denken' (Familie 8, `src/data/detektiv.rs`):
+    /// Taeter, Widerspruch und 'nicht ableitbar' - erschoepfend geprueft.
+    GenerateDetektiv {
+        opts: DetektivGenOptions,
+    },
     GenerateSeq {
         opts: SeqGenOptions,
     },
@@ -441,6 +446,25 @@ impl Default for ZahlGenOptions {
         }
     }
 }
+/// Optionen fuer `shiro data generate-detektiv` (Familie 8, `src/data/detektiv.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DetektivGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for DetektivGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/detektiv"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
 
 /// Optionen fuer `shiro data generate-formel` (Mathematik-Stufe **A2/A3** nach
 /// **D-030**).
@@ -761,6 +785,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut preflight_dir: Option<PathBuf> = None;
     let mut want_algebra = false;
     let mut want_zahl = false;
+    let mut want_detektiv = false;
     let mut want_formel = false;
     let mut want_games = false;
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
@@ -851,6 +876,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-zahl" => {
                 want_zahl = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-detektiv" => {
+                want_detektiv = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1176,6 +1206,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_games,
         want_algebra,
         want_zahl,
+        want_detektiv,
         want_formel,
     ]
     .iter()
@@ -1315,6 +1346,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     }
 
+    if want_detektiv {
+        out.command = Command::GenerateDetektiv {
+            opts: DetektivGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/detektiv")),
+            },
+        };
+    }
     if want_formel {
         out.command = Command::GenerateFormel {
             opts: FormelGenOptions {

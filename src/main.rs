@@ -23,6 +23,7 @@ use shiro::data::preflight;
 use shiro::data::quant;
 use shiro::data::semantics;
 use shiro::data::seq;
+use shiro::data::detektiv;
 use shiro::data::zahl;
 use shiro::error::Result;
 use shiro::model::tiny::TinyModel;
@@ -78,6 +79,7 @@ fn real_main() -> Result<()> {
         } => cmd_preflight(&dir, &manifest, max_fremd),
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
         Command::GenerateZahl { opts } => cmd_generate_zahl(&opts),
+        Command::GenerateDetektiv { opts } => cmd_generate_detektiv(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
             capability,
@@ -1486,6 +1488,61 @@ fn cmd_data_combine(
 ///
 /// Fuenf Aufgabentypen mit **gerechneten** Antworten, in zwei disjunkten Zahlenbaendern.
 /// Der Denkweg steht im Datensatz, nicht nur die Antwort.
+/// Korpus "Detektivisches Denken" (Familie 8, `src/data/detektiv.rs`).
+///
+/// Drei Verdaechtige, genau ein Taeter, die Unschuldigen sagen die Wahrheit. Die Antwort
+/// entsteht durch erschoepfende Pruefung aller Welten - "nicht ableitbar" ist ein
+/// gueltiges Ergebnis, wenn mehrere passen.
+fn cmd_generate_detektiv(opts: &cli::DetektivGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let gen_opts = detektiv::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    };
+    let data = detektiv::generate(&gen_opts)?;
+
+    println!("Korpus       : Detektivisches Denken (Familie 8)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Antworten    : Taeter, 'nicht ableitbar', 'widerspruechlich'");
+    println!("Pruefung     : erschoepfend ueber alle Verdaechtigen, keine Heuristik");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let train_entry =
+        write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "det-trai")?;
+    let mut train_manifest = Manifest::new(
+        opts.seed,
+        format!("Detektivisches Denken - Training ({} Datensaetze)", train_records.len()),
+    );
+    train_manifest.shards.push(train_entry);
+    train_manifest.save(train_dir.join("manifest.json"))?;
+
+    let val_entry =
+        write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "det-val")?;
+    let mut val_manifest = Manifest::new(
+        opts.seed,
+        format!("Detektivisches Denken - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    val_manifest.shards.push(val_entry);
+    val_manifest.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
 fn cmd_generate_zahl(opts: &cli::ZahlGenOptions) -> Result<()> {
     use shiro::data::manifest::Manifest;
 
