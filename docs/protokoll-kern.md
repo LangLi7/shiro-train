@@ -7851,6 +7851,48 @@ habe ich in Runde 45 mit der RTX 4090 gemacht (empfohlen, ohne zu rechnen: 26 $ 
 2. Alle elf Familien erzeugen, Korpusgroesse **messen**
 3. Erst dann entscheiden, ob 189M oder 509M zur Datenmenge passt
 
+## Runde 398 — Die Pruefungsordnung: gespeichert wird, was besteht
+
+**Der Vorschlag des Nutzers, und er ist besser als mein bisheriger Weg.** Bisher habe ich
+jeden Checkpoint nach Zeitplan ins Storage geschrieben. Der Nutzer schlaegt vor: eine
+**Prufung mit Daten, die nicht im Training waren**, und je nach Ergebnis wird gespeichert -
+ab einem Schnitt von 90 %.
+
+**Die Prufungsordnung, in vier Punkten:**
+
+| Punkt | Regel |
+|---|---|
+| **Prufungsstoff** | Held-out (27 600 Datensaetze, nie im Training) - fuer den Schnitt |
+| **Abschlussbericht** | Blindtest (188 Datensaetze, nie beruehrt) - fuer die ehrliche Endzahl |
+| **Bestehensgrenze** | 90 % im Schnitt ueber die drei Komponenten (Aufgabe, Weg, Antwort) |
+| **Folge** | bestanden -> Storage + HuggingFace; nicht bestanden -> **nicht** ins Storage |
+
+**Warum zwei Datensaetze und nicht einer.** Wer unter vielen Kandidaten den besten nach
+Held-out auswaehlt, ueberfittet den Held-out - die Auswahl selbst verbraucht ihn. Deshalb:
+**Held-out waehlt aus, Blindtest berichtet.** Der Blindtest wird **einmal** benutzt, am Ende,
+und nie fuer eine Entscheidung.
+
+**Was mit "nicht bestanden" passiert.** Nichts wird geloescht, was schon im Storage liegt -
+aber ein neuer Checkpoint kommt nicht hinzu. Der Speicher enthaelt damit **nur geprueften
+Stande**, nicht jeden Zwischenschritt. Bei einem Schnitt von 0 % heisst das: **es wird
+nichts gespeichert**, und das ist die richtige Aussage.
+
+**Der Vergleichbare bleibt erhalten:** der beste Stand wird zusaetzlich als
+`nicht-bestanden` markiert aufbewahrt, damit ein spaeterer Lauf gegen ihn messen kann.
+Ein Pruefungsarchiv, keine Muellecke.
+
+**Technisch noetig dafuer, in dieser Reihenfolge:**
+
+1. `eval` muss den **Schnitt ueber Aufgabe, Weg und Antwort** ausgeben (Weg ist seit Runde
+   363 getrennt, Aufgabe ist die Frage selbst - dort zaehlt, ob die Aufgabe ueberhaupt
+   erkannt wurde).
+2. Ein Waechter, der nach jeder Messung entscheidet: bestanden -> kopieren, sonst nicht.
+3. Der Blindtest laeuft **genau einmal**, nach der letzten Messung.
+
+**Was ich am laufenden Lauf nicht mehr aendere:** er schreibt weiter nach Zeitplan aufs
+Volume, damit die vorregistrierte Messung bei Schritt 5 000 nicht durch einen Umbau
+verfaelscht wird. Die Pruefungsordnung gilt ab dem naechsten Lauf.
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
