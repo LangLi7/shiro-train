@@ -182,6 +182,15 @@ pub struct DataConfig {
     pub seq_len: usize,
     #[serde(default)]
     pub shuffle: bool,
+    /// Zeilenfuellung: `false` = ein Datensatz je Zeile, Rest aufgefuellt (altes
+    /// Verhalten); `true` = der Korpus wird als durchgehender Strom gelesen, die Zeilen
+    /// sind voll und kein Datensatz wird gekuerzt.
+    ///
+    /// Gemessen in Runde 319: die alte Aufteilung liess im Mittel 58,2 % der Positionen
+    /// als Fuellbytes liegen, und Datensaetze ueber `seq_len` verloren ihr Ende. Die
+    /// Vorgabe bleibt `false`, damit frueher gemessene Laeufe vergleichbar bleiben.
+    #[serde(default)]
+    pub pack: bool,
 }
 
 fn default_data_dir() -> PathBuf {
@@ -313,6 +322,7 @@ impl Default for DataConfig {
             batch_size: default_batch(),
             seq_len: default_seq_len(),
             shuffle: false,
+            pack: false,
         }
     }
 }

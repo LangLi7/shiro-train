@@ -28,6 +28,11 @@ pub struct Dataset {
     pub manifest: Manifest,
     pub base_dir: PathBuf,
     pub shards: Vec<LoadedShard>,
+    /// Alle Datensaetze aneinanderhaengend, fuer [`Dataset::packed_batch`].
+    ///
+    /// Wird beim Laden einmal gebaut. So gross wie der Korpus (mix77: 27 MB), also
+    /// unkritisch; der Loader haelt die Shards ohnehin schon im Speicher.
+    stream: Vec<u8>,
 }
 
 impl Dataset {
@@ -54,10 +59,18 @@ impl Dataset {
             });
         }
 
+        let mut stream: Vec<u8> = Vec::new();
+        for loaded in &shards {
+            for rec in &loaded.shard.records {
+                stream.extend_from_slice(rec);
+            }
+        }
+
         let ds = Self {
             manifest,
             base_dir,
             shards,
+            stream,
         };
         ds.check_manifest_consistency()?;
         Ok(ds)
@@ -208,6 +221,63 @@ impl Dataset {
 
         debug_assert_eq!(input.len(), batch_size * seq_len);
         debug_assert_eq!(target.len(), batch_size * seq_len);
+        Batch {
+            input,
+            target,
+            valid,
+            batch_size,
+            seq_len,
+        }
+    }
+
+    /// Laenge des gepackten Stroms in Bytes.
+    pub fn stream_len(&self) -> usize {
+        self.stream.len()
+    }
+
+    /// Ein Batch aus dem durchgehenden Byte-Strom.
+    ///
+    /// Anders als [`Dataset::batch`] liegt hier **nicht** ein Datensatz je Zeile mit
+    /// Auffuellung. Zeile `b` beginnt bei `start + b * seq_len`, die Zeilen sind damit
+    /// voll, und kein Datensatz wird gekuerzt.
+    ///
+    /// Anlass: Runde 319 hat gemessen, dass die alte Aufteilung im Mittel **58,2 %** der
+    /// Positionen als Fuellbytes liegen liess (2 571 von 6 144 waren echte Ziele), und
+    /// dass Datensaetze ueber `seq_len` abgeschnitten wurden — bei langen Aufgaben also
+    /// genau das Ende mit `ANTWORT` und `ENDE`.
+    ///
+    /// Das Ziel einer Position ist der jeweils naechste Byte im Strom. Die letzte
+    /// Position einer Zeile hat kein Ziel innerhalb der Zeile; `valid[b] = seq_len`
+    /// sorgt dafuer, dass `Batch::total_valid` sie nicht mitzaehlt.
+    pub fn packed_batch(&self, start: usize, batch_size: usize, seq_len: usize) -> Batch {
+        assert!(batch_size > 0, "batch_size muss > 0 sein");
+        assert!(seq_len >= 2, "seq_len muss >= 2 sein");
+
+        let total = self.stream.len();
+        let mut input = vec![0u8; batch_size * seq_len];
+        let mut target = vec![0u8; batch_size * seq_len];
+        let mut valid = vec![0usize; batch_size];
+        if total < 2 {
+            return Batch {
+                input,
+                target,
+                valid,
+                batch_size,
+                seq_len,
+            };
+        }
+
+        for b in 0..batch_size {
+            let from = (start + b * seq_len) % total;
+            for t in 0..seq_len {
+                input[b * seq_len + t] = self.stream[(from + t) % total];
+                if t + 1 < seq_len {
+                    target[b * seq_len + t] = self.stream[(from + t + 1) % total];
+                }
+            }
+            valid[b] = seq_len;
+        }
+
         Batch {
             input,
             target,
@@ -435,6 +505,56 @@ mod tests {
         let batch = ds.batch(Some(5), 4, 16, 0x00);
         let rec = ds.nth_record(2).unwrap();
         assert_eq!(batch.input_at(1, 0), rec[0]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn gepackter_batch_fuellt_jede_zeile_und_setzt_das_ziel_auf_das_naechste_byte() {
+        let (d, ds) = make_dataset("packed", 40);
+        let seq_len = 64usize;
+        let bs = 4usize;
+        let batch = ds.packed_batch(0, bs, seq_len);
+
+        // Jede Zeile ist voll - genau der Punkt aus Runde 319.
+        assert_eq!(batch.valid, vec![seq_len; bs]);
+        assert_eq!(batch.total_valid(), bs * (seq_len - 1));
+
+        let stream: Vec<u8> = ds.records().flat_map(|r| r.iter().copied()).collect();
+        assert_eq!(ds.stream_len(), stream.len());
+        for b in 0..bs {
+            for t in 0..seq_len {
+                assert_eq!(batch.input_at(b, t), stream[b * seq_len + t]);
+                if t + 1 < seq_len {
+                    assert_eq!(batch.target_at(b, t), stream[b * seq_len + t + 1]);
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn gepackt_traegt_mehr_ziele_als_der_zeilenweise_batch() {
+        let (d, ds) = make_dataset("auslastung", 40);
+        // seq_len deutlich groesser als ein erzeugter Datensatz, damit die alte
+        // Aufteilung wirklich auffuellen muss.
+        let seq_len = 1024usize;
+        let bs = 4usize;
+        let schritte = 10usize;
+        let mut alt = 0usize;
+        let mut neu = 0usize;
+        for s in 0..schritte {
+            alt += ds.batch(Some(s * bs), bs, seq_len, 0).total_valid();
+            neu += ds
+                .packed_batch(s * bs * seq_len, bs, seq_len)
+                .total_valid();
+        }
+        assert_eq!(neu, schritte * bs * (seq_len - 1));
+        assert!(
+            alt < neu,
+            "zeilenweise {alt} Ziele sollten weniger sein als gepackt {neu}"
+        );
+        // Die alte Aufteilung laesst je Zeile nur die Satzlaenge uebrig.
+        assert!(alt / (schritte * bs) < seq_len / 2);
         let _ = std::fs::remove_dir_all(&d);
     }
 }

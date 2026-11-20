@@ -122,6 +122,24 @@ pub fn batch_start(cfg: &TrainConfig, step: usize, total_records: u64) -> Option
     Some((z % total_records) as usize)
 }
 
+/// Startbyte im gepackten Strom fuer einen Schritt.
+///
+/// Dieselbe deterministische Streuung wie [`batch_start`], nur auf Bytes statt auf
+/// Datensaetze bezogen. Ein Schritt liest damit ein zusammenhaengendes Fenster von
+/// `batch_size * seq_len` Bytes.
+pub fn byte_start(cfg: &TrainConfig, step: usize, stream_len: usize) -> usize {
+    if stream_len == 0 {
+        return 0;
+    }
+    let mut z = cfg
+        .run
+        .seed
+        .wrapping_add((step as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z ^= z >> 27;
+    (z as usize) % stream_len
+}
+
 /// Fuehrt einen Trainingslauf aus und schreibt Checkpoints + Log.
 pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
     let started = Instant::now();
@@ -159,12 +177,23 @@ pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
 
     for step in 0..cfg.run.steps {
         let step_started = Instant::now();
-        let batch = ds.batch(
-            batch_start(cfg, step, ds.total_records()),
-            cfg.data.batch_size,
-            cfg.data.seq_len,
-            0,
-        );
+        // Zwei Aufteilungen: die alte (ein Datensatz je Zeile, Rest aufgefuellt) und die
+        // gepackte (durchgehender Strom, Zeilen voll). `data.pack` entscheidet; die
+        // Vorgabe bleibt die alte, damit frueher gemessene Laeufe vergleichbar bleiben.
+        let batch = if cfg.data.pack {
+            ds.packed_batch(
+                byte_start(cfg, step, ds.stream_len()),
+                cfg.data.batch_size,
+                cfg.data.seq_len,
+            )
+        } else {
+            ds.batch(
+                batch_start(cfg, step, ds.total_records()),
+                cfg.data.batch_size,
+                cfg.data.seq_len,
+                0,
+            )
+        };
         let lr = learning_rate(cfg, step);
         let (loss, positions) = model.train_step(&batch, lr);
 

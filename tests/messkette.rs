@@ -768,6 +768,7 @@ fn real_train_config(data_dir: &Path, out_dir: &Path, log_dir: &Path) -> TrainCo
             batch_size: 2,
             seq_len: 16,
             shuffle: false,
+            pack: false,
         },
         model: model_config(),
         optim: shiro::config::OptimConfig {
