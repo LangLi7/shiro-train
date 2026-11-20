@@ -14,7 +14,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/workspace/target}"
 
 echo "=== 1. Werkzeuge ==="
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends curl ca-certificates git build-essential pkg-config libssl-dev wget
+apt-get install -y -qq --no-install-recommends curl ca-certificates git build-essential pkg-config libssl-dev wget python3 python3-pip
 
 echo "=== 2. Rust ==="
 if [ ! -x /root/.cargo/bin/cargo ]; then
@@ -84,5 +84,6 @@ else
 fi
 
 echo "=== fertig ==="
+
 
 
