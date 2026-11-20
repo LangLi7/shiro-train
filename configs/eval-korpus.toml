@@ -1,0 +1,49 @@
+# Messung nach dem Lauf: Held-out-EM im Modus m1 auf dem neuen Aufgabenkorpus.
+#
+# Zeigt bewusst auf `korpus-neu/val` - die Trainingsmenge wird hier nie gemessen, sonst
+# waere die Zahl Auswendiglernen statt Koennen. Die Modellwerte sind dieselben wie in
+# `train500-korpus.toml`, damit der Checkpoint ohne Umformung geladen wird.
+#
+# Aufruf nach dem Lauf:
+#   shiro eval --config configs/eval-korpus.toml --answers 50 \
+#     --answers-mode m1 --checkpoint /workspace/ckpt/mix500-korpus-step000002000.safetensors
+
+[run]
+name = "eval-korpus"
+seed = 53013
+steps = 1
+log_every = 1
+checkpoint_every = 1
+output_dir = "/workspace/ckpt"
+log_dir = "/workspace/logs"
+
+[data]
+dir = "/workspace/korpus-neu/val"
+manifest = "manifest.json"
+batch_size = 1
+seq_len = 512
+shuffle = false
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 400
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
