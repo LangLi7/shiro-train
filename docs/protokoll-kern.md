@@ -6021,3 +6021,33 @@ aus meinen Generatoren stammen, bleibt offen.**
 **Nebenbefund:** Der Verifier braucht einen `.safetensors`-Checkpoint. Die `.state`-Dateien
 (279 MB) sind ein eigenes Format und werden von `shiro chat` abgelehnt („header too large").
 **Der erste Messversuch scheiterte daran, nicht am Modell.**
+
+## Runde 313 — Docker war der falsche Weg: 11,3 GB RAM fuer ein 20-GB-Image
+
+**Der Versuch, den Pod-Start zu beschleunigen:** ein fertiges Image bauen, damit der Pod nichts
+mehr kompilieren muss.
+
+**Was dabei herauskam:**
+
+| Schritt | Ergebnis |
+|---|---|
+| `docker build` (Dockerfile.runpod) | Image **20,8 GB** — CUDA-Devel 6 GB, Rust 1,5 GB, `target/` 12 GB |
+| `docker push` nach GHCR | **permission_denied** — der gh-Token hat kein `write:packages` |
+| `docker build` (Dockerfile.slim) | Build laeuft, **WSL frisst 11,3 GB RAM**, System bei **97,3 %** |
+| `wsl --shutdown` | RAM **45,1 %** |
+
+**Die Lehre, und sie ist die wichtigste dieser RunPod-Runde:**
+
+> **Rust ist effizient — das Binary ist ~10 MB. Das Image war es nicht, weil ich die Build-Kette
+> mitgeliefert habe.** Ein Multi-Stage-Build (nur CUDA-Runtime + die zwei Binaries) waere bei
+> ~2 GB gelandet.
+
+**Aber:** Auch das kleinere Image haette einen Docker-Build in WSL gebraucht, und der sprengt die
+RAM-Regel des Nutzers (nie ueber 90 %). **Der Docker-Weg ist damit fuer dieses Projekt erledigt.**
+
+**Die bessere Loesung, die schon im Skript steht:** `CARGO_TARGET_DIR=/workspace/target`.
+Der erste Pod baut einmal (10 Minuten), der Cache liegt im Global Volume, und **jeder weitere Start
+ueberspringt das Kompilieren.** Kein Docker, kein WSL, kein RAM-Problem.
+
+**Nebenbefund:** Das Global Volume hat 100 GB frei — genug fuer den Build-Cache (12 GB) und alle
+Checkpoints (je 93 MB).
