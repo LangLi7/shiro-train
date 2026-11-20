@@ -1,0 +1,47 @@
+# Sanity-Lauf fuer das 113-M-Parameter-Modell (train100.toml).
+#
+# Zweck: genau EIN Schritt auf der CPU, mit denselben Modellwerten wie der
+# GPU-Lauf. Fängt Formfehler, Speicherfehler im Optimierer und falsche
+# Datenpfade ab, bevor eine GPU-Stunde bezahlt wird. Kein Messlauf.
+#
+# Aufruf:  shiro train --config configs/train100-sanity.toml
+
+[run]
+name = "mix100-sanity"
+seed = 53013
+steps = 1
+log_every = 1
+checkpoint_every = 1
+output_dir = "checkpoints/sanity"
+log_dir = "logs"
+
+[data]
+dir = "data/logic-large/train"
+manifest = "manifest.json"
+batch_size = 1
+seq_len = 256
+shuffle = false
+
+[model]
+name = "mix100"
+d_model = 768
+n_layers = 12
+n_heads = 12
+d_ff = 3072
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 1
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
