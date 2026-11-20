@@ -5301,3 +5301,36 @@ die Liste der geloesten Familien, sondern zu den **knapp verfehlten**.
 
 **Was jetzt offen ist:** ein dritter Urteil-Lauf wuerde zeigen, ob 82 oder 90 der Mittelwert ist.
 Bei zwei Laeufen ist die Spanne 82–90; **die Wahrheit liegt wahrscheinlich dazwischen.**
+
+## Runde 293 — Das Urteil streut ueber 16 Punkte: 74, 82, 90
+
+**Drei Laeufe, identische Konfiguration (4000 Schritte geplant, nach 1000 gestoppt), verschiedene Seeds:**
+
+| Lauf | Seed | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| `mix68` | 13027 | 68 | **90** | 100 |
+| `urteilA` | 43003 | 68 | **82** | 100 |
+| **`urteilB`** | **44004** | **52** | **74** | 100 |
+
+**Spanne: 16 Punkte** (74 bis 90). Mittelwert **82**.
+
+**Das ist der wichtigste Befund dieser Messreihe, und er ist unbequem:**
+
+> **Die 90 aus Runde 275 war der obere Rand einer Verteilung, nicht der Wert der Faehigkeit.**
+
+**Nach Regel 6 des Auftrags ist das Urteil damit unter der Schwelle** — bei zwei von drei Laeufen
+(74, 82) liegt es unter 90.
+
+**Und es stellt eine Frage, die fuer alle Familien gilt:** die Addition ist mit fuenf Laeufen bei
+**exakt 100** — keine Streuung. Die Logik mit zwei Laeufen bei **exakt 62,5** — keine Streuung.
+**Das Urteil streut 16 Punkte.** Warum?
+
+**Die Vermutung, und sie ist pruefbar:** bei der Addition und der Logik gibt es **eine richtige
+Antwort** aus einem kleinen Raum (Zahl, ja/nein). Beim Urteil gibt es **drei Klassen**
+(bewiesen/widerlegt/nicht ableitbar) — und die Grenze zwischen „widerlegt" und „nicht ableitbar"
+ist eine **Entscheidung**, die das Modell einmal so und einmal so trifft.
+
+**Die geschuetzte Addition haelt bei 100** — wieder.
+
+**Was das fuer die Bilanz bedeutet:** das Urteil ist **nicht geloest**, sondern liegt bei **82 im
+Mittel** und schwankt. Es gehoert zu den verfehlten Familien, nicht zu den geloesten.
