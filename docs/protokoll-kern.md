@@ -5955,3 +5955,39 @@ die den Grund nicht nennt.**
 **Was trotzdem steht:** die Korpora und zwei Modelle auf HuggingFace. Der naechste Versuch mit
 `minCudaVersion: "12.4"` sollte auf einer RTX 3090 fuer 0,22 $/h laufen — **das sind 45 Stunden
 fuer die 10 Dollar.**
+
+## Runde 311 — Storage: Network Volume bindet an ein Data Center
+
+**Der Befund aus dem Screenshot des Nutzers, und er erklaert die Absagen:**
+
+| Storage | Bindung | Konsequenz |
+|---|---|---|
+| **Network Volume** (`thick_orange_toucan`, 10 GB) | **EUR-NO-2** | der Pod muss in dieses eine DC |
+| **Global Volume** (`neat_crimson_kingfisher`) | jeder DC | volle Auswahl |
+
+**Fuenfzehn Anlaeufe, alle „no instances available":**
+
+| Lauf | Karte | DC | Storage |
+|---|---|---|---|
+| 1–4 | A40, 4090 | beliebig | — |
+| 5 | A40 | CA-MTL-1 | — |
+| 6 | L4 | EU-RO-1 | — |
+| 7 | A100 | US-MD-1 | — |
+| 8–9 | RTX 4000 Ada | beliebig | — |
+| 10 | RTX 2000 Ada | beliebig | — |
+| 11–13 | RTX 3090 | EU-CZ-1 | — |
+| 14 | RTX 2000 Ada | **EUR-NO-2** | Network |
+| 15 | RTX 3090 | **EUR-NO-2** | Network |
+| 16 | RTX 3090 | beliebig | Global |
+
+**Zwei Lehren:**
+
+1. **Ein Network Volume legt den Pod auf ein Data Center fest.** Ist dort keine GPU frei, hilft
+   kein anderer DC. **Das Global Volume ist die bessere Wahl fuer einen einzelnen Lauf.**
+2. **Die Volume-ID war zunaechst falsch abgelesen** (`ng3lzz8ofk` statt `ng3lzz9ofk`) — eine Ziffer
+   aus einem Screenshot. Die richtige ID kam von `list-network-volumes`.
+
+**Was das gekostet hat:** etwa 1 $ fuer zwei kurze Builds, sonst nur Zeit. **Kein Training lief.**
+
+**Der Stand bleibt:** Korpora und fuenf Modelle auf HuggingFace, Pod-Skript fertig, Aufruf
+geprueft. **Es fehlt eine freie GPU — nicht der Code, nicht die Daten, nicht die Konfiguration.**
