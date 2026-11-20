@@ -7239,3 +7239,40 @@ Antworten. Entscheidend ist, ob die Zahlen je Vorlage breit genug streuen, dass 
 noetig bleibt. Das steht als naechste Messung an: die Spannweite der Zahlen je Vorlage.
 
 **Kosten:** 0 $ (lokal gerechnet).
+
+## Runde 342 — Die Hypothese aus Runde 332 ist widerlegt
+
+**Gemessen, nicht geschaetzt:** Checkpoint `step1000`, Held-out-Menge, Modus m1,
+**5 Fragen, 0 richtig (0,0 %)**.
+
+Die Einzelfaelle sagen mehr als die Quote:
+
+| Datensatz | erwartet | erzeugt |
+|---|---|---|
+| #0 | `78 km/h` | `(leer)` |
+| #560 | `8184 Euro` | `2400 Euro` |
+| #1120 | `wahr` | `falsch` |
+| #1680 | `gleichbleibende Differenz` | `27` |
+| #2240 | `Schritt 5` | `Schritt 4` |
+
+**Das Modell hat das Format gelernt und den Inhalt nicht.** Es erzeugt die richtige *Form*
+- Zahl mit Einheit, `falsch`, `Schritt 4` -, aber die Zahl stimmt nicht, die Klasse ist
+verkehrt, der Index ist um eins daneben. Genau das ist das Muster aus Runde 332:
+Trainingsverlust 0,067 bei Held-out 0 %.
+
+**Damit gilt die Regel aus Runde 332:** steigt nur Train-EM, wird der Lauf als
+Auswendiglernen behandelt und **nicht uebernommen**. Die Vorhersage („Held-out ueber 25 %")
+ist **widerlegt**; die Nullhypothese (unter 12,22 %) steht.
+
+**Was die Zahl nicht ist:** ein Beweis fuer 0 %. Bei 5 Fragen liegt die obere Grenze des
+95-%-Vertrauensbereichs bei etwa 45 %. Belastbar ist nicht die Quote, sondern das Muster:
+ein Modell, das eine Vorlage 333-mal gesehen hat und deren Arithmetik dann falsch rechnet,
+hat die Zuordnung gelernt, nicht die Rechnung. Deshalb wird die Messung beim naechsten
+Lauf mit **20 Fragen** wiederholt - auf einem billigeren Pod und mit kuerzerem Kontext, damit
+sie nicht wieder 22 Minuten braucht.
+
+**Wichtige Einordnung:** dieser Checkpoint wurde auf dem Korpus mit **18 Vorlagen**
+trainiert. Die 54-Vorlagen-Fassung ist noch in keinem Lauf gewesen. Der naechste Lauf
+testet also genau den Faktor, den diese Messung als fehlend identifiziert hat.
+
+**Kosten:** 0,02 $ (CPU-Pod, 7 Minuten).
