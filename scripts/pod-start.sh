@@ -43,7 +43,11 @@ if [ -f "$FEHLERMARKE" ] && [ "${SHIRO_START_FORCE:-0}" != "1" ]; then
   echo "Letzter Fehler: $(cat "$FEHLERMARKE" 2>/dev/null)"
   echo "Kein Neubau, keine GPU-Arbeit. Pod bleibt stehen, damit niemand zahlt."
   echo "Freigeben mit: rm $FEHLERMARKE (oder SHIRO_START_FORCE=1 im Pod-Env)."
-  sleep 3600
+  # **Kein sleep mehr.** Frueher stand hier `sleep 3600`: der Container blieb eine
+  # Stunde am Leben und bezahlte in dieser Zeit A100-Tarif (2,19 $/h) fuer nichts.
+  # Ein gescheiterter Lauf soll den Pod **beenden**, damit keine GPU-Zeit weiterlaeuft.
+  echo "Stoppe den Container - ein gescheiterter Lauf darf keine GPU-Zeit kosten."
+  kill 1 2>/dev/null || true
   exit 0
 fi
 trap 'echo "$(date -u) Fehler in Zeile $LINENO (Exit $?)" > "$FEHLERMARKE"' ERR
@@ -127,6 +131,18 @@ echo "Korpus: $(ls "$KORPUS_DIR"/*.bin | wc -l) Shards in $KORPUS_DIR"
 
 echo "=== 6. Training ==="
 mkdir -p "$DATEN/ckpt" "$DATEN/logs"
+# **Vor dem sed pruefen, nicht danach (Runde 333).** `POD_CONFIG=train500-korpus.toml`
+# liess `sed` auf `/work/train500-korpus.toml` zugreifen; die Datei liegt unter
+# `configs/`. Das Skript brach ab, der Pod stand zehn Minuten still - rund 0,37 $
+# fuer nichts. Ein Tippfehler im Pfad kostet A100-Minuten, also wird er geprueft,
+# bevor irgendetwas laeuft.
+if [ ! -f "/work/$KONFIG" ]; then
+  echo "FEHLER: Konfiguration /work/$KONFIG fehlt." >&2
+  echo "  POD_CONFIG ist ein Pfad RELATIV ZUM REPO-WURZEL, z.B. configs/train500-korpus.toml" >&2
+  echo "  Vorhanden:" >&2
+  ls /work/*.toml /work/configs/*.toml 2>/dev/null | sed 's|^|    |' >&2
+  exit 6
+fi
 # Anker (`^`) sind Pflicht, nicht Kosmetik: ohne sie trifft `s|steps = .*|` auch die
 # Zeile `warmup_steps = 300` und ersetzt sie durch den Schrittwert. Mit SCHRITTE=6000
 # wurde daraus `warmup_steps = 6000` - die Warmup-Phase waere halb so lang wie der
