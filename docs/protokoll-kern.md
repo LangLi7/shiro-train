@@ -7453,3 +7453,42 @@ dreimal stehenbleibt, riecht nach Health-Check - und `sleep infinity` antwortet 
 Der naechste Versuch sollte deshalb einen **echten Dienst** als Anker starten (etwa einen
 winzigen HTTP-Server) oder ein Image mitliefern, statt sich auf einen Schlafprozess zu
 verlassen.
+
+## Runde 350 — Detektivisches Denken, mit gehaltener Struktur
+
+**Der Auftrag nannte logisches, analytisches und detektivisches Denken.** Logik und
+Quantoren waren abgedeckt, Detektivisches nicht. Der Unterschied ist nicht der
+Schwierigkeitsgrad, sondern die **Bewegung**: in der Logik ist die Regel vorgegeben, hier
+muss das Modell sie aus den Aussagen selbst erschliessen.
+
+**Der Aufbau:** drei Verdaechtige, genau ein Taeter, jeder macht eine Aussage der Form
+"X war es" / "X war es nicht". Regel: die Unschuldigen sagen die Wahrheit, der Taeter
+luegt. Das ergibt drei Welten, jede wird geprueft, und die Antwort folgt durch **Zaehlen**:
+
+| Loesungen | Antwort |
+|---|---|
+| genau eine | der Taeter ist bestimmt |
+| mehrere | **nicht ableitbar** |
+| keine | **widerspruechlich** |
+
+**"Nicht ableitbar" ist eine richtige Antwort**, und ein Test prueft, dass die Klasse im
+erzeugten Korpus **tatsaechlich vorkommt** - nicht nur, dass der Code sie bilden kann.
+Ohne sie lernt das Modell, immer zu raten.
+
+**Der Fehler beim ersten Durchlauf durch das Tor, und er ist lehrreich:** alle 150
+Held-out-Datensaetze lagen auch im Training. Der Raum hat nur **216 Aussagenmuster**
+(3 Adressaten mal 2 Richtungen, hoch 3), und beide Baender zogen aus demselben Topf -
+dieselbe Fehlerklasse wie bei `zahl` in Runde 346.
+
+**Die Reparatur setzt den Einwand aus der Fremdeinschätzung um:** *"Halte auch
+Aufgabenstrukturen zurueck, damit das Modell nicht nur bekannte Muster mit anderen Zahlen
+auswendig lernt."* Jedes vierte Muster gehoert jetzt **nur** dem Held-out. Training und
+Held-out unterscheiden sich damit in der **Struktur**, nicht nur in den Namen.
+`preflight`: **0 gemeinsame Datensaetze** bei 1 500.
+
+**Was noch offen ist, und zwar bewusst:** im `zahl`-Modul sind weiterhin nur die **Zahlen**
+getrennt, die Formulierung ist in beiden Baendern gleich. Dieselbe Reparatur steht dort
+noch aus - sie braucht je Aufgabentyp eine zweite Formulierung, und die darf laut Auftrag
+**nie** im Training sein.
+
+**Kosten:** 0 $ (Code-Arbeit, kein Pod).
