@@ -5923,3 +5923,35 @@ oder mehr Schritte. Beides kostet Geld — 135 $ fuer 100M auf einer 3090, und d
 4. **`--repo-type dataset` bei jedem HF-Upload.**
 
 **Der Stand:** Korpora und zwei Modelle sind auf HuggingFace gesichert. **Das 100M-Training ist nicht gelaufen** — es scheiterte an der Kapazitaet, nicht am Code: Build, Korpus, Skript und Upload sind geprueft und funktionieren.
+
+## Runde 310 — Der Kapazitaetsfehler war meiner: minCudaVersion 13.0
+
+**Die Ursache, endlich gefunden:** die `capacity`-Liste zeigte alle guenstigen Karten als verfuegbar,
+die Erstellung scheiterte trotzdem — **weil ich `minCudaVersion: "13.0"` verlangt habe.**
+
+| Karte | Preis | CUDA auf dem Host |
+|---|---|---|
+| RTX 3090 | 0,22 $/h | **12.4** |
+| RTX A4000 | 0,17 $/h | **12.6** |
+| RTX 4000 Ada | 0,20 $/h | 13.2 (aber kein DC) |
+| A40 | 0,35 $/h | 13.2 |
+| RTX 5090 | 0,69 $/h | 12.8, 13.0 |
+
+**Fast alle guenstigen Karten laufen auf CUDA 12.4 oder 12.6.** Mein Filter `>= 13.0` hat sie
+ausgeschlossen — **die Fehlermeldung „no instances available" war korrekt, nur nicht aus dem Grund,
+den ich annahm.**
+
+**Der Fix, der jetzt bereitliegt:**
+
+- `minCudaVersion: "12.4"` statt `13.0`
+- Image `nvidia/cuda:12.4.1-devel-ubuntu22.04` statt pytorch/cu1281
+- Das Skript installiert `python3` und `python3-pip` selbst (das schlanke Image hat kein Python)
+
+**Acht Anlaeufe, alle gescheitert, und der Grund war eine einzelne Zahl in meinem Aufruf.**
+Das ist derselbe Fehlertyp wie der fehlende `--repo-type` beim Upload und der `git clone` in ein
+vorhandenes Verzeichnis: **ein Parameter, der nicht zum Gegenueber passt, und eine Fehlermeldung,
+die den Grund nicht nennt.**
+
+**Was trotzdem steht:** die Korpora und zwei Modelle auf HuggingFace. Der naechste Versuch mit
+`minCudaVersion: "12.4"` sollte auf einer RTX 3090 fuer 0,22 $/h laufen — **das sind 45 Stunden
+fuer die 10 Dollar.**
