@@ -12,6 +12,25 @@ KONFIG="${POD_CONFIG:-train100.toml}"
 DATEN="${DATEN:-/workspace}"
 export DEBIAN_FRONTEND=noninteractive
 export PATH=/root/.cargo/bin:/usr/local/cuda/bin:$PATH
+
+# --- Abbruchsperre -----------------------------------------------------------
+# RunPod startet einen Container nach einem Fehler neu. Ohne Sperre bedeutet das:
+# Skript scheitert -> Neustart -> erneut bauen -> erneut scheitern. Jede Runde
+# kostet A100-Zeit ohne einen einzigen Trainingsschritt. Genau das ist passiert.
+#
+# Deshalb: scheitert das Skript, hinterlaesst es eine Marke auf dem Volume. Der
+# naechste Start sieht sie, baut NICHTS und wartet, statt Geld zu verbrennen.
+# Die Marke wird nur von Hand entfernt (oder wenn SHIRO_START_FORCE=1 gesetzt ist).
+FEHLERMARKE="$DATEN/start-fehler"
+if [ -f "$FEHLERMARKE" ] && [ "${SHIRO_START_FORCE:-0}" != "1" ]; then
+  echo "=== Start gesperrt ==="
+  echo "Letzter Fehler: $(cat "$FEHLERMARKE" 2>/dev/null)"
+  echo "Kein Neubau, keine GPU-Arbeit. Pod bleibt stehen, damit niemand zahlt."
+  echo "Freigeben mit: rm $FEHLERMARKE (oder SHIRO_START_FORCE=1 im Pod-Env)."
+  sleep 3600
+  exit 0
+fi
+trap 'echo "$(date -u) Fehler in Zeile $LINENO (Exit $?)" > "$FEHLERMARKE"' ERR
 # Build-Cache im Volume: ein Neustart kompiliert nicht erneut (spart ~5 Minuten).
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/root/target}"
 
@@ -105,6 +124,10 @@ if ls "$DATEN"/ckpt/*.state >/dev/null 2>&1; then
 else
   echo "Fortsetzen    : nein (kein Stand vorhanden)"
 fi
+
+# Start geglueckt: Marke weg, damit ein Abbruch WAEHREND des Trainings
+# beim naechsten Start fortsetzen darf statt zu sperren.
+rm -f "$FEHLERMARKE"
 
 # shellcheck disable=SC2086
 "$BIN" train --config "$DATEN/train.toml" --backend cuda $RESUME
