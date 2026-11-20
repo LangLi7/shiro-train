@@ -5797,3 +5797,36 @@ innerhalb der Toleranz.
 2. **Grenzentscheidung** (Urteil, 80): drei Klassen, eine davon eine Entscheidung — das Modell wankt.
 3. **Suche** (Bruch mit Kuerzen, 12,5): der ggT ist ein Ausprobieren — das lernt es nicht.
 4. **Verketteter Uebertrag** (Multiplikation, 10): Zwischenwerte, die multiplikativ weiterwirken.
+
+## Runde 306 — Die Multiplikation springt von 10 auf 85, und die Addition faellt auf 80
+
+**Die Hypothese:** die Multiplikation scheitert an zu wenigen Beispielen (4 000 im Korpus).
+**Der Test:** dieselbe Aufgabe, **20 000** Beispiele (`mix77`), sonst identisch.
+
+| Korpus | Multiplikation | Addition (geschuetzt) |
+|---|---|---|
+| 4 000 Beispiele (`mix76`) | **10** | 93,3 |
+| **20 000 Beispiele (`mix77`)** | **85** | **80** |
+
+**Zwei Befunde in einem Lauf:**
+
+1. **Die Multiplikation ist lernbar** — 10 auf 85, ein Sprung von 75 Punkten, allein durch mehr
+   Beispiele. **Meine Vermutung aus Runde 305 („verketteter Uebertrag") war falsch:** es war die
+   Datenmenge, nicht die Operation.
+2. **Die Addition faellt auf 80** — unter die Schwelle. **Das ist dieselbe Interferenz wie in
+   Runde 273:** fuenfmal mehr Multiplikations-Records verdraengen die Addition, wenn das Budget
+   gleich bleibt.
+
+**Und das ist die zweite wichtige Lehre des Projekts:**
+
+> **Bei gleichem Budget verdraengt eine Familie die andere. Mehr Daten fuer A heisst weniger
+> Platz fuer B.**
+
+**Die Konsequenz fuer den Auftrag:** 90 Prozent je Familie sind mit **einem** 24M-Modell und
+1500 Schritten **nicht gleichzeitig** erreichbar. Die Addition war bei 100, als die Multiplikation
+bei 10 stand; jetzt ist es umgekehrt (85 und 80). **Beide zusammen brauchen mehr Kapazitaet oder
+mehr Training** — und beides kostet Geld, das nicht da ist.
+
+**Was das erklaert, rueckblickend:** die „Interferenz" bei den Paraphrasen (Runde 273), das
+Absinken der zweistelligen Addition im dreistelligen Lauf (86,7), und jetzt 80. **Es ist immer
+derselbe Mechanismus: das Budget reicht fuer eine Familie, nicht fuer zwei.**
