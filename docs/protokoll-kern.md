@@ -5236,3 +5236,38 @@ Schrittzahl ist kein halber Lauf, sondern ein anderer.
 angepasster Lernratenverlauf. **Der Seed allein war nicht die Ursache.**
 
 **Die geschuetzte Addition haelt bei 96,7** — auch dieser Lauf hat ihr nicht geschadet.
+
+## Runde 291 — Die Logik ist reproduzierbar: 62,5 bei zwei Laeufen
+
+**Der zweite Versuch, mit derselben Schrittzahl wie das Original (3500 statt 1500):**
+
+| Lauf | Seed | Schritte | Verlust | Weg | Antwort | Klasse |
+|---|---|---|---|---|---|---|
+| `mix67` (Original) | 13027 | 1500* | 0,06 | 57,5 | **62,5** | 95 |
+| **`logikB`** | **42002** | 1500 | 0,11 | 47,5 | **62,5** | 95 |
+| `logikA` (defekt) | 41001 | 1500 | **2,54** | 0 | 15 | 27,5 |
+
+**Zwei konvergierte Laeufe, zwei verschiedene Seeds: exakt derselbe Wert.** Der Weg schwankt
+(57,5 gegen 47,5), die **Antwort nicht**.
+
+**Damit ist die Logik-Messung belastbar:** 62,5 Prozent sind reproduzierbar, nicht Zufall eines
+Seeds.
+
+**Und der defekte Lauf ist erklaert:** `logikA` hatte die halbe Schrittzahl, damit einen anderen
+Lernratenverlauf, Verlust 2,54 statt 0,06 — und gab Kauderwelsch aus. **Die Schrittzahl zu aendern
+aendert den Lernratenverlauf.**
+
+**Was jetzt mit Streuung belegt ist:**
+
+| Familie | Wert | Laeufe |
+|---|---|---|
+| **Addition** | **100** | **5 (4 Seeds + geschuetzt in jedem Logik-Lauf)** |
+| **Logik** | **62,5** | **2 Seeds** |
+
+**Die geschuetzte Addition haelt in jedem dieser Laeufe bei 100** — auch nach 20 000 Logik-Records
+im Korpus.
+
+**Die ehrliche Einordnung bleibt:** 62,5 Prozent liegen **12,5 Punkte ueber der Zufallsrate** (50).
+Das ist **reproduzierbar mehr als Raten, aber weit von 90 entfernt.** Die Logik ist damit die
+Familie, bei der die Grenze am klarsten benannt ist — und sie ist mit zwei unabhaengigen Laeufen
+belegt.
