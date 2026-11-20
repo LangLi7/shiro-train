@@ -6976,3 +6976,56 @@ nur zu 13 %. `scripts/nebenher-validieren.sh` misst deshalb jeden neuen Checkpoi
 kostet damit keine zusaetzliche GPU-Zeit - die Kerne sind mit der Miete bezahlt.
 
 **Kosten dieser Runde:** 0 $.
+
+## Runde 335 — Fremdeinschaetzung gegen eigene Messwerte geprueft
+
+Eine externe Einschaetzung (auf Nachfrage des Nutzers) lag vor. Sie wird hier nicht
+uebernommen und nicht verworfen, sondern **gegen die eigenen Zahlen** geprueft.
+
+| Aussage | Pruefung an unseren Daten | Urteil |
+|---|---|---|
+| „BF16 ist nicht grundsaetzlich besser als FP32" | richtig: 7 statt 23 Mantissenbits, dafuer halber Speicher | **traegt** |
+| „Die Umstellung auf fp32 war korrekt" | ja, der Wert wurde nur geloggt | **traegt** |
+| „Nur den Konfigurationswert zu aendern implementiert kein BF16" | genau das steht in Runde 334 | **traegt** |
+| „BF16 spart etwa 50 % VRAM fuer bf16-Tensoren" | bei 74-80 GB von 80 GB ist Speicher der Engpass | **traegt, und wiegt bei uns schwer** |
+| „Oft schneller" | plausibel, aber **unbelegt** | **offen** |
+| „zwei- bis zweieinhalbfach" (meine eigene Schaetzung) | **Schaetzung, keine Messung** | **zurueckgenommen** |
+
+**Was ich zuruecknehme:** die Zahl „2- bis 2,5-fach" war eine Schaetzung aus dem
+A100-Datenblatt, keine Messung an diesem Modell. Sie ist ab jetzt Hypothese, nicht Fakt.
+Gemessen wird sie erst, wenn bf16 implementiert ist - mit demselben Korpus, demselben Seed
+und denselben Schritten.
+
+**Was bei uns anders wiegt als in der allgemeinen Betrachtung:** bei 74-80 GB von 80 GB
+VRAM ist der **Speicher** der Engpass. bf16 halbiert die Aktivierungen und erlaubt einen
+groesseren Batch - der Gewinn kommt also nicht nur aus schnelleren Matmul, sondern aus
+mehr Arbeit je Schritt.
+
+**Uebernommen aus der Anmerkung:** der Praezisionsmodus gehoert in jeden Checkpoint. Das
+ist bereits so - `run_start` schreibt `weights` und `autocast` mit. Ein Precision Manager
+mit automatischer Hardware-Erkennung ist fuer einen Lauf auf einer bekannten GPU
+ueberdimensioniert; die Sperre aus Runde 334 ist der kleinere richtige Schritt.
+
+**Der Stand des Laufs, und die Warnung dazu:**
+
+| Schritt | Verlust | Perplexity |
+|---|---|---|
+| 100 | 2,847 | 17,24 |
+| 200 | 2,210 | 9,12 |
+| 300 | 1,167 | 3,21 |
+| 400 | 0,830 | 2,29 |
+| 500 | 0,435 | 1,55 |
+
+Ein Verlust von 0,44 heisst bei einem Byte-Modell, dass es den **Trainings text fast
+woertlich** vorhersagt - nach weniger als einer Epoche. Zwei Ursachen sind moeglich, und
+sie sind nicht zu verwechseln:
+
+1. **Vorlagenlernen.** Der Korpus stammt aus sechs Schablonen; die Form ist nach wenigen
+   hundert Schritten gelernt, danach ist fast jeder Byte vorhersagbar.
+2. **Auswendiglernen.** Das Modell reproduziert die konkreten Zahlen statt zu rechnen.
+
+Unterschieden werden sie **nur** durch die Held-out-Messung: steigt sie mit, ist es
+Koennen; bleibt sie am Boden, gilt die Regel aus Runde 332 und der Lauf wird nicht
+uebernommen.
+
+**Kosten dieser Runde:** 0 $; der Pod laeuft weiter.
