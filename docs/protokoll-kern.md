@@ -6716,3 +6716,45 @@ Umbau.
 **Unsicherheit:** ob `Lm::new` allein schon ein benutzbares Modell mit Zufallsgewichten
 liefert oder nur eine Huelle, deren Gewichte `load_safetensors` setzt. Das entscheidet, ob
 der Eingriff bei `answers_core` reicht oder ein Konstruktor in `lm.rs` dazukommt.
+
+## Runde 328 — Ein Tor statt eines Vorsatzes
+
+**Sprachliche Korrektur, die auch sachlich zaehlt:** es gibt **keine Familien im Sinne
+getrennter Modelle**. Es ist **ein** Modell (dense, 509 Mio Parameter). Was das Projekt
+„Familie“ nennt, sind **Aufgabentypen im Korpus dieses einen Modells**. Zehn Stellen setzen
+deren Nutzbytes zusammen - das ist Arbeit an einem Datenbestand, nicht an zehn Modellen.
+
+**Der Anlass, in Zahlen.** Ausgaben am 20.11.2026: **3,4589 $** gesamt, davon GPU
+**3,1602 $**, CPU 0,2816 $, Platte 0,0153 $, Storage 0,0019 $. Auf den 500M-Lauf entfallen
+**1,64 $** - er hat nichts Verwertbares erzeugt. Dazu der geloeschte Checkpoint: 8,15 GB
+ohne Kopie.
+
+**Was daraus gebaut wurde, statt eines Versprechens:** `shiro data preflight` prueft vor
+dem ersten Trainingsschritt und endet mit ungleich null, wenn etwas nicht stimmt:
+
+| Pruefung | Schwelle | Grund |
+|---|---|---|
+| Fremdanteil (Datensaetze ohne `<TASK>`) | 20 % | der 500M-Lauf hatte 65 % |
+| Umschrift in Nutzbytes | 0 Funde | sonst lernt das Modell eine Schreibweise, die niemand schreibt |
+| Gemeinsame Datensaetze Training/Held-out | 0 | sonst ist die Held-out-Zahl wertlos |
+
+**Belegt auf echten Daten, nicht im Testaufbau allein:**
+
+| Korpus | Ergebnis |
+|---|---|
+| `out/kontext` (vor der Orthographie-Korrektur) | **Exit 1**, nennt `Stueck` (87x), `faehrt` (87x) |
+| `out/kontext-neu` (nach der Korrektur) | **Exit 0**, „bestanden", 0 gemeinsame Datensaetze |
+
+**Zweites Tor:** `scripts/pod-start.sh` bricht jetzt **vor** dem Training ab, wenn
+`HF_TOKEN` fehlt. Ohne Token bleibt der Checkpoint im Volume - und ein Checkpoint ohne
+Kopie ist keiner.
+
+**Kosten dieser Runde:** 0 $.
+
+**Was das Tor verhindert haette:** der 500M-Lauf waere nicht gestartet worden (Fremdanteil
+65 %). Die 1,64 $ waeren nicht ausgegeben worden, und der Checkpoint waere nie entstanden,
+den man haette loeschen koennen.
+
+**Unsicherheit:** das Tor prueft den Korpus, nicht das Lernvermoegen. Es kann nicht sagen,
+ob ein Lauf nach 800 Schritten etwas gelernt hat - das bleibt der Messung vorbehalten. Es
+verhindert nur den sicher sinnlosen Lauf, nicht den erfolglosen.
