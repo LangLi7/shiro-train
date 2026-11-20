@@ -105,10 +105,14 @@ echo "Korpus: $(ls "$DATEN"/corpus/*.bin | wc -l) Shards"
 
 echo "=== 6. Training ==="
 mkdir -p "$DATEN/ckpt" "$DATEN/logs"
-sed -e "s|steps = .*|steps = ${SCHRITTE}|" \
-    -e "s|dir = .*|dir = \"${DATEN}/corpus\"|" \
-    -e "s|output_dir = .*|output_dir = \"${DATEN}/ckpt\"|" \
-    -e "s|log_dir = .*|log_dir = \"${DATEN}/logs\"|" \
+# Anker (`^`) sind Pflicht, nicht Kosmetik: ohne sie trifft `s|steps = .*|` auch die
+# Zeile `warmup_steps = 300` und ersetzt sie durch den Schrittwert. Mit SCHRITTE=6000
+# wurde daraus `warmup_steps = 6000` - die Warmup-Phase waere halb so lang wie der
+# ganze Lauf gewesen. Gefunden in Runde 317.
+sed -e "s|^steps = .*|steps = ${SCHRITTE}|" \
+    -e "s|^dir = .*|dir = \"${DATEN}/corpus\"|" \
+    -e "s|^output_dir = .*|output_dir = \"${DATEN}/ckpt\"|" \
+    -e "s|^log_dir = .*|log_dir = \"${DATEN}/logs\"|" \
     /work/$KONFIG > "$DATEN/train.toml"
 # Fortsetzen, wenn ein Trainingsstand auf dem Volume liegt.
 #
