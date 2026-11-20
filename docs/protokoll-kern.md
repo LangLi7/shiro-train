@@ -7209,3 +7209,33 @@ Fehlversuch. Sie haette den naechsten Start blockiert, ohne dass jemand sie beme
 
 **Kosten:** 0,03 $ (Kapazitaetspod fuer Inventur und Upload).
 **Speicher:** 7,8 GB auf dem Volume, laut Abrechnung 0,75 $ im Monat.
+
+## Runde 341 — Die sechs Aufgabentypen sind voellig ungleich
+
+**Gemessen, je Typ 20 000 Datensaetze, Ziffern entfernt und gehasht:**
+
+| Typ | Datensaetze | Vorlagen | je Vorlage |
+|---|---|---|---|
+| quant | 20 000 | 14 923 | **1,3** |
+| logik | 20 000 | 11 605 | **1,7** |
+| seq | 20 000 | 452 | 44 |
+| formel | 20 000 | 390 | 51 |
+| algebra | 20 000 | 98 | 204 |
+| kontext | 18 000 | 54 | **333** |
+
+**Was das heisst, und was nicht.** Logik und Quantoren erzeugen fast durchgehend
+einzigartige Datensaetze - dort wiederholt sich nichts, und das Modell kann keine Schablone
+auswendig lernen. Kontext und Algebra wiederholen stark; bei 333 Datensaetzen je Vorlage
+kann ein Modell die Zuordnung von Zahlen zu Antwort **lernen statt zu rechnen**, wenn die
+Zahlen in einem engen Band liegen.
+
+**Der naechste Faktor ist damit nicht "mehr Daten" allein**, sondern Vielfalt dort, wo sie
+fehlt: Kontext (333), Algebra (204), Formel (51), seq (44). Logik und Quantoren brauchen
+nichts.
+
+**Was diese Messung nicht sagt:** ob Wiederholung schaedlich ist. Wiederholung ist auch
+nuetzlich - sie lehrt das **Format**, und ohne Format lernt das Modell keine strukturierten
+Antworten. Entscheidend ist, ob die Zahlen je Vorlage breit genug streuen, dass Rechnen
+noetig bleibt. Das steht als naechste Messung an: die Spannweite der Zahlen je Vorlage.
+
+**Kosten:** 0 $ (lokal gerechnet).
