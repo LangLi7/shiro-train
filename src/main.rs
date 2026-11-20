@@ -26,6 +26,7 @@ use shiro::data::seq;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::einheit;
+use shiro::data::vielfalt;
 use shiro::data::prozent;
 use shiro::data::zahl;
 use shiro::data::folge;
@@ -91,6 +92,7 @@ fn real_main() -> Result<()> {
         Command::GenerateBruch { opts } => cmd_generate_bruch(&opts),
         Command::GenerateProzent { opts } => cmd_generate_prozent(&opts),
         Command::GenerateEinheit { opts } => cmd_generate_einheit(&opts),
+        Command::GenerateVielfalt { opts } => cmd_generate_vielfalt(&opts),
         Command::GenerateRegel { opts } => cmd_generate_regel(&opts),
         Command::GenerateGleichung { opts } => cmd_generate_gleichung(&opts),
         Command::GeneratePotenzen { opts } => cmd_generate_potenzen(&opts),
@@ -1593,6 +1595,63 @@ fn cmd_generate_prozent(opts: &cli::ProzentGenOptions) -> Result<()> {
     println!();
     println!("Trainingsordner: {}", train_dir.display());
     println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Vielfalt statt Wiederholung" (Familie 16, `src/data/vielfalt.rs`).
+///
+/// **Der Gegenversuch zur Vorlagenarmut.** In `regel.rs` wurde gemessen: 400 Datensaetze
+/// mit genau **einer** Vorlage. Wer die kennt, beantwortet alle dreissigtausend, ohne zu
+/// rechnen. Hier ist derselbe Aufgabentyp in **zwanzig Satzbaumustern** je Band - und die
+/// Baender trennen nicht nur die Steigungen, sondern auch die Muster.
+fn cmd_generate_vielfalt(opts: &cli::VielfaltGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = vielfalt::generate(&vielfalt::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Vielfalt statt Wiederholung (Familie 16)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!(
+        "Muster       : {} je Band, Baender getrennt (Training 0-19, Held-out 20-39)",
+        vielfalt::MUSTER_JE_BAND
+    );
+    println!("Baender      : Steigung 2-4 im Training, 5-7 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te =
+        write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "viel-tra")?;
+    let mut tm = Manifest::new(
+        opts.seed,
+        format!("Vielfalt statt Wiederholung - Training ({} Datensaetze)", train_records.len()),
+    );
+    tm.shards.push(te);
+    tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "viel-val")?;
+    let mut vm = Manifest::new(
+        opts.seed,
+        format!("Vielfalt statt Wiederholung - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    vm.shards.push(ve);
+    vm.save(val_dir.join("manifest.json"))?;
+
+    println!("Trainingskorpus: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    println!("Pruefen        : SHIRO_DATA={} shiro validate-data", train_dir.display());
     Ok(())
 }
 

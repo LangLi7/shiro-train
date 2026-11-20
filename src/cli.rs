@@ -119,6 +119,14 @@ pub enum Command {
     GenerateGleichung {
         opts: GleichungGenOptions,
     },
+    /// Korpus 'Vielfalt statt Wiederholung' (Familie 16, `src/data/vielfalt.rs`):
+    /// **derselbe Aufgabentyp in zwanzig Satzbaumustern.** In `regel.rs` gemessen:
+    /// 400 Datensaetze mit genau **einer** Vorlage - wer die kennt, beantwortet alle
+    /// ohne zu rechnen. Hier sind es zwanzig Muster je Band, und die Baender trennen
+    /// nicht nur die Zahlen, sondern auch die Muster.
+    GenerateVielfalt {
+        opts: VielfaltGenOptions,
+    },
     /// Korpus 'Potenzen und Wurzeln' (Familie 14, `src/data/potenzen.rs`):
     /// Potenz, Wurzel und Potenzgesetz - ohne Fliesskommazahl, jede Wurzel geht auf.
     GeneratePotenzen {
@@ -557,6 +565,26 @@ impl Default for EinheitGenOptions {
             records: 512,
             out_dir: PathBuf::from("data/einheit"),
             seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-vielfalt` (Familie 16, `src/data/vielfalt.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VielfaltGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for VielfaltGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/vielfalt"),
+            seed: 4550,
             val_percent: 10,
         }
     }
@@ -1071,6 +1099,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_bruch = false;
     let mut want_prozent = false;
     let mut want_einheit = false;
+    let mut want_vielfalt = false;
     let mut want_regel = false;
     let mut want_gleichung = false;
     let mut want_potenzen = false;
@@ -1191,6 +1220,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-regel" => {
                 want_regel = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-vielfalt" => {
+                want_vielfalt = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1540,6 +1574,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_bruch,
         want_prozent,
         want_einheit,
+        want_vielfalt,
         want_formel,
         want_regel,
         want_gleichung,
@@ -1704,6 +1739,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 val_percent: logic.val_percent,
                 seed: logic.seed,
                 out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/regel")),
+            },
+        };
+    }
+
+    if want_vielfalt {
+        out.command = Command::GenerateVielfalt {
+            opts: VielfaltGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/vielfalt")),
             },
         };
     }
