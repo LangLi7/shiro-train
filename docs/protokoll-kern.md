@@ -6521,3 +6521,81 @@ ist moeglich.
 zusaetzlich von der Lernrate (2,97e-4 bei Schritt 1 000, Warmup 800). Beide Erklaerungen
 sagen denselben ersten Schritt voraus. Getrennt werden sie erst, wenn der neue Korpus bei
 gleicher Lernrate laeuft und der Kollaps bleibt.
+
+## Runde 323 — Der Weg wird bewertet, nicht nur die Antwort
+
+**Kein Faktor geaendert**, der Messapparat wurde gebaut. Anlass: das Ziel verlangt
+Ergebnis **und** ueberpruefbaren Weg; bis dahin wurde nur das Feld `<ANTWORT>` je
+verglichen (`D-036`).
+
+**Vier getrennte Wahrheitswerte je Datensatz** (`src/data/kontext.rs`, `bewerte`):
+
+| Dimension | prueft | faengt ab |
+|---|---|---|
+| `format` | alle vier Marken in der richtigen Reihenfolge | zerfallene Struktur |
+| `entnahme` | jeder als bekannt ausgegebene Wert steht im Aufgabentext | erfundene Zahlen |
+| `weg` | jeder Rechenschritt arithmetisch korrekt, richtige Formel | plausibler, falscher Weg |
+| `konsistenz` | Antwort folgt aus dem letzten Schritt des Wegs | richtig geraten, Weg passt nicht |
+
+**Der Verifier hat drei Fehler im eigenen Generator gefunden**, alle vor dem ersten Lauf:
+
+1. Der Weg nannte die Formel, setzte aber nie Zahlen ein (`4. s = 300` ist eine
+   Zuweisung, keine Rechnung) — nichts war nachpruefbar.
+2. Der Weg rechnete immer die dritte Groesse aus, auch wenn eine andere gefragt war
+   (`s = v * t` beantwortet die Frage nach `v` nicht).
+3. Bei gesuchtem `v` behauptete der Weg, `s` aus dem Text zu entnehmen, obwohl `s` im
+   Aufgabentext gar nicht vorkam. Neun Schablonen nennen jetzt genau die zwei bekannten
+   Werte.
+
+**Die Entnahme wanderte in den Weg.** Vorher stand `Bekannt: v = 100 km/h, t = 3 Stunden`
+im Aufgabentext — dann war der Weg Abschreiben statt Verstehen. Jetzt steht dort nur die
+Situation, und Schritt 1 ist die Entnahme.
+
+**Die Antwort traegt ihre Einheit** (`300 km` statt `300`). Ein blankes `300` zeigt nicht,
+ob die Dimension verstanden wurde; der Vergleich bleibt exakt, weil die ganze Zeichenkette
+verglichen wird.
+
+**Fakten:** 374 Tests gruen; `causal_mask` baut eine volle `seq x seq`-Matrix, die
+Attention vergleicht also bereits alle Paare (`src/model/lm.rs`).
+
+**Hypothese (unveraendert aus Runde 322), noch nicht geprueft:** Mischung von 35 % auf
+ueber 80 % Aufgaben hebt den Held-out-EM von 5 % auf ueber 25 %; Nullhypothese: unter
+12,22 % (Zufall).
+
+**Unsicherheit:** die Entnahme prueft Zahlen, nicht ihre Rolle. Ein Weg, der `v` und `t`
+vertauscht, aber beide Zahlen aus dem Text nennt, besteht `entnahme` und faellt erst ueber
+`antwort` oder `konsistenz`. Die Rollenpruefung braucht einen Einheitenvergleich.
+
+## Runde 324 — Die Kontextfamilie laeuft aus dem CLI
+
+**Kein Faktor geaendert.** Anschlussarbeit: `shiro data generate-kontext --n N --seed S
+--val-percent P --out DIR` schreibt `train/` und `val/` mit Manifesten und trennt am
+**selben Werteband**, das der Generator benutzt — sonst laege ein Teil der Held-out-Aufgaben
+im Training.
+
+**Nachgemessen, nicht behauptet** (200 Datensaetze, Seed 4242):
+
+| Groesse | Wert |
+|---|---|
+| Training | 180 |
+| Held-out | 20 (10 %) |
+| davon `nicht ableitbar` | 21 |
+| Antworten mit Einheit im Trainingsshard | 159 von 180 |
+
+159 + 21 = 180, also traegt jede ableitbare Aufgabe ihre Einheit und jede Luecke ihre
+Klasse. Aus den Bytes gelesen, nicht aus dem Speicher:
+
+```
+Ein Fahrzeug faehrt 58 km/h und braucht dafuer 59 Stunden. Wie weit kommt es?
+1. Aus dem Text: v = 58, t = 59. 2. Gesucht: s. 3. Formel: s = v * t.
+4. Einsetzen: 58 * 59 = 3422.
+3422 km
+```
+
+**Ein Stolperstein, jetzt als Test:** `--records` gehoert zu `gen-sample`, die Generatoren
+nehmen `--n`. Der erste Aufruf erzeugte deshalb 512 statt 200 Datensaetze.
+
+**Kosten:** 0 $. Alles lief lokal.
+
+**Unsicherheit:** die Familie ist noch nicht im Mischungslauf. Der Korpus mit gedrehtem
+Anteil existiert noch nicht.
