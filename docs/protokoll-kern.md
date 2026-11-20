@@ -7150,3 +7150,62 @@ Trainingszeit.
 **Unsicherheit:** ob 18 die richtige Zahl ist. Die Messung entfernt nur Ziffern; zwei
 Vorlagen, die sich in einem Wort unterscheiden, zaehlen als zwei. Die Groessenordnung
 stimmt, die genaue Zahl ist eine Obergrenze der Vielfalt.
+
+## Runde 339 — Von 18 auf 54 Vorlagen
+
+**Der Faktor war die Vielfalt, und sie ist messbar gestiegen.** Drei Formulierungen je
+(Szenario, Gesuchtes)-Paar, also neun Schablonen zu siebenundzwanzig, mit der Lueckenform
+zu **54**.
+
+| Messung | vorher | nachher |
+|---|---|---|
+| verschiedene Vorlagen | 18 | **54** |
+| Datensaetze je Vorlage | 10 000 | **3 333** |
+
+Gleiche Messmethode (Ziffern entfernt, gehasht), also vergleichbar.
+
+**Zwei Fallen, die der Umbau noetig machte:**
+
+1. **Die Reihenfolge der Werte ist bindend.** Jeder Satz setzt zuerst `werte[a]`, dann
+   `werte[b]` ein. Die Indizes stehen deshalb in `indizes()`, getrennt von den Texten, und
+   ein Test haette vertauschte Zahlen gefangen - aber erst nach dem Erzeugen.
+2. **Der Debug-Binary war veraltet.** Die erste Messung nach der Aenderung zeigte wieder
+   18 Vorlagen, weil `cargo test` die Test-Binary baut, nicht das Programm. Erst
+   `cargo build` und die Messung danach zeigten 54. Das ist eine Fehlerquelle, die schon
+   einmal Zeit gekostet hat.
+
+**Kosten:** 0 $.
+
+## Runde 340 — Was in den 8,3 GB steckt, und was davon gesichert war
+
+**Der Befund, mit Belegen aus dem Volume:**
+
+| Pfad | Groesse |
+|---|---|
+| `/workspace/ckpt` | **7,6 G** |
+| `/workspace/bin` | 133 M |
+| `/workspace/corpus` | 27 M |
+| `/workspace/korpus-neu` | 21 M |
+| Rest (Blindtest, Logs, Konfigurationen) | < 1 M |
+| **gesamt** | **7,8 G** (die Oberflaeche zeigt 8,3 GB, also GiB) |
+
+Die 8,3 GB sind also **ein einziger Checkpoint**, kein Sammelsurium: 6,11 GB
+Optimiererzustand (`.state`) und 2,04 GB Gewichte (`.safetensors`). Das Modell selbst hat
+509 Mio. Parameter - 2,04 GB ist genau richtig dafuer.
+
+**Was gesichert war, und was nicht:**
+
+| Datei | Groesse | In HuggingFace |
+|---|---|---|
+| `mix500-korpus-step1000.safetensors` | 2 037 221 000 B | **ja**, 18:58:03Z |
+| `mix500-korpus-step001000.state` | 6 111 578 182 B | **nein gewesen** - jetzt nachgeholt, 19:12:16Z |
+
+Damit war der groessere Teil (75 %) **ungesichert**, und das genau nach der Regel aus
+Runde 330, die eine Kopie vor dem Loeschen verlangt. Beide Quittungen liegen jetzt neben
+den Dateien und nennen Repo, Bytes, sha256 und Zeitpunkt.
+
+**Nebenbei entfernt:** eine alte Marke `/workspace/start-fehler` aus einem frueheren
+Fehlversuch. Sie haette den naechsten Start blockiert, ohne dass jemand sie bemerkt.
+
+**Kosten:** 0,03 $ (Kapazitaetspod fuer Inventur und Upload).
+**Speicher:** 7,8 GB auf dem Volume, laut Abrechnung 0,75 $ im Monat.
