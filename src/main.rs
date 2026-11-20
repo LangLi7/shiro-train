@@ -26,6 +26,11 @@ use shiro::data::seq;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::zahl;
+use shiro::data::folge;
+use shiro::data::geometrie;
+use shiro::data::gleichung;
+use shiro::data::potenzen;
+use shiro::data::regel;
 use shiro::error::Result;
 use shiro::model::tiny::TinyModel;
 use shiro::train::checkpoint_verify;
@@ -82,6 +87,11 @@ fn real_main() -> Result<()> {
         Command::GenerateZahl { opts } => cmd_generate_zahl(&opts),
         Command::GenerateDetektiv { opts } => cmd_generate_detektiv(&opts),
         Command::GenerateBruch { opts } => cmd_generate_bruch(&opts),
+        Command::GenerateRegel { opts } => cmd_generate_regel(&opts),
+        Command::GenerateGleichung { opts } => cmd_generate_gleichung(&opts),
+        Command::GeneratePotenzen { opts } => cmd_generate_potenzen(&opts),
+        Command::GenerateGeometrie { opts } => cmd_generate_geometrie(&opts),
+        Command::GenerateFolge { opts } => cmd_generate_folge(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
             capability,
@@ -1522,6 +1532,197 @@ fn cmd_generate_bruch(opts: &cli::BruchGenOptions) -> Result<()> {
 
     let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "bru-val")?;
     let mut vm = Manifest::new(opts.seed, format!("Bruchrechnung - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Regel anwenden" (Familie 12, `src/data/regel.rs`).
+///
+/// Die Regel steht im Aufgabentext, die Steigung `a` ist zwischen Training und
+/// Held-out **disjunkt**: wer die Zuordnung Aufgabe -> Antwort auswendig gelernt
+/// hat, kann die Held-out-Aufgabe nicht beantworten.
+fn cmd_generate_regel(opts: &cli::RegelGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = regel::generate(&regel::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Regel anwenden (Familie 12)");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : f(x) = a*x + b, Wert an der Stelle x");
+    println!("Baender      : Steigung 2-4 im Training, 5-7 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "regl-tra")?;
+    let mut tm = Manifest::new(opts.seed, format!("Regel anwenden - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "regl-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Regel anwenden - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Gleichungen loesen" (Familie 13, `src/data/gleichung.rs`).
+///
+/// Zwei Typen, beide exakt ganzzahlig: `a*x + b = c` und `a/b = x/d`. Der Weg
+/// traegt die Umformung, nicht nur das Ergebnis.
+fn cmd_generate_gleichung(opts: &cli::GleichungGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = gleichung::generate(&gleichung::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Gleichungen loesen (Familie 13)");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : a*x + b = c (linear), a/b = x/d (Verhaeltnis)");
+    println!("Baender      : Koeffizient a 2-5 im Training, 6-9 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "glg-tra")?;
+    let mut tm = Manifest::new(opts.seed, format!("Gleichungen loesen - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "glg-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Gleichungen loesen - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Potenzen und Wurzeln" (Familie 14, `src/data/potenzen.rs`).
+///
+/// Drei Typen ohne Fliesskommazahl: die Wurzel geht immer auf, das Potenzgesetz
+/// addiert nur die Exponenten.
+fn cmd_generate_potenzen(opts: &cli::PotenzenGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = potenzen::generate(&potenzen::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Potenzen und Wurzeln (Familie 14)");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : a^n, sqrt(q), a^m * a^n");
+    println!("Baender      : Basis 2-5 / Wurzel 2-9 im Training, Basis 6-9 / Wurzel 11-20 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "pot-tra")?;
+    let mut tm = Manifest::new(opts.seed, format!("Potenzen und Wurzeln - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "pot-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Potenzen und Wurzeln - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Geometrie" (`src/data/geometrie.rs`).
+///
+/// Umfang, Flaeche, Kreis und Pythagoras; Pi steht als `314 / 100` im Weg, damit
+/// keine Nachkommastelle vorhergesagt werden muss.
+fn cmd_generate_geometrie(opts: &cli::GeometrieGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = geometrie::generate(&geometrie::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Geometrie");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : Rechteck, Dreieck, Kreis, Pythagoras");
+    println!("Baender      : kleine Zahlenfenster im Training, grosse im Held-out (disjunkt)");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "geo-tra")?;
+    let mut tm = Manifest::new(opts.seed, format!("Geometrie - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "geo-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Geometrie - Held-out ({} Datensaetze)", val_records.len()));
+    vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Folgen" (`src/data/folge.rs`).
+///
+/// Arithmetisch und geometrisch, gesucht ist das n-te Glied, die Differenz oder
+/// der Quotient. Der bandbestimmende Parameter `d` bzw. `q` ist disjunkt.
+fn cmd_generate_folge(opts: &cli::FolgeGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = folge::generate(&folge::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Folgen");
+    println!("Seed         : {}", opts.seed);
+    println!("Umfang       : {} Training, {} Held-out ({} %)", data.train.len(), data.val.len(), opts.val_percent);
+    println!("Arten        : n-tes Glied, Differenz, Quotient");
+    println!("Baender      : d 2-7 / q 2-4 im Training, d 11-20 / q 7-9 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "fol-tra")?;
+    let mut tm = Manifest::new(opts.seed, format!("Folgen - Training ({} Datensaetze)", train_records.len()));
+    tm.shards.push(te); tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "fol-val")?;
+    let mut vm = Manifest::new(opts.seed, format!("Folgen - Held-out ({} Datensaetze)", val_records.len()));
     vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
 
     println!();

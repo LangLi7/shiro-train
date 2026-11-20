@@ -391,7 +391,7 @@ mod tests {
                 }
                 // The nth-term kinds have no three given terms.
                 Kind::ArithmeticNth | Kind::GeometricNth => {
-                    assert_eq!(aufgabe.index > 0, true, "index missing");
+                    assert!(aufgabe.index > 0, "index missing");
                 }
             }
         }

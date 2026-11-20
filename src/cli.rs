@@ -97,6 +97,32 @@ pub enum Command {
     GenerateBruch {
         opts: BruchGenOptions,
     },
+    /// Korpus 'Regel anwenden' (Familie 12, `src/data/regel.rs`):
+    /// die lineare Regel steht im Aufgabentext, die Steigung ist im Held-out
+    /// disjunkt - der Test, ob ein Prinzip gelernt wird statt einer Vorlage.
+    GenerateRegel {
+        opts: RegelGenOptions,
+    },
+    /// Korpus 'Gleichungen loesen' (Familie 13, `src/data/gleichung.rs`):
+    /// Linear- und Verhaeltnisgleichung, Umformung im Weg, exakt ganzzahlig.
+    GenerateGleichung {
+        opts: GleichungGenOptions,
+    },
+    /// Korpus 'Potenzen und Wurzeln' (Familie 14, `src/data/potenzen.rs`):
+    /// Potenz, Wurzel und Potenzgesetz - ohne Fliesskommazahl, jede Wurzel geht auf.
+    GeneratePotenzen {
+        opts: PotenzenGenOptions,
+    },
+    /// Korpus 'Geometrie' (`src/data/geometrie.rs`): Umfang, Flaeche, Kreis und
+    /// Satz des Pythagoras; Pi steht als `314 / 100` im Weg.
+    GenerateGeometrie {
+        opts: GeometrieGenOptions,
+    },
+    /// Korpus 'Folgen' (`src/data/folge.rs`): arithmetische und geometrische
+    /// Folge; gesucht ist das n-te Glied, die Differenz oder der Quotient.
+    GenerateFolge {
+        opts: FolgeGenOptions,
+    },
     GenerateSeq {
         opts: SeqGenOptions,
     },
@@ -485,6 +511,106 @@ impl Default for DetektivGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-regel` (Familie 12, `src/data/regel.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegelGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for RegelGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/regel"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-gleichung` (Familie 13, `src/data/gleichung.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GleichungGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for GleichungGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/gleichung"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-potenzen` (Familie 14, `src/data/potenzen.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PotenzenGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for PotenzenGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/potenzen"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-geometrie` (`src/data/geometrie.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeometrieGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for GeometrieGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/geometrie"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-folge` (`src/data/folge.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FolgeGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for FolgeGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/folge"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 /// Optionen fuer `shiro data generate-formel` (Mathematik-Stufe **A2/A3** nach
 /// **D-030**).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -631,6 +757,17 @@ SUBKOMANDOS:
     data generate-formel  Korpus \"Formel-Verstaendnis und Funktion\" erzeugen
                           (D-030 Stufen A2/A3: Punkt/Mittelpunkt, Steigung,
                           \"liegt P auf der Geraden?\")
+    data generate-regel   Korpus \"Regel anwenden\" erzeugen (Familie 12: die Regel
+                          steht im Aufgabentext, die Steigung ist im Held-out
+                          disjunkt - Prinzip statt Vorlage)
+    data generate-gleichung  Korpus \"Gleichungen loesen\" erzeugen (Familie 13:
+                          Linear- und Verhaeltnisgleichung, Umformung im Weg)
+    data generate-potenzen  Korpus \"Potenzen und Wurzeln\" erzeugen (Familie 14:
+                          Potenz, Wurzel und Potenzgesetz, ohne Fliesskomma)
+    data generate-geometrie  Korpus \"Geometrie\" erzeugen (Umfang, Flaeche, Kreis,
+                          Satz des Pythagoras; Pi als 314 / 100)
+    data generate-folge   Korpus \"Folgen\" erzeugen (arithmetisch und geometrisch:
+                          n-tes Glied, Differenz, Quotient)
     data combine          mehrere Familien in EIN Manifest legen (n5, D-051):
                           --src <ordner> je Quelle (mindestens ZWEI), --out <ziel>
                           --antwortform <absolut|delta> setzt die Antwortform des
@@ -690,6 +827,36 @@ OPTIONEN FUER data generate-seq:
 OPTIONEN FUER data generate-formel:
     --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
     --out <PFAD>          Zielordner (Standard: data/formel)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-regel:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/regel)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-gleichung:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/gleichung)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-potenzen:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/potenzen)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-geometrie:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/geometrie)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-folge:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/folge)
     --seed <N>            Seed (Standard: 1337)
     --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
 
@@ -806,6 +973,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_zahl = false;
     let mut want_detektiv = false;
     let mut want_bruch = false;
+    let mut want_regel = false;
+    let mut want_gleichung = false;
+    let mut want_potenzen = false;
+    let mut want_geometrie = false;
+    let mut want_folge = false;
     let mut want_formel = false;
     let mut want_games = false;
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
@@ -906,6 +1078,31 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-bruch" => {
                 want_bruch = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-regel" => {
+                want_regel = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-gleichung" => {
+                want_gleichung = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-potenzen" => {
+                want_potenzen = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-geometrie" => {
+                want_geometrie = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-folge" => {
+                want_folge = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1234,6 +1431,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_detektiv,
         want_bruch,
         want_formel,
+        want_regel,
+        want_gleichung,
+        want_potenzen,
+        want_geometrie,
+        want_folge,
     ]
     .iter()
     .filter(|w| **w)
@@ -1381,6 +1583,61 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out_dir: out_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/detektiv")),
+            },
+        };
+    }
+
+    if want_regel {
+        out.command = Command::GenerateRegel {
+            opts: RegelGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/regel")),
+            },
+        };
+    }
+
+    if want_gleichung {
+        out.command = Command::GenerateGleichung {
+            opts: GleichungGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/gleichung")),
+            },
+        };
+    }
+
+    if want_potenzen {
+        out.command = Command::GeneratePotenzen {
+            opts: PotenzenGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/potenzen")),
+            },
+        };
+    }
+
+    if want_geometrie {
+        out.command = Command::GenerateGeometrie {
+            opts: GeometrieGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/geometrie")),
+            },
+        };
+    }
+
+    if want_folge {
+        out.command = Command::GenerateFolge {
+            opts: FolgeGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/folge")),
             },
         };
     }
