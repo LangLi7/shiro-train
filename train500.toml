@@ -1,0 +1,49 @@
+# 500M-Lauf: gleiche Daten wie der 113M-Lauf (mix77), gleicher Seed, mehr Kapazitaet.
+#
+# Ein Faktor gegenueber train100.toml: die Modellgroesse. Daten, Schritte in Token
+# und Seed bleiben gleich, damit die Messung zurechenbar ist.
+#
+# Batch 16 statt 32: 32 Layer mit 1280 Dimensionen erzeugen bei 32 x 1024 Token
+# etwa 50 GB Aktivierungen; mit 16 bleibt es bei rund 27 GB und passt sicher auf
+# eine 80-GB-Karte. Die halbe Batch-Groesse wird durch doppelte Schritte
+# ausgeglichen (6000 x 16 x 1024 = 98,3 Mio Token, wie beim 113M-Lauf).
+
+[run]
+name = "mix500"
+seed = 53013
+steps = 6000
+log_every = 100
+checkpoint_every = 1000
+output_dir = "/data/ckpt"
+log_dir = "/data/logs"
+
+[data]
+dir = "/data/corpus"
+manifest = "manifest.json"
+batch_size = 16
+seq_len = 1024
+shuffle = false
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 300
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"

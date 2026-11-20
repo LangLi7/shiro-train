@@ -6,6 +6,9 @@ set -euo pipefail
 
 KORPUS="${1:-mix77}"
 SCHRITTE="${2:-3000}"
+# Welche Modellkonfiguration trainiert wird. Der 500M-Lauf nutzt dieselben Daten
+# und denselben Seed wie der 113M-Lauf; geaendert wird nur die Modellgroesse.
+KONFIG="${POD_CONFIG:-train100.toml}"
 DATEN="${DATEN:-/workspace}"
 export DEBIAN_FRONTEND=noninteractive
 export PATH=/root/.cargo/bin:/usr/local/cuda/bin:$PATH
@@ -53,8 +56,8 @@ sed -e "s|steps = .*|steps = ${SCHRITTE}|" \
     -e "s|dir = .*|dir = \"${DATEN}/corpus\"|" \
     -e "s|output_dir = .*|output_dir = \"${DATEN}/ckpt\"|" \
     -e "s|log_dir = .*|log_dir = \"${DATEN}/logs\"|" \
-    /work/train100.toml > "$DATEN/train.toml"
-/work/target/release/shiro train --config "$DATEN/train.toml" --backend cuda
+    /work/$KONFIG > "$DATEN/train.toml"
+"${CARGO_TARGET_DIR:-/workspace/target}/release/shiro" train --config "$DATEN/train.toml" --backend cuda
 
 echo "=== 7. Modell nach HuggingFace ==="
 ls -la "$DATEN/ckpt"
@@ -84,6 +87,7 @@ else
 fi
 
 echo "=== fertig ==="
+
 
 
 
