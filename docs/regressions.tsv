@@ -140,3 +140,5 @@ Zeit	Checkpoint	Familie	n	Aufgabe	Weg	Antwort
 2026-11-20 04:41	Logik-SeedA-nicht-konvergiert	40	0	15	27.5
 2026-11-20 05:13	Urteil-SeedA-1000	50	68	82	100
 2026-11-20 05:44	Urteil-SeedB-1000	50	52	74	100
+2026-11-20 06:24	mix74-Urteil-EXPLIZIT-1000	50	64	86	100
+2026-11-20 06:24	mix74-Addition-HELD-OUT	30	100	100	100

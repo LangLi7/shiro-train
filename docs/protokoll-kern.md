@@ -5367,3 +5367,36 @@ Verifizierer (`dreiteilig.ps1`) hat den Fehler nicht** — er vergleicht den gan
 **Was helfen koennte:** die beiden Grenzfaelle im Training **stärker trennen** — zum Beispiel die
 Begruendung mitliefern („0 = 6, also fuer kein x: widerlegt" gegen „0 = 0, also jedes x: nicht
 ableitbar"). Die Beispiele sind da; sie sind nur nicht deutlich genug unterschieden.
+
+## Runde 295 — Explizite Begruendung: 86 Prozent (im oberen Bereich, nicht darueber)
+
+**Die Hypothese aus Runde 294:** die Grenze zwischen „widerlegt" und „nicht ableitbar" wird klarer,
+wenn der Weg sie benennt:
+
+```
+alt : 2x - 2x = 14 - 7, also 0 = 7. Falsch fuer jedes x.            = widerlegt
+neu : ... also 0 = 7. 0 = 7: fuer KEIN x wahr, also widerlegt.
+alt : 2x - 2x = 10 - 10, also 0 = 0. Jedes x erfuellt die Gleichung. = nicht ableitbar
+neu : ... also 0 = 0. 0 = 0: fuer JEDES x wahr, also nicht ableitbar.
+```
+
+**Der Korpus `mix74`:** 12 000 Urteils-Records, davon **5 839 mit explizitem Weg** (49 Prozent),
+plus `mix46` ohne Gleichungs-Shard. Gesamt 51 361.
+
+| Lauf | Antwort | Klasse |
+|---|---|---|
+| `mix68` (Original) | 90 | 100 |
+| `urteilA` | 82 | 100 |
+| `urteilB` | 74 | 100 |
+| **`mix74` (explizit)** | **86** | **100** |
+
+**86 liegt im oberen Bereich der Streuung (74–90), aber nicht darueber.** Bei einem Lauf ist das
+**kein Beweis** — der naechste Schritt waeren zwei weitere Seeds mit demselben Korpus.
+
+**Die Addition haelt bei 100** — wieder.
+
+**Ein Werkzeugfund:** mein Auswertungsskript fuer die Verwechslungsmatrix liest die Antwort falsch
+(es findet `<ANTWORT>` nicht und nimmt Zahlen aus dem Weg). **Die Einzelausgaben zeigen die
+richtigen Antworten** (`nicht ableitbar`, `bewiesen`, `widerlegt`), die Matrix sagt 16 Prozent.
+**Der Verifizierer ist die Referenz, nicht mein Skript.** Das Skript wird nicht weiter verwendet,
+bis es geprueft ist.
