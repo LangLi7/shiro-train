@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use crate::checkpoint::{Checkpoint, checkpoint_file};
 use crate::config::TrainConfig;
-use crate::data::loader::Dataset;
+use crate::data::loader::{Batch, Dataset};
 use crate::error::Result;
 use crate::logging::{Event, JsonlLogger, StepRecord};
 use crate::model::ops;
@@ -140,6 +140,30 @@ pub fn byte_start(cfg: &TrainConfig, step: usize, stream_len: usize) -> usize {
     (z as usize) % stream_len
 }
 
+/// Der Batch fuer einen Schritt, nach der in `data.pack` gewaehlten Aufteilung.
+///
+/// Bewusst **eine** Funktion fuer beide Schleifen (`run` und `run_real`): die Auswahl
+/// stand vorher zweimal im Code, und in Runde 320 wurde nur eine der beiden Stellen
+/// umgestellt. Der Lauf auf der A100 rechnete deshalb weiter mit aufgefuellten Zeilen,
+/// obwohl `pack = true` in der Konfiguration stand — messbar daran, dass `bytes` bei
+/// 162 blieb statt auf 6 138 zu steigen.
+fn step_batch(cfg: &TrainConfig, ds: &Dataset, step: usize) -> Batch {
+    if cfg.data.pack {
+        ds.packed_batch(
+            byte_start(cfg, step, ds.stream_len()),
+            cfg.data.batch_size,
+            cfg.data.seq_len,
+        )
+    } else {
+        ds.batch(
+            batch_start(cfg, step, ds.total_records()),
+            cfg.data.batch_size,
+            cfg.data.seq_len,
+            0,
+        )
+    }
+}
+
 /// Fuehrt einen Trainingslauf aus und schreibt Checkpoints + Log.
 pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
     let started = Instant::now();
@@ -180,20 +204,7 @@ pub fn run(cfg: &TrainConfig, config_path: &str) -> Result<RunReport> {
         // Zwei Aufteilungen: die alte (ein Datensatz je Zeile, Rest aufgefuellt) und die
         // gepackte (durchgehender Strom, Zeilen voll). `data.pack` entscheidet; die
         // Vorgabe bleibt die alte, damit frueher gemessene Laeufe vergleichbar bleiben.
-        let batch = if cfg.data.pack {
-            ds.packed_batch(
-                byte_start(cfg, step, ds.stream_len()),
-                cfg.data.batch_size,
-                cfg.data.seq_len,
-            )
-        } else {
-            ds.batch(
-                batch_start(cfg, step, ds.total_records()),
-                cfg.data.batch_size,
-                cfg.data.seq_len,
-                0,
-            )
-        };
+        let batch = step_batch(cfg, &ds, step);
         let lr = learning_rate(cfg, step);
         let (loss, positions) = model.train_step(&batch, lr);
 
@@ -363,12 +374,7 @@ pub fn run_real(
         let global = start_step + step;
         let step_done = global + 1;
         let step_started = Instant::now();
-        let batch = ds.batch(
-            batch_start(cfg, global, ds.total_records()),
-            cfg.data.batch_size,
-            cfg.data.seq_len,
-            0,
-        );
+        let batch = step_batch(cfg, &ds, global);
         let lr = learning_rate_over(cfg, global, start_step + cfg.run.steps) as f64;
         let out = trainer.train_step(&batch, lr)?;
 

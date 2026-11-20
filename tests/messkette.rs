@@ -1045,3 +1045,36 @@ fn real_run_resumes_to_the_same_result() {
         let _ = std::fs::remove_dir_all(d);
     }
 }
+
+/// `pack = true` muss im **echten** Pfad ankommen.
+///
+/// Runde 320: die Batch-Auswahl stand zweimal im Code (`run` und `run_real`), und nur
+/// eine der beiden Stellen wurde umgestellt. Der Lauf auf der A100 meldete deshalb
+/// weiter 162 Zielbytes je Schritt statt 6 138, obwohl `pack = true` in der
+/// Konfiguration stand - das kostete eine A100-Stunde ohne Nutzen.
+///
+/// Dieser Test haengt an derselben Funktion, die das Subkommando `shiro train` aufruft,
+/// und prueft die Zahl der Zielbytes direkt am Bericht.
+#[test]
+fn packed_run_carries_a_full_row_per_step() {
+    let (data_dir, _manifest) = make_dataset("run-packed-daten", 64, 4242);
+    let out_dir = temp_dir("run-packed-out");
+    let log_dir = temp_dir("run-packed-log");
+    let mut cfg = real_train_config(&data_dir, &out_dir, &log_dir);
+    cfg.data.pack = true;
+
+    let report = trainer::run_real(&cfg, "tests/messkette.rs", None).expect("gepackter Lauf");
+
+    // Jede Zeile traegt seq_len - 1 Ziele; die letzte Position hat keines in der Zeile.
+    let erwartet = (cfg.run.steps * cfg.data.batch_size * (cfg.data.seq_len - 1)) as u64;
+    assert_eq!(
+        report.total_bytes, erwartet,
+        "gepackter Lauf muss je Zeile {} Ziele tragen",
+        cfg.data.seq_len - 1
+    );
+
+    let _ = std::fs::remove_dir_all(&data_dir);
+    for d in [&out_dir, &log_dir] {
+        let _ = std::fs::remove_dir_all(d);
+    }
+}
