@@ -6599,3 +6599,55 @@ nehmen `--n`. Der erste Aufruf erzeugte deshalb 512 statt 200 Datensaetze.
 
 **Unsicherheit:** die Familie ist noch nicht im Mischungslauf. Der Korpus mit gedrehtem
 Anteil existiert noch nicht.
+
+## Runde 325 — Echte deutsche Orthographie statt Umschrift
+
+**Kein Trainingsfaktor geaendert**, ein Datenformat korrigiert. Anlass: die Vorlagen
+schrieben `faehrt`, `Stueck`, `fuer`.
+
+**Fakt:** ein Byte-Modell mit Vokabular 256 hat mit Umlauten kein Problem. `ä` ist
+`0xC3 0xA4`, also gueltiges UTF-8, und kollidiert mit keiner Marke — die beginnen bei
+`0xFA`. `is_forbidden` laesst `0xC3` zu; der neue Test belegt es, statt es anzunehmen.
+
+**Warum das jetzt und nicht spaeter:** eine Umschrift zwingt das Modell, jede deutsche
+Vokabel in einer Schreibweise zu lernen, die niemand schreibt. Ein Wechsel spaeter macht
+jedes betroffene Wort zu einer **neuen Bytefolge**, die neu gelernt werden muss. Vor dem
+ersten Trainingsschritt kostet die Korrektur nichts.
+
+**Aenderung:** 18 Satzschablonen und drei Einheiten (`Stück` statt `Stueck`).
+
+**Der Test nagelt den Zustand fest** (`records_are_valid_utf8_and_use_real_german_orthography`):
+die Nutzbytes jedes Datensatzes muessen gueltiges UTF-8 sein, mehr als die Haelfte muss
+wirklich einen Umlaut tragen, und die vier Umschrift-Formen duerfen nicht zurueckkehren.
+
+**Folge fuer den Plan, und das ist die eigentliche Konsequenz:** der bestehende Korpus
+`mix77` ist in seinen Aufgabenfamilien **durchgehend ASCII** und damit ueberholt. Er laesst
+sich nicht umgewichten, er muss mit dem neuen Binaer neu erzeugt werden. Die Hypothese aus
+Runde 322 bleibt gueltig, ihre Umsetzung aendert sich: nicht "alte Shards anders mischen",
+sondern "neuen Korpus mit echten Umlauten bauen, Textanteil klein halten".
+
+Damit ist der alte Korpus auch in sich inkonsistent: der Podcast-Text darin ist echte
+Orthographie, die Aufgabenfamilien sind Umschrift. Zwei Schreibweisen in einem Korpus sind
+genau das, was ein Byte-Modell nicht lernen soll.
+
+**Kosten:** 0,00 $ lokal. Ein CPU-Pod wurde gestartet und ohne Arbeit wieder geloescht
+(rund 0,004 $); er waere fuer den alten Korpus gedacht gewesen, der jetzt ohnehin ersetzt
+wird.
+
+**Unsicherheit, inzwischen beantwortet:** ob die Umschrift in den uebrigen Familien
+ebenfalls steckt. Sie steckt dort, und zwar im **sichtbaren Text der Datensaetze**, nicht
+nur in Kommentaren:
+
+| Datei | Beispiel aus einem Datensatz |
+|---|---|
+| `games.rs` | `2. Schritte 1 bis {} sind moeglich.` |
+| `quant.rs` | `fuer alle {}: {}` |
+| `formel.rs` | `Welche Werte hat f(x) fuer die Eingaben?` |
+| `seqgen.rs` | Kategorie `naechste` |
+| `logic.rs` | `Also ist das naechste Glied {next}.` |
+
+Damit ist die Korrektur **nicht** mit der Kontextfamilie erledigt. Sie ist eine
+Entscheidung ueber den ganzen Korpus und muss als eigene Runde laufen: alle Familien
+umstellen, dann einen gemeinsamen Test ueber alle Generatoren legen, der Umschrift-Formen
+in Nutzbytes ablehnt. Sonst bleibt der Korpus zweisprachig geschrieben — echte Orthographie
+im Podcast-Text, Umschrift in den Aufgaben.
