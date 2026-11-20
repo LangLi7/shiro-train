@@ -5830,3 +5830,30 @@ mehr Training** — und beides kostet Geld, das nicht da ist.
 **Was das erklaert, rueckblickend:** die „Interferenz" bei den Paraphrasen (Runde 273), das
 Absinken der zweistelligen Addition im dreistelligen Lauf (86,7), und jetzt 80. **Es ist immer
 derselbe Mechanismus: das Budget reicht fuer eine Familie, nicht fuer zwei.**
+
+## Runde 307 — Der lange Lauf: dritter Anlauf, und was ihn immer wieder killt
+
+**Die Hypothese (Runde 306):** mehr Training (5 000 statt 2 000 Schritte) laesst Multiplikation und
+Addition nebeneinander bestehen.
+
+**Drei Anlaeufe, drei Tode:**
+
+| Anlauf | Was passierte |
+|---|---|
+| 1 | Checkpoint 32000 geschrieben, Prozess verschwunden |
+| 2 | **zwei Prozesse gleichzeitig** (8,1 GB + 7,6 GB) -> RAM 99,2 Prozent |
+| 3 | laeuft (Schritt 32 400 von 35 000) |
+
+**Der zweite Anlauf ist der lehrreiche:** ich hatte den alten Prozess mit `Stop-Process` auf eine
+PID beendet — **die PID war falsch, der alte Prozess lief weiter** und der neue kam dazu. **99,2
+Prozent RAM.**
+
+> **Ab jetzt: `taskkill /F /IM shiro.exe` vor jedem Start. Nicht `Stop-Process` auf eine
+> angenommene PID.**
+
+**Das ist zum vierten Mal derselbe Fehler in dieser Sitzung** (Runde 283, 287, 307). Die erste
+Version war ein Prozess, der am Tool-Job hing; die zweite ein Task, der neue startete; die dritte
+ein Checkpoint, der nicht ueberschrieben werden konnte; die vierte eine falsche PID. **Jedes Mal
+war die Ursache ein Werkzeug, nicht das Modell.**
+
+**Der Lauf braucht 45 Minuten** — laenger als eine Runde. Er wird in der naechsten Runde gemessen.
