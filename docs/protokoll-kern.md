@@ -5070,3 +5070,33 @@ voran, weil das System swappte. **Der Log zeigte keinen einzigen Schritt.**
 
 **Ab jetzt:** ein Lauf, RAM-Beobachtung, und nach 10 Minuten ohne `step` im Log wird abgebrochen
 statt gewartet.
+
+## Runde 284 — Kurze Dezimalzahlen: 15 statt 3,3 Prozent
+
+**Die Hypothese aus Runde 282:** die Bruch-Familie scheitert an der Laenge der Ziffernfolge. Also
+dieselbe Familie mit **1-3 Nachkommastellen** statt 2-6.
+
+| Variante | Ziffern | Weg | Antwort | Klasse |
+|---|---|---|---|---|
+| Bruch, lang (2–6 Stellen) | 5–8 | 3,3 | **3,3** | 96,7 |
+| **Bruch, kurz (1–3 Stellen)** | **3–5** | **15** | **15** | 97,5 |
+| Addition (2–3 Stellen) | 2–3 | 100 | **100** | 100 |
+
+**Die Hypothese ist bestaetigt, aber sie reicht nicht.** Kurze Ziffernfolgen sind **viermal**
+besser als lange — aber 15 Prozent sind weit von 90 entfernt.
+
+**Was das einordnet:** die Bruch-Familie verlangt **mehr** als die Addition, obwohl die Ziffern
+kurz sind:
+
+1. **Dezimalstelle zaehlen** (1–3),
+2. **in Zehnerpotenz umrechnen** (`3.54` -> `354/100`),
+3. **ggT finden** (2, 20, 1 …),
+4. **kuerzen** (`354/100` -> `177/50`).
+
+**Vier Schritte, davon einer (der ggT) ein Suchen ist.** Die Addition hat zwei Schritte. Damit
+ordnet sich die Bruch-Familie dort ein, wo Logik (62,5) und Urteil (90) stehen: **mehrstufig.**
+
+**Die geschuetzte Addition haelt bei 100** — auch nach 4 000 Bruch-Records im Korpus.
+
+**Der Lauf geht bis 3 000 Schritte.** Bei 1 500 waren es 15 Prozent; ob 3 000 etwas aendert, ist
+offen — bei der Addition und beim Urteil hat mehr Training geholfen, bei der Logik nicht.
