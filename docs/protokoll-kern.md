@@ -6244,3 +6244,210 @@ er wurde nicht abgewartet, weil selbst 4 s/Schritt noch 18 h und 39 $ bedeuten.
 einem **gemessenen Kurzlauf**, nicht aus FLOPs. Der Rahmen aus Runde 315 (7–14 h, 10–19 $)
 lag um Faktor 2 bis 4 daneben, weil er nur GPU-Rechenzeit ansetzte und die Hostarbeit
 ueber 509 Mio Werte je Schritt nicht kannte.
+
+## Runde 318 — AdamW auf dem Geraet: Faktor 3,57, gemessen
+
+**Ein Faktor geaendert:** der Optimiererpfad. `m` und `v` liegen jetzt als Geraetetensoren
+neben den Parametern (ein Tensor je Parameter, Reihenfolge wie `Lm::flat_params`), der
+AdamW-Schritt rechnet auf der Karte, und der Host liest je Schritt nur noch den Loss.
+Daten, Seed, Modellgroesse, Batch, Sequenzlaenge und Schrittzahl sind **unveraendert**
+(Batch 6, seq 1024, 16 000 Schritte, Seed 53013) — sonst waere der Vorher-Nachher-Vergleich
+nicht zulaessig.
+
+**Fakten, gleiche Konfiguration, beide Zahlen gemessen**
+
+| Messgroesse | Runde 317 | Runde 318 |
+|---|---|---|
+| Zeit je Schritt | 5 523,6 ms | **1 545,5 ms** |
+| Nutzbare Token/s | 976 | **3 488** |
+| GPU-Auslastung | 15–48 % | **100 %** |
+| Leistungsaufnahme | 90–316 W | 313–350 W |
+| Laufzeit 16 000 Schritte | 24,5 h | **6,86 h** |
+| Kosten bei 2,19 $/h | 53,60 $ | **15,02 $** |
+| Loss bei Schritt 25 | 4,056296 | **4,0539203** |
+
+Der Loss bei Schritt 25 weicht um 0,06 % ab. Das ist Gleitkomma-Reihenfolge (andere
+Kernel-Fusion), keine Logikanderung: dieselbe Formel, derselbe Seed, dieselben Daten.
+
+**Die Hypothese aus Runde 317, jetzt geprueft**
+
+> Erwartet: unter 600 ms (Faktor 9). Nullhypothese: unter Faktor 3.
+
+**Eingetreten ist Faktor 3,57.** Damit ist die Nullhypothese verworfen und die Zielmarke
+verfehlt. Der Grund ist messbar: bei 100 % Auslastung und 1 545,5 ms je Schritt rechnet die
+A100 jetzt 6 · 509 298 176 · 6 144 / 1,5455 s = **12,2 TFLOPS**, das sind 62 % der
+fp32-Spitze von 19,5 TFLOPS. Der Lauf ist damit **rechengebunden, nicht mehr host-gebunden**.
+Der naechste Hebel ist deshalb nicht der Optimierer, sondern die Rechenbreite (bf16) —
+`burn-0.22` hat aber keinen Autocast, das waere ein eigener Umbau am Forward-Pfad.
+
+**Checkpoint-Entscheidung:** der Lauf laeuft weiter (Pod `nnt3swxpsu3awt`, 2,19 $/h).
+Uebernommen wird ein Checkpoint nur, wenn die Auswertung aus Runde 319 die Zielwerte
+erreicht; die Regel bleibt wie in Runde 315 festgelegt.
+
+**Offene Beobachtung, noch nicht untersucht:** das Feld `bytes` (gueltige Zielpositionen je
+Schritt) schwankt extrem — 5 393, dann 927, dann 162 von 6 144 Moeglichkeiten. Bei 162
+trainiert der Schritt auf 2,6 % der Positionen. Das ist auffaellig und wird geprueft, bevor
+aus diesem Lauf eine Faehigkeitsaussage abgeleitet wird.
+
+**Unsicherheit:** 74–80 GB von 80 GB sind belegt. Der Geräte-Zustand hat den Puffer
+aufgebraucht; ein OOM mitten im Lauf ist moeglich. Abgesichert ist er nur durch
+`checkpoint_every = 1000` (rund 26 min Verlust) und den geprueften `--resume`-Pfad.
+
+## Runde 319 — Der Loader packt nicht: 41,8 % der Positionen sind Fuellbytes
+
+**Anlass:** die offene Beobachtung aus Runde 318 (schwankendes `bytes`). Sie ist aufgeloest,
+und das Ergebnis ist unangenehmer als der Optimierer befund.
+
+**Fakten, gemessen ueber die fuenf geloggten Intervalle des Laufs aus Runde 318 (125 Schritte)**
+
+| Messgroesse | Wert |
+|---|---|
+| Gueltige Zielpositionen im Mittel | **2 571 von 6 144 = 41,8 %** |
+| Minimum eines Schritts | 162 (2,6 %) |
+| Maximum eines Schritts | 5 394 (87,8 %) |
+| Fuellbytes im Mittel | **58,2 %** |
+
+**Die Ursache, im Code**
+
+`Dataset::batch` (`src/data/loader.rs` Z. 166–218) legt **einen** Datensatz je Zeile ab:
+
+- `b = r % batch_size`, `off = ((r - base) / batch_size) * seq_len` — fuer den ersten Block ist
+  `off` immer 0,
+- `n = rest.min(seq_len)` — der Satz wird auf `seq_len` **gekuerzt**,
+- der Rest der Zeile bleibt `pad`.
+
+Zwei Folgen: kurze Saetze lassen den Grossteil der Zeile ungenutzt, und Saetze **ueber**
+`seq_len` werden abgeschnitten. `MAX_RECORD_LEN` ist **4 096**, `seq_len` ist **1 024** — bei
+langen Aufgaben faellt also genau das Ende weg, an dem `ANTWORT` und `ENDE` stehen.
+
+**Ruecknahme einer eigenen Aussage.** Ich hatte geschrieben, der Loader *packe*, weil ein
+einzelner Schritt 87,8 % zeigte, und damit einen Hinweis als widerlegt bezeichnet. Das war
+falsch: 87,8 % ist das **Maximum** der Verteilung, nicht der Mittelwert. Der Hinweis war
+richtig, meine Gegenprobe bestand aus einem Stichprobenwert.
+
+**Was das fuer die Wirtschaftlichkeit heisst**
+
+16 000 Schritte x 6 144 Positionen = 98,3 Mio Positionen, davon rund **41,1 Mio echte
+Zielbytes**. Die 15,02 $ aus Runde 318 kaufen also 41 Mio Token Training, nicht 98 Mio.
+Packen wuerde denselben Betrag in 98,3 Mio echte Token verwandeln — Faktor 2,4 beim Nutzen,
+bei gleicher Rechenzeit.
+
+**Entscheidung:** Lauf gestoppt (kein Checkpoint erreicht, Schritt 125 von 16 000), Pod
+`nnt3swxpsu3awt` auf EXITED. Der naechste Faktor ist der Loader, nicht die Karte und nicht der
+Optimierer.
+
+**Hypothese fuer Runde 320, vor dem Lauf festgelegt**
+
+> Wird der Korpus als durchgehender Strom gelesen (Zeilen voll, keine Kuerzung), steigt der
+> Anteil gueltiger Zielpositionen von 41,8 % auf ueber 99 %, und der Loss bei gleicher
+> Schrittzahl sinkt staerker als in Runde 318 (dort 4,0563 -> 2,0275 ueber 100 Schritte).
+> Nullhypothese: der Anteil bleibt unter 95 % — dann liegt es nicht an der Zeilenfuellung.
+
+**Unsicherheit:** ob gepackte Zeilen die Aufgabenqualitaet verschlechtern, weil Ziele ueber
+Satzgrenzen hinweg vorhergesagt werden. Das ist bei Byte-Modellen ueblich, aber fuer diese
+Korpora ungemessen; der Anteil der Grenzpositionen ist 1 von 1 024 je Zeile.
+
+## Runde 320 — Zeilen packing: Auslastung 41,8 % → 99,9 %, und ein eigener Fehler
+
+**Ein Faktor geaendert:** die Zeilenfuellung (`data.pack`). Der Korpus wird als
+durchgehender Byte-Strom gelesen; Zeile `b` beginnt bei `start + b * seq_len`. Kein
+Datensatz wird mehr gekuerzt.
+
+**Die Hypothese aus Runde 319, jetzt geprueft**
+
+> Erwartet: Anteil gueltiger Zielpositionen von 41,8 % auf ueber 99 %. Nullhypothese: unter 95 %.
+
+**Eingetreten: 6 138 von 6 144 = 99,90 %.** Die Nullhypothese ist verworfen.
+
+**Der zweite Teil der Hypothese ist NICHT bestaetigt — und war falsch gestellt.** Ich hatte
+zusaetzlich erwartet, der Loss sinke bei gleicher Schrittzahl staerker. Gemessen:
+
+| Schritt | ohne Packen (Runde 318) | mit Packen (Runde 320) |
+|---|---|---|
+| 100 | 2,0275 | 3,0666 |
+| 200 | — | 2,8074 |
+| 400 | — | 2,1511 |
+| 600 | — | 1,6680 |
+
+Der Loss liegt mit Packen **hoeher**, und das ist kein Rueckschritt: die Schritte enthalten
+verschiedene Bytes. Ohne Packen sah ein Schritt sechs Datensaetze mit Fuellbytes, mit Packen
+6 144 zusammenhaengende Bytes aus rund 13 Datensaetzen. Zwei Loss-Werte auf verschiedenem
+Inhalt sind nicht vergleichbar. **Die Loss-Spalte taugt hier nicht als Beweis** — nur die
+Auslastung und die spaetere Auswertung auf Held-out.
+
+**Ein Fehler, der eine A100-Stunde gekostet hat**
+
+Die Batch-Auswahl stand **zweimal** im Code: in `run` (Platzhalterpfad) und in `run_real`
+(der Pfad, den `shiro train --backend cuda` nimmt). Ich hatte nur `run` umgestellt. Der Lauf
+auf der A100 meldete deshalb weiter **162** Zielbytes je Schritt, obwohl `pack = true` in der
+Konfiguration stand — und Binary wie Konfiguration waren nachweislich korrekt, was die Suche
+zunaechst in die falsche Richtung lenkte.
+
+Gefunden wurde es an der Zahl selbst: 162 war genau der Wert des Laufs **ohne** Packen.
+Behoben mit `step_batch` als einziger Auswahlstelle, plus Regressionstest
+(`packed_run_carries_a_full_row_per_step`), der `run_real` mit `pack = true` faehrt und
+`total_bytes = Schritte x Batch x (seq_len - 1)` prueft.
+
+**Kosten dieses Fehlers:** ein A100-Lauf von rund 5 Minuten (0,18 $) und ein zusaetzlicher
+CPU-Build (0,10 $). Die Lehre steht schon in Runde 316 und hat wieder gegolten: **nach jeder
+Aenderung an der Datenzufuhr die Zahl im Log pruefen, nicht die Konfigurationsdatei.**
+
+**Unsicherheit:** ob das Packen die Aufgabenqualitaet veraendert, entscheidet erst die
+Auswertung auf Held-out. Der Anteil der Grenzpositionen (Ziel ueber eine Satzgrenze hinweg)
+ist 1 von 1 024 je Zeile.
+
+## Runde 321 — Erste Ausgangslage: Held-out-EM 5,0 %
+
+**Kein Faktor geaendert.** Dies ist die Messung aus Schritt (2) des Loops, zum ersten Mal
+auf einem echten 500M-Checkpoint.
+
+**Anordnung:** `mix500-step1000.safetensors` (Schritt 1 000 von 16 000 = 6,3 % des Budgets),
+Modus `m1` (Denkweg und Antwort frei erzeugt), 20 Datensaetze aus dem **nie trainierten**
+Logik-Korpus (Seed 771113, 2 000 Datensaetze, disjunkt zu den Trainingsdaten mix77).
+
+**Fakten**
+
+| Messgroesse | Wert |
+|---|---|
+| Held-out-EM | **1 von 20 = 5,0 %** |
+| Train-Loss Schritt 900 | 1,9718 |
+| Train-Loss Schritt 1 000 | 0,2629 |
+| Train-Loss Schritt 1 100 | 1,7462 |
+| Dauer der Auswertung | rund 30 s je Datensatz auf der CPU |
+
+**Die erzeugten Antworten sind strukturell falsch, nicht nur inhaltlich:**
+
+| erwartet | erzeugt |
+|---|---|
+| ` nein ` | `Artemisia "  Sa` |
+| ` 1922373 ` | `Bann` |
+| ` nein ` | `(leer)` |
+| ` nein ` | `ja` |
+| ` 199 ` | `199, BRUCH bei Stadten im Silo. ja` |
+
+Das Modell hat bei Schritt 1 000 das **Format** der Datensaetze auf unbekannten Aufgaben noch
+nicht gelernt. Nur eine von zwanzig Antworten traf.
+
+**Deutung — zwei Erklaerungen, eine Messung entscheidet**
+
+1. *Auswendiglernen*: der Loss von 0,26 auf einem Fenster bei gleichzeitig 5 % auf Held-out
+   waere das klassische Muster.
+2. *Zu frueh*: 1 000 Schritte sind 6,3 % des Budgets, und `m1` ist der schwerere Modus
+   (kein Gold-Denkweg im Prompt).
+
+Die beiden sind durch zwei Messungen trennbar, die noch fehlen: **Train-EM im selben Modus**
+(ist der Korpus auswendig gelernt?) und **`m2`** (Gold-Denkweg im Prompt — scheitert es dann
+noch, liegt es nicht am Format). Erst danach ist „Auswendiglernen" belegt statt vermutet.
+
+**Checkpoint-Entscheidung: nicht uebernommen.** Ziel ist 90 % je Komponente, erreicht sind
+5 % auf der Ergebnis-Komponente. Nach der Regel aus Runde 315 wird ein Checkpoint nur
+uebernommen, wenn die Zielwerte erreicht sind — hier ist die Luecke zu gross, um sie zu
+interpretieren.
+
+**Unsicherheit:** 20 Stichproben sind wenig; ein Treffer mehr oder weniger verschiebt die
+Quote um 5 Prozentpunkte. Der Wert taugt als Groessenordnung, nicht als Praezisionsmessung.
+Ausserdem ist die CPU-Auswertung mit 30 s je Datensatz zu langsam fuer 200 Stichproben
+(100 Minuten) — die regulaere Auswertung gehoert nach dem Training auf die GPU.
+
+**Kosten:** keine zusaetzlichen; die Auswertung lief auf der ohnehin bezahlten CPU des
+A100-Pods und hat den Schritt von 1,545 auf 1,561 ms verlangsamt (gemessen, +1 %).
