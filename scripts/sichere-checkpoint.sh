@@ -34,6 +34,10 @@ echo "  Ziel    : $REPO"
 # Zwei Wege, je nachdem was im Image vorhanden ist. Keiner davon ist optional:
 # scheitern beide, endet das Skript mit Fehler und es gibt keine Quittung.
 if command -v python3 >/dev/null 2>&1; then
+  # **Auf einem echten Pod gefunden (Runde 337):** das Paket fehlt im Image, und das
+  # Skript brach mit ModuleNotFoundError ab - ohne Quittung, also ohne Loeschfreigabe.
+  # Genau so soll es sein; aber der Upload soll natuerlich laufen.
+  python3 -c "import huggingface_hub" 2>/dev/null || pip install -q huggingface_hub
   HF_TOKEN="$HF_TOKEN" HF_REPO="$REPO" HF_DATEI="$DATEI" python3 - <<'PY'
 import os, sys
 from huggingface_hub import HfApi
