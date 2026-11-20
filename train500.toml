@@ -59,4 +59,4 @@ schedule = "cosine"
 weights = "fp32"
 # Wirkungslos: burn-0.22 hat keinen Autocast, alle Werte sind f32 (Runde 317
 # nachgeprueft). Der Eintrag bleibt, damit die Datei den Sollzustand beschreibt.
-autocast = "bf16"
+autocast = "fp32"

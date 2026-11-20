@@ -36,4 +36,4 @@ log_dir = "./bench-logs"
 
 [precision]
 weights = "fp32"
-autocast = "bf16"
+autocast = "fp32"

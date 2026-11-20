@@ -243,7 +243,10 @@ fn default_weights() -> String {
     "fp32".to_string()
 }
 fn default_autocast() -> String {
-    "bf16".to_string()
+    // **fp32, nicht bf16.** Das war vorher ein stilles Versprechen: der Standard stand
+    // auf `bf16`, angewendet wurde er nie. Der Wert beschreibt jetzt, was tatsaechlich
+    // geschieht.
+    "fp32".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -376,6 +379,19 @@ impl TrainConfig {
                 cfg.model.max_seq_len
             );
         }
+        // **Kein stilles Versprechen (Runde 334).** `autocast` wird von burn 0.22
+        // nirgends angewendet: der Wert wird nur geloggt. Wer `bf16` eintraegt, trainiert
+        // trotzdem in fp32 und bezahlt das Doppelte - auf einer A100 sind das 2,19 $/h
+        // fuer Arbeit, die mit bf16 etwa halb so lange dauern wuerde. Deshalb ist nur
+        // `fp32` zulaessig, solange Autocast nicht wirklich eingebaut ist.
+        if cfg.precision.autocast != "fp32" {
+            crate::error::bail!(
+                "precision.autocast = '{}' wird NICHT angewendet (burn 0.22 hat keinen \
+                 Autocast). Zulaessig ist nur 'fp32'. Wer bf16 will, muss die Casts in \
+                 src/model/lm.rs einbauen - dann faellt diese Sperre.",
+                cfg.precision.autocast
+            );
+        }
         Ok(cfg)
     }
 }
@@ -383,6 +399,33 @@ impl TrainConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn autocast_other_than_fp32_is_rejected() {
+        // Runde 334: burn 0.22 hat keinen Autocast, der Wert wurde nur geloggt. Wer
+        // `bf16` eintrug, trainierte in fp32 und bezahlte das Doppelte. Die Sperre macht
+        // daraus einen Fehler statt einer stillen Annahme.
+        let quelle = std::fs::read_to_string("configs/train.smoke.toml").expect("Smoke-Konfig");
+        assert!(quelle.contains("autocast = \"fp32\""));
+        let mit_bf16 = quelle.replace("autocast = \"fp32\"", "autocast = \"bf16\"");
+        let pfad = std::env::temp_dir().join(format!(
+            "shiro-autocast-{}-{}.toml",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::write(&pfad, mit_bf16).expect("temporaere Konfig");
+        let fehler = TrainConfig::load(&pfad).expect_err("bf16 muss abgelehnt werden");
+        let text = format!("{fehler}");
+        assert!(text.contains("autocast"), "Meldung nennt den Grund nicht: {text}");
+        assert!(
+            text.contains("NICHT angewendet"),
+            "Meldung muss sagen, dass der Wert unwirksam ist: {text}"
+        );
+        let _ = std::fs::remove_file(&pfad);
+    }
 
     fn small() -> ModelConfig {
         ModelConfig {

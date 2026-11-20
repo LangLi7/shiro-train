@@ -6943,3 +6943,36 @@ Korpus nicht neu erzeugt. Die Vorarbeit auf dem CPU-Pod hat getragen.
 **Kosten bis hierher:** Pod seit 18:08, davon rund 10 Minuten Leerlauf. Der Lauf selbst
 laeuft mit 8000 Schritten zu je etwa 1,55 s; die Messung steht bei Schritt 1000 und 2000
 an, der Abbruch nach der Vorregistrierung bei Schritt 2000.
+
+## Runde 334 — Ein Zahlenformat, das nur behauptet wurde
+
+**Der Fund, und er ist teuer:** `precision.autocast` stand **in jeder Konfiguration**,
+wurde aber nirgends angewendet - der Wert wanderte nur ins Log. Der Standardwert war
+sogar `bf16`. Jeder Lauf dieses Projekts hat also **fp32** gerechnet und dabei behauptet,
+bf16 zu sein.
+
+**Was das gekostet hat, in Zahlen:** der laufende Lauf schafft **3 960 Tokens/s** bei
+1 549,9 ms je Schritt. Eine A100 rechnet mit bf16 erfahrungsgemaess zwei- bis
+zweieinhalbfach schneller. 8000 Schritte kosten so **7,50 $** statt etwa **3,00-3,80 $**.
+Ueber mehrere Laeufe ist das der groesste Einzelposten.
+
+**Was jetzt gilt:**
+
+| Aenderung | Wirkung |
+|---|---|
+| Standard `autocast` = `fp32` | die Konfiguration sagt, was geschieht |
+| `TrainConfig::load` lehnt alles ausser `fp32` ab | kein stilles Versprechen mehr |
+| neun Konfigurationen von `bf16` auf `fp32` | sie beschreiben jetzt den echten Lauf |
+| Test `autocast_other_than_fp32_is_rejected` | die Sperre kann nicht still verschwinden |
+
+**Was das *nicht* ist:** ein Ersatz fuer echtes bf16. Der Wert abzuschalten macht den Lauf
+nicht schneller, es hoert nur auf, ihn falsch zu beschreiben. **bf16 selbst ist ein Eingriff
+in `src/model/lm.rs`** (Casts um Matmul und Norm), kein Schalter - und damit ein eigener
+Faktor mit eigener Messung, nicht nebenbei.
+
+**Zweite Aenderung, Anregung des Nutzers:** die 16 vCPU des GPU-Pods belegte das Training
+nur zu 13 %. `scripts/nebenher-validieren.sh` misst deshalb jeden neuen Checkpoint auf der
+**CPU** (`--backend cpu`, `nice -n 10`), waehrend die GPU weitertrainiert. Die Messung
+kostet damit keine zusaetzliche GPU-Zeit - die Kerne sind mit der Miete bezahlt.
+
+**Kosten dieser Runde:** 0 $.
