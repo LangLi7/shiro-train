@@ -8106,6 +8106,41 @@ Frage, mit/ohne Einheit, andere Wortstellung, andere Zahlwortform) und derselben
 Zahlenmenge. Hypothese: die Weg-EM steigt gegenueber der Ein-Vorlagen-Fassung, **weil
 das Modell die Regel lesen muss statt die Vorlage zu erkennen.**
 
+## Runde 456 — 33 % Markup im Textkorpus, gemessen und behoben
+
+**Der Befund.** Der erste Wikipedia-Extraktor entfernte nur einfache `{{...}}`-Vorlagen.
+Eine Zaehlung ueber **2 804 985 Zeilen** ergab:
+
+| Groesse | Wert |
+|---|---|
+| gepruefte Zeilen | 2 804 985 |
+| davon mit Markup | **925 755 = 33,0 %** |
+
+Beispiele des Restes:
+
+```text
+| 1012 = 10004
+|-
+|style="text-align:left;"|
+```
+
+**Warum das zaehlt.** Bei 16 GB Korpus waeren das **5 GB Tabellensyntax**. Ein Modell,
+das darauf trainiert, lernt, dass deutsche Texte aus `|-` und `|style=` bestehen - genau
+die Art Muster, die spaeter als "Form gelernt, Inhalt nicht" endet.
+
+**Die Korrektur: zeilenweise filtern statt ersetzen.** `scripts/wiki-zu-text.py` verwirft
+jede Zeile, die nach Markup aussieht, und jeden Rest, der nach dem Aufloesen noch `{{`,
+`[[` oder `]]` traegt. Das kostet etwas Text, ist aber sauberer als jede Ersetzung.
+
+**Ergebnis:** reiner Fliesstext mit Umlauten, kein Markup, **dieselbe Rate** (15 MB/s) wie
+der unsaubere Durchlauf - der Filter kostet keine Zeit.
+
+**Ein zweiter Fehler derselben Runde:** acht Extraktor-Prozesse wurden gestartet, um die
+Arbeit zu beschleunigen. Sie lasen aber **dieselbe** Datei und schrieben **denselben**
+Text achtmal - `iterparse` liest immer von vorn. Das haette 128 GB doppelte Daten erzeugt.
+Die richtige Loesung ist **ein** Durchlauf, der die Artikel **reihum** auf acht Dateien
+verteilt.
+
 |
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
