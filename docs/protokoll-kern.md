@@ -6090,3 +6090,49 @@ Checkpoint von 454 646 016 Bytes — Forward, Backward, Optimierer und Speichern
 
 - Ob das CUDA-12.4-Image auf einem 13.2-Host laeuft, ist erst nach dem ersten Schritt belegt.
 - Die Kapazitaet kann jederzeit wegbrechen; der Pod ist nicht wiederaufsetzbar, wenn die Karte weg ist.
+
+## Runde 315 — 500M statt 113M: ein Faktor, gleiche Daten
+
+**Auftrag:** mindestens 500M Parameter. Der 113M-Lauf wurde nach dem Build abgeloest, bevor er
+einen Schritt trainiert hat — die 15 Minuten Build waren sonst doppelt bezahlt.
+
+**Die Konfiguration** (`train500.toml`, neu im Repo)
+
+| Feld | 113M-Lauf | 500M-Lauf |
+|---|---|---|
+| Parameter | 113 658 880 | **509 298 176** |
+| d_model / Layer / Heads | 768 / 12 / 12 | 1280 / 32 / 20 |
+| d_ff | 3072 | 2432 |
+| Batch x Sequenz | 32 x 1024 | 16 x 1024 |
+| Schritte | 3000 | 6000 |
+| Token gesamt | 98,3 Mio | 98,3 Mio |
+| Seed | 53013 | 53013 |
+| Korpus | mix77 | mix77 |
+| Zustaende (fp32) | 1,6 GB | **7,1 GB** |
+
+**Ein Faktor geaendert:** die Modellgroesse. Daten, Tokenmenge und Seed sind gleich; Batch 16 statt
+32 ist noetig, weil 32 Layer mit 1280 Dimensionen bei Batch 32 rund 50 GB Aktivierungen erzeugen.
+
+**Rechenfehler, den ich dabei gemacht und korrigiert habe:** meine erste Schaetzung setzte ein
+MLP mit zwei Matrizen an. Das Modell hat ein **gated MLP mit drei** (`3 * d_model * d_ff`), deshalb
+lag `d_ff = 3328` bei 619 Mio statt der erwarteten 483 Mio. Mit `d_ff = 2432` sind es 509 Mio —
+geprueft mit `shiro info`, nicht geschaetzt.
+
+**Was der Wechsel kostet:** der Build-Cache liegt seit der `noexec`-Korrektur auf `/root/target`
+und ueberlebt keinen Neustart. Jede Konfigurationsaenderung kostet rund 13 Minuten Kompilieren
+(rund 0,30 $). Das ist der Preis dafuer, dass das Global Volume keine Programme ausfuehren laesst.
+
+**Erwartung, vor dem Lauf festgelegt**
+
+> Bei gleicher Tokenmenge und gleichem Seed entscheidet die Kapazitaet ueber die Familien, die als
+> "Suche" gelten. Messgroesse: Held-out-EM auf "Bruch mit Kuerzen" (Micro: 12,5 %), Logik
+> (62,5 %), Urteil (80 %), Multiplikation (85 %).
+> Vorhersage: mindestens eine dieser vier Familien steigt um mehr als 10 Punkte.
+> Nullhypothese: alle vier bleiben innerhalb von 5 Punkten — dann ist nicht die Kapazitaet die
+> Ursache, sondern die Aufgabe oder die Datenmenge.
+
+**Kostenrahmen:** 98,3 Mio Token bei geschaetzt 2 000-4 000 Token/s auf einer A100 = 7-14 h =
+**10-19 $**. Die echte Zahl kommt aus dem ersten Log-Intervall.
+
+**Unsicherheit:** ob 7,1 GB Zustaende plus Aktivierungen bei Batch 16 ohne Speicherfehler laufen,
+ist erst nach dem ersten Schritt belegt. Bei OOM wird der Batch halbiert und die Schritte verdoppelt.
