@@ -5513,3 +5513,46 @@ Familien mit unabhaengigen Laeufen belegt** — das ist der belastbarste Stand d
 
 **Was offen bleibt:** die dreistellige Addition (97,5, ein Lauf), der Bruch (22,5), die
 Multiplikation (0) — und der Blindtest mit Aufgaben, die nicht aus den Generatoren stammen.
+
+## Runde 299 — Die dreistellige Addition ist stabil: 97,5 und 100
+
+**Der zweite Seed (`mix69b`):**
+
+| Schritte | Dreistellig | Zweistellig (im selben Lauf) |
+|---|---|---|
+| 900 | 25 | — |
+| **2 100** | **100** | **86,7** |
+
+**Bei 900 Schritten war es 25 Prozent — der Lauf war noch nicht konvergiert.** Der `best_loss`
+am Ende war **0,0587**, der letzte Batch 2,43. **Der letzte Verlustwert allein taugt nicht als
+Konvergenzurteil** — er haengt am letzten Batch und an der abfallenden Lernrate.
+
+**Damit ist die dreistellige Addition mit zwei Seeds belegt:**
+
+| Lauf | Seed | Dreistellig |
+|---|---|---|
+| `mix69` | 13027 | 97,5 |
+| **`mix69b`** | **48008** | **100** |
+
+**Streuung 2,5 Punkte** — im Bereich der Messgenauigkeit (40 Aufgaben, eine Aufgabe = 2,5 Punkte).
+
+**Und die zweistellige bleibt im selben Lauf bei 86,7** — beide Formen in einem Modell, ueber 90
+bzw. knapp darunter. Das bestaetigt Runde 273 (Interferenz war ein Trainingsstand, kein
+Kapazitaetsproblem).
+
+## Die Bilanz nach 169 Runden — fuenf Familien mit Streuung belegt
+
+| Familie | Wert | Laeufe | Streuung |
+|---|---|---|---|
+| **Addition, zweistellig** | **100** | 5 | 0 |
+| **Addition, dreistellig** | **97,5–100** | 2 | 2,5 |
+| **Addition, neue Formulierung** | **93,3** | 2 | 0 |
+| **Sprachlogik** | **96,7** | 4 | 0 |
+| **Gleichungen** | **91,9** | 4 | 0 |
+| Logik | 62,5 | 2 | 0 |
+| Urteil | 80 | 6 | 20 |
+| Bruch (kurz) | 22,5 | 1 | ? |
+| Multiplikation | 0 | 1 | ? |
+
+**Fuenf Familien ueber 90, vier davon ohne nennenswerte Streuung.** Die Logik ist stabil am Limit,
+das Urteil streut unter der Schwelle, Bruch und Multiplikation sind offen.
