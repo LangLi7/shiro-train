@@ -146,25 +146,42 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
     // Der Divisor ist nie 0 und nie 1 - sonst waere die Aufgabe leer.
     let b = 2 + rng.range(0, band.klein().max(3) as usize) as u64;
     let a = band.start() + b + rng.below(band.gross() as usize) as u64;
+    // **Formulierung je Band (Runde 353).** Training und Held-out rechnen mit disjunkten
+    // Zahlen - das allein reicht nicht: bei gleicher Formulierung kann ein Modell die
+    // Vorlage memorieren und die Zahlen einsetzen. Die zweite Formulierung erscheint
+    // deshalb **nur** im Held-out, wie es der Auftrag fuer Paraphrasen verlangt.
+    let val = matches!(band, Band::Val);
     let (text, weg, antwort) = match art {
         Art::Rest => {
             let q = a / b;
             let r = a % b;
             (
-                format!("Teile {a} durch {b}. Wie lautet der Rest?"),
+                if val {
+                    format!("Wie gross ist der Rest, wenn man {a} durch {b} teilt?")
+                } else {
+                    format!("Teile {a} durch {b}. Wie lautet der Rest?")
+                },
                 format!("{a} = {q} * {b} + {r}"),
                 r.to_string(),
             )
         }
         Art::Modulo => (
-            format!("Was ist {a} modulo {b}?"),
+            if val {
+                format!("Bestimme den Rest von {a} bei Division durch {b}.")
+            } else {
+                format!("Was ist {a} modulo {b}?")
+            },
             format!("{a} = {} * {b} + {}\nRest {} ", a / b, a % b, a % b),
             (a % b).to_string(),
         ),
         Art::Ggt => {
             let g = ggt(a, b);
             (
-                format!("Bestimme den ggT von {a} und {b}."),
+                if val {
+                    format!("Welcher groesste gemeinsame Teiler gehoert zu {a} und {b}?")
+                } else {
+                    format!("Bestimme den ggT von {a} und {b}.")
+                },
                 euklid_weg(a, b),
                 g.to_string(),
             )
@@ -173,7 +190,11 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
             let p = if a < 2 { 2 } else { a };
             let ist = ist_prim(p);
             (
-                format!("Ist {p} eine Primzahl?"),
+                if val {
+                    format!("Handelt es sich bei {p} um eine Primzahl?")
+                } else {
+                    format!("Ist {p} eine Primzahl?")
+                },
                 prim_weg(p),
                 if ist { "ja".to_string() } else { "nein".to_string() },
             )
@@ -181,7 +202,11 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
         Art::Teilbar => {
             let rest = a % b;
             (
-                format!("Ist {a} durch {b} teilbar?"),
+                if val {
+                    format!("Geht {b} in {a} ohne Rest auf?")
+                } else {
+                    format!("Ist {a} durch {b} teilbar?")
+                },
                 format!("{a} = {} * {b} + {rest}", a / b),
                 if rest == 0 {
                     "ja".to_string()
@@ -317,6 +342,42 @@ mod tests {
         assert_eq!(geprueft, data.train.len() + data.val.len());
     }
 
+
+    #[test]
+    fn held_out_nutzt_andere_formulierungen() {
+        // **Der Punkt aus Runde 353.** Die Zahlen sind schon getrennt; ohne getrennte
+        // Formulierung koennte ein Modell die Vorlage memorieren und die Zahlen einsetzen.
+        // Jede Aufgabenart hat deshalb eine zweite Formulierung, die **nur** im Held-out
+        // erscheint - Paraphrasen im Training waeren laut Auftrag verboten.
+        const NUR_VAL: [&str; 5] = [
+            "Wie gross ist der Rest",
+            "Bestimme den Rest von",
+            "Welcher groesste gemeinsame Teiler",
+            "Handelt es sich bei",
+            "Geht ",
+        ];
+        let data = generate(&klein()).expect("Erzeugung");
+        let text = |a: &Aufgabe| {
+            let r = &a.record;
+            let start = 1; // hinter B_TASK
+            let ende = r.iter().position(|b| *b == B_THINK).unwrap_or(r.len());
+            String::from_utf8_lossy(&r[start..ende]).to_string()
+        };
+        for a in &data.val {
+            let t = text(a);
+            assert!(
+                NUR_VAL.iter().any(|m| t.contains(m)),
+                "Held-out ohne eigene Formulierung: {t}"
+            );
+        }
+        for a in &data.train {
+            let t = text(a);
+            assert!(
+                !NUR_VAL.iter().any(|m| t.contains(m)),
+                "Training enthaelt eine Held-out-Formulierung: {t}"
+            );
+        }
+    }
     #[test]
     fn jedes_band_bleibt_in_seinen_zahlen() {
         let data = generate(&klein()).expect("Erzeugung");
