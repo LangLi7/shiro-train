@@ -5641,3 +5641,40 @@ Bruch (12,5, ggT-Suche), Multiplikation (0, andere Wegform).
 
 **Die Lehre, die ueber das Projekt hinausgeht:** ein Byte-Modell mit 24 Mio Parametern lernt
 **Rechenwege ohne Suche** zuverlaessig — und **Rechenwege mit Suche** nicht.
+
+## Runde 302 — Der Beweis: ohne ggT-Suche springt der Bruch von 2,5 auf 72,5
+
+**Die Hypothese aus Runde 301 war pruefbar, also wurde sie geprueft.** Derselbe Bruch, aber
+**ohne Kuerzen**: der Nenner bleibt die Zehnerpotenz.
+
+```
+mit Suche  : 3.54 -> 354/100 -> ggT 2 -> 177/50     (vier Schritte, davon einer ein Suchen)
+ohne Suche : 3.54 -> 354/100                        (zwei Schritte, kein Suchen)
+```
+
+| Variante | Weg | Antwort | Klasse |
+|---|---|---|---|
+| Bruch **mit** Kuerzen (zwei Laeufe) | 20 / 2,5 | **22,5 / 2,5** | 97,5 |
+| **Bruch OHNE Kuerzen** | **82,5** | **72,5** | **100** |
+
+**Der Sprung ist eindeutig: von 2,5–22,5 auf 72,5.** Bei demselben Modell, demselben Budget, demselben
+Format — **nur der ggT-Schritt fehlt.**
+
+**Damit ist die Ursache belegt, nicht vermutet:** nicht die Zahl der Schritte, nicht die
+Ziffernlaenge, nicht die Formulierung — **die Suche im Weg** ist die Grenze.
+
+**Warum 72,5 und nicht 90:** ohne Kuerzen bleibt noch die Umrechnung (Dezimalstelle zaehlen,
+Zehnerpotenz bilden). Das sind zwei Schritte, und die gelingen zu 72,5 Prozent — nicht zu 100.
+**Die Addition hat zwei Schritte und 100** — der Unterschied ist, dass dort die Ziffern kurz sind
+und die Stellen fest.
+
+**Die geschuetzte Addition haelt bei 100.**
+
+**Was das fuer den Auftrag bedeutet:** der Auftrag verlangt **gekuerzte Brueche** als Standardform.
+**Genau diese Anforderung ist bei 24 Mio Parametern nicht erfuellbar** — die Suche nach dem ggT
+ist der Schritt, den das Modell nicht lernt. **Der ungekuerzte Bruch ist erreichbar (72,5), der
+gekuerzte nicht (12,5 im Mittel).**
+
+**Ein Kompromiss waere:** die Antwort als **ungekuerzten Bruch** ausgeben und das Kuerzen einem
+nachgelagerten Programm ueberlassen — das ist ein Rechenschritt, den ein Taschenrechner in einer
+Zeile macht und ein Sprachmodell nicht lernen muss.
