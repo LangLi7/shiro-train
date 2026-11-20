@@ -6916,3 +6916,30 @@ Korpus.
 Modell, das zwischen sechs Formaten wechseln muss, kann an Formatwechsel scheitern, obwohl
 es jede Form einzeln koennte. Getrennt wird das erst durch einen Lauf pro Typ - der aber
 das Vielfache kostet und deshalb erst nach diesem hier.
+
+## Runde 333 — Der Lauf startet, mit einem vermeidbaren Umweg
+
+**Was funktioniert hat, und zwar wie geplant:**
+
+| Schritt | Ergebnis |
+|---|---|
+| Binary vom Volume | „uebernommen (133M) - **kein Neubau**" - 13 Minuten A100 gespart (~0,47 $) |
+| Korpus | „6 Shards in `/workspace/korpus-neu/train`" - **kein Download** |
+| GPU | 100 % Auslastung, 80 395 MiB belegt, ein `shiro train`-Prozess |
+
+**Was nicht funktioniert hat, und was es gekostet hat:** `POD_CONFIG=train500-korpus.toml`
+liess `sed` auf `/work/train500-korpus.toml` zugreifen - die Datei liegt aber unter
+`configs/`. Das Skript brach ab, der Pod stand **etwa 10 Minuten still** und kostete in
+dieser Zeit GPU-Tarif: rund **0,37 $ fuer nichts**.
+
+**Die Regel, die daraus folgt:** `POD_CONFIG` ist ein Pfad **relativ zum Repo-Wurzel**,
+nicht ein Dateiname. Ein Tippfehler dort kostet nicht Sekunden, sondern A100-Minuten, weil
+der Pod schon laeuft. Beim naechsten Mal wird der Pfad **vor** dem Start geprueft
+(`[ -f /work/$POD_CONFIG ]`), nicht danach.
+
+**Was der Fehler nicht gekostet hat:** das Binary musste nicht neu gebaut werden, der
+Korpus nicht neu erzeugt. Die Vorarbeit auf dem CPU-Pod hat getragen.
+
+**Kosten bis hierher:** Pod seit 18:08, davon rund 10 Minuten Leerlauf. Der Lauf selbst
+laeuft mit 8000 Schritten zu je etwa 1,55 s; die Messung steht bei Schritt 1000 und 2000
+an, der Abbruch nach der Vorregistrierung bei Schritt 2000.
