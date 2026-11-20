@@ -11,8 +11,15 @@
 #   Text    - deutscher Wikipedia-Fliesstext, sauber (scripts/wiki-zu-text.py)
 #   Aufgaben - 16 Familien, verifiziert, Regel im Text, getrennte Baender
 #
-# **Reihenfolge ist Absicht:** der Text kommt zuerst, die Aufgaben zuletzt. Der Loader
-# liest sequenziell; Aufgaben am Ende heisst, dass sie nicht von Text verdraengt werden.
+# **Reihenfolge und Wiederholung sind Absicht (Runde 461).**
+#
+# Der Loader liest **sequenziell**. Bei 10 GB Text und 0,15 GB Aufgaben waeren die
+# Aufgaben nach rund 2 400 Schritten durch - also in den ersten 1,5 % des Trainings
+# gelernt und danach **nie wiederholt**. Das Modell wuerde sie vergessen.
+#
+# Deshalb: die Aufgaben werden **N-mal** in den Korpus gelegt und **zwischen** die
+# Textbloecke verteilt. So sieht das Modell sie waehrend des ganzen Trainings, ohne
+# dass der Text verdraengt wird.
 #
 # Aufruf:  sh scripts/korpus500.sh [textordner] [zielordner]
 
@@ -115,6 +122,85 @@ done
 echo "--- Gesamt ---"
 du -sh "$ZIEL"
 du -sh "$TRAIN" "$ZIEL/aufgaben" 2>/dev/null
+
+# --- Mischen: Text und Aufgaben verschraenkt -------------------------------------
+#
+# **Der entscheidende Schritt.** Der Loader liest sequenziell; liegen die Aufgaben
+# gesammelt am Ende, sieht das Modell sie nur einmal am Schluss. Hier werden sie
+# **N-mal** ueber den Text verteilt, damit sie waehrend des ganzen Trainings
+# vorkommen. Der Text bleibt vollstaendig erhalten.
+echo "--- Mischen ---"
+python3 - "$TRAIN" "$ZIEL/aufgaben" "$ZIEL/mix" "${AUFGABEN_WIEDERHOLUNG:-20}" <<'PY'
+import glob, os, sys, struct, random
+
+text_dir, aufg_dir, ziel, n_wdh = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+os.makedirs(ziel, exist_ok=True)
+
+def lies_shard(p):
+    with open(p, "rb") as fh:
+        d = fh.read()
+    if d[:4] != b"BSHD":
+        return []
+    n = struct.unpack("<I", d[12:16])[0]
+    return d[32:32 + n]
+
+def schreibe(p, daten):
+    with open(p, "wb") as out:
+        out.write(b"BSHD")
+        out.write(struct.pack("<I", 0))
+        out.write(struct.pack("<I", len(daten)))
+        out.write(struct.pack("<Q", 0))
+        out.write(struct.pack("<Q", 0))
+        out.write(daten)
+
+# Aufgaben einsammeln (train-Shards aller Familien)
+aufg = bytearray()
+for f in sorted(glob.glob(os.path.join(aufg_dir, "*", "train", "*.bin"))):
+    aufg += lies_shard(f)
+print(f"Aufgabenbytes: {len(aufg):,}")
+
+# Textbloecke einsammeln
+bloecke = []
+for f in sorted(glob.glob(os.path.join(text_dir, "*.bin"))):
+    bloecke.append(lies_shard(f))
+print(f"Textbloecke: {len(bloecke)}")
+
+if not bloecke or not aufg:
+    print("FEHLER: Text oder Aufgaben fehlen")
+    sys.exit(1)
+
+# **Verschraenken:** nach jedem Textblock ein Stueck Aufgaben.
+# Die Aufgaben werden n_wdh-mal durchlaufen, gleichmaessig verteilt.
+stueck = max(1, len(aufg) // max(1, len(bloecke)))
+teile = [bytes(aufg[i:i+stueck]) for i in range(0, len(aufg), stueck)]
+
+gemischt = []
+for i, b in enumerate(bloecke):
+    gemischt.append(b)
+    for _ in range(n_wdh):
+        if teile:
+            gemischt.append(teile[i % len(teile)])
+
+random.Random(461).shuffle(teile)   # Aufgabenreihenfolge durchmischen
+
+gesamt = sum(len(x) for x in gemischt)
+SHARD = 64 * 1024 * 1024
+puffer = bytearray()
+nr = 0
+for x in gemischt:
+    puffer += x
+    while len(puffer) >= SHARD:
+        schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), bytes(puffer[:SHARD]))
+        del puffer[:SHARD]
+        nr += 1
+if puffer:
+    schreibe(os.path.join(ziel, f"shard-{nr:04d}.bin"), bytes(puffer))
+    nr += 1
+
+print(f"Shards: {nr}  Bytes: {gesamt:,}  ({gesamt/1024**3:.2f} GB)")
+print(f"Aufgaben-Wiederholungen je Textblock: {n_wdh}")
+PY
+
 echo
-echo "Naechster Schritt: Text- und Aufgabenshards in EINEN Trainingsordner mischen"
-echo "  (Text zuerst, Aufgaben zuletzt - der Loader liest sequenziell)"
+echo "Fertig. Trainingsordner: $ZIEL/mix"
+echo "Pruefen: SHIRO_DATA=$ZIEL/mix $BIN validate-data"
