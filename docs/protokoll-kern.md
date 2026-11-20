@@ -7680,3 +7680,33 @@ Verdraengen nicht stirbt. Solange das fehlt, kostet jeder Versuch im schlechtest
 eine Anlaufzeit und ein paar Schritte.
 
 **Kosten dieser Runde:** 0 $ (nur eine Abfrage).
+
+## Runde 356 — Die billige Karte ist die teure
+
+**Ich hatte in Runde 355 vorgeschlagen**, auf eine RTX 4090 (0,89 $/h) auszuweichen und dafuer
+ein 300M-Modell zu bauen. Diese Runde habe ich es durchgerechnet - und der Vorschlag war
+**falsch**.
+
+| Variante | Parameter | Batch | Durchsatz | Zeit fuer 84 MB | **Kosten** |
+|---|---|---|---|---|---|
+| 300M auf RTX 4090 | 294 584 320 | 2 | ~799 B/s | **29,2 h** | **26,00 $** |
+| 509M auf A100 | 509 298 176 | 6 | 3 960 B/s | 5,9 h | **12,90 $** |
+
+**Die billigere Karte ist in Summe doppelt so teuer.** Drei Gruende, alle messbar:
+
+1. **Stunde ist nicht Arbeit.** 0,89 $/h gegen 2,19 $/h sind 2,5x billiger je Stunde - aber
+   die Karte rechnet bei fp32 etwa ein Drittel einer A100.
+2. **Batch 2 statt 6.** Weniger Speicher heißt kleinere Batches heißt mehr Schritte je Byte.
+3. **Das Modell ist kleiner, aber nicht proportionale schneller** - 294M gegen 509M spart
+   42 % Parameter, nicht 42 % Zeit.
+
+**Was daraus folgt:** die A100-Klasse bleibt die richtige Wahl, auch wenn sie knapp ist. Der
+Weg ist **Warten auf Kapazitaet** und dann kurze Laeufe, nicht Ausweichen auf eine Karte, die
+je Byte teurer ist. Genau dafuer ist die Wiederaufnahme aus Runde 355 da.
+
+**Was das ueber meine Vorschlaege sagt:** ich habe in Runde 355 eine Empfehlung gegeben, ohne
+sie zu rechnen. Die Rechnung haette zwei Minuten gebraucht. Das ist der zweite Fall dieser Art
+heute (nach der Image-Vermutung in Runde 351) - und beide Male war der Fehler derselbe:
+eine plausible Geschichte statt einer Zahl.
+
+**Kosten dieser Runde:** 0 $ (reine Rechnung, lokal).
