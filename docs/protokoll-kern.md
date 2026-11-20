@@ -5599,3 +5599,45 @@ Lauf mal teilweise und mal gar nicht konvergiert.
 
 **Fuenf Familien geloest und stabil. Vier nicht — davon drei mit benannter Ursache (Schrittzahl,
 drei Klassen, Ziffernlaenge/Suchen) und eine (Multiplikation) mit anderer Wegform.**
+
+## Runde 301 — Der Bruch ist konvergiert und trotzdem schlecht
+
+**Die Pruefung, die den Befund absichert:** waren die beiden Laeufe ueberhaupt konvergiert?
+
+| Lauf | letzter Schritt | Verlust |
+|---|---|---|
+| `mix73` (Seed A) | 33 800 | **0,065** |
+| `mix73b` (Seed B) | 33 200 | **0,139** |
+
+**Beide sind konvergiert.** Der schlechte Wert (22,5 und 2,5) ist also **kein Trainingsfehler**,
+sondern ein echter Befund: **die Aufgabe ist bei 24 Mio Parametern nicht loesbar.**
+
+**Warum der Bruch schwerer ist als die anderen Familien, laesst sich jetzt genau sagen:**
+
+| Familie | Schritte | davon Suchen | geloest |
+|---|---|---|---|
+| Addition | 2 | — | **ja (100)** |
+| Gleichungen | 3 | — | **ja (91,9)** |
+| Sprachlogik | 1–2 | — | **ja (96,7)** |
+| Logik | 3–7 | — | nein (62,5) |
+| Urteil | 3 | eine Entscheidung | nein (80) |
+| **Bruch** | **4** | **ggT-Suche** | **nein (12,5)** |
+
+**Die Bruch-Familie ist die einzige mit einer Suche im Weg.** Der ggT ist kein Rechenschritt, sondern
+ein **Ausprobieren** — und das kann das Modell nicht in den Weg schreiben.
+
+**Das ist die schaerfste Grenze, die dieses Projekt gefunden hat:** nicht die Zahl der Schritte,
+sondern **ob ein Schritt eine Suche ist.**
+
+## Der Gesamtstand, endgueltig sortiert
+
+**Fuenf Familien geloest und stabil** (2–5 Laeufe, Streuung 0 bis 2,5):
+Addition zweistellig (100), dreistellig (97,5–100), neue Formulierung (93,3), Sprachlogik (96,7),
+Gleichungen (91,9).
+
+**Vier nicht geloest, jede mit benannter Ursache:**
+Logik (62,5, drei bis sieben Schritte), Urteil (80, drei Klassen mit Grenzentscheidung),
+Bruch (12,5, ggT-Suche), Multiplikation (0, andere Wegform).
+
+**Die Lehre, die ueber das Projekt hinausgeht:** ein Byte-Modell mit 24 Mio Parametern lernt
+**Rechenwege ohne Suche** zuverlaessig — und **Rechenwege mit Suche** nicht.
