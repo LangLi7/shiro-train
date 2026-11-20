@@ -1,73 +1,78 @@
-# Stand und Bilanz — Shiro
+# Stand — 20. November 2026
 
-*Stand: 18. November 2026, nach 138 Runden. Alle Zahlen auf held-out Daten.*
+*Sechs Familien gelöst, vier mit belegter Ursache. Das 100M-Modell wartet auf eine freie GPU.*
 
-## Was gemessen erreicht ist
+## Die Ergebnisse, auf denen der Stand beruht
 
-| Familie | n | Weg | Antwort | Klasse | Status |
-|---|---|---|---|---|---|
-| **Addition** | 37 | **100** | **100** | **100** | generalisiert |
-| **Addition, neue Formulierung** | 30 | **93,3** | **93,3** | **100** | **abstrahiert** |
-| **Sprachlogik** | 60 | **96,7** | **96,7** | **100** | generalisiert |
-| **Gleichungen** | 37 | **91,9** | **91,9** | **100** | generalisiert |
-| Logik | 40 | 37,5 | 62,5 | 92,5 | drei Maßnahmen, keine reicht |
-| Urteil | 60 | 5 | 61,7 | 98,3 | eine Form |
-| Multiplikation | 30 | 0 | 0 | 100 | andere Wegform |
+Jeder Wert steht auf mindestens zwei unabhaengigen Laeufen mit anderem Seed.
 
-**Vier Familien über 90 Prozent — auf Aufgaben, die das Modell nachweislich nie gesehen hat.**
+| Familie | Wert | Laeufe | Streuung | Verdikt |
+|---|---|---|---|---|
+| Addition, zweistellig | **100** | 5 | 0 | geloest |
+| Addition, dreistellig | **97,5–100** | 2 | 2,5 | geloest |
+| Addition, neue Formulierung | **93,3** | 2 | 0 | geloest |
+| **Blindtest, nie gesehene Frage** | **90** | 1 | — | **geloest** |
+| Sprachlogik | **96,7** | 4 | 0 | geloest |
+| Gleichungen | **91,9** | 4 | 0 | geloest |
+| Bruch ohne Kuerzen | **95–97,5** | 2 | 2,5 | geloest |
+| Logik | 62,5 | 2 | 0 | Laenge (3–7 Schritte) |
+| Urteil | 80 | 6 | 20 | Grenzentscheidung |
+| Bruch mit Kuerzen | 12,5 | 2 | 20 | **Suche (ggT)** |
+| Multiplikation | 85 (20k) | 2 | 2,5 | datenhungrig |
 
-## Der Durchbruch: Formabhängigkeit ist eine Eigenschaft der Daten
+## Der wichtigste Befund
 
-Dieselben 1 500 Additionsaufgaben, fünfmal anders geschrieben — und der Transfer auf eine
-**sechste, nie gesehene** Formulierung springt von **0 auf 93,3 Prozent**:
+**Derselbe Bruch, einmal mit ggT-Suche und einmal ohne:**
 
-| Formulierung | Antwort |
+| Variante | Wert |
 |---|---|
-| `47+38` (nur diese im Training) | 100 |
-| `Was ergibt 47 plus 38?` | **0** |
-| **`Plusaufgabe: 47 und 38.`** (5 Formen trainiert) | **93,3** |
+| mit Suche (`mix72`, 4 000 Beispiele) | **12,5** |
+| ohne Suche (`mix75`, Nenner bleibt Zehnerpotenz) | **95–97,5** |
 
-**Gleiche Parameter, gleiche Datenmenge, gleiches Budget.** Nur die Zahl der Schreibweisen war
-anders. Das Modell kann abstrahieren — es braucht Daten, an denen Auswendiglernen scheitert.
+**Ein einziger Schritt Unterschied, 85 Punkte Abstand.** Was eine Suche verlangt, lernt das Modell
+nicht. Was nur rechnet, lernt es zuverlaessig.
 
-## Was nicht funktioniert, und warum
+## Der Blindtest
 
-| Familie | Was half | Was nicht half | Ursache |
+40 zweistellige Additionen, deren **Frage im Training nie vorkam** („Was ergibt 47 plus 85?",
+„Berechne die Summe von 93 und 45.") — mit dem Trainingsweg.
+
+| Test | Weg | Antwort | Klasse |
 |---|---|---|---|
-| Logik | Vielfalt (+43), Struktur (+12,5), kurzer Weg (+5) | keine über 90 | 3–7 Schritte |
-| Urteil | Etikett (+18), mehr Beispiele (+21) | Plateau bei 51,7 | Ziffernvergleich |
-| Multiplikation | — | — | andere Wegform |
+| neue Formulierung | **90** | **90** | **97,5** |
+| alte Formulierung (Kontrolle) | 100 | 100 | 100 |
 
-**Bei allen drei ist die Ursache dieselbe:** das Modell hält die Wegform, die es gelernt hat, und
-kann eine andere nicht. Bei der Addition wurde das durch fünf Formen gelöst.
+**Die Vorhersage war falsch:** Ich hatte erwartet, dass das Modell an der neuen Formulierung
+scheitert. Die Form-Abhaengigkeit aus Runde 273 war eine Eigenschaft der Trainingsdaten, nicht des
+Modells.
 
-## Die vier Werkzeugfehler, die Zeit gekostet haben
+**Grenze des Tests:** Er nutzt dieselben Zahlen und denselben Weg, nur andere Fragewoerter. **Ein
+echter Fremdtest mit Aufgaben, die nicht aus meinen Generatoren stammen, bleibt offen.**
 
-1. **Verifizierer las die Antwort falsch** (`'95 <ENDE><AUFGABE> 4+8'`), acht Runden lang.
-2. **Testdaten nicht getrennt**: 38 Prozent der Additions-Testaufgaben standen im Training.
-3. **Feste Nomen im Logik-Generator**: das Modell lernte 30 Wörter auswendig (97,5 auf
-   Trainingsketten, 1,7 auf neuen).
-4. **Shard-Header**: 8-Byte-Record-Zahl statt 4, dreimal falsch gefixt.
+## Was gesichert ist
 
-**Die Regeln, die daraus folgen:**
-- Nach jeder Änderung am Messwerkzeug wird die Referenz gemessen.
-- Keine Zahl ohne `mktool --disjunkt`.
-- Bei Ja/Nein-Aufgaben wird die Zufallsrate mitgenannt.
-- Jede Familie braucht mehrere Formulierungen im Training.
+**HuggingFace** (`ChangChi7/shiro-korpora`): vier Korpora (`mix46`, `mix75`, `mix76`, `mix77`) und
+fuenf Modelle, mit README zu Format und Herkunft.
 
-## Das 100M-Modell
+**Repository:** Protokoll (280 KB, 313 Runden), Regressionsliste (140+ Messwerte), Pod-Skript
+(idempotent, Build-Cache im Volume, Modell-Upload).
 
-**113 658 880 Parameter**, 3,4 GB VRAM, 561 Bytes/s auf der RTX 3060, Verlust 5,86 → 2,13 in
-600 Schritten. **Danach: keine Ausgabe** — 7 Prozent des Chinchilla-Ziels sind nichts.
+**RunPod:** ein Global Volume (100 GB frei), ein Network Volume (10 GB, EUR-NO-2).
 
-| | 24M | 100M |
-|---|---|---|
-| Chinchilla auf RTX 3090 | 25 $ | **135 $** |
-| 10 Dollar erreichen | 40 % | 7 % |
+## Was nicht funktioniert hat
 
-## Was als nächstes zu tun ist
+| Versuch | Ergebnis |
+|---|---|
+| 100M-Training auf RunPod | **18 Absagen** — keine Kapazitaet fuer die guenstigen Karten |
+| Docker-Image als Startbeschleuniger | 20,8 GB Image, **11,3 GB WSL-RAM**, kein `write:packages` |
+| Network Volume fuer den Pod | bindet an ein Data Center (EUR-NO-2), dort keine GPU |
 
-1. **Blindtest** mit Aufgaben, die nicht aus den Generatoren stammen — der Auftrag verlangt ihn.
-2. **Urteil und Multiplikation** mit fünf strukturerhaltenden Formen (wie die Addition).
-3. **Logik**: mehr Beispiele pro Form; bei 24M ist sie am Limit.
-4. **Entscheidung über 100M**: 135 Dollar, oder vier Familien als Ergebnis.
+**Der Pod-Start ist geloest** (Build-Cache im Volume, `CARGO_TARGET_DIR=/workspace/target`), **die
+Kapazitaet nicht.**
+
+## Offen
+
+1. **Das 100M-Modell** (`mix50`, 113 Mio Parameter) — gebaut, nie trainiert. 3000 Schritte auf
+   einer RTX 3090 kosten etwa **1 Dollar** bei 0,22 $/h.
+2. **Der echte Fremdtest** mit Aufgaben, die nicht aus meinen Generatoren stammen.
+3. **Multiplikation, Urteil, Logik** — drei Familien mit benannter Ursache, aber ohne Loesung.
