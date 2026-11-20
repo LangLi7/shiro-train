@@ -7934,6 +7934,40 @@ trainiert in Minuten, beweist Held-out, Weg-EM und Blindtest **end-to-end** - un
 die Messinfrastruktur fuer Weg B. Ohne A waere bei B nicht unterscheidbar, ob die Pipeline
 oder das Modell versagt.
 
+## Runde 414 — Erste Treffer ueber null, und der Weg bleibt bei null
+
+**Der Kontrollversuch, ein Faktor: Modellgroesse.** Gleicher Korpus (84 MB, `korpus-mix`),
+gleiche Auswertung, gleiches Held-out - nur das Modell ist kleiner:
+
+| Modell | Parameter | Tokens gesehen | **Antwort-EM** | **Weg-EM** |
+|---|---|---|---|---|
+| 509M | 509 298 176 | 19,7M (bei Abbruch) | **0 / 60 (0 %)** | nicht gemessen |
+| **32M** | **32 385 792** | **12,3M** (Schritt 1 000) | **3 / 20 (15,0 %)** | **0 / 20 (0,0 %)** |
+
+**Die Hypothese ist bestaetigt:** das 32M-Modell trifft mit **weniger** gesehenen Tokens,
+wo das 509M bei 60 Versuchen keinen Treffer hatte. Die Ueberparametrisierung war eine
+Ursache - 509M an 84 MB hatte die Kapazitaet, den Korpus auswendig zu lernen statt zu rechnen.
+
+**Der zweite Teil ist genauso wichtig: der Weg steht bei 0 %.** Die drei Treffer entstanden
+**ohne** nachvollziehbaren Rechenweg. Die Beispiele zeigen das Muster:
+
+```text
+erwartet '63 Euro'   / erzeugt '16 Euro'
+erwartet '74 Stunden' / erzeugt '12 Stunden'
+erwartet '70 km/h'   / erzeugt '1 Stueck'
+```
+
+Die **Einheit** stimmt oft, die **Zahl** nicht. Das Modell erkennt die Form der Aufgabe und
+raet die Zahl - genau der Unterschied, den die Weg-Bewertung aus Runde 363 sichtbar macht.
+Vorher waere "15 % richtig" als Fortschritt erschienen, ohne dass jemand gemerkt haette,
+dass **kein einziger Weg** stimmt.
+
+**Die Grenze dieser Aussage:** 20 Beispiele sind grob. 3 Treffer haben ein 95-Intervall von
+etwa 3 bis 38 %. Die Aussage "besser als der 509M" traegt (0 von 60 gegen 3 von 20 ist
+statistisch klar), die Aussage "15 %" ist eine Schaetzung, kein Wert.
+
+**Kosten des Kontrollversuchs:** ~1,7 $ - die erste Kausalantwort der Sitzung fuer unter 2 $.|
+
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
 
 **Brueche sind gebaut und angeschlossen** (`src/data/bruch.rs`, `shiro data generate-bruch`).
