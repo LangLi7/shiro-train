@@ -75,6 +75,21 @@ impl Band {
             Band::Val => 5_000,
         }
     }
+
+    /// Untergrenze des ersten Operanden.
+    ///
+    /// **Warum das noetig ist (Runde 346).** Ohne Untergrenze konnte das Held-out-Band
+    /// kleine Zahlen erzeugen, die auch im Training vorkommen - `preflight` fand zwei
+    /// gemeinsame Datensaetze. Die Messung waere damit wertlos gewesen, weil derselbe
+    /// Datensatz in beiden Mengen lag. Das Held-out beginnt deshalb **oberhalb** des
+    /// groessten Trainingswerts (`klein + gross` = 212).
+    fn start(self) -> u64 {
+        match self {
+            Band::Train => 0,
+            // 1 000 > 212: jede Held-out-Zahl liegt ueber jedem Trainingswert.
+            Band::Val => 1_000,
+        }
+    }
 }
 
 /// Ein fertiger Datensatz samt seiner Bestandteile - die Bestandteile braucht der Test.
@@ -130,7 +145,7 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
     let art = Art::ALL[index % Art::ALL.len()];
     // Der Divisor ist nie 0 und nie 1 - sonst waere die Aufgabe leer.
     let b = 2 + rng.range(0, band.klein().max(3) as usize) as u64;
-    let a = b + rng.below(band.gross() as usize) as u64;
+    let a = band.start() + b + rng.below(band.gross() as usize) as u64;
     let (text, weg, antwort) = match art {
         Art::Rest => {
             let q = a / b;
@@ -305,12 +320,42 @@ mod tests {
     #[test]
     fn jedes_band_bleibt_in_seinen_zahlen() {
         let data = generate(&klein()).expect("Erzeugung");
+        let train_max = Band::Train.start() + Band::Train.gross() + Band::Train.klein() + 2;
         for a in &data.train {
-            assert!(a.a <= Band::Train.gross() + Band::Train.klein() + 2);
+            assert!(a.a <= train_max, "Training {} ueber {}", a.a, train_max);
         }
         for a in &data.val {
-            assert!(a.a <= Band::Val.gross() + Band::Val.klein() + 2);
+            assert!(
+                a.a > train_max,
+                "Held-out {} liegt im Trainingsbereich bis {}",
+                a.a,
+                train_max
+            );
         }
+    }
+
+    #[test]
+    fn kein_datensatz_steht_in_beiden_mengen() {
+        // **Die Invariante, die preflight prueft.** Ohne sie waere die Messung wertlos:
+        // ein Datensatz, der in Training und Held-out liegt, misst Auswendiglernen.
+        // Runde 346 hat genau das aufgedeckt - die Baender ueberlappten bei kleinen Zahlen.
+        let data = generate(&klein()).expect("Erzeugung");
+        let mut train = std::collections::HashSet::new();
+        for a in &data.train {
+            train.insert(a.record.clone());
+        }
+        let doppelt: Vec<_> = data
+            .val
+            .iter()
+            .filter(|a| train.contains(&a.record))
+            .map(|a| (a.a, a.b, a.art))
+            .collect();
+        assert!(
+            doppelt.is_empty(),
+            "{} Datensaetze liegen in beiden Mengen: {:?}",
+            doppelt.len(),
+            &doppelt[..doppelt.len().min(5)]
+        );
     }
 
     #[test]

@@ -23,6 +23,7 @@ use shiro::data::preflight;
 use shiro::data::quant;
 use shiro::data::semantics;
 use shiro::data::seq;
+use shiro::data::zahl;
 use shiro::error::Result;
 use shiro::model::tiny::TinyModel;
 use shiro::train::checkpoint_verify;
@@ -76,6 +77,7 @@ fn real_main() -> Result<()> {
             max_fremd,
         } => cmd_preflight(&dir, &manifest, max_fremd),
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
+        Command::GenerateZahl { opts } => cmd_generate_zahl(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
             capability,
@@ -1480,6 +1482,70 @@ fn cmd_data_combine(
 /// Namensgleichheit (`D-051`). Ein zweites `typ.reparatur` aus dieser Familie wuerde
 /// also die Zahl der Zahlenfolgen-Familie verfaelschen und jede Auswertung nach Typ
 /// unbrauchbar machen.
+/// Korpus "Zahlentheorie und Grundrechenarten" (Familie 7, `src/data/zahl.rs`).
+///
+/// Fuenf Aufgabentypen mit **gerechneten** Antworten, in zwei disjunkten Zahlenbaendern.
+/// Der Denkweg steht im Datensatz, nicht nur die Antwort.
+fn cmd_generate_zahl(opts: &cli::ZahlGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let gen_opts = zahl::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    };
+    let data = zahl::generate(&gen_opts)?;
+
+    println!("Korpus       : Zahlentheorie und Grundrechenarten (Familie 7)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Arten        : Division mit Rest, ggT, Primzahltest, Teilbarkeit, Modulo");
+    println!("Baender      : Training kleine Zahlen, Held-out grosse; die Mengen ueberlappen nicht");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let train_entry =
+        write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "zahl-tra")?;
+    let mut train_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Zahlentheorie und Grundrechenarten - Training ({} Datensaetze)",
+            train_records.len()
+        ),
+    );
+    train_manifest.shards.push(train_entry);
+    train_manifest.save(train_dir.join("manifest.json"))?;
+
+    let val_entry =
+        write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "zahl-val")?;
+    let mut val_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Zahlentheorie und Grundrechenarten - Held-out-Band ({} Datensaetze)",
+            val_records.len()
+        ),
+    );
+    val_manifest.shards.push(val_entry);
+    val_manifest.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    println!(
+        "Pruefen        : SHIRO_DATA={} shiro validate-data",
+        train_dir.display()
+    );
+    Ok(())
+}
+
 fn cmd_generate_algebra(opts: &cli::AlgebraGenOptions) -> Result<()> {
     use shiro::data::manifest::Manifest;
 

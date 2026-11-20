@@ -80,6 +80,13 @@ pub enum Command {
     GenerateAlgebra {
         opts: AlgebraGenOptions,
     },
+    /// Korpus "Zahlentheorie und Grundrechenarten" (Familie 7, `src/data/zahl.rs`):
+    /// Division mit Rest, ggT, Primzahltest, Teilbarkeit und Modulo. Alle Antworten
+    /// werden gerechnet, nicht nachgeschlagen; Training und Held-out liegen in
+    /// disjunkten Zahlenbaendern.
+    GenerateZahl {
+        opts: ZahlGenOptions,
+    },
     GenerateSeq {
         opts: SeqGenOptions,
     },
@@ -412,6 +419,29 @@ impl Default for AlgebraGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-zahl` (Familie 7, `src/data/zahl.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZahlGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for ZahlGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/zahl"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 /// Optionen fuer `shiro data generate-formel` (Mathematik-Stufe **A2/A3** nach
 /// **D-030**).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -730,6 +760,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut max_fremd: f64 = 20.0;
     let mut preflight_dir: Option<PathBuf> = None;
     let mut want_algebra = false;
+    let mut want_zahl = false;
     let mut want_formel = false;
     let mut want_games = false;
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
@@ -815,6 +846,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-algebra" => {
                 want_algebra = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-zahl" => {
+                want_zahl = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1139,6 +1175,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_seq,
         want_games,
         want_algebra,
+        want_zahl,
         want_formel,
     ]
     .iter()
@@ -1261,6 +1298,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out_dir: out_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("data/algebra")),
+            },
+        };
+    }
+
+    if want_zahl {
+        out.command = Command::GenerateZahl {
+            opts: ZahlGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/zahl")),
             },
         };
     }
