@@ -7580,3 +7580,37 @@ Code und Git; hier steht nur, was man sonst neu herleiten muesste.
 21 MB/s und ist nie der Engpass; das Training schafft 3 960 Byte/s; Storage ist mit 0,03 %
 der Kosten irrelevant; der Loader mischt nicht, deshalb muss der Korpus gemischt gebaut
 werden.
+
+## Runde 353 — Die Image-Vermutung war falsch
+
+**Die Korrektur an meiner eigenen Aussage aus Runde 351.** Ich hatte den Anker
+(`sleep infinity`, kein Port) als Ursache der Selbststopps benannt. Diese Runde hat die
+Hypothese geprueft - und sie **haelt nicht**:
+
+| Versuch | Image | Anker | Ergebnis |
+|---|---|---|---|
+| 1 | `nvidia/cuda:12.4.1-devel` | `sleep infinity` | 3 Stopps in 2 Minuten |
+| 2 | `runpod/pytorch:2.4.0` | **Startskript als PID 1** | **Stopp nach dem Start** |
+
+Zwei verschiedene Images, zwei verschiedene Anker, derselbe Ausgang. Damit ist das Image
+**ausgeschlossen** und der Anker ebenfalls. Gemeinsam ist beiden Versuchen nur:
+**US-MD-1, Secure Cloud, A100-SXM4-80GB**.
+
+**Was das heisst:** der Fehler liegt eine Ebene tiefer - beim Host, bei der
+Verfuegbarkeit dieser GPU in diesem Rechenzentrum, oder beim Konto. Nicht im Code, nicht
+im Korpus, nicht im Image.
+
+**Der naechste Versuch, und er ist billiger zu pruefen:** ein **anderes Rechenzentrum**
+oder eine **andere GPU-Klasse** (A100 40 GB, L40S, RTX 4090) - nicht wieder US-MD-1 mit
+A100 80 GB. Kostet ein paar Minuten statt einer Stunde.
+
+**Kosten dieser Runde:** 0,15 $ (4 Minuten, kein Trainingsschritt).
+
+**Was diese drei Fehlversuche gekostet haben, zusammen:** ~1,4 $ und rund 20 Minuten. Das
+ist der Preis dafuer, dass die Ursache jetzt eingekreist ist - Image und Anker sind
+ausgeschlossen, Host und Rechenzentrum sind die Kandidaten.
+
+**Der ehrliche Stand:** seit Runde 342 gibt es keinen neuen Held-out-Wert. Alles, was seither
+entstanden ist, ist Vorarbeit: gemischter Korpus, zwei neue Familien mit erschöpfender
+Pruefung, gehaltene Formulierungen, Uebergabenotiz. **Der Auftrag ist nicht erfuellt** -
+und ohne laufende GPU-Messung wird er es auch nicht.
