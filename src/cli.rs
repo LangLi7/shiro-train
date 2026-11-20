@@ -1520,6 +1520,14 @@ mod tests {
     }
 
     #[test]
+    fn untrained_flag_measures_without_a_checkpoint() {
+        // Der Nullpunkt: kein Checkpoint, aber ein vollstaendiges Modell aus `Lm::new`.
+        let a = p(&["eval", "--untrained", "--answers", "5", "--answers-mode", "m1"]).unwrap();
+        assert!(a.untrained, "--untrained muss gesetzt sein");
+        assert!(a.checkpoint.is_none(), "kein Checkpoint erwartet");
+    }
+
+    #[test]
     fn rejects_unknown_and_missing_values() {
         assert!(p(&["--quatsch"]).is_err());
         assert!(p(&["--steps"]).is_err());
