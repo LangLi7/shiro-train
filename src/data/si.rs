@@ -167,9 +167,107 @@ pub fn dim_text(d: Dim) -> String {
     }
 }
 
+/// Zehnerpotenz-Praefix mit exaktem Faktor.
+///
+/// **`k` ist kein Teil von `km` (Runde 375).** Es ist ein eigener Faktor 1000, der vor
+/// jede Einheit treten kann: `kW`, `kWh`, `kPa`, `kHz`, `kg`, `km`. Zwoelf Praefixe und
+/// vierzig Einheiten sind 480 Kombinationen aus 52 Zeilen statt 480 Eintraegen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Praefix {
+    pub symbol: &'static str,
+    pub num: u128,
+    pub den: u128,
+}
+
+const fn p(symbol: &'static str, num: u128, den: u128) -> Praefix {
+    Praefix { symbol, num, den }
+}
+
+/// Die Praefixe, grosse zuerst.
+pub const PRAEFIXE: &[Praefix] = &[
+    p("T", 1_000_000_000_000, 1),
+    p("G", 1_000_000_000, 1),
+    p("M", 1_000_000, 1),
+    p("k", 1_000, 1),
+    p("h", 100, 1),
+    p("da", 10, 1),
+    p("d", 1, 10),
+    p("c", 1, 100),
+    p("m", 1, 1_000),
+    p("u", 1, 1_000_000),
+    p("n", 1, 1_000_000_000),
+    p("p", 1, 1_000_000_000_000),
+];
+
+/// Sucht ein Praefix ueber sein Symbol.
+pub fn finde_praefix(symbol: &str) -> Option<&'static Praefix> {
+    PRAEFIXE.iter().find(|x| x.symbol == symbol)
+}
+
+/// Baut die abgeleitete Einheit aus Praefix und Basis: `k` und `W` ergeben Faktor 1000.
+pub fn mit_praefix(praefix: &str, basis: &str) -> Option<Einheit> {
+    let pr = finde_praefix(praefix)?;
+    let b = finde(basis)?;
+    let num = pr.num.checked_mul(b.num)?;
+    let den = pr.den.checked_mul(b.den)?;
+    let g = ggt(num, den);
+    Some(Einheit { symbol: b.symbol, dim: b.dim, num: num / g, den: den / g })
+}
+
+/// Zerlegt ein Symbol in Praefix und Basis: `km` ergibt `k` und `m`.
+///
+/// **Reihenfolge zaehlt:** zuerst wird gegen die Tabelle geprueft, damit `m` als Meter
+/// gelesen wird und nicht als Milli ohne Basis. `m` ist Meter, `mm` ist Millimeter.
+pub fn zerlege(symbol: &str) -> Option<(Option<&'static str>, &'static Einheit)> {
+    if let Some(x) = finde(symbol) {
+        return Some((None, x));
+    }
+    for pr in PRAEFIXE {
+        if let Some(rest) = symbol.strip_prefix(pr.symbol) {
+            if let Some(b) = finde(rest) {
+                return Some((Some(pr.symbol), b));
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn praefix_und_basis_ergeben_die_einheit() {
+        // k + m = km mit Faktor 1000 - dieselbe Zahl wie der Tabelleneintrag.
+        let km = mit_praefix("k", "m").unwrap();
+        assert_eq!((km.num, km.den), (1_000, 1));
+        assert_eq!(km.dim, finde("m").unwrap().dim);
+        // M + W = MW
+        assert_eq!(mit_praefix("M", "W").unwrap().num, 1_000_000);
+        // m + m = mm
+        assert_eq!(mit_praefix("m", "m").unwrap().den, 1_000);
+    }
+
+    #[test]
+    fn zerlegen_erkennt_praefix_und_basis() {
+        // **Die Tabelle gewinnt (Runde 375).** `km` steht in der Tabelle, wird also als
+        // fertige Einheit gelesen - die Praefix-Zerlegung greift nur fuer Symbole, die
+        // dort nicht stehen. Beide Wege fuehren zum selben Faktor, das ist der Punkt.
+        assert_eq!(zerlege("km").unwrap().0, None);
+        let ueber_tabelle = zerlege("km").unwrap().1;
+        let ueber_praefix = mit_praefix("k", "m").unwrap();
+        assert_eq!(
+            (ueber_tabelle.num, ueber_tabelle.den),
+            (ueber_praefix.num, ueber_praefix.den),
+            "Tabelle und Praefix muessen denselben Faktor ergeben"
+        );
+        // "m" allein ist Meter, nicht Milli.
+        assert_eq!(zerlege("m").unwrap().0, None);
+        // kW steht NICHT in der Tabelle - hier greift das Praefix.
+        assert_eq!(zerlege("kW").unwrap().0, Some("k"));
+        assert_eq!(zerlege("kW").unwrap().1.symbol, "W");
+        assert!(zerlege("xyz").is_none());
+    }
 
     #[test]
     fn km_in_m_ist_1000() {
