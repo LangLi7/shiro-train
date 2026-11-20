@@ -8065,6 +8065,47 @@ entstanden, die den Weg verlangt. Sie sind der **Boden**, nicht das Ergebnis.
 `shiro help` kennt sie nicht. Der Korpus mit 11 Familien nutzt sie daher nicht. Das ist
 der naechste billige Gewinn: Code vorhanden, nur die Anbindung fehlt.
 
+## Runde 455 — Die Vorlagenarmut, der eigentliche Defekt
+
+**Gemessen, nicht vermutet.** Ein Shard der neuen Familien wurde Datensatz fuer Datensatz
+gelesen und je Datensatz das Muster gebildet (alle Ziffern durch `N` ersetzt):
+
+| Familie | Datensaetze | **verschiedene Vorlagen** |
+|---|---|---|
+| `regel` | 400 | **1** |
+| `geometrie` | 400 | **4** |
+
+**Die Regel-Familie hat genau eine Vorlage:**
+
+```text
+Regel: f(x) = 3x + 1. Bestimme f(1).
+Regel: f(x) = 3x + 7. Bestimme f(2).
+Regel: f(x) = 4x + 2. Bestimme f(3).
+```
+
+30 000 Datensaetze sind 30 000 Variationen **derselben** Aufgabe; nur die Zahlen wechseln.
+
+**Warum das den ganzen Abend erklaert.** Ein Modell, das diese eine Vorlage gelernt hat,
+kann alle 30 000 beantworten, **ohne zu rechnen**: die Zahl folgt aus dem Muster. Genau
+das war bei allen bisherigen Laeufen zu sehen - das 509M lernte den Korpus auswendig, das
+32M lernte die Form. Die disjunkten Steigungen wirken nur auf das **Held-out**; sie
+verhindern nicht, dass das Training ohne Rechnen auskommt.
+
+**Die Korrektur an meiner eigenen Diagnose, zum zweiten Mal an diesem Abend.** Erst habe ich
+die Modellgroesse verdaechtigt (509M), dann die Datenmenge (380 MB), jetzt zeigt die
+Messung: es ist die **Vorlagenarmut**. Meine 16 Familien sind 16 Vorlagen mit vielen
+Zahlen - nicht 16 Aufgabentypen mit vielen Varianten.
+
+| Was ich vorhatte | Was richtig ist |
+|---|---|
+| 16 Familien x 30 000 Zahlenvarianten | **16 Familien x 50-200 Vorlagen x 50-200 Zahlen** |
+| Vielfalt durch Menge | **Vielfalt durch Struktur** |
+
+**Der naechste pruefbare Schritt:** dieselbe Familie mit **20 Satzbaumustern** (Aufforderung,
+Frage, mit/ohne Einheit, andere Wortstellung, andere Zahlwortform) und derselben
+Zahlenmenge. Hypothese: die Weg-EM steigt gegenueber der Ein-Vorlagen-Fassung, **weil
+das Modell die Regel lesen muss statt die Vorlage zu erkennen.**
+
 |
 
 ## Runde 357/358 — Brueche, und die dritte Familie durch das Tor
