@@ -5678,3 +5678,34 @@ gekuerzte nicht (12,5 im Mittel).**
 **Ein Kompromiss waere:** die Antwort als **ungekuerzten Bruch** ausgeben und das Kuerzen einem
 nachgelagerten Programm ueberlassen — das ist ein Rechenschritt, den ein Taschenrechner in einer
 Zeile macht und ein Sprachmodell nicht lernen muss.
+
+## Runde 303 — DURCHBRUCH: Bruch ohne Suche bei 97,5 Prozent
+
+**Derselbe Lauf, mehr Schritte:**
+
+| Schritte | Weg | Antwort | Klasse |
+|---|---|---|---|
+| 1 000 | 82,5 | **72,5** | 100 |
+| **2 000** | **97,5** | **97,5** | **100** |
+
+**Der Bruch ohne Kuerzen ist mit 97,5 Prozent geloest** — ueber dem Ziel von 90.
+
+**Damit ist die Kette geschlossen, und sie ist die wichtigste Erkenntnis des Projekts:**
+
+| Variante | Schritte | Antwort |
+|---|---|---|
+| Bruch mit Kuerzen (zwei Laeufe) | 4, davon ggT-Suche | **12,5** (2,5–22,5) |
+| Bruch ohne Kuerzen, 1000 Schritte | 2 | 72,5 |
+| **Bruch ohne Kuerzen, 2000 Schritte** | **2** | **97,5** |
+
+**Ein einziger Schritt unterscheidet 12,5 von 97,5: die Suche nach dem ggT.**
+
+**Und es zeigt zum zweiten Mal, dass die Schrittzahl zaehlt:** 1000 Schritte reichten nicht (72,5),
+2000 schon (97,5). **Dieselbe Lehre wie bei der Addition, dem Urteil und der dreistelligen Variante.**
+
+**Was das fuer den Auftrag bedeutet:** die Anforderung „gekuerzter Bruch als Standard" ist bei
+24 Mio **nicht** erfuellbar, aber **der ungekuerzte Bruch ist es** (97,5). **Das Kuerzen gehoert in
+ein nachgelagertes Programm** — es ist eine Suche, und Suchen sind das, was dieses Modell nicht
+lernt.
+
+**Die geschuetzte Addition wird noch geprueft.**
