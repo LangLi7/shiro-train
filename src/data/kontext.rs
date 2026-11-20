@@ -719,6 +719,60 @@ fn formel_aus(weg: &str) -> Option<String> {
     if formel.is_empty() { None } else { Some(formel) }
 }
 
+/// Mehrere Aufgaben in **einem** Kontext - die Pruefung "wie viele Aufgaben auf einmal".
+///
+/// Die Datensaetze werden stumpf aneinandergehaengt; jedes `<END>` schliesst eine
+/// Aufgabe ab. Damit ist die Grenze im Byte-Strom eindeutig, und die Auswertung kann
+/// hinterher Block fuer Block zuordnen. Kein Trenner, keine Nummerierung: das Modell
+/// muss die Grenze aus dem Format selbst erkennen.
+pub fn packe(aufgaben: &[Aufgabe]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for a in aufgaben {
+        out.extend_from_slice(&a.record);
+    }
+    out
+}
+
+/// Zerlegt einen erzeugten Strom an `<END>` in Bloecke und bewertet jeden gegen seine
+/// Goldaufgabe.
+///
+/// Zu wenige Bloecke sind kein Fehler, sondern das Ergebnis: eine nicht erzeugte Aufgabe
+/// wird als **nicht erfuellt** gezaehlt. Zu viele Bloecke werden ignoriert.
+pub fn bewerte_mehrere(generiert: &[u8], gold: &[Aufgabe]) -> Vec<Bewertung> {
+    let mut bloecke: Vec<Vec<u8>> = Vec::new();
+    let mut aktuell: Vec<u8> = Vec::new();
+    for b in generiert {
+        aktuell.push(*b);
+        if *b == B_END {
+            bloecke.push(std::mem::take(&mut aktuell));
+        }
+    }
+    gold.iter()
+        .enumerate()
+        .map(|(i, a)| match bloecke.get(i) {
+            Some(block) => bewerte(block, &a.record).unwrap_or(Bewertung {
+                format: false,
+                entnahme: false,
+                weg: false,
+                antwort: false,
+                konsistenz: false,
+            }),
+            None => Bewertung {
+                format: false,
+                entnahme: false,
+                weg: false,
+                antwort: false,
+                konsistenz: false,
+            },
+        })
+        .collect()
+}
+
+/// Anzahl der vollstaendig erfuellten Aufgaben einer Mehrfachpruefung.
+pub fn geloest(bewertungen: &[Bewertung]) -> usize {
+    bewertungen.iter().filter(|b| b.vollstaendig()).count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -842,6 +896,58 @@ mod tests {
         // Dieselbe Aufgabe mit den echten Werten besteht alle Dimensionen.
         let b_ok = bewerte(&gold, &gold).expect("Bewertung");
         assert!(b_ok.entnahme && b_ok.vollstaendig(), "{b_ok:?}");
+    }
+
+    #[test]
+    fn mehrere_aufgaben_werden_verpackt_und_einzeln_bewertet() {
+        let aufgaben = generate(&opts(12)).expect("Erzeugung");
+        let vier = &aufgaben[..4];
+        let gepackt = packe(vier);
+        assert_eq!(
+            gepackt.iter().filter(|b| **b == B_END).count(),
+            4,
+            "vier Aufgaben muessen vier Grenzen haben"
+        );
+
+        // Perfekte Ausgabe: der Goldstrom selbst wird Block fuer Block erfuellt.
+        let b = bewerte_mehrere(&gepackt, vier);
+        assert_eq!(b.len(), 4);
+        assert_eq!(geloest(&b), 4, "alle vier muessen als geloest zaehlen");
+    }
+
+    #[test]
+    fn eine_fehlende_aufgabe_zaehlt_als_nicht_geloest() {
+        let aufgaben = generate(&opts(12)).expect("Erzeugung");
+        let vier = &aufgaben[..4];
+        // Strom aus drei Aufgaben fuer vier Goldaufgaben: die vierte fehlt.
+        let teil = packe(&aufgaben[..3]);
+        let b = bewerte_mehrere(&teil, vier);
+        assert_eq!(b.len(), 4);
+        assert_eq!(geloest(&b), 3);
+        assert!(!b[3].vollstaendig(), "die fehlende Aufgabe ist nicht erfuellt");
+    }
+
+    #[test]
+    fn ein_vertauschter_block_faellt_an_seiner_stelle_auf() {
+        let aufgaben = generate(&opts(20)).expect("Erzeugung");
+        // Drei unterscheidbare Aufgaben, damit der Test nicht an zufaellig gleichen
+        // Antworten scheitert.
+        let mut drei: Vec<Aufgabe> = Vec::new();
+        for a in &aufgaben {
+            if drei.iter().all(|b| b.record != a.record) {
+                drei.push(a.clone());
+            }
+            if drei.len() == 3 {
+                break;
+            }
+        }
+        let mut strom = drei[0].record.clone();
+        strom.extend_from_slice(&drei[2].record);
+        strom.extend_from_slice(&drei[1].record);
+        let b = bewerte_mehrere(&strom, &drei);
+        assert!(b[0].vollstaendig(), "die erste Aufgabe bleibt richtig");
+        assert!(!b[1].vollstaendig(), "die vertauschte Aufgabe faellt auf");
+        assert!(!b[2].vollstaendig(), "die vertauschte Aufgabe faellt auf");
     }
 
     #[test]
