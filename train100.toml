@@ -1,0 +1,72 @@
+[run]
+name = "mix100"
+seed = 53013
+steps = 12000
+log_every = 200
+checkpoint_every = 1000
+output_dir = "/data/ckpt"
+log_dir = "/data/logs"
+
+[data]
+dir = "/data/corpus"
+manifest = "manifest.json"
+batch_size = 8
+seq_len = 1024
+shuffle = false
+
+[model]
+name = "mix100"
+d_model = 768
+n_layers = 12
+n_heads = 12
+d_ff = 3072
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 150
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "bf16"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
