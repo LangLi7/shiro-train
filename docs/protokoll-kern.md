@@ -7492,3 +7492,39 @@ noch aus - sie braucht je Aufgabentyp eine zweite Formulierung, und die darf lau
 **nie** im Training sein.
 
 **Kosten:** 0 $ (Code-Arbeit, kein Pod).
+
+## Runde 351 — Die Ursache des Pod-Blocks, und was der naechste Versuch anders macht
+
+**Der Befund aus Runde 348:** drei Selbststopps in zwei Minuten auf `nvidia/cuda:12.4.1-devel-ubuntu22.04`.
+Die GPU war bei 0 %, das Training weg, die Miete lief.
+
+**Was das Image damit zu tun hat, und es ist mehr als ein Verdacht:**
+
+| Eigenheit des Images | Folge |
+|---|---|
+| kein `curl`, kein `python3`, kein `git` | jede Runde 90 s `apt-get`, bevor Arbeit beginnt |
+| Anker ist `sleep infinity` | **antwortet auf keinen Health-Check** |
+| kein Dienst, kein Port | ein Host, der Dienste prueft, sieht einen toten Container |
+
+Ein Container, dessen einziger Prozess schlaeft und der keinen Port oeffnet, ist von einem
+haengenden Container nicht zu unterscheiden. Drei Stopps in zwei Minuten passen genau
+dazu.
+
+**Die Entscheidung fuer den naechsten Versuch, in dieser Reihenfolge:**
+
+1. **Image wechseln** auf eines mit eigener Laufzeit - `runpod/pytorch` liefert `python3`,
+   `curl` und einen echten Startprozess mit. Damit entfaellt der `apt-get`-Schritt und der
+   Anker ist kein Schlafprozess mehr.
+2. **Anker als Dienst**, nicht als Schlaf: ein kleiner HTTP-Server auf einem Port, der auf
+   Anfragen antwortet. Kostet keine GPU-Zeit und macht den Container pruefbar.
+3. **Erst dann** der Lauf - mit dem gemischten Korpus aus Runde 347 und
+   `checkpoint_every = 250` aus Runde 348.
+
+**Was ich ausdruecklich nicht tue:** einen vierten Versuch auf demselben Image starten.
+Drei Stoesse sind kein Zufall, und jeder Versuch kostet 2,19 $/h fuer nichts.
+
+**Was das fuer das Ziel bedeutet, ohne Beschwichtigung:** die Messung, die den Auftrag
+entscheidet, ist seit Runde 342 offen. Solange der Pod nicht traegt, gibt es keinen
+Held-out-Wert, und ohne den keinen Checkpoint-Entscheid. **Die Daten- und Codearbeit ist
+weit voraus** - neun Familien sind gebaut oder geplant, zwei sind fertig und durch das Tor.
+Der Engpass ist die Laufzeitumgebung, nicht der Korpus.
