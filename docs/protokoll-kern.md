@@ -7528,3 +7528,55 @@ entscheidet, ist seit Runde 342 offen. Solange der Pod nicht traegt, gibt es kei
 Held-out-Wert, und ohne den keinen Checkpoint-Entscheid. **Die Daten- und Codearbeit ist
 weit voraus** - neun Familien sind gebaut oder geplant, zwei sind fertig und durch das Tor.
 Der Engpass ist die Laufzeitumgebung, nicht der Korpus.
+
+## Uebergabe — Stand am Ende von Runde 352
+
+Dieser Abschnitt ist fuer die naechste Sitzung geschrieben. Alles Nachpruefbare steht in
+Code und Git; hier steht nur, was man sonst neu herleiten muesste.
+
+**Was laeuft:** nichts. Kein Pod, keine GPU. Kosten bis hierher **~7,3 $** am Tag
+(5,70 $ GPU, 0,31 $ CPU, Rest Disk und Storage).
+
+**Was als Naechstes zu tun ist, in dieser Reihenfolge:**
+
+1. **Pod mit `runpod/pytorch` starten**, Anker als kleiner HTTP-Dienst statt
+   `sleep infinity` (Begruendung: Runde 351). Kein `apt-get` mehr noetig.
+2. **Lauf starten** mit `KORPUS_DIR=/workspace/korpus-mix/train`,
+   `POD_CONFIG=configs/train500-korpus.toml`, `POD_STEPS=13700`,
+   Fortsetzung aus `/workspace/ckpt/mix500-korpus-step001000.state`.
+3. **Messung bei Schritt 5 000** (vorregistriert in Runde 343): Held-out-EM auf
+   `/workspace/korpus-gross/val` mit `--answers 20`, **auf der GPU** (dauert Sekunden,
+   auf der CPU waren es 22 Minuten).
+4. **Entscheid** nach der Regel aus Runde 332: nur steigendes Train-EM = Auswendiglernen,
+   Checkpoint nicht uebernehmen.
+
+**Was auf dem Volume liegt und wofuer es gut ist:**
+
+| Pfad | Inhalt |
+|---|---|
+| `/workspace/korpus-mix` | **80 MB, 120 Shards, gemischt** - der Korpus fuer den naechsten Lauf |
+| `/workspace/korpus-gross` | 84 MB, nach Familie sortiert - **nicht mehr verwenden**, siehe Runde 346 |
+| `/workspace/korpus-x` | 290 MB, gemischt nutzbar, fuer eine spaetere Stufe |
+| `/workspace/blindtest-sauber` | 188 Datensaetze, 0 Ueberschneidung - der Blindtest |
+| `/workspace/ckpt` | Gewichte + Optimiererzustand, beide mit Quittung in HuggingFace |
+| `/workspace/bin/shiro` | das aktuelle Binary (Pruefsumme `dac68e12...`) |
+
+**Was im Code fertig ist und was fehlt:**
+
+| Familie | Modul | CLI | Tor |
+|---|---|---|---|
+| Zahlentheorie | `src/data/zahl.rs` | ✓ | ✓ (nur Zahlen getrennt) |
+| Detektivisch | `src/data/detektiv.rs` | ✓ | ✓ (Muster getrennt) |
+| Brueche, Prozent, Potenzen, Gleichungen, Funktionen, Geometrie, Folgen, Kombinatorik, Lineare Algebra | offen | — | — |
+
+**Die zwei offenen Datenfaktoren, in der Reihenfolge des Nutzens:**
+
+1. **`zahl`: Formulierung zurueckhalten.** Dort sind nur die Zahlen disjunkt; jede
+   Aufgabenart braucht eine zweite Formulierung, die **nur** im Held-out erscheint.
+2. **Brueche als naechste Familie** - der groesste fehlende Grundlagenbereich, mit
+   berechneten Antworten und offenem Raum.
+
+**Was nicht mehr bezweifelt werden muss** (gemessen, nicht behauptet): Erzeugung kostet
+21 MB/s und ist nie der Engpass; das Training schafft 3 960 Byte/s; Storage ist mit 0,03 %
+der Kosten irrelevant; der Loader mischt nicht, deshalb muss der Korpus gemischt gebaut
+werden.
