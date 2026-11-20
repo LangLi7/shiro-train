@@ -7382,3 +7382,46 @@ und schreibt Manifeste. Der erste Lauf durch das Tor zeigte **zwei gemeinsame Da
 zwischen Training und Held-out, weil das Held-out-Band kleine Zahlen erzeugen konnte. Die
 Baender beginnen jetzt bei disjunkten Werten (Held-out ab 1 000, Training bis 212), und ein
 Test prueft die Invariante direkt statt der Reichweiten. Tor bestanden, 14 Tests gruen.
+
+## Runde 347 — Der Korpus ist jetzt gemischt, und zwar nachweisbar
+
+**Die Reparatur ohne Eingriff in den Trainer:** der Korpus wird in **20 Runden** erzeugt,
+jede Runde mit allen sechs Familien. `combine` haengt die Shards in der Reihenfolge an, in
+der sie uebergeben werden - also abwechselnd.
+
+**Nachgeprueft am Manifest, nicht behauptet:**
+
+```text
+r1-kontext, r1-logik, r1-quant, r1-seq, r1-formel, r1-algebra,
+r2-kontext, r2-logik, ...
+```
+
+**120 Shards**, 80 MB Training, 8,8 MB Held-out, Tor bestanden (0 % Fremdtext, keine
+Umschrift, 0 gemeinsame Datensaetze).
+
+**Was das aendert, in Zahlen:**
+
+| | vorher | jetzt |
+|---|---|---|
+| Datensaetze bis zur letzten Familie | 236 000 | **13 800** |
+| Schritte bis zur letzten Familie | ~39 000 | **~2 300** |
+| Familien in den ersten 82 200 Datensaetzen | **2 von 6** | **alle 6** |
+
+**Kosten:** 0,02 $ (CPU-Pod, 3 Minuten).
+
+**Zur Anmerkung von aussen (ChatGPT), getrennt bewertet:**
+
+| Vorschlag | Urteil |
+|---|---|
+| Gemischt statt seriell trainieren | **bestaetigt** - war der Fehler aus Runde 346 |
+| Curriculum in drei Phasen | sinnvoll, aber jede Phase ist ein **eigener Faktor** mit eigener Messung; spaeter |
+| Getrennte RNG-Stroeme fuer Init, Shuffle, Dropout | **uebernommen** als Hygiene, Shuffle folgt im Loader |
+| Seed-Sweeps ueber mehrere Initialisierungen | richtig fuer Robustheit, kostet aber **N mal GPU-Zeit**; erst wenn ein Lauf traegt |
+| „Nicht zufaellig lernen, sondern unabhaengig von Init und Reihenfolge zuverlaessig" | **die bessere Formulierung** des Ziels |
+| Aufgaben*strukturen* zurueckhalten, nicht nur Zahlen | **der staerkste Einwand** - siehe unten |
+
+**Der offene Punkt, den ich nicht wegdiskutiere:** im `zahl`-Modul sind nur die **Zahlen**
+disjunkt, die **Formulierung** ist in beiden Baendern gleich. Ein Modell kann also die
+Vorlage memorieren und die Zahlen einsetzen - genau das war beim Kontext-Typ messbar (333
+Datensaetze je Schablone). Das Gegenmittel sind andere **Formulierungen** im Held-out, und
+die duerfen laut Auftrag **nie im Training** sein. Das ist der naechste Daten-Faktor.
