@@ -9,6 +9,8 @@ SCHRITTE="${2:-3000}"
 DATEN="${DATEN:-/workspace}"
 export DEBIAN_FRONTEND=noninteractive
 export PATH=/root/.cargo/bin:/usr/local/cuda/bin:$PATH
+# Build-Cache im Volume: ein Neustart kompiliert nicht erneut (spart ~5 Minuten).
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/workspace/target}"
 
 echo "=== 1. Werkzeuge ==="
 apt-get update -qq
@@ -82,4 +84,5 @@ else
 fi
 
 echo "=== fertig ==="
+
 
