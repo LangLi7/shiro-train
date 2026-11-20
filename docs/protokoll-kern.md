@@ -5182,3 +5182,27 @@ weil die Aufgabe schwieriger ist. **Die sieben restlichen Seeds laufen.**
 **Der Aufwand pro Seed:** 600 Schritte, 13 Minuten, ein Prozess. **Zwei Jahre Rechenzeit waeren
 nicht noetig gewesen** — vier Anlaeufe sind vorher an technischen Fehlern gescheitert (Tool-Job,
 RAM, alte Checkpoints, Scheduled Tasks).
+
+## Runde 289 — Vier Addition-Seeds, viermal 100 — und der Wechsel zur Logik
+
+| Seed | Weg | Antwort |
+|---|---|---|
+| 20946 | 100 | 100 |
+| 28865 | 100 | 100 |
+| 36784 | 100 | 100 |
+| **51062** | **100** | **100** |
+
+**Vier Laeufe, vier verschiedene Seeds, viermal identisch.** Die Addition ist die einzige Familie,
+deren Messung jetzt mit Streuung belegt ist.
+
+**Der naechste Schritt ist wichtiger als weitere Addition-Seeds:** die **Streuung der Logik**. Dort
+liegt der Wert (62,5) nur **12,5 Punkte ueber der Zufallsrate** — und genau dort entscheidet die
+Streuung, ob ueberhaupt eine Faehigkeit vorliegt oder nur Raten mit Glueck.
+
+**Der Aufbau:** `mix67/all` (Logik mit kurzem Weg, 59 274 Records), **1500 Schritte**, Seed 41001.
+Zwei weitere folgen mit anderen Seeds.
+
+**Was gemessen wird:** dieselben 40 Logik-Aufgaben (`mix67\t_logik`), dieselbe Pruefung.
+
+**Die Frage, die es beantwortet:** liegen zwei Laeufe mit verschiedenen Seeds bei 62,5 und 62,5 —
+oder bei 50 und 75? **Bei 50 waere die Logik reines Raten, bei 75 eine Faehigkeit.**
