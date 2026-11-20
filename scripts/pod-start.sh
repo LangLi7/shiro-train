@@ -57,7 +57,23 @@ sed -e "s|steps = .*|steps = ${SCHRITTE}|" \
     -e "s|output_dir = .*|output_dir = \"${DATEN}/ckpt\"|" \
     -e "s|log_dir = .*|log_dir = \"${DATEN}/logs\"|" \
     /work/$KONFIG > "$DATEN/train.toml"
-"${CARGO_TARGET_DIR:-/workspace/target}/release/shiro" train --config "$DATEN/train.toml" --backend cuda
+# Fortsetzen, wenn ein Trainingsstand auf dem Volume liegt.
+#
+# Warum: ein Lauf ueber mehrere Stunden stirbt an einem Host-Neustart oder an
+# einem OOM. Ohne --resume faengt er wieder bei Schritt 0 an - die bezahlte Zeit
+# waere weg. Das Skript nimmt den NEUESTEN Stand; die Schritte aus der
+# Konfiguration kommen bei --resume dazu (so ist der Trainer gebaut).
+RESUME=""
+if ls "$DATEN"/ckpt/*.state >/dev/null 2>&1; then
+  NEUESTER=$(ls -t "$DATEN"/ckpt/*.state | head -1)
+  RESUME="--resume $NEUESTER"
+  echo "Fortsetzen    : $NEUESTER"
+else
+  echo "Fortsetzen    : nein (kein Stand vorhanden)"
+fi
+
+# shellcheck disable=SC2086
+"${CARGO_TARGET_DIR:-/workspace/target}/release/shiro" train --config "$DATEN/train.toml" --backend cuda $RESUME
 
 echo "=== 7. Modell nach HuggingFace ==="
 ls -la "$DATEN/ckpt"
