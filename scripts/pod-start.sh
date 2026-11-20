@@ -63,13 +63,26 @@ fi
 
 echo "=== 5. Korpus holen ==="
 mkdir -p "$DATEN"
-if [ ! -f "$DATEN/corpus/shard-0000.bin" ]; then
+# Vorhandensein an den DATEIEN pruefen, nicht an einem Namen: der Korpus auf
+# HuggingFace heisst merged-*.bin, nicht shard-*.bin. Die alte Pruefung auf
+# shard-0000.bin war immer falsch, also lief bei JEDEM Start der Download, und
+# tar scheiterte am Volume (kein utime, kein chown) - der Pod startete neu, und
+# die A100 baute 13 Minuten erneut.
+if ! ls "$DATEN"/corpus/*.bin >/dev/null 2>&1; then
   wget -q -O "$DATEN/corpus.tar.gz" \
     "https://huggingface.co/datasets/ChangChi7/shiro-korpora/resolve/main/${KORPUS}/all.tar.gz"
   mkdir -p "$DATEN/corpus"
-  tar xzf "$DATEN/corpus.tar.gz" -C "$DATEN/corpus" --strip-components=1
+  # --no-same-owner/--no-same-permissions: das Volume erlaubt kein chown/utime.
+  # Ein Fehler dabei ist harmlos, solange die .bin-Dateien ankommen.
+  tar xzf "$DATEN/corpus.tar.gz" -C "$DATEN/corpus" --strip-components=1 \
+      --no-same-owner --no-same-permissions 2>/dev/null || true
+  rm -f "$DATEN/corpus.tar.gz"
 fi
-echo "Korpus: $(ls $DATEN/corpus/*.bin | wc -l) Shards"
+if ! ls "$DATEN"/corpus/*.bin >/dev/null 2>&1; then
+  echo "FEHLER: Korpus fehlt in $DATEN/corpus - Download oder Entpacken gescheitert."
+  exit 4
+fi
+echo "Korpus: $(ls "$DATEN"/corpus/*.bin | wc -l) Shards"
 
 echo "=== 6. Training ==="
 mkdir -p "$DATEN/ckpt" "$DATEN/logs"
