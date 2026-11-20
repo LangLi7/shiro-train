@@ -17,6 +17,7 @@ use shiro::data::games;
 use shiro::data::generate;
 use shiro::data::loader::Dataset;
 use shiro::data::logic;
+use shiro::data::kontext;
 use shiro::data::manifest::{Manifest, ShardEntry, checksum_hex};
 use shiro::data::quant;
 use shiro::data::semantics;
@@ -67,6 +68,7 @@ fn real_main() -> Result<()> {
             antwortform,
         } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
+        Command::GenerateKontext { opts } => cmd_generate_kontext(&opts),
         Command::GenerateAlgebra { opts } => cmd_generate_algebra(&opts),
         Command::GenerateFormel { opts } => cmd_generate_formel(&opts),
         Command::Agent {
@@ -1837,6 +1839,70 @@ fn fill_formel_tasks(
             }
         }
     }
+}
+
+fn cmd_generate_kontext(opts: &cli::KontextGenOptions) -> Result<()> {
+    let gen_opts = kontext::Options {
+        n: opts.records,
+        seed: opts.seed,
+        val_percent: opts.val_percent,
+    };
+    let aufgaben = kontext::generate(&gen_opts)?;
+
+    // Derselbe Umbruch, den der Generator fuer seine Wertebaender benutzt: alles davor
+    // ist Training, alles danach Held-out. Wuerde hier anders geteilt, laege ein Teil der
+    // Held-out-Aufgaben im Training und die Messung waere wertlos.
+    let umbruch = (0..opts.records)
+        .position(|i| i * 100 / opts.records.max(1) >= 100 - opts.val_percent)
+        .unwrap_or(opts.records)
+        .min(aufgaben.len());
+    let (train, val) = aufgaben.split_at(umbruch);
+
+    println!("Korpus       : Kontextaufgaben (bekannt, gesucht, Formel, Ergebnis)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        train.len(),
+        val.len(),
+        opts.val_percent
+    );
+    let luecken = aufgaben.iter().filter(|a| a.luecke).count();
+    println!("Ohne Angabe  : {luecken} Aufgaben mit `nicht ableitbar`");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = train.iter().map(|a| a.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = val.iter().map(|a| a.record.clone()).collect();
+
+    let train_entry =
+        write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "kntx-tra")?;
+    let mut train_manifest = Manifest::new(
+        opts.seed,
+        format!(
+            "Kontextaufgaben - Training ({} Datensaetze)",
+            train_records.len()
+        ),
+    );
+    train_manifest.shards.push(train_entry);
+    train_manifest.save(train_dir.join("manifest.json"))?;
+
+    if !val_records.is_empty() {
+        let val_entry =
+            write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "kntx-val")?;
+        let mut val_manifest = Manifest::new(
+            opts.seed,
+            format!(
+                "Kontextaufgaben - Held-out ({} Datensaetze)",
+                val_records.len()
+            ),
+        );
+        val_manifest.shards.push(val_entry);
+        val_manifest.save(val_dir.join("manifest.json"))?;
+        println!("Held-out     : {}", val_dir.display());
+    }
+
+    println!("Trainingskorpus: {}", train_dir.display());
+    Ok(())
 }
 
 fn cmd_generate_seq(opts: &cli::SeqGenOptions) -> Result<()> {

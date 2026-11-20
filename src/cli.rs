@@ -94,6 +94,14 @@ pub enum Command {
     GenerateGames {
         opts: GamesGenOptions,
     },
+    /// Korpus "Kontextaufgaben": Bekanntes, Gesuchtes, Formel, Ergebnis.
+    ///
+    /// Die Familie, die das Ziel am direktesten traegt: das Modell muss selbst aus dem
+    /// Aufgabentext entnehmen, was bekannt ist, und bei fehlender Angabe
+    /// `nicht ableitbar` antworten (`src/data/kontext.rs`).
+    GenerateKontext {
+        opts: KontextGenOptions,
+    },
     /// Agentischer Capability-Loop (Spec §12): `agent capability run <id>`.
     ///
     /// Misst eine Faehigkeit, klassifiziert die Fehler, erzeugt **gezielte**
@@ -348,6 +356,32 @@ impl Default for SeqGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-kontext`.
+///
+/// Erzeugt Kontextaufgaben mit Bekanntem, Gesuchtem, Formel und Ergebnis. Jede achte
+/// Aufgabe laesst eine Angabe weg und verlangt `nicht ableitbar`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KontextGenOptions {
+    /// Anzahl Trainingsdatensaetze.
+    pub records: usize,
+    /// Ausgabeordner; darin entstehen `train/` und `val/`.
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    /// Anteil der Validierungsmenge in Prozent der Trainingsmenge.
+    pub val_percent: usize,
+}
+
+impl Default for KontextGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/kontext"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 /// Optionen fuer `shiro data generate-algebra` (Mathematik-Stufe A1, **D-030**,
 /// Eintritt **D-055**).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -505,6 +539,7 @@ SUBKOMANDOS:
     data generate-format  Korpus \"Format-Erkennung aus Bytes\" erzeugen
     data generate-quant   Korpus \"Quantoren, Syllogistik und Mengen\" erzeugen
     data generate-seq     Korpus \"Zahlenfolgen und Regelausfuehrung\" erzeugen
+    data generate-kontext Korpus \"Kontextaufgaben\" erzeugen (bekannt, gesucht, Formel)
     data generate-algebra Korpus \"Algebra A1 - Terme mit Variablenbelegung\" erzeugen
                           (D-030 Stufe A1, D-055)
     data generate-formel  Korpus \"Formel-Verstaendnis und Funktion\" erzeugen
@@ -673,6 +708,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_format = false;
     let mut want_quant = false;
     let mut want_seq = false;
+    let mut want_kontext = false;
     let mut want_algebra = false;
     let mut want_formel = false;
     let mut want_games = false;
@@ -769,6 +805,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-seq" => {
                 want_seq = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-kontext" => {
+                want_kontext = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1214,6 +1255,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     }
 
+    if want_kontext {
+        out.command = Command::GenerateKontext {
+            opts: KontextGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/kontext")),
+            },
+        };
+    }
+
     if want_games {
         out.command = Command::GenerateGames {
             opts: GamesGenOptions {
@@ -1376,6 +1430,49 @@ mod tests {
                 out_dir: PathBuf::from("data/sample")
             }
         );
+    }
+
+    #[test]
+    fn generate_kontext_is_parsed_with_its_own_options() {
+        // Die Generatoren nehmen `--n`; `--records` gehoert zu gen-sample. Genau diese
+        // Verwechslung hat in Runde 324 den ersten Lauf mit 512 statt 200 Datensaetzen
+        // erzeugt, deshalb steht sie hier als Test.
+        let a = p(&[
+            "data",
+            "generate-kontext",
+            "--n",
+            "40",
+            "--seed",
+            "11",
+            "--val-percent",
+            "20",
+            "--out",
+            "data/k",
+        ])
+        .unwrap();
+        assert_eq!(
+            a.command,
+            Command::GenerateKontext {
+                opts: KontextGenOptions {
+                    records: 40,
+                    out_dir: PathBuf::from("data/k"),
+                    seed: 11,
+                    val_percent: 20,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn records_flag_does_not_reach_the_generators() {
+        // `--records` setzt nur gen-sample; ein Generator bleibt bei seinem Standard.
+        let a = p(&["data", "generate-kontext", "--records", "40", "--out", "data/k"]).unwrap();
+        match a.command {
+            Command::GenerateKontext { opts } => {
+                assert_ne!(opts.records, 40, "--records darf den Generator nicht setzen");
+            }
+            other => panic!("falscher Befehl: {other:?}"),
+        }
     }
 
     #[test]
