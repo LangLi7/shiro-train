@@ -6651,3 +6651,37 @@ Entscheidung ueber den ganzen Korpus und muss als eigene Runde laufen: alle Fami
 umstellen, dann einen gemeinsamen Test ueber alle Generatoren legen, der Umschrift-Formen
 in Nutzbytes ablehnt. Sonst bleibt der Korpus zweisprachig geschrieben — echte Orthographie
 im Podcast-Text, Umschrift in den Aufgaben.
+
+## Runde 326 — Ein Helfer fuer Orthographie, statt 40 Einzelstellen
+
+**Kein Trainingsfaktor geaendert.** Vorarbeit fuer die Umstellung des ganzen Korpus.
+
+**Der Befund, der den Plan bestimmt:** es gibt **keinen gemeinsamen Baustein**, der
+Datensaetze zusammensetzt. Zehn Stellen bauen ihre Nutzbytes selbst - `logic`, `seq`,
+`games`, `quant`, `formel`, `algebra`, `formatgen`, `seqgen`, `semantics`, `generate`. Die
+Umstellung hat damit zehn Anschluesse, nicht einen.
+
+**Die Falle, die eine Regel ausschliesst:** `ue` ist **nicht immer** `ü`. In `Steuer`,
+`Bauer`, `Aue`, `Feuer` steht es ueber eine Silbengrenze und bleibt. Eine blinde Ersetzung
+`ue` zu `ü` wuerde diese Woerter zerstoeren. `src/data/orthographie.rs` arbeitet deshalb
+mit einer **Tabelle der Formen, die in diesem Projekt wirklich geschrieben wurden** — eine
+endliche, pruefbare Menge. Laengste Form zuerst, damit `dafuer` nicht im kuerzeren `fuer`
+haengen bleibt.
+
+**Was der Helfer kann** (6 Tests):
+
+| Funktion | Zweck |
+|---|---|
+| `nach_umlaut` | Umschrift zur kanonischen Schreibweise (`Stueck` zu `Stück`) |
+| `nach_ascii` | der Weg zurueck, fuer Datensaetze, die die Zuordnung zeigen sollen |
+| `umschrift_formen` | findet die Formen in einem Text - Grundlage des gemeinsamen Prueftests |
+
+**Der Punkt, den der Nutzer ergaenzt hat und der die Richtung aendert:** das Modell soll
+die Umschrift nicht nur **vermeiden**, sondern **verstehen**. Kanonisch ist echte
+Schreibweise; die Umschrift bleibt als Variante lernbar. `nach_ascii` ist genau dafuer da:
+eine Aufgabe laesst sich in beiden Formen zeigen, und der Weg kann die Zuordnung
+ausdruecklich benennen.
+
+**Unsicherheit:** ob die zehn Stellen dasselbe Verhalten zeigen, ist ungeprueft. Jede
+bekommt ihre Umstellung einzeln, und erst wenn alle zehn gruen sind, kommt der gemeinsame
+Prueftest ueber die Nutzbytes aller Familien - vorher waere er ein Dauerrot.

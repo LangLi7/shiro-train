@@ -25,6 +25,7 @@ pub mod loader;
 pub mod logic;
 pub mod manifest;
 pub mod mathverify;
+pub mod orthographie;
 pub mod quant;
 pub mod semantics;
 pub mod seq;
