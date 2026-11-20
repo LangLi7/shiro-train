@@ -6051,3 +6051,42 @@ ueberspringt das Kompilieren.** Kein Docker, kein WSL, kein RAM-Problem.
 
 **Nebenbefund:** Das Global Volume hat 100 GB frei — genug fuer den Build-Cache (12 GB) und alle
 Checkpoints (je 93 MB).
+
+## Runde 314 — 100M-Lauf gestartet: Kapazitaet da, drei Startfehler behoben
+
+**Fakten**
+
+| Punkt | Wert |
+|---|---|
+| Modell | 113 658 880 Parameter (d_model 768, 12 Layer, 12 Heads, d_ff 3072, ctx 1024) |
+| Speicher im Training | Gewichte 454,6 MB, Gradienten 227,3 MB, AdamW 909,3 MB — zusammen 1,59 GB |
+| GPU | NVIDIA A100-SXM4-80GB, US-MD-1, 1,39 $/h (3090 und 4090: "no instances available") |
+| Pod | `w0k2qe8r27p6cr`, Image `nvidia/cuda:12.4.1-devel-ubuntu22.04`, Host-CUDA 13.2 |
+| Daten | Korpus `mix77`, Batch 32, Sequenz 1024, 3000 Schritte = 98,3 Mio Token |
+| Volume | Global Volume `cmwoyonz5000007l2eazkekze` auf `/workspace` |
+
+**Drei Startfehler, alle vor dem ersten Trainingsschritt gefunden**
+
+1. **Kein `curl` im CUDA-Image.** Der Startbefehl rief `curl` auf, das Image hat es nicht.
+   Behoben: `apt-get install -y curl ca-certificates` vor dem Skriptaufruf.
+2. **`noexec` auf dem Global Volume.** `CARGO_TARGET_DIR=/workspace/target` liess den Build mit
+   `Permission denied (os error 13)` und `failed to copy bitcode to object file` scheitern —
+   gebaute Programme lassen sich dort nicht ausfuehren. Behoben: `CARGO_TARGET_DIR=/root/target`.
+   **Preis:** der Build-Cache ueberlebt keinen Neustart mehr (rund 10 Minuten je Start).
+3. **Batch zu klein fuer die Karte.** 8 x 1024 Token liess 80 GB ungenutzt. Jetzt 32 x 1024,
+   gleiche Tokenmenge, ein Viertel der Schritte.
+
+**Vorab verifiziert, nicht auf der GPU:** ein Schritt des 113M-Modells auf der CPU schrieb einen
+Checkpoint von 454 646 016 Bytes — Forward, Backward, Optimierer und Speichern funktionieren.
+
+**Hypothese fuer diese Runde (vor dem Training festgelegt)**
+
+> Ein Modell mit 113 statt 4,7 Mio Parametern lernt die **ggT-Suche** im Bruch-Kuerzen.
+> Erwartung: Held-out-EM auf der Familie "Bruch mit Kuerzen" steigt von 12,5 % auf mindestens 90 %.
+> Nullhypothese: keine Verbesserung ueber 20 % — dann ist die Suche keine Frage der Kapazitaet,
+> sondern der Aufgabe.
+
+**Unsicherheit**
+
+- Ob das CUDA-12.4-Image auf einem 13.2-Host laeuft, ist erst nach dem ersten Schritt belegt.
+- Die Kapazitaet kann jederzeit wegbrechen; der Pod ist nicht wiederaufsetzbar, wenn die Karte weg ist.
