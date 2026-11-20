@@ -97,6 +97,17 @@ pub enum Command {
     GenerateBruch {
         opts: BruchGenOptions,
     },
+    /// Korpus 'Prozentrechnung' (Familie 10, `src/data/prozent.rs`):
+    /// Wert, Grundwert und Prozentsatz - Grundwert als Vielfaches von 100.
+    GenerateProzent {
+        opts: ProzentGenOptions,
+    },
+    /// Korpus 'Einheiten und Umrechnung' (Familie 11, `src/data/einheit.rs`):
+    /// km/h in Basiseinheiten, Tempo, Laenge, Zeit und Weg - die Einheit traegt
+    /// die Rechnung, nicht nur das Etikett.
+    GenerateEinheit {
+        opts: EinheitGenOptions,
+    },
     /// Korpus 'Regel anwenden' (Familie 12, `src/data/regel.rs`):
     /// die lineare Regel steht im Aufgabentext, die Steigung ist im Held-out
     /// disjunkt - der Test, ob ein Prinzip gelernt wird statt einer Vorlage.
@@ -511,6 +522,46 @@ impl Default for DetektivGenOptions {
     }
 }
 
+/// Optionen fuer `shiro data generate-prozent` (Familie 10, `src/data/prozent.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProzentGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for ProzentGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/prozent"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-einheit` (Familie 11, `src/data/einheit.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EinheitGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for EinheitGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/einheit"),
+            seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
 /// Optionen fuer `shiro data generate-regel` (Familie 12, `src/data/regel.rs`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegelGenOptions {
@@ -757,6 +808,21 @@ SUBKOMANDOS:
     data generate-formel  Korpus \"Formel-Verstaendnis und Funktion\" erzeugen
                           (D-030 Stufen A2/A3: Punkt/Mittelpunkt, Steigung,
                           \"liegt P auf der Geraden?\")
+    data generate-zahl    Korpus \"Zahlentheorie und Grundrechenarten\" erzeugen
+                          (Familie 7: Division mit Rest, ggT, Primzahltest,
+                          Teilbarkeit, Modulo - Training und Held-out in
+                          disjunkten Zahlenbaendern)
+    data generate-detektiv  Korpus \"Detektivisches Denken\" erzeugen (Familie 8:
+                          Taeter, Widerspruch, nicht ableitbar - erschoepfend
+                          geprueft statt geraten)
+    data generate-bruch   Korpus \"Bruchrechnung\" erzeugen (Familie 9: Kuerzen,
+                          Addieren, Vergleichen - exakt, ohne Naeherung)
+    data generate-prozent  Korpus \"Prozentrechnung\" erzeugen (Familie 10: Wert,
+                          Grundwert und Prozentsatz - Grundwert als Vielfaches
+                          von 100, deshalb immer ganzzahlig)
+    data generate-einheit  Korpus \"Einheiten und Umrechnung\" erzeugen (Familie 11:
+                          km/h in Basiseinheiten, Tempo, Laenge, Zeit, Weg - die
+                          Einheit traegt die Rechnung, nicht nur das Etikett)
     data generate-regel   Korpus \"Regel anwenden\" erzeugen (Familie 12: die Regel
                           steht im Aufgabentext, die Steigung ist im Held-out
                           disjunkt - Prinzip statt Vorlage)
@@ -827,6 +893,36 @@ OPTIONEN FUER data generate-seq:
 OPTIONEN FUER data generate-formel:
     --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
     --out <PFAD>          Zielordner (Standard: data/formel)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-zahl:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/zahl)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-detektiv:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/detektiv)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-bruch:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/bruch)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-prozent:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/prozent)
+    --seed <N>            Seed (Standard: 1337)
+    --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
+
+OPTIONEN FUER data generate-einheit:
+    --n <N>               Anzahl Trainingsdatensaetze (Standard: 512)
+    --out <PFAD>          Zielordner (Standard: data/einheit)
     --seed <N>            Seed (Standard: 1337)
     --val-percent <P>     Anteil Validierung in Prozent (Standard: 10)
 
@@ -973,6 +1069,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_zahl = false;
     let mut want_detektiv = false;
     let mut want_bruch = false;
+    let mut want_prozent = false;
+    let mut want_einheit = false;
     let mut want_regel = false;
     let mut want_gleichung = false;
     let mut want_potenzen = false;
@@ -1078,6 +1176,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "generate-bruch" => {
                 want_bruch = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-prozent" => {
+                want_prozent = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-einheit" => {
+                want_einheit = true;
                 command_set = true;
                 saw_data = false;
             }
@@ -1430,6 +1538,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_zahl,
         want_detektiv,
         want_bruch,
+        want_prozent,
+        want_einheit,
         want_formel,
         want_regel,
         want_gleichung,
@@ -1651,7 +1761,31 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/bruch")),
             },
         };
-    }    if want_formel {
+    }
+
+    if want_prozent {
+        out.command = Command::GenerateProzent {
+            opts: ProzentGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/prozent")),
+            },
+        };
+    }
+
+    if want_einheit {
+        out.command = Command::GenerateEinheit {
+            opts: EinheitGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/einheit")),
+            },
+        };
+    }
+
+    if want_formel {
         out.command = Command::GenerateFormel {
             opts: FormelGenOptions {
                 records: logic.records,

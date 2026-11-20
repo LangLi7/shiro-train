@@ -25,6 +25,8 @@ use shiro::data::semantics;
 use shiro::data::seq;
 use shiro::data::bruch;
 use shiro::data::detektiv;
+use shiro::data::einheit;
+use shiro::data::prozent;
 use shiro::data::zahl;
 use shiro::data::folge;
 use shiro::data::geometrie;
@@ -87,6 +89,8 @@ fn real_main() -> Result<()> {
         Command::GenerateZahl { opts } => cmd_generate_zahl(&opts),
         Command::GenerateDetektiv { opts } => cmd_generate_detektiv(&opts),
         Command::GenerateBruch { opts } => cmd_generate_bruch(&opts),
+        Command::GenerateProzent { opts } => cmd_generate_prozent(&opts),
+        Command::GenerateEinheit { opts } => cmd_generate_einheit(&opts),
         Command::GenerateRegel { opts } => cmd_generate_regel(&opts),
         Command::GenerateGleichung { opts } => cmd_generate_gleichung(&opts),
         Command::GeneratePotenzen { opts } => cmd_generate_potenzen(&opts),
@@ -1533,6 +1537,113 @@ fn cmd_generate_bruch(opts: &cli::BruchGenOptions) -> Result<()> {
     let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "bru-val")?;
     let mut vm = Manifest::new(opts.seed, format!("Bruchrechnung - Held-out ({} Datensaetze)", val_records.len()));
     vm.shards.push(ve); vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Prozentrechnung" (Familie 10, `src/data/prozent.rs`).
+///
+/// Drei Richtungen (`W`, `G`, `p`), alle exakt: der Grundwert ist ein Vielfaches
+/// von 100, deshalb faellt bei `W = k*p` keine Rundung an. Das Held-out fragt in
+/// einer anderen Formulierung, die im Training nie vorkommt.
+fn cmd_generate_prozent(opts: &cli::ProzentGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = prozent::generate(&prozent::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Prozentrechnung (Familie 10)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Arten        : Prozentwert, Grundwert, Prozentsatz");
+    println!("Baender      : k 1-9 / p 1-20 im Training, k 11-97 / p 1-99 im Held-out");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "prz-tra")?;
+    let mut tm = Manifest::new(
+        opts.seed,
+        format!("Prozentrechnung - Training ({} Datensaetze)", train_records.len()),
+    );
+    tm.shards.push(te);
+    tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "prz-val")?;
+    let mut vm = Manifest::new(
+        opts.seed,
+        format!("Prozentrechnung - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    vm.shards.push(ve);
+    vm.save(val_dir.join("manifest.json"))?;
+
+    println!();
+    println!("Trainingsordner: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Einheiten und Umrechnung" (Familie 11, `src/data/einheit.rs`).
+///
+/// Fuenf Arten, alle exakt: `km/h` wird als `1000 m / 3600 s` zerlegt, das Tempo
+/// geht ueber `3.6` auf, und beim Weg kuerzt sich `h` heraus. Der Denkweg nennt
+/// die Einheiten selbst - "Zahl plus Etikett" besteht die Probe nicht.
+fn cmd_generate_einheit(opts: &cli::EinheitGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = einheit::generate(&einheit::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus       : Einheiten und Umrechnung (Familie 11)");
+    println!("Seed         : {}", opts.seed);
+    println!(
+        "Umfang       : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Arten        : Zerlegen, Tempo, Laenge, Zeit, Weg");
+    println!(
+        "Baender      : k 1-9 / km-min 1-20 im Training, k 11-97 / km-min 1-500 im Held-out"
+    );
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|r| r.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|r| r.record.clone()).collect();
+
+    let te =
+        write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "einh-tra")?;
+    let mut tm = Manifest::new(
+        opts.seed,
+        format!("Einheiten und Umrechnung - Training ({} Datensaetze)", train_records.len()),
+    );
+    tm.shards.push(te);
+    tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "einh-val")?;
+    let mut vm = Manifest::new(
+        opts.seed,
+        format!("Einheiten und Umrechnung - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    vm.shards.push(ve);
+    vm.save(val_dir.join("manifest.json"))?;
 
     println!();
     println!("Trainingsordner: {}", train_dir.display());
