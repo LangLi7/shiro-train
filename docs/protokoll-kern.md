@@ -6174,3 +6174,73 @@ eine Stunde** fuer nichts.
 **Kostenrechnung, damit sie nicht wiederholt wird:** ein Build auf der A100 = 5 min x 1,39 $/h
 = **0,12 $**. Vier davon sind 0,50 $. Ein Build auf einem CPU-Pod derselben Bauzeit kostet rund
 **0,01 $** — der Unterschied ist der Grund, warum das Binary ab jetzt gecacht wird.
+
+## Runde 317 — Der 500M-Lauf scheitert nicht an der Karte, sondern am Optimierer auf der CPU
+
+**Fakten**
+
+| Punkt | Wert |
+|---|---|
+| Pod | `w0k2qe8r27p6cr`, A100-SXM4-80GB, US-MD-1, 2,19 $/h (Katalog-Ablesung) |
+| Binary vorab gebaut | CPU-Pod `cpu3c` 16 vCPU, 0,48 $/h, Bauzeit 332 s, 138 538 496 B, sha256 `4ddeacec33dc8c8a…`, liegt auf `/workspace/bin/shiro` |
+| CPU-Pod-Kosten | 9,5 min ≈ 0,09 $, danach geloescht |
+| Container-Disk | ueberlebt Stop/Start **nicht**: `/work` und `/root/shiro` waren nach dem Neustart weg, nur das Global Volume bleibt |
+| Autocast | `autocast = "bf16"` ist wirkungslos. `burn-0.22` enthaelt in allen 27 Crates **kein** Autocast-Symbol, und `src/model/tiny.rs` Z. 15 sagt: alle Werte sind f32 |
+
+**Drei Fehlschlaege, alle vor dem ersten gezaehlten Schritt**
+
+1. Batch 16 x 1024 → OOM. Fehlallokation 1 343 225 856 B = 16·20·1024·1024·4 + 1 MiB.
+2. Batch 8 → OOM, 672 137 216 B (dieselbe Rechnung, halbiert). Ursache ist die naive
+   Attention ohne FlashAttention: die Score-Matrix wird materialisiert, in f32.
+3. Batch 6 → laeuft, 71 095 MiB belegt, aber 5 523,6 ms je Schritt und 976 Token/s.
+
+**Die Ursache**
+
+`train_step` (`src/model/lm.rs` Z. 504–516) holt je Schritt **alle** 509 298 176 Gewichte und
+Gradienten auf den Host und rechnet AdamW dort:
+
+`grads_flat` (GPU→Host) · `flat_params` (GPU→Host) · `adamw_step` (CPU-Schleife ueber 509 Mio
+Elemente) · `set_flat_params` (Host→GPU). Die A100 haelt 71 GB belegt und wartet; die
+Utilisation schwankt gemessen zwischen 15 % und 48 %.
+
+**Kosten**
+
+| Variante | Zeit fuer 98,3 Mio Token | Kosten bei 2,19 $/h |
+|---|---|---|
+| gemessen (Batch 6, 5,52 s/Schritt) | 28 h | **61 $** |
+| Protokollrahmen Runde 315 (2 000–4 000 Token/s) | 7–14 h | 10–19 $ |
+| Ziel nach dem Fix (0,6 s/Schritt) | 2,7 h | **5,8 $** |
+
+**Entscheidung:** abgebrochen nach 219 s Uptime, 25 Schritte gerechnet. Der Pod ist EXITED;
+GPU-Zeit kostet nichts mehr.
+
+**Ein Nebenbefund, der Geld gekostet hat:** `pod-start.sh` Z. 108 (`s|steps = .*|…|`) ist
+unverankert und trifft auch `warmup_steps`; mit `SCHRITTE=6000` wurde daraus
+`warmup_steps = 6000` statt 300. Reparatur: Anker `^steps = .*`.
+
+**Hypothese fuer Runde 318, vor dem Lauf festgelegt**
+
+> Wird AdamW auf dem Geraet gerechnet und entfaellt der Host-Roundtrip je Schritt, sinkt die
+> Schrittzeit von 5 523,6 ms auf unter 600 ms, also um mindestens Faktor 9.
+> Nullhypothese: weniger als Faktor 3 — dann ist nicht der Hostpfad der Engpass, sondern die
+> Attention, und der naechste Hebel ist eine speichereffiziente Attention.
+
+**Unsicherheit:** die 5 523,6 ms sind der Mittelwert der ersten 25 Schritte und enthalten die
+Kernel-Kompilierung von cubecl. Ob der eingeschwungene Wert niedriger liegt, ist ungemessen —
+er wurde nicht abgewartet, weil selbst 4 s/Schritt noch 18 h und 39 $ bedeuten.
+
+**Korrektur dreier Zahlen, noch am selben Tag nachgerechnet**
+
+1. **Die 28 h sind falsch gerechnet.** Ich habe 98,3 Mio **Roh**-Token durch 976
+   **Nutz**-Token/s geteilt — zwei verschiedene Bezugsgroessen. Richtig ist die Schrittzeit:
+   16 000 × 5,5236 s = 88 378 s = **24,5 h**, also **53,6 $**, nicht 61 $.
+2. **Die Transfermenge ist 6 GB, nicht 4.** Gradienten herunter (2,04 GB), Parameter
+   herunter (2,04 GB), Parameter hinauf (2,04 GB).
+3. **976 Token/s und 1 113 Token/s widersprechen sich nicht.** `tokens_per_second` rechnet
+   `bytes / ms`, also 5 393 / 5,5236 = 976,36 — nur gueltige Zielpositionen. Roh sind es
+   6 144 / 5,5236 = 1 113. Beide Werte sind richtig, sie zaehlen verschieden.
+
+**Die Regel daraus, fuer alle kuenftigen Runden:** Zeit- und Kostenschaetzungen kommen aus
+einem **gemessenen Kurzlauf**, nicht aus FLOPs. Der Rahmen aus Runde 315 (7–14 h, 10–19 $)
+lag um Faktor 2 bis 4 daneben, weil er nur GPU-Rechenzeit ansetzte und die Hostarbeit
+ueber 509 Mio Werte je Schritt nicht kannte.
