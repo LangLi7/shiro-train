@@ -5129,3 +5129,31 @@ und dort lagen Logik (62,5) und Urteil (90 nach 1000 Schritten).
 
 **Die Regel, die daraus endgueltig gilt:** ein Trainer gleichzeitig. Die RTX 3060 hat 12 GB, der
 Rechner 31,8 GB, ein 24M-Modell braucht 9 GB WorkingSet — **zwei passen nicht.**
+
+## Runde 287 — Die Seed-Reihe: vier Anlaeufe, vier verschiedene Ursachen
+
+**Der ehrliche Bericht, weil es Lehrgeld war:**
+
+| Versuch | Was schiefging |
+|---|---|
+| 1 | Prozesse hingen am Tool-Job und starben mit ihm |
+| 2 | zwei Laeufe gleichzeitig -> RAM 93 Prozent -> beide standen still |
+| 3 | alter Bruch-Lauf lief noch -> RAM 96,9 Prozent |
+| 4 | **Checkpoints vom 18.11. lagen noch da** -> `File already exists` beim Schreiben |
+| — | **fuenf Scheduled Tasks** starteten immer neue Prozesse, RAM 98,9 Prozent |
+
+**Der letzte Fehler war der lehrreichste:** der Trainer kann einen vorhandenen Checkpoint **nicht
+ueberschreiben**. Bei `seed2` lag `seed2-step31600.safetensors` vom 18. November — der Lauf brach
+sofort ab, und im Log stand nur `data_loaded`.
+
+**Was ich daraus mitnehme, und es gilt ab jetzt:**
+
+1. **Ein Trainer gleichzeitig.** Zwei 24M-Modelle mit je 9 GB WorkingSet passen nicht in 31,8 GB.
+2. **Checkpoint-Ordner vor dem Start leeren** — oder einen neuen Namen verwenden.
+3. **Keine Scheduled Tasks fuer Trainings.** Sie hinterlassen Reste, die weiter Prozesse starten;
+   beim Aufraeumen waren es fuenf Tasks und drei Prozesse gleichzeitig.
+4. **Nach dem Start in den Log sehen:** `data_loaded` ohne `step` heisst **haengt oder stirbt**,
+   nicht "laeuft".
+
+**Der Stand nach dem Aufraeumen:** keine Prozesse, keine Tasks, RAM 38,7 Prozent, GPU 295 MiB frei.
+**Die Seed-Reihe ist nicht gelaufen** — von zehn Seeds existiert nur `seed1` (Addition 100).
