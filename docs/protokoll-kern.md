@@ -9051,3 +9051,58 @@ falschlich `tail -1` = aeltester drin).
 **Wichtig:** Checkpoint und Trainingskorpus liegen gerade noch auf der
 **fluechtigen Container-Disk** (`/root`) - sie muessen vor einem Pod-Stop
 gesichert werden. Der neue 1,5-GB-Korpus liegt bereits auf `/workspace/neu50`.
+## Runde 272 — Lauf 1 NICHT uebernommen; Lauf 2 mit einem Faktor gestartet
+
+### Checkpoint-Entscheidung (Loop-Schritt 6)
+
+**Lauf 1 (Schritt 2000) wird NICHT uebernommen.**
+
+| Messung | 500M Lauf 1 | 25M-Referenz | Ziel |
+|---|---|---|---|
+| Train-Loss | 5,77 -> **0,19** | - | - |
+| Blindtest Antwort-EM | **10,0 %** (1/10) | 20,0 % | >= 90 % |
+| Blindtest Weg-EM | **0,0 %** (0/10) | 5,0 % | >= 90 % |
+
+**Begruendung:** Nur die Train-EM stieg; die Generalisierung auf den
+unabhaengigen Blindtest (188 Datensaetze, **0 Ueberlappung** mit dem Training)
+ist **schlechter als die 25M-Referenz**. Genau das ist das Auswendiglernen,
+das der Auftrag verbietet. Ein Checkpoint darf nicht uebernommen werden.
+
+### Gesichert (16 GB auf /workspace/500m-validiert)
+
+- `ckpt/`: 2 x safetensors (1,9 GB) + 2 x state (5,7 GB) - **auch der
+  nicht uebernommene**, als Beleg
+- `korpus/`: der 342-MB-Trainingskorpus
+- `eval/`: 500M- und 25M-Eval-Log
+- `ENTSCHEIDUNG.txt`: die obige Begruendung
+- `train500.toml`, `*.jsonl`: Config und Metriken
+
+### Korrektur zu bf16
+
+Meine fruehere Aussage „bf16 wurde nicht uebernommen" war **falsch**. Die
+Config hatte `autocast = "bf16"`, aber `src/config.rs:387` lehnt alles ausser
+`fp32` bewusst ab (burn 0.22 unterstuetzt kein bf16; ein Test prueft das).
+**bf16 ist kein verfuegbarer Faktor.** Das System verhielt sich korrekt.
+
+### Lauf 2 — genau ein Faktor geaendert (Loop-Schritt 4)
+
+| Faktor | Lauf 1 | Lauf 2 |
+|---|---|---|
+| **Korpus** | 1 239 720 Datensaeze / 682 436 verschieden / 342 MB | **4 086 720 / 1 608 835 / 1,03 GB** |
+| Modell | 509 298 176 | gleich |
+| Seed | 56321 | gleich |
+| Schritte | 2000 | gleich |
+| Batch / Seq | 6 x 1024 | gleich |
+| Precision | fp32 | gleich |
+
+**Hypothese (vor dem Lauf festgelegt):** Der Blindtest-Befund von 10 %/0 %
+lag an der **zu geringen Vielfalt** des alten Korpus. Mit 2,36x mehr
+verschiedenen Aufgaben steigt die Blindtest-Antwort-EM auf **>= 20 %**
+(besser als die 25M-Referenz), bei Weg-EM > 0 %.
+
+**Widerlegung:** Antwort-EM bleibt <= 20 % **oder** Weg-EM bleibt bei 0 %.
+Dann ist die Datenvielfalt nicht der limitierende Faktor, und nach zwei
+Runden ohne Zugewinn gilt Loop-Schritt 7: **Stopp**.
+
+**Budget:** Lauf 2 bei 2,19 $/h, voraussichtlich ~55 min (~2,00 $).
+Messpunkt bei Schritt 1000, End-Eval bei 2000.
