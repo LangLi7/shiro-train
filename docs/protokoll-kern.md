@@ -10523,3 +10523,33 @@ Ein 500M-Lauf mit 100k Rechenaufgaben hebt die Antwort-EM auf **> 20 %**
 - Fakt: 16.146 distinct, 100k mit Wiederholung, validiert, 0 Ueberlappung.
 - Hypothese: 100k Exposition hebt 500M ueber 20 % - **nicht getestet**.
 - Unsicher: ob Wiederholung statt Vielfalt genuegt.
+## Runde 313 — 100k-Test gestartet, aber CUDA-Init haengt (Pod sofort gestoppt)
+
+**Vorbereitung (GPU-frei, erledigt):**
+- `configs/train500-rechne100k.toml` (ein Faktor: Korpus 12.818 -> 100.000)
+- 100k-Korpus + 2k-Heldout auf HF (`rechne100k-*`), CLI-validiert.
+- A100 gestartet (2,19 $/h), Daten/Binary/Config geladen, Resume korrekt
+  erkannt (509298176 Parameter, Seed 53013).
+
+**Problem:** Der Train-Prozess blieb bei ~8 % CPU / GPU 0 % haengen.
+`/proc/<pid>/wchan` zeigte `request_wait_answer` (Cubecl-CUDA wartet auf
+Antwort), rchar blieb bei 2,17 GB (State-Laden von der Netzwerk-Volume
+nicht fertig). Kein Fortschritt nach ~4 min.
+
+**Vergleich zum erfolgreichen Lauf 308:**
+- Erfolgreich: A100 in **US-CA-2**, GPU-Speicher 117 GB.
+- Haengend: A100 in **US-WA-1**, GPU-Speicher 251 GB.
+- Beide CUDA 13.2, gleiche Config-Struktur, gleiches Volume.
+
+**Entscheidung:** Pod nach 3:37 min sofort gestoppt (~0,13 $) - kein
+Leerlauf, wie vom Nutzer verlangt. Kein Checkpoint entstanden, keine
+Daten veraendert.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: CUDA-Init hing in US-WA-1, funktionierte in US-CA-2.
+- Hypothese: Host-/Volume-Konfiguration (US-WA-1) verursacht das Warten -
+  **nicht getestet**.
+- Unsicher: ob ein Neustart in US-CA-2 den Test ermoeglicht.
+
+**Naechster Schritt (braucht Freigabe):** Identischen Test in US-CA-2
+starten (dort lief R308 erfolgreich). Kein automatischer Neustart.

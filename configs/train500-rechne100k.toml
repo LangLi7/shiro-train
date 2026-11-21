@@ -1,0 +1,49 @@
+# Registrierter Hypothesen-Test (Runde 312/313).
+# EIN Faktor gegenueber dem 4%-Lauf (Runde 308): Korpusgroesse 12.818 -> 100.000
+# Rechenaufgaben (16k distinct, ~6x wiederholt, wie 25M logic-refocus).
+# Gleich bleiben: Checkpoint (Lauf2 step2000 .state), 2000 Schritte, Architektur,
+# Seed 53013, lr 3e-4, cosine, fp32, Batch 6, seq 1024.
+#
+# Erwartung: Antwort-EM > 20 % auf sauberem 2k-Heldout. Widerlegung: <= 20 %.
+# Budget: 2000 Schritte (~52 min, ~1,10 $), Checkpoint alle 1000.
+
+[run]
+name = "rechne100k"
+seed = 53013
+steps = 2000
+log_every = 100
+checkpoint_every = 1000
+output_dir = "/workspace/500m-rechne100k/ckpt"
+log_dir = "/workspace/500m-rechne100k/logs"
+
+[data]
+dir = "/root/rechne100k-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
