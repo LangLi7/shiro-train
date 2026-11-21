@@ -35,6 +35,7 @@ pub mod potenzen;
 pub mod preflight;
 pub mod prozent;
 pub mod quant;
+pub mod satzmuster;
 pub mod semantics;
 pub mod regel;
 pub mod seq;
