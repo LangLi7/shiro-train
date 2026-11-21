@@ -32,6 +32,7 @@ pub mod manifest;
 pub mod mathverify;
 pub mod mix;
 pub mod orthographie;
+pub mod paraphrase;
 pub mod potenzen;
 pub mod preflight;
 pub mod prozent;
