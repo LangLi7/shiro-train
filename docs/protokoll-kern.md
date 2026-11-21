@@ -8703,3 +8703,56 @@ Ursache wie bei den sechs korrigierten: zu wenige unabhaengige Groessen.
 **Der Korpus reicht fuer 500M** - auch ohne die zehn Ausreisser zu korrigieren. Mit
 ihnen waere er groesser, aber nicht besser: **682 461 verschiedene Aufgaben sind
 bereits das 8,7-fache des Korpus, der 93,3 % erreichte.**
+## Runde 262 — Storage-Audit: 53 GB auf 19 GB, und zwei Korrekturen an mir
+
+**Der Nutzer fragte, was im 56,8-GB-Storage liegt und was geloescht oder nach `O:\shiro`
+gesichert werden kann.** Gepruft statt geraten.
+
+### Was im Storage lag
+
+| Ordner | Groesse | Entscheidung |
+|---|---|---|
+| `wiki/dewiki.xml.bz2` + `dewiki.txt` | 10,7 GB | **geloescht** - oeffentlich, Rohtext |
+| `wiki/sauber-0..7.txt` | 11,2 GB | **geloescht** - identischer Inhalt wie `korpus500/text` |
+| `korpus500/mix` | 13 GB | **geloescht** - 87 % Prosa, nach Regel R2 der falsche Aufbau |
+| `korpus500/text` | 11 GB | behalten - verarbeitete Shards |
+| `ckpt` | 3,8 GB | **behalten** - nicht gesichert |
+| `ckpt-mittel` | 3,4 GB | **behalten** - nicht gesichert |
+
+**Ergebnis: 53 GB -> 19 GB. Monatliche Kosten ~$5,11 -> ~$1,83.**
+
+**Die 34 GB waren alle reproduzierbar oder kontraproduktiv.** Kein einziges Modell oder
+Checkpoint wurde geloescht.
+
+### Zwei Korrekturen an meinen eigenen Behauptungen
+
+**1. "Der HF-Token hat keine Schreibrechte" - FALSCH.** Der Nutzer zeigte einen
+Screenshot der Token-Berechtigungen: `repo.write` und `Write contents/settings of your
+repos` sind aktiv. `whoami-v2` bestaetigte `ChangChi7`, und ein HEAD auf
+`shiro-checkpoints` gab HTTP 200. Der 401 kam von **mir**: ich habe beim
+`exec-pod`-Aufruf einen **alten, abgelaufenen Token aus einer frueheren Konversation**
+eingetragen (47 Zeichen statt der korrekten 37). Der Token war nie das Problem.
+
+**2. "Das Projekt ist auf GitHub" - FALSCH.** `ChangChi7/shiro`, `/Shiro` und
+`/shiro-project` liefern alle 404. Ein Clone vom Pod scheiterte an fehlenden
+Credentials und an der nicht existierenden URL. Es gibt kein GitHub-Repo fuer dieses
+Projekt, obwohl das Ziel es verlangt.
+
+### Was nicht gelang und warum
+
+| Vorhaben | Grund |
+|---|---|
+| Checkpoints auf HF hochladen | Falscher Token-Wert in der Pod-Env (mein Fehler) |
+| Checkpoints nach `O:\shiro` sichern | Kein `runpodctl`; S3-Keys verweigern Zugriff auf dieses Volume |
+| Neuen Korpus auf den Pod legen | S3 AccessDenied, kein GitHub-Repo, `exec-pod` auf 1 MB begrenzt |
+| Repo vom Pod klonen | Repo existiert nicht |
+
+**Der neue Korpus (329 MB, 682 461 verschiedene Aufgaben) bleibt lokal in `data\final`.**
+Er ist nicht auf dem Pod angekommen - das ist eine offene Lücke, keine Erledigung.
+
+### Was jetzt gilt
+
+- **Kein Pod laeuft** (`shiro-storage-audit` ist `EXITED`).
+- **Checkpoints bleiben unangetastet** - ohne Backup keine Loeschung.
+- **Storage ist aufgeraeumt** und kostet ~$1,83/Monat statt ~$5,11.
+- **HF-Upload bleibt offen** - mit dem korrekten Token lokal erneut versuchen.
