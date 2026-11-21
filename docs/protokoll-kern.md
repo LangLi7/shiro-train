@@ -9242,3 +9242,41 @@ Danach ueber Gradient Checkpointing entscheiden.
 - Fakt: 74,18 GB belegt, davon 7,13 GB statisch, 67,05 GB Aktivierungen.
 - Hypothese: Gradient Checkpointing senkt Aktivierungen auf ~10 GB.
 - Unsicher: Ob Burn 0.22 ein Recomputation-Feature anbietet - **nicht geprueft**.
+## Runde 277 — Korrektur: Gradient Checkpointing ist bereits aktiv
+
+**Meine Aussage in Runde 276 war falsch:** „Gradient Checkpointing waere ein
+Code-Umbau in lm.rs, eine eigene Runde." Geprueft im Burn-0.22-Source auf dem Pod:
+
+| Datei | Befund |
+|---|---|
+| `burn-tensor-0.22.0/src/device.rs:541` | `with_gradient_checkpointing()` -> `Balanced` |
+| `device.rs:1518,1542` | Tests: `Device::cuda(0)` hat **standardmaessig Balanced** |
+| `burn-autodiff/checkpoint/strategy.rs:63` | `BalancedCheckpointing` implementiert |
+| `burn-dispatch/macros.rs:31` | nutzt `BalancedCheckpointing` |
+
+**Unser `backend.rs:125` erzeugt `Device::cuda(0)` — damit ist Balanced
+Gradient Checkpointing bereits aktiv.** Die 67,05 GB Aktivierungen sind das
+Ergebnis *mit* Checkpointing; ohne waere es noch hoeher.
+
+### Endgueltige, gepruefte Bilanz aller Beschleunigungshebel
+
+| Hebel | Status |
+|---|---|
+| bf16 | technisch moeglich (`DType::BF16`, `half 2.7.1`), aber Modell auf f32 verdrahtet, 16 GB Checkpoints unlesbar |
+| `burn/fusion` | **nicht baubar** - `burn-remote 0.22.0` existiert nicht (nur pre.x) |
+| Batch 16 | **OOM** - 185,9 GB > 80 GB |
+| Gradient Checkpointing | **bereits aktiv** (Balanced, Default) |
+| fused AdamW | **existiert in Burn 0.22 nicht** (0 Treffer im Source); unser eigener laeuft auf Device, alter 5,5-s-PCIe-Engpass behoben |
+
+**Fazit:** Die 1,54 s/Schritt sind **kein Konfigurationsfehler**, den ein
+Schalter behebt. Es ist fp32 + 500M Parameter + Burn/Cubecl-Kernel-Overhead.
+Echte Beschleunigung waere ein Burn-Upgrade (>= 0.23 mit fusion/fused AdamW)
+oder ein Checkpoint-Format-Migrationspfad - beides eigene Runden mit Risiko.
+
+**Disziplin:** Ich habe in den letzten drei Runden dreimal eine Vermutung
+(„burn kein bf16", „fusion als Hebel", „Checkpointing als Umbau") als Tatsache
+geschrieben und musste sie korrigieren. Alle drei Korrekturen stehen jetzt im
+Protokoll. **Fakten und Hypothesen muessen getrennt bleiben.**
+
+**Naechster Schritt bleibt unveraendert:** Lauf 2 (ein Faktor: Daten) fertig
+auswerten. Kein OOM-Test, kein Checkpoint-Bruch ohne Messgrund.
