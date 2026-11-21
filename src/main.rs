@@ -3760,6 +3760,25 @@ fn m1_answer(generated: &[u8]) -> Option<Vec<u8>> {
 mod answers_mode_tests {
     use super::*;
 
+    /// Baseline regression: the measured 25M reference on the clean 100-item
+    /// heldout (round 309) produced 24 answer-EM, 9 exact-path and 31
+    /// content-path correct. Pinning the percentage arithmetic with these
+    /// real values keeps the reported numbers from drifting silently.
+    #[test]
+    fn baseline_percentages_match_measured_25m_reference() {
+        let outcome = AnswerOutcome {
+            asked: 100,
+            correct: 24,
+            path_correct: 9,
+            path_result_correct: 31,
+            pfade: Vec::new(),
+            fehler: Vec::new(),
+        };
+        assert!((outcome.percent() - 24.0).abs() < 1e-9);
+        assert!((outcome.path_percent() - 9.0).abs() < 1e-9);
+        assert!((outcome.path_result_percent() - 31.0).abs() < 1e-9);
+    }
+
     #[test]
     fn m1_prompt_excludes_reference_reasoning_and_answer() {
         let record = [
