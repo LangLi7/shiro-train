@@ -42,23 +42,46 @@ pub struct Regel {
 
 /// Die Umschreibungen des **Trainings**.
 ///
-/// Bewusst einfach gehalten: sie duerfen die Bedeutung **nicht** veraendern, sonst
-/// passt der Denkweg nicht mehr zur Aufgabe.
-pub const TRAIN_REGELN: [Regel; 5] = [
-    Regel { von: "Berechne ", nach: "Bestimme " },
-    Regel { von: "Wie viel ist ", nach: "Was ergibt " },
-    Regel { von: "Gegeben ist ", nach: "Gegeben: " },
-    Regel { von: "Bestimme den Wert von ", nach: "Ermittle den Wert von " },
+/// **Gemessen, nicht geraten (Runde 496).** Der erste Entwurf enthielt Regeln wie
+/// `Berechne -> Bestimme` und `Wie viel ist -> Was ergibt`. Eine Zaehlung an je 15
+/// echten Datensaetzen aller Familien ergab: **diese Woerter kommen nicht vor.** Sechs
+/// von sechzehn Familien hatten **null** Treffer, und der einzige, der ueberall griff,
+/// war `Frage: `.
+///
+/// Die Tabelle steht jetzt auf den **tatsaechlichen** Anfangsphrasen:
+///
+/// | Familie | echte Phrase |
+/// |---|---|
+/// | `logic`, `gleichung` | `Gegeben: ` |
+/// | `seq` | `Folge: ` |
+/// | `algebra`, `kombi-*` | `Term: ` |
+/// | `quant` | `Modell: ` |
+/// | `games` | `Spielart: ` |
+/// | `semantics` | `Was gibt dieses Programm aus?` |
+/// | mehrere | `Frage: ` |
+pub const TRAIN_REGELN: [Regel; 7] = [
+    Regel { von: "Gegeben: ", nach: "Vorgegeben: " },
+    Regel { von: "Folge: ", nach: "Zahlenfolge: " },
+    Regel { von: "Term: ", nach: "Ausdruck: " },
+    Regel { von: "Modell: ", nach: "Welt: " },
+    Regel { von: "Spielart: ", nach: "Aufgabentyp: " },
     Regel { von: "Frage: ", nach: "Gesucht: " },
+    Regel { von: "Was gibt dieses Programm aus?", nach: "Welche Ausgabe liefert das Programm?" },
 ];
 
 /// Die Umschreibungen des **Held-outs** - **andere** als im Training.
-pub const VAL_REGELN: [Regel; 5] = [
-    Regel { von: "Berechne ", nach: "Ermittle " },
-    Regel { von: "Wie viel ist ", nach: "Welchen Wert hat " },
-    Regel { von: "Gegeben ist ", nach: "Vorgegeben: " },
-    Regel { von: "Bestimme den Wert von ", nach: "Berechne den Wert von " },
+///
+/// Jede Regel umschreibt **dieselbe** Phrase wie ihr Gegenstueck im Training, aber
+/// **anders**. Nur so ist die Trennung wirksam: das Modell sieht im Held-out keine
+/// Formulierung, die es im Training gelernt hat.
+pub const VAL_REGELN: [Regel; 7] = [
+    Regel { von: "Gegeben: ", nach: "Angenommen: " },
+    Regel { von: "Folge: ", nach: "Reihe: " },
+    Regel { von: "Term: ", nach: "Rechenausdruck: " },
+    Regel { von: "Modell: ", nach: "Struktur: " },
+    Regel { von: "Spielart: ", nach: "Sorte: " },
     Regel { von: "Frage: ", nach: "Zu bestimmen: " },
+    Regel { von: "Was gibt dieses Programm aus?", nach: "Was liefert das Programm fuer eine Ausgabe?" },
 ];
 
 /// Was eine Umschreibung bewirkt hat.
@@ -170,9 +193,12 @@ pub fn pruefe_wirkung(original: &[u8], umgeschrieben: &[u8]) -> Result<()> {
 mod tests {
     use super::*;
 
+    /// **Das Beispiel benutzt die echten Phrasen** (Runde 496): `Term: ` und
+    /// `Frage: `. Der erste Entwurf hatte `Berechne ` - ein Wort, das in keiner
+    /// unserer Familien vorkommt.
     fn beispiel() -> Vec<u8> {
         let mut r = vec![B_TASK];
-        r.extend_from_slice(b"Berechne 3+4.\nFrage: Wie viel ist das?");
+        r.extend_from_slice(b"Term: 3+4\nFrage: Welchen Wert hat der Term?");
         r.push(B_THINK);
         r.extend_from_slice(b"1. 3+4 = 7\n2. Ergebnis: 7");
         r.push(B_ANSWER);
@@ -181,10 +207,25 @@ mod tests {
         r
     }
 
+    /// Sucht den Index einer Regel, die auf dieses Beispiel passt.
+    ///
+    /// **Warum nicht einfach Index 0:** die Regeltabelle ist nach den **echten**
+    /// Phrasen der Familien geordnet und kann sich aendern. Ein fest verdrahteter
+    /// Index macht den Test dann falsch, ohne dass etwas kaputt waere.
+    fn passender_index(r: &[u8], val: bool) -> usize {
+        let regeln = if val { &VAL_REGELN } else { &TRAIN_REGELN };
+        let cut = r.iter().position(|b| *b == B_THINK).unwrap_or(r.len());
+        let kopf = String::from_utf8_lossy(&r[1..cut]).to_string();
+        regeln
+            .iter()
+            .position(|reg| kopf.contains(reg.von))
+            .expect("keine Regel passt zum Beispiel")
+    }
+
     #[test]
     fn umschreiben_laesst_den_denkweg_unberuehrt() {
         let r = beispiel();
-        let u = umschreibe(&r, false, 0);
+        let u = umschreibe(&r, false, passender_index(&r, false));
         pruefe_wirkung(&r, &u).expect("Denkweg muss gleich bleiben");
         assert_ne!(r, u, "die Umschreibung hat nichts geaendert");
     }
@@ -193,8 +234,8 @@ mod tests {
     fn trainings_und_held_out_regeln_sind_verschieden() {
         // **Die Trennung.** Dieselbe Eingabe muss zu verschiedenen Ausgaben fuehren.
         let r = beispiel();
-        let t = umschreibe(&r, false, 0);
-        let v = umschreibe(&r, true, 0);
+        let t = umschreibe(&r, false, passender_index(&r, false));
+        let v = umschreibe(&r, true, passender_index(&r, true));
         assert_ne!(t, v, "Training und Held-out schreiben gleich um");
         // Und keine Regel darf in beiden Tabellen stehen.
         for a in &TRAIN_REGELN {
@@ -225,7 +266,7 @@ mod tests {
     #[test]
     fn die_trennung_wird_erkannt() {
         let a = beispiel();
-        let b = umschreibe(&a, false, 0);
+        let b = umschreibe(&a, false, passender_index(&a, false));
         // Wenn der umgeschriebene Datensatz im Training steht, muss die Pruefung
         // das melden - sonst waere die Messung wertlos.
         let e = pruefe_trennung(&[b.clone()], &[b.clone()]).expect_err("muss melden");
