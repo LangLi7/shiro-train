@@ -10077,3 +10077,35 @@ unverantwortlich; der naechste Schritt ist eine **Richtungsentscheidung**
 (Paradigma-Wechsel oder Ziel-Anpassung), die ich nicht ohne Freigabe treffe.
 
 **Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
+## Runde 301 — FAIRER 500M-VERGLEICH: 0/20, schlechter als 25M
+
+**Auf den A100 (2,19 $/h, Pod gestoppt nach der Messung) mit exakt denselben
+20 frischen Rechenaufgaben (Seed 31337) und demselben Modus m1 ausgefuehrt:**
+
+| Modell | Antwort-EM | Weg-EM | erzeugte Antworten (Beispiele) |
+|---|---|---|---|
+| **500M Lauf 2** (Schritt 2000) | **0 % (0/20)** | 0 % | `214 km`, `120 Euro`, `nein`, `n.`, `1120` |
+| **25M-Referenz** | **30 % (6/20)** | 0 % exakt / 35 % inhaltlich | Zahlen, teils falsch |
+
+**Das ist der faire Vergleich**, den der Nutzer verlangt hat: gleiche Daten,
+gleicher Modus, gleicher Messpunkt. Die vorigen 25M-Diagnosen (Runden 292-300)
+gelten weiterhin nur fuer 25M - diese Runde korrigiert das.
+
+**Befund:** Das 500M-Modell faellt bei einfachen Rechenaufgaben **aus der
+Aufgabe heraus**: Es erzeugt Einheiten (`km`, `Euro`), Wahrheitswerte (`nein`)
+oder Satzreste (`n.`) statt Zahlen. Der 25M liefert mindestens Zahlen.
+**509M Parameter und 2x2000 Schritte A100 haben die Rechenfaehigkeit nicht
+verbessert - sie haben sie gegenueber 25M verschlechtert.**
+
+**Kostenbilanz dieser Diagnose:** A100 ~4,6 min = ~0,17 $. Kein Leerlauf
+(Pod sofort nach der Messung gestoppt). CPU-Pod (0,28 $/h) wurde vorher
+gestoppt, weil er nicht dem Zweck entsprach.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 500M 0/20, 25M 6/20 auf identischen Aufgaben.
+- Hypothese: Groessere Modelle uebernehmen hier mehr Kontext-Muster (Einheiten,
+  Wahrheitswerte), was das Rechnen verdrängt - **nicht getestet**.
+- Unsicher: Warum genau die 500M aus der Aufgabe faellt.
+
+**Entscheidung:** Die 500M-Runde bleibt geschlossen (kein Checkpoint
+uebernommen). Der Goal bleibt aktiv, 90 % nicht erreicht. Kein Pod laeuft.
