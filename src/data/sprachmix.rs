@@ -38,16 +38,19 @@ use std::path::{Path, PathBuf};
 pub struct Optionen {
     /// Jeder n-te Datensatz bekommt **zusaetzlich** eine englische Fassung.
     ///
-    /// `4` ergibt 80 % deutsch und 20 % englisch (jeder vierte wird verdoppelt).
-    /// `3` ergibt 75 / 25. Fuer die Vorgabe 70 / 30 ist `2` nahe: jeder zweite
-    /// verdoppelt ergibt 67 / 33.
+    /// `0` schaltet die englischen Fassungen ab; dann wird nur markiert.
     pub en_jeder: usize,
+    /// Zusaetzlich eine **umgeschriebene** deutsche Fassung erzeugen.
+    ///
+    /// Verdoppelt die Vielfalt ohne eine neue Rechnung: der Denkweg bleibt
+    /// byte-identisch, nur der Aufgabentext wechselt die Worte.
+    pub paraphrase: bool,
 }
 
 impl Default for Optionen {
     fn default() -> Self {
         // 70 / 30 kommt `en_jeder = 2` am naechsten (67 / 33).
-        Self { en_jeder: 2 }
+        Self { en_jeder: 2, paraphrase: true }
     }
 }
 
@@ -91,26 +94,50 @@ fn lies_alle(ordner: &Path) -> Result<Vec<Vec<u8>>> {
 ///
 /// Gibt die Datensaetze **gemischt** zurueck: deutsche und englische abwechselnd,
 /// damit der Loader beim sequenziellen Lesen beide Sprachen sieht.
+///
+/// ## Die Paraphrase (Runde 507)
+///
+/// **Sie war gebaut, aber nicht verdrahtet.** `paraphrase::umschreibe` existierte seit
+/// Runde 221 mit sechs Tests - `sprachmix` importierte das Modul nur fuer die
+/// Sprachmarken. Genau derselbe Fehler wie bei `data mix` in Runde 483.
+///
+/// Jetzt erzeugt jeder Datensatz **zusaetzlich** eine umgeschriebene Fassung, wenn
+/// eine Regel greift. Das **verdoppelt die Vielfalt ohne eine neue Rechnung** - der
+/// Denkweg bleibt byte-identisch.
 pub fn mischen(records: &[Vec<u8>], opts: Optionen) -> (Vec<Vec<u8>>, Bericht) {
     if opts.en_jeder == 0 {
-        // Ohne englische Fassungen bleibt alles deutsch, nur mit Marke.
-        let raus: Vec<Vec<u8>> = records
-            .iter()
-            .map(|r| paraphrase::setze_sprache(r, Sprache::De))
-            .collect();
-        let n = raus.len();
-        return (
-            raus,
-            Bericht { deutsch: n, englisch: 0, shards: 0 },
-        );
+        // Ohne englische Fassungen bleibt alles deutsch, nur mit Marke - und mit
+        // Umschreibung, wenn der Schalter sie erlaubt.
+        let mut raus: Vec<Vec<u8>> = Vec::with_capacity(records.len() * 2);
+        let mut de = 0usize;
+        for (i, r) in records.iter().enumerate() {
+            raus.push(paraphrase::setze_sprache(r, Sprache::De));
+            de += 1;
+            if opts.paraphrase {
+                let u = paraphrase::umschreibe(r, false, i);
+                if u != *r {
+                    raus.push(paraphrase::setze_sprache(&u, Sprache::De));
+                    de += 1;
+                }
+            }
+        }
+        return (raus, Bericht { deutsch: de, englisch: 0, shards: 0 });
     }
-    let mut raus = Vec::with_capacity(records.len() * 3 / 2);
+    let mut raus = Vec::with_capacity(records.len() * 3);
     let mut de = 0usize;
     let mut en = 0usize;
     for (i, r) in records.iter().enumerate() {
         // Deutsch mit Marke.
         raus.push(paraphrase::setze_sprache(r, Sprache::De));
         de += 1;
+        // **Die Umschreibung**, wenn der Schalter sie erlaubt.
+        if opts.paraphrase {
+            let u = paraphrase::umschreibe(r, false, i);
+            if u != *r {
+                raus.push(paraphrase::setze_sprache(&u, Sprache::De));
+                de += 1;
+            }
+        }
         // Jeder n-te zusaetzlich auf Englisch.
         if i % opts.en_jeder == 0 {
             if let Some(e) = englische_fassung(r) {
@@ -119,10 +146,7 @@ pub fn mischen(records: &[Vec<u8>], opts: Optionen) -> (Vec<Vec<u8>>, Bericht) {
             }
         }
     }
-    (
-        raus,
-        Bericht { deutsch: de, englisch: en, shards: 0 },
-    )
+    (raus, Bericht { deutsch: de, englisch: en, shards: 0 })
 }
 
 /// Baut die englische Fassung eines Datensatzes: erst uebersetzen, dann markieren.
@@ -300,7 +324,7 @@ mod tests {
     #[test]
     fn jede_fassung_traegt_eine_marke() {
         let r = deutsch();
-        let (raus, b) = mischen(&[r.clone(), r.clone(), r], Optionen { en_jeder: 2 });
+        let (raus, b) = mischen(&[r.clone(), r.clone(), r], Optionen { en_jeder: 2, paraphrase: false });
         for x in &raus {
             assert!(
                 paraphrase::sprache_von(x).is_some(),
@@ -312,11 +336,33 @@ mod tests {
     }
 
     #[test]
+    fn die_paraphrase_verdoppelt_die_vielfalt() {
+        // **Der Schalter wirkt.** Mit `paraphrase: true` muss die Ausgabe groesser
+        // sein als ohne - sonst ist die Umschreibung nicht verdrahtet.
+        let r = deutsch();
+        let viele: Vec<Vec<u8>> = (0..50).map(|_| r.clone()).collect();
+        let (ohne, b_ohne) = mischen(&viele, Optionen { en_jeder: 0, paraphrase: false });
+        let (mit, b_mit) = mischen(&viele, Optionen { en_jeder: 0, paraphrase: true });
+        assert_eq!(ohne.len(), 50, "ohne Paraphrase muss alles einfach sein");
+        assert!(
+            mit.len() > ohne.len(),
+            "die Paraphrase hat nichts hinzugefuegt: {} gegen {}",
+            mit.len(),
+            ohne.len()
+        );
+        assert!(b_mit.deutsch > b_ohne.deutsch);
+        // Und jede Fassung traegt eine Marke.
+        for x in &mit {
+            assert!(paraphrase::sprache_von(x).is_some(), "Fassung ohne Marke");
+        }
+    }
+
+    #[test]
     fn der_englische_anteil_passt_zum_schalter() {
         let r = deutsch();
         let viele: Vec<Vec<u8>> = (0..100).map(|_| r.clone()).collect();
         // Jeder zweite verdoppelt: 100 deutsch, 50 englisch = 33 %.
-        let (_, b) = mischen(&viele, Optionen { en_jeder: 2 });
+        let (_, b) = mischen(&viele, Optionen { en_jeder: 2, paraphrase: false });
         assert_eq!(b.deutsch, 100);
         assert_eq!(b.englisch, 50);
         let anteil = b.en_anteil();
@@ -329,7 +375,7 @@ mod tests {
     #[test]
     fn ohne_schalter_bleibt_alles_deutsch() {
         let r = deutsch();
-        let (raus, b) = mischen(&[r.clone(), r], Optionen { en_jeder: 0 });
+        let (raus, b) = mischen(&[r.clone(), r], Optionen { en_jeder: 0, paraphrase: false });
         assert_eq!(b.englisch, 0);
         assert_eq!(raus.len(), 2);
         for x in &raus {

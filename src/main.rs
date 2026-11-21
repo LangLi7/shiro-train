@@ -2570,7 +2570,7 @@ fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
 /// englische Fassung. Die Rechnung bleibt dieselbe, nur die Aufgabenstellung wechselt -
 /// und **die Marke verhindert den Verdraengungseffekt** aus Regel R1.
 fn cmd_sprachmix(quelle: &std::path::Path, ziel: &std::path::Path, en_jeder: usize) -> Result<()> {
-    let opts = sprachmix::Optionen { en_jeder };
+    let opts = sprachmix::Optionen { en_jeder, paraphrase: true };
     let bericht = sprachmix::verarbeite(quelle, ziel, opts)?;
 
     println!("Quelle        : {}", quelle.display());
