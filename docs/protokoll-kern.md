@@ -10800,3 +10800,48 @@ Klasse 0 % (20er) - der Abstand bleibt, aber der 500M ist das Ziel.
 - Unsicher: Budget fuer Stufe 1 + 2.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv, jetzt klar auf 500M ausgerichtet.**
+## Runde 323 — Stufe 1 vorbereitet: Phasen-Kette ist lokal reproduzierbar
+
+**Ziel (Nutzer-Vorgabe R322): 500M Parameter, fix.**
+
+**Geprueft (GPU-frei):** Der 25M-Erfolg (24-30 %) ist das Ergebnis einer
+**Phasenfolge**, nicht eines einzelnen Laufs:
+
+```
+kombi-delta-step021200  ( eingefrorener Phasenstand )
+        |
+        v  + Grundrechenarten (add/train-1d 100, add/train-2d 8100)
+kombi-add-step023200    ( Additions-Kompetenz, lr 1e-4 constant, 2000 Schritte )
+        |
+        v  Feintuning (logic-large, lr 1e-5, 200 Schritte)
+logic-refocus-23400     ( 24-30 % Antwort-EM - bester Stand )
+```
+
+**Alle Korpora dafuer sind lokal vorhanden:**
+`data/seq/{train,val}`, `data/quant/{train,val}`,
+`data/logic-large/{train,val}`, `data/algebra/{train,val}`,
+`data/add/{train-1d,train-2d,eval-3d,eval-4d}`,
+`data/kombi-add/train`, `data/kombi-delta/train`.
+
+**Der 500M-Plan (Stufe 1 + 2):**
+1. 500M von einem frischen oder已有的 Stand auf `kombi-delta`-Aequivalente
+   trainieren (Struktur wie `train.kombi-add.toml`, aber d_model 1280,
+   32 Layer, 20 Heads), bis Additions-Kompetenz entsteht (pruefbar ueber
+   `data/add/eval-3d`, `eval-4d`).
+2. 500M Feintuning auf `logic-large` (wie `train.logic-refocus`, lr 1e-5).
+
+**Budget-Realitaet:** Die 25M-Kette lief auf CPU/GPU mit ~10-135 $. Ein
+500M-Durchlauf derselben Kette bei 2,19 $/h und ~1,5 s/Schritt ist
+deutlich teurer (2000 Schritte ~50 min ~1,85 $ pro Stufe, mehrfach).
+Das ist **machbar** mit dem verbleibenden Guthaben (~8,7 $), aber knapp.
+
+**Nicht gestartet:** Der Plan steht, aber der Nutzer hat zuletzt gesagt,
+er wolle 500M - nicht ausdruecklich „starte jetzt". Kein GPU-Start ohne
+klare Freigabe.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: alle Phasen-Korpora lokal vorhanden, 25M-Kette dokumentiert.
+- Hypothese: gleiche Kette bei 500M funktioniert - nicht getestet.
+- Unsicher: Budget reicht fuer alle Stufen.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv, auf 500M ausgerichtet.**
