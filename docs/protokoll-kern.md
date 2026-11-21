@@ -10588,3 +10588,35 @@ getestet werden. Kein automatischer weiterer Versuch.
 - Unsicher: wann US-CA-2 wieder Kapazitaet hat.
 
 **Goal bleibt aktiv, 90 % unerreicht. Kein Pod laeuft.**
+## Runde 315 — 100k-Test: Infrastruktur-Kapazitaet blockiert (read-only geprueft)
+
+**Kapazitaetslage (get-capacity, CUDA 13.2):**
+
+| GPU | Stock lt. API | COMMUNITY/h | SECURE/h |
+|---|---|---|---|
+| A100-SXM4-80GB | Medium | 1,39 $ | 2,19 $ |
+| RTX PRO 6000 (96 GB) | Medium | 1,69 $ | 2,69 $ |
+| H100 80GB | High | 2,69 $ | 4,39 $ |
+
+**Aber:** Vier `create-pod`-Versuche scheiterten alle mit
+„keine Instanzen verfuegbar":
+1. A100 SECURE + US-CA-2 → keine Kapazitaet.
+2. A100 SECURE (Scheduler) → startete, hing (US-WA-1, R314).
+3. A100 COMMUNITY + US-CA-2 → keine Kapazitaet.
+4. A100 COMMUNITY (Scheduler) → keine Kapazitaet.
+5. RTX PRO 6000 COMMUNITY → keine Kapazitaet.
+
+Der `get-capacity`-Snapshot ist optimistischer als die echte
+Create-Verfuegbarkeit. Weitere Starts waeren **StartTime-Verschwendung**
+(Goal: „GPU-Zeit und Startzeiten minimieren").
+
+**Entscheidung:** Kein weiterer Startversuch in dieser Runde. Der 100k-Test
+ist vollstaendig vorbereitet (Korpus, Config, Checkpoint auf HF/Volume),
+aber **derzeit nicht ausfuehrbar**. Kein Pod laeuft.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 5 Create-Versuche, 4x Kapazitaetsfehler, 1x CUDA-Haengen (US-WA-1).
+- Hypothese: Kapazitaet kommt zurueck oder anderer Host noetig - ungetestet.
+- Unsicher: wann der Test moeglich ist.
+
+**Goal bleibt aktiv, 90 % unerreicht. Alles gesichert.**
