@@ -9891,3 +9891,40 @@ Das ist die Lücke, die das 90-%-Ziel tatsaechlich blockiert.
 - Unsicher: Wie sich Rechenfehler mit mehr/besseren Daten entwickeln.
 
 **Fuenfter korrigierter Hebel.** Kein Pod, kein GPU, kein Code geaendert.
+## Runde 296 — Endgueltige Pfad-Klassifikation (alle 20, korrigiert)
+
+**Saubere Klassifikation** (Summe exakt 20, Umlaut nach Transliteration
+normiert, dann nach Operation):
+
+| Klasse | Anzahl | Anteil |
+|---|---|---|
+| Umlaut-nur (inhaltlich korrekt) | 4 | 20 % |
+| Subtraktion (Entlehnung) | 6 | 30 % |
+| Multiplikation (Teilprodukte) | 6 | 30 % |
+| Addition (Übertrag) | 4 | 20 % |
+| exakt korrekt | 0 | 0 % |
+
+**Korrektur an Runde 294:** Dort hatte ich 13/20 = 65 % „Umlaut-nur"
+gemeldet, weil ich nur auf das Wort `für` geprueft habe. Die saubere
+Pruefung (vollstaendige Gleichheit nach `fuer`->`fuer`-Rueckfuehrung) ergibt
+**4/20 = 20 %**. Die meisten Umlaut-Pfade enthalten **zusaetzlich** echte
+Zahlenfehler und wurden deshalb falsch klassifiziert.
+
+**Damit ist endgueltig klar:** Es gibt **keinen einzelnen Hebel**. Die
+Rechenfehler verteilen sich auf **alle drei Operationen** (6 Sub, 6 Mul,
+4 Add). Fuenf successive Einzel-Hypothesen (Datenmenge, Vielfalt, Struktur,
+Rollenverwechslung, Umlaut) mussten korrigiert werden - genau deshalb, weil
+ich jeweils nur einen Faktor annahm.
+
+**Ehrlicher Stand:**
+- 4/20 inhaltlich korrekt, aber Metrik-Umlaut verhindert Anerkennung.
+- 16/20 echte Rechenfehler, gleichmaessig ueber Sub/Mul/Add verteilt.
+- Antwort-EM 30 %, Weg-inhaltlich 35 %, Weg-exakt 0 %.
+
+**Konsequenz:** Ein einzelner Trainingsfaktor wird das 90-%-Ziel nicht
+erreichen. Der naechste echte Schritt ist ein **Paradigma-Wechsel** im
+Lernformat (z. B. Ziffernoperationen als direkte, pruefbare Teilziele),
+nicht eine weitere Config- oder Daten-Variante. Das ist eine grundlegende
+Aenderung - nicht automatisch.
+
+**Kein Pod, kein GPU, kein Code geaendert. Sechste Korrektur dokumentiert.**
