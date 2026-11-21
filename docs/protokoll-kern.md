@@ -10918,3 +10918,37 @@ gestoppt. Checkpoint auf HF (`kombi-add500-step3000.safetensors`) + lokal
 - Unsicher: ob ein solcher Elternstand das 90-%-Ziel ermoeglichen wuerde.
 
 **Goal bleibt aktiv, 500M fix. Kein Pod, kein GPU.**
+## Runde 326/327 — Hypothese VOR dem Training: SCHRITTZAHL (Nutzer-Anregung)
+
+**Der Nutzer fragte: „willst du nicht eher das bestehende Modell weiter
+trainieren?" Das ist der Hebel, den ich in 15 Runden uebersehen habe.**
+
+**Der messbare Vergleich:**
+| Modell | Schritte | Ergebnis |
+|---|---|---|
+| 25M Referenz (`kombi-add-step023200` + Refocus) | **23.200 + 200** | 24-30 % |
+| alle 500M Laeufe (Lauf 1/2 + Feintuning) | **2.000-3.000** | 0-4 % |
+
+~7x weniger Schritte. Ich habe immer den **Korpus** gewechselt (fokus,
+100k, kombi-add - alle widerlegt), aber nie einfach **laenger trainiert**.
+
+**Registrierter Test (EIN Faktor: Schrittzahl):**
+- Checkpoint: `fokus500-step003000.state` (bester 500M, 4 %) - gleich
+- Korpus: `fokus-rechnen/train` (12.818) - gleich
+- lr 3e-4 cosine, Seed 53013, Architektur - gleich
+- **Schritte: 1.000 -> 3.000 weitere** (3x laenger)
+
+**Erwartung:** Antwort-EM > 20 % auf dem sauberen 100er-Heldout.
+**Widerlegung:** <= 20 % -> mehr Schritte allein reichen nicht.
+**Auswendiglernen-Check:** Train-Loss war 0,056; wenn nur Train-EM steigt
+und Heldout niedrig bleibt, ist es Auswendiglernen (Auftragsregel).
+
+**Vorbereitet:** `configs/train500-longer.toml`, Korpus auf HF.
+**Budget:** ~78 min A100 (~1,30 $). Guthaben reicht.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 25M 23.200 Schritte, 500M nur 2.000-3.000.
+- Hypothese: Schrittzahl war limitierend - **vorregistriert, nicht getestet**.
+- Unsicher: ob langes Training auf 12.818 Records ueberfitet.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv, 500M fix.**

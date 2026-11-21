@@ -1,0 +1,52 @@
+# Registrierte Hypothese (Runde 326/327): NICHT der Korpus, sondern die
+# SCHRITTZAHL war der limitierende Faktor. Die 25M-Referenz hatte 23.200
+# Schritte, alle 500M-Laeufe nur 2.000-3.000 (~7x weniger).
+#
+# EIN Faktor gegenueber dem 4%-Lauf (R308): 1.000 -> 3.000weitere Schritte.
+# GLEICH bleiben: Checkpoint (fokus500-step003000.state, 4%), Korpus
+# (fokus-rechnen/train, 12.818), lr 3e-4 cosine, Seed 53013, Architektur.
+#
+# Erwartung: Antwort-EM > 20 % auf dem sauberen 100er-Heldout.
+# Widerlegung: <= 20 % -> mehr Schritte allein reichen nicht.
+# Budget: 3.000 Schritte (~78 min, ~1,30 $), Checkpoint alle 1.000.
+
+[run]
+name = "longer500"
+seed = 53013
+steps = 3000
+log_every = 100
+checkpoint_every = 1000
+output_dir = "/workspace/500m-longer/ckpt"
+log_dir = "/workspace/500m-longer/logs"
+
+[data]
+dir = "/root/fokus-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
