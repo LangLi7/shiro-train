@@ -8869,3 +8869,45 @@ wurde in Runde 262 geloescht.
 
 **Wichtig:** Dies sind externe Empfehlungen. Unsere eigenen Messungen (`mix77` 93,3 %
 auf 26 MB, R2 44-54 % bei zu fruehem Mischen) bleiben die Grundlage fuer Entscheidungen.
+## Runde 268 — Ausgangslage erstmals gemessen (CPU, keine GPU-Kosten)
+
+**Loop-Schritt 2 war seit许多 Runden offen.** Jetzt gemessen mit dem vorhandenen
+Micro-Checkpoint und `data/eval-small` auf der CPU - Sekunden, kein GPU-Geld:
+
+```
+shiro eval --config configs/eval.micro-logic-small.toml \
+  --checkpoint models/shiro-micro-logic-refocus-v1/model.safetensors \
+  --answers 20 --answers-mode m1 --backend cpu
+```
+
+| Komponente | gemessen | Ziel | Lücke |
+|---|---|---|---|
+| **Aufgabe / Antwort** | **55,0 %** (11/20) | >= 90 % | 35 Pp |
+| **Lösungsweg** | **15,0 %** (3/20) | >= 90 % | **75 Pp** |
+
+**Die größte Lücke ist der Lösungsweg**, nicht die Antwort. In 17 von 20 Fällen
+erzeugt das Modell einen falschen Denkweg, während die Antwort manchmal noch richtig
+geraten wird. Genau das ist der Zustand, den der Auftrag mit „Ergebnis UND kurzem,
+überprüfbarem Lösungsweg" messen will.
+
+**Beispiele der Abweichung:** `erwartet 110 / erzeugt 90`, `erwartet 15309 /
+erzeugt 2863`, `erwartet ja / erzeugt (leer)`.
+
+### Zwei korrekte Einordnungen
+
+1. **Dies ist eine Basislinie, nicht die 500M-Ausgangslage.** Das Micro-Modell wurde
+   auf dem **alten** `eval-small`-Korpus gemessen, nicht auf `data/final` und nicht
+   mit 500M. Es belegt aber, dass die Messkette `eval --answers --answers-mode m1`
+   auf CPU funktioniert und dass der Weg die kritische Komponente ist.
+2. **`verify-checkpoint` war das falsche Werkzeug.** Es erwartet das native Format
+   `BCKP`, während die `.safetensors`-Dateien mit `[144, 20, 0, 0]` beginnen (das
+   safetensors-Length-Prefix). `eval` lädt sie korrekt über `load_safetensors` - die
+   Dateien sind gesund, die Prüfung war falsch adressiert.
+
+### Hypothese für die nächste Runde (vor dem Training festgelegt)
+
+> Der Lösungsweg ist die limitierende Komponente. Ein Training, das den **Weg**
+> statt nur die Antwort belohnt, hebt die Weg-EM über 30 %, während die Antwort-EM
+> innerhalb der Toleranz bleibt.
+
+**Widerlegung:** Weg-EM bleibt <= 30 %, oder die Antwort-EM fällt unter 50 %.
