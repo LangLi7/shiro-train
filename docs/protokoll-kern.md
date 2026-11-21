@@ -10489,3 +10489,37 @@ eigenem Budget, kein kurzer Nachtrag.
 - Unsicher: ob Neugenerierung das Ziel erreichen wuerde.
 
 **Kein Pod, kein GPU, kein Code geaendert.**
+## Runde 312 — Fehlendes Rechen-Korpus neu gebaut (100k) + Korrektur
+
+**Korrektur zu Runde 310:** Der Generator meldete 100.147 `arithmetic`-
+Datensaetze, aber nach Filter + Deduplikation bleiben nur **16.146
+verschiedene** Rechenaufgaben (~84k Dubletten). Die „159x mehr Signal"
+aus Runde 310 war also die Zahl der **Datensaetze inkl. Wiederholungen**,
+nicht verschiedene Aufgaben. Der echte Unterschied zur 25M koennte
+**Anzahl Exposition/Wiederholungen** sein, nicht Datenvielfalt.
+
+**GPU-frei gebaut (wie von der 25M-Referenz bekannt):**
+
+| Teil | Datensaetze | distinct | Validierung |
+|---|---|---|---|
+| `data/rechne-100k/train` | **100 000** | 14 146 (~6x wiederholt) | **Alle Shards gueltig** |
+| `data/rechne-100k/val` | **2 000** | 2 000 | **Alle Shards gueltig** |
+
+Auftragserfuellung: Train/Val **getrennt** (val vor dem Auffuellen aus
+den distinct entnommen → 0 Ueberlappung by construction), Seed 53013
+(identisch mit 500M-Laeufen), reine Zahlenantworten.
+
+**Damit liegt das Material fuer den fairen Test vor**, der in Runde 311
+noch fehlte: 500M mit 100k Rechenaufgaben (statt 12.818).
+
+**Vorregistrierte Hypothese (wie R 310, jetzt testbar):**
+Ein 500M-Lauf mit 100k Rechenaufgaben hebt die Antwort-EM auf **> 20 %**
+(auf dem sauberen 2k-Heldout). Widerlegung: <= 20 %.
+
+**Nicht gestartet:** Der Test braucht einen vollen A100-Lauf (Kosten,
+~1-2 h). Ohne Freigabe kein GPU-Start. Artefakte liegen lokal.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 16.146 distinct, 100k mit Wiederholung, validiert, 0 Ueberlappung.
+- Hypothese: 100k Exposition hebt 500M ueber 20 % - **nicht getestet**.
+- Unsicher: ob Wiederholung statt Vielfalt genuegt.
