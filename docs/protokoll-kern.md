@@ -10383,3 +10383,42 @@ Zugewinn). Kein Checkpoint uebernommen. Alle Artefakte gesichert
 - Fakt: 4 % Antwort-EM, 1 % Weg exakt, 13 % Weg inhaltlich (100er).
 - Hypothese fokussierter Korpus: widerlegt.
 - Unsicher: Einziffer-Rueckfall ist beobachtet, Ursache ungeklaert.
+## Runde 309 — FAIRER VERGLEICH auf identischem sauberem Heldout: 25M >> 500M
+
+**Beide Modelle auf exakt denselben 100 Heldout-Records (0 Ueberlappung,
+Seed 99991, Modus m1, lokal CPU):**
+
+| Modell | Parameter | Antwort-EM | Weg exakt | Weg inhaltlich |
+|---|---|---|---|---|
+| **25M-Referenz** (`micro-logic-refocus-v1`) | 25 Mio. | **24 %** | 9 % | 31 % |
+| **500M fokussiert** (Lauf 2 + 1000 fokussierte Schritte) | 509 Mio. | **4 %** | 1 % | 13 % |
+| 500M Mischkorpus (Lauf 2, vorher) | 509 Mio. | 0 % | 0 % | — |
+
+**Das ist der finale, saubere Vergleich** - gleiche Daten, gleiche Metrik,
+gleicher Modus. Fruehere Vergleiche waren teils kontaminiert oder hatten
+unterschiedliche Heldouts; dieser ist belastbar.
+
+**Zentrale Erkenntnis:**
+Das 20x kleinere 25M-Modell ist **6x besser** in der Antwort-EM als das
+500M-Modell - sogar nachdem dieses auf dem fokussierten Korpus nachtrainiert
+wurde. Damit sind **beide naheliegenden Hebel widerlegt**:
+- **Modellgroesse**: 25M > 500M (Skalierung hat hier geschadet).
+- **Korpus**: fokussiert brachte nur 0 % -> 4 %.
+
+**Ursache bleibt:** Das 500M-Training selbst. Die grossen Modelle haben
+die Rechenfaehigkeit schlechter internalisiert als das kleine Kontrollmodell.
+Ein plausibler, **ungepruefter** Grund: bei 500M und nur ~1500 Rechen-
+Datensaetzen pro Epoche dominiert der Grossteil des 20-Familien-Mischkorpus
+(und im fokussierten Lauf das Auswendiglernen) - das Modell hat nicht genug
+sauberes Rechensignal pro Parameter.
+
+**Loop-Schritt 7:** 500M-Runde endgueltig geschlossen. Das 90-%-Ziel ist
+mit keinem der geprueften Setups erreichbar. Goal bleibt aktiv, aber ein
+weiterer 500M-Lauf waere zwecklos.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 24 % (25M) vs 4 % (500M) auf identischem Heldout.
+- Hypothese: zu wenig Rechensignal pro Parameter - nicht getestet.
+- Unsicher: ob ein 100M-Modell mit fokussiertem Korpus besser abschneidet.
+
+**Kein Pod, kein GPU. Alles lokal und gesichert.**
