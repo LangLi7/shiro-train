@@ -1126,6 +1126,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
     let mut want_import_text = false;
     let mut want_mix = false;
+    let mut mix_text: Option<PathBuf> = None;
+    let mut mix_aufgaben: Option<PathBuf> = None;
+    let mut mix_wiederholungen: usize = 20;
     let mut import_inputs: Vec<PathBuf> = Vec::new();
     let mut import_chunk: usize = 2048;
     let mut import_max: Option<usize> = None;
@@ -1316,6 +1319,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 import_per_shard = take_value(&mut iter, "--records-per-shard")?.parse()?;
             }
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
+            // **Argumente des Mischens** (Runde 470): Textordner, Aufgabenordner,
+            // Wiederholungen. `--out` gibt es schon und wird mitbenutzt.
+            "--text-dir" => mix_text = Some(PathBuf::from(take_value(&mut iter, "--text-dir")?)),
+            "--aufgaben-dir" => {
+                mix_aufgaben = Some(PathBuf::from(take_value(&mut iter, "--aufgaben-dir")?));
+            }
+            "--wiederholungen" => {
+                mix_wiederholungen = take_value(&mut iter, "--wiederholungen")?.parse()?;
+            }
             // **Die Antwortform des Zielkorpus** (D-052). Sie ist ein
             // Korpus-Schalter und kein Rundenschalter: eine Runde kann die Form
             // ueber ein Paket tragen (exp-026), eine Phase nicht (Runde 28).
@@ -1940,7 +1952,23 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     }
 
-    if want_import_text {
+    if want_mix {
+        let text = mix_text.ok_or_else(|| {
+            crate::error::anyhow!("`data mix` braucht `--text-dir <ordner>`")
+        })?;
+        let aufgaben = mix_aufgaben.ok_or_else(|| {
+            crate::error::anyhow!("`data mix` braucht `--aufgaben-dir <ordner>`")
+        })?;
+        let ziel = out_dir.ok_or_else(|| {
+            crate::error::anyhow!("`data mix` braucht `--out <ordner>`")
+        })?;
+        out.command = Command::Mix {
+            text,
+            aufgaben,
+            out: ziel,
+            wiederholungen: mix_wiederholungen,
+        };
+    } else if want_import_text {
         if import_inputs.is_empty() {
             bail!("`data import-text` braucht mindestens ein `--in <pfad>`");
         }
