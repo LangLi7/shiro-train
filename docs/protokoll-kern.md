@@ -10356,3 +10356,30 @@ endgueltig geschlossen. Kein Checkpoint wird uebernommen.
 - Unsicher: 100er-Eval laeuft noch (stabilere Zahl folgt).
 
 **Kosten:** A100 ~1,08 $ (29 min), CPU-Eval ~0,15 $/h lokal. Alle Pods gestoppt.
+## Runde 308 (final) — 100er-Eval bestaetigt Widerlegung
+
+**Stabile Zahl (100 saubere Heldout-Records, 0 Ueberlappung):**
+
+| Metrik | 20er | 100er |
+|---|---|---|
+| Antwort-EM | 5 % | **4 % (4/100)** |
+| Weg exakt | 0 % | **1 % (1/100)** |
+| Weg inhaltlich | 15 % | **13 % (13/100)** |
+
+Hypothese (fokussierter Korpus > 20 %) **endgueltig widerlegt** (4 % ≪ 20 %).
+
+**Zusaetzlicher Befund:** Bei `#1`/`#2` (erwartet 80 / 70) erzeugt das Modell
+jeweils **`9`** - eine einzelne Ziffer statt der mehrstelligen Antwort.
+`#4/#5/#6` sind identische Datensaetze (92 → 91), deterministisch. Das
+Zurueckfallen auf Einziffer-Antworten ist das gleiche Muster wie beim
+Mischkorpus-500M (`nein`, `214 km`): Das Modell kann mehrstellige Antworten
+nicht zuverlaessig erzeugen, unabhaengig vom Korpus.
+
+**500M-Runde endgueltig geschlossen** (Loop-Schritt 7, zwei Runden ohne
+Zugewinn). Kein Checkpoint uebernommen. Alle Artefakte gesichert
+(HF `shiro-checkpoints/fokus500-step3000.safetensors`, Volume).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 4 % Antwort-EM, 1 % Weg exakt, 13 % Weg inhaltlich (100er).
+- Hypothese fokussierter Korpus: widerlegt.
+- Unsicher: Einziffer-Rueckfall ist beobachtet, Ursache ungeklaert.
