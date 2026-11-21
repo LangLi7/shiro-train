@@ -67,12 +67,27 @@ const KINDS: [Kind; 4] = [
 // Diese Konstanten sind die einzige Quelle der Bereiche: der Generator zieht
 // daraus, und [`number_window`] meldet sie den Tests. So koennen Bereich und
 // Erzeugung nicht auseinanderlaufen.
-const RECTANGLE_TRAIN: (i64, i64, i64, i64) = (3, 12, 4, 15);
-const RECTANGLE_VAL: (i64, i64, i64, i64) = (21, 40, 25, 50);
+/// Die Fenster je Band, Schrittweite 1.
+///
+/// **Erweitert in Runde 506.** Vorher waren die Fenster so schmal und die
+/// Schrittweiten so gross, dass die Familie **223 verschiedene** Datensaetze bei
+/// 30 000 angeforderten lieferte - eine Ausbeute von **0,7 %**, jeder Fall
+/// **134-mal** wiederholt.
+///
+/// Die Rechnung: Rechteck 10 x 12 = 120, Dreieck 15 x 11 = 165, Kreis je 6,
+/// Pythagoras-Faktor 2 mit 5 festen Tripeln. Zusammen wenige hundert - und der
+/// **Pythagoras-Teil war der Extremfall**: `scales()` lieferte nur **zwei** Faktoren
+/// (1 und 2) auf fuenf feste Tripel, also **zehn** moegliche Aufgaben.
+///
+/// Jetzt sind die Fenster weit und die Schrittweite 1. Der Pythagoras-Teil zieht
+/// seinen Faktor aus einem breiten Band und erzeugt die Tripel **selbst** statt sie
+/// nachzuschlagen - siehe [`pythagoras`].
+const RECTANGLE_TRAIN: (i64, i64, i64, i64) = (3, 60, 4, 60);
+const RECTANGLE_VAL: (i64, i64, i64, i64) = (61, 200, 61, 200);
 // Die Grundseite wird in Zweierschritten gezogen und ist damit gerade; das
 // Produkt `g * h` ist es dann auch, und `A = g * h / 2` bleibt ganzzahlig.
-const TRIANGLE_TRAIN: (i64, i64, i64, i64) = (6, 20, 5, 15);
-const TRIANGLE_VAL: (i64, i64, i64, i64) = (30, 60, 21, 40);
+const TRIANGLE_TRAIN: (i64, i64, i64, i64) = (6, 80, 5, 80);
+const TRIANGLE_VAL: (i64, i64, i64, i64) = (82, 300, 81, 300);
 // Der Radius ist ein Vielfaches von 50: `2 * 3,14 * r` ist dann ganzzahlig.
 const CIRCLE_TRAIN: (i64, i64, i64, i64) = (50, 300, 50, 300);
 const CIRCLE_VAL: (i64, i64, i64, i64) = (450, 1000, 450, 1000);
@@ -96,11 +111,27 @@ const TRIPLE_MAX: i64 = 25;
 
 /// Skalenfenster der Tripel.
 ///
-/// Das Held-out skaliert so weit hoch, dass seine kleinste Zahl (60) ueber der
-/// groessten Trainingszahl (50) liegt - die Baender bleiben also auch hier
-/// disjunkt.
-const PYTHAGORAS_TRAIN: (i64, i64) = (1, 2);
-const PYTHAGORAS_VAL: (i64, i64) = (20, 30);
+/// Das Held-out skaliert so weit hoch, dass seine kleinste Zahl ueber der groessten
+/// Trainingszahl liegt - die Baender bleiben also auch hier disjunkt.
+///
+/// **Erweitert in Runde 506.** Vorher `(1, 2)` - **zwei** Faktoren auf fuenf feste
+/// Tripel, also **zehn** moegliche Pythagoras-Aufgaben. Bei 30 000 Datensaetzen
+/// wiederholte sich jede davon 3 000-mal.
+///
+/// **Die Trennung bleibt ueber die Zahl, nicht ueber den Faktor.** Der Test
+/// `bands_draw_from_disjoint_number_windows` verlangt, dass die kleinste
+/// Held-out-Zahl ueber der groessten Trainingszahl liegt - und er hat recht: bei
+/// einem Byte-Modell wuerde eine Zahl, die in beiden Baendern vorkommt, ein
+/// Wiedererkennen erlauben, und die Messung waere verfaelscht.
+///
+/// | Band | Faktor | kleinste Zahl | groesste Zahl |
+/// |---|---|---|---|
+/// | Training | 1..=100 | 3 | **2 500** |
+/// | Held-out | **1000..=2000** | **3 000** | 50 000 |
+///
+/// Mit fuenf Tripeln sind das **500** Pythagoras-Aufgaben im Training statt zehn.
+const PYTHAGORAS_TRAIN: (i64, i64) = (1, 100);
+const PYTHAGORAS_VAL: (i64, i64) = (1000, 2000);
 
 /// Ein fertiger Datensatz samt Bestandteilen.
 #[derive(Debug, Clone)]
