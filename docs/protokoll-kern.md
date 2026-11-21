@@ -9677,3 +9677,25 @@ ein korrekter Weg mit anderer Formulierung wurde als falsch gezaehlt.
 
 **Tests:** 5/5 gruen (`answers_mode_tests`, inkl.
 `ziffernfolge_findet_hergeleitetes_ergebnis`). Release-Build OK.
+## Runde 287 — Ressourcenbilanz und Budget-Grenze
+
+**Geprueft (RunPod API, Prepaid-Konto):**
+- Guthaben: **11,54 USD**
+- Aktiver GPU-Pod: **keiner** (alle gestoppt)
+- Volume: `cmwoyonz5000007l2eazkekze`, ~12,6 GB, ~1,14 $/Monat
+- Gesicherte Artefakte auf dem Volume: 32 GB Checkpoints (Lauf 1 + Lauf 2),
+  991 MB Korpus `neu2`, Blindtest, alle Eval-Logs, `ENTSCHEIDUNG.txt`
+
+**HF-Checkpoints (`ChangChi7/shiro-checkpoints`, 22 Dateien):**
+`mittel-mix-step1000..7000`, `mix500-korpus-step1000..3000`.
+**Wichtig:** `mix500-korpus-step2000` ist ein **anderer Lauf**, nicht unser
+`shiro-500m-lauf2`. Ein Vergleich der inhaltlichen Weg-EM damit waere
+irrefuehrend - die Unsicherheit aus Runde 286 bleibt daher bewusst **offen**.
+
+**Budget-Implikation:** Mit 11,54 $ sind noch ca. 5 A100-Stunden (2,19 $/h)
+oder deutlich mehr 25M/CPU-Laeufe moeglich. Da die 25M-Referenz auf frischen
+Rechenaufgaben **besser** ist als 500M (30 % vs 0 %) und ein 25M-Lauf
+deutlich billiger ist, ist die naechste registrierte Runde mit **25M-Basis**
+die kosten-effiziente Wahl.
+
+**Goal-Status:** aktiv, 90-%-Ziel unerreicht. Kein自动化 start ohne Freigabe.
