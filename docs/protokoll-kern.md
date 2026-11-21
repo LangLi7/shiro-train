@@ -9199,3 +9199,46 @@ sonst identischer Konfiguration (Modell, Daten, Seed, Schritte).
 
 **Widerlegung:** Token/s bleiben unter +50 % - dann ist der Batch nicht der
 Flaschenhals, und die Ursache liegt tiefer in Burn/Cubecl.
+## Runde 276 — Batch-16-Vorschlag widerlegt: Aktivierungen dominieren
+
+**Gepruefte Speicherrechnung (500M, fp32):**
+
+| Posten | Groesse |
+|---|---|
+| Gewichte | 2,04 GB |
+| Gradienten | 1,02 GB |
+| AdamW m+v | 4,07 GB |
+| **statisch gesamt** | **7,13 GB** |
+| **gemessen belegt** | **74,18 GB** |
+| **=> Aktivierungen (Batch 6)** | **67,05 GB** |
+
+**Hochrechnung Batch 16 (linear):** 7,13 + 67,05 x 16/6 = **185,9 GB**
+=> **OOM auf der 80-GB-A100.** Der vorregistrierte Batch-16-Test ist damit
+**nicht ausfuehrbar** - ich habe ihn vorbereitet, aber nicht gestartet.
+
+**Ursache:** Burn/Cubecl behaelt die Zwischenergebnisse aller 32 Layer fuer den
+Backward-Pass (kein Gradient Checkpointing / Recomputation). 67 GB Aktivierungen
+bei nur 6144 Token sind der eigentliche Speicherfresser - nicht die Parameter.
+
+**Damit sind alle drei „schnellen" Hebel blockiert:**
+
+| Hebel | Grund |
+|---|---|
+| bf16 | f32-verdrahtet + 16 GB Checkpoints unlesbar |
+| fusion | burn-remote 0.22.0 existiert nicht auf crates.io |
+| Batch 16 | OOM (186 GB > 80 GB) |
+
+**Der echte Hebel ist Gradient Checkpointing:** Zwischenergebnisse nicht
+speichern, im Backward neu berechnen. Das wuerde die 67 GB auf ~10 GB senken
+und erst einen grossen Batch erlauben - und damit die Token/s erhoehen.
+Das ist ein **Code-Umbau in `src/model/lm.rs`**, keine Config-Aenderung,
+und daher eine **eigene Runde** mit eigenem Messpunkt.
+
+**Entscheidung:** Keinen OOM-Test starten (das waere wieder GPU-Zeit fuer
+nichts). Lauf 2 zuerst fertig auswerten - der eine registrierte Faktor (Daten).
+Danach ueber Gradient Checkpointing entscheiden.
+
+**Fakten/Hypothesen getrennt:**
+- Fakt: 74,18 GB belegt, davon 7,13 GB statisch, 67,05 GB Aktivierungen.
+- Hypothese: Gradient Checkpointing senkt Aktivierungen auf ~10 GB.
+- Unsicher: Ob Burn 0.22 ein Recomputation-Feature anbietet - **nicht geprueft**.
