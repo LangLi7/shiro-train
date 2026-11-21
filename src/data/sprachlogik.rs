@@ -324,11 +324,27 @@ mod tests {
 
     #[test]
     fn aufgabe_zeigt_die_stelle_nicht_vor() {
-        // Das gesuchte Zeichen darf **nicht** schon dastehen.
+        // **An der gesuchten Stelle** darf das Zeichen nicht stehen. Andere Kommas
+        // im Satz sind erlaubt - eine Aufzaehlung hat mehrere.
         let data = generate(&klein()).expect("Erzeugung");
         for a in &data.train {
             let t = text(&a.record);
-            assert!(!t.contains(a.zeichen), "Das Zeichen steht schon im Text: {t}");
+            // Der Text endet mit der Luecke `___`; davor steht der Anfang.
+            assert!(
+                t.contains("___"),
+                "Die Luecke fehlt im Aufgabentext: {t}"
+            );
+            // Der Anfang endet **ohne** das gesuchte Zeichen.
+            assert!(
+                !a.satz_ohne.ends_with(a.zeichen),
+                "Der Anfang endet schon mit dem gesuchten Zeichen: {}",
+                a.satz_ohne
+            );
+            // Und der Anfang steht vollstaendig im Text.
+            assert!(
+                t.contains(&a.satz_ohne),
+                "Der Satzanfang fehlt im Text: {t}"
+            );
         }
     }
 
