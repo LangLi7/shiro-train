@@ -8911,3 +8911,51 @@ erzeugt 2863`, `erwartet ja / erzeugt (leer)`.
 > innerhalb der Toleranz bleibt.
 
 **Widerlegung:** Weg-EM bleibt <= 30 %, oder die Antwort-EM fällt unter 50 %.
+## Runde 269 — GPU-Leerlauf erkannt und gestoppt; Compile auf CPU-Pod
+
+**Der Nutzer meldete Leerlauf aus der RunPod-Konsole:** A100 SXM 80GB, 0 % GPU,
+0 % CPU, 2,19 $/h. **Sofort gestoppt** (`baecmifiynntck`). Bilanz: ~4,40 $ für
+einen Build, der nie trainierte - genau der Verschwendung, die der Auftrag verbietet.
+
+### Ursachen, beide von mir
+
+1. **Falsche GPU gewählt.** Der vorhandene A100 (`70r22wvjruyxkr`, US-MD-1)
+   liess sich nicht starten ("not enough free GPUs on the host"). Ich wich auf
+   eine 4090 mit 24 GB aus - für 500M mit AdamW zu knapp.
+2. **`CARGO_TARGET_DIR=/workspace/target` auf dem Volume.** Das Volume verweigert
+   das Ausführen von Binaries (`Permission denied` / `Operation not permitted`
+   beim Build-Script und beim Bitcode). Rustup nach `/workspace/cargo` scheiterte
+   genauso.
+
+### Der korrigierte Aufbau (geprüft)
+
+| Pfad | Inhalt | Grund |
+|---|---|---|
+| `$HOME/.cargo`, `$HOME/target` | Rust + Build-Artefakte | Container-Disk, **ausführbar** |
+| `/workspace/shiro-code` | Code (via HF, `tarfile filter="data"`) | Volume, überlebt Neustart |
+| `/workspace/final/*` | Korpus (40 Dateien, HF) | Volume |
+| `/workspace/shiro` | **fertiges Linux-Binary** | wird vom CPU-Pod hierher kopiert |
+
+**Der Budget-Grundsatz, jetzt explizit:** Es wird **nie** ein GPU-Pod gestartet,
+solange das Binary nicht fertig auf dem Volume liegt. Ein CPU-Pod kostet 0,28 $/h
+und kompiliert; ein GPU-Pod kostet 2,19 $/h und **trainiert**.
+
+### Was gerade laeuft
+
+CPU-Pod `jc1u1h9lkenwkj` (0,28 $/h, 50 GB Disk) kompiliert das Release-Binary
+mit `CARGO_TARGET_DIR=$HOME/target`. Danach: Binary nach `/workspace/shiro`,
+CPU-Pod stoppen, GPU-Pod starten, **sofort** 500M-Messpunkt bei Schritt 2 000.
+
+### Die vier Fragen (aus dem Code beantwortet)
+
+| Frage | Antwort |
+|---|---|
+| Tokenizer | **Byte-level**, `VOCAB_SIZE=256`, Spezialbytes `0xFA..0xFF` |
+| Batch Size | 6 (500M-Config) |
+| Sequence Length | 1024 |
+| Schritte | 851 000 geplant, **Messpunkt bei 2 000** |
+
+**Damit:** 6000 Byte/Schritt; unsere 682 461 Aufgaben (328,9 MB) sind ~329 Mio.
+Byte-Tokens, also ~54 800 Schritte pro Epoche. Chat-GPTs 10 Mrd. Tokens sind
+etwa 30x mehr - aber `mix77` erreichte 93,3 % auf 26 MB. Deshalb gilt der
+**Messpunkt**, nicht die Theorie.
