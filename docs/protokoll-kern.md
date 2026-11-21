@@ -9396,3 +9396,63 @@ Generalisierung auf die 6 gesehenen Klassen wuerde hier maximal ~60 % ergeben.
 
 **Disziplin:** Das ist der fuenfte Selbstfehler, der korrigiert wird (bf16,
 fusion, Checkpointing, Messpunkt, jetzt Stichprobengroesse). Alle im Protokoll.
+## Runde 279/280 — FINALE ENTSCHEIDUNG: 500M-Runde stoppen
+
+### Beide Läufe auf demselben Messpunkt (Schritt 2000, gleicher Blindtest)
+
+| | Lauf 1 (342 MB) | Lauf 2 (1,03 GB, 1,6M verschieden) | 25M-Referenz | Ziel |
+|---|---|---|---|---|
+| Train-Loss | 5,77 -> 0,19 | 5,71 -> 0,40 | - | - |
+| 10er Antwort-EM | 10 % | **0 %** | 20 % | >= 90 % |
+| 30er Antwort-EM | - | **3,3 %** (1/30) | - | >= 90 % |
+| 30er Weg-EM | - | **0 %** | - | >= 90 % |
+
+### Checkpoint-Entscheidung (Loop-Schritt 6)
+
+**Keiner der beiden 500M-Checkpoints wird uebernommen.**
+
+Begruendung:
+1. Nur die Train-EM stieg (Loss 5,7 -> 0,2/0,4). Die Generalisierung auf den
+   unabhaengigen Blindtest (188 Datensaetze, 0 Ueberlappung) blieb bei 0-10 %.
+   Genau das ist das Auswendiglernen, das der Auftrag verbietet.
+2. Beide Laeufe sind **schlechter als die 25M-Referenz** (20 %/5 %).
+   Ein 500M-Modell, das schlechter generalisiert als 25M, ist kein Fortschritt.
+3. Der 30er-Eval (3,3 %) bestaetigt: der 10er-Wert war kein Artefakt.
+
+### Loop-Schritt 7: Stopp
+
+Zwei Runden (Lauf 1 = Datenmenge, Lauf 2 = Datenvielfalt) ohne Zugewinn.
+**Die 500M-Skalierung wird hier nach dem dokumentierten Loop gestoppt.**
+
+### Was die Ursache NICHT ist (alles geprueft)
+
+| Hypothesis | Status |
+|---|---|
+| Eval-Extraktion kaputt | widerlegt - m1_answer korrekt, max_new grosszuegig |
+| Blindtest ueberlappt Training | widerlegt - MD5-Schnittmenge = 0 |
+| bf16 fehlt | nicht ursaechlich - fp32 ist bewusst, Burn-0.22-kompatibel |
+| fusion fehlt | nicht baubar (burn-remote 0.22.0 existiert nicht) |
+| Batch zu klein | Batch 16 waere OOM (186 GB > 80 GB) |
+| Checkpointing fehlt | bereits aktiv (Balanced in Device::cuda(0)) |
+| fused AdamW fehlt | existiert in Burn 0.22 nicht; eigener laeuft auf Device |
+
+### Was der naechste echte Schritt waere (nicht automatisch starten)
+
+- **Task-Struktur-Band erweitern**: Training enthaelt 0 quadratische Terme,
+  Blindtest-Algebra ist quadratisch. Ein Korpus mit gemischten Strukturen
+  (linear + quadratisch) und gesehentest-matched Held-out waere die naechste
+  registrierte Runde - aber **eine eigene Runde mit eigener Hypothese**.
+- **Kleineres Modell**: 25M Referenz generalisiert besser als 500M. Das legt
+  nahe, dass die Modellgroesse hier nicht der Hebel ist.
+
+### Gesichert
+
+- `/workspace/500m-validiert/`: 16 GB Lauf 1 + 16 GB Lauf 2 (beide vollstaendig)
+- `/workspace/korpus-neu2`: 991 MB, 1,6M verschieden
+- `ENTSCHEIDUNG.txt` und alle Eval-Logs im Volume
+- Container-Disk von 83 % auf 59 % entspannt (Lauf-1-Doppel geloescht)
+
+### Ressourcen
+
+- GPU-Pod `mrq00anbn9hh6l`: Training beendet, kein Leerlauf mehr durch Eval
+- **Pod jetzt stoppen** - keine weiteren GPU-Kosten ohne registrierte Runde.
