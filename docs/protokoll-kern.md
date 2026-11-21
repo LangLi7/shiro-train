@@ -8959,3 +8959,66 @@ CPU-Pod stoppen, GPU-Pod starten, **sofort** 500M-Messpunkt bei Schritt 2 000.
 Byte-Tokens, also ~54 800 Schritte pro Epoche. Chat-GPTs 10 Mrd. Tokens sind
 etwa 30x mehr - aber `mix77` erreichte 93,3 % auf 26 MB. Deshalb gilt der
 **Messpunkt**, nicht die Theorie.
+## Runde 270 — 500M-Trainingslauf gestartet; Parallelität ist der naechste Hebel
+
+### Der Lauf (vorregistriert, Loop-Schritt 4)
+
+| Faktor | Wert |
+|---|---|
+| Modell | **509 298 176 Parameter** (d_model 1280, 32 Layer, 20 Heads, d_ff 2432) |
+| Korpus | **20 Familien, 1 239 720 Datensaetze, 342 MB** |
+| Seed | 56321 |
+| Schritte | 2 000, Batch 6 x 1024, Messpunkt bei 1 000 |
+| Backend | A100 SXM 80GB, CUDA, `Cube(Cuda(Cuda(0)))` |
+
+**Loss-Verlauf (Trainingsdaten, Byte-Level Cross-Entropy):**
+
+| Schritt | Loss | Perplexitaet |
+|---|---|---|
+| 100 | 2,97 | 19,57 |
+| 300 | 2,24 | 9,42 |
+| 400 | 0,90 | 2,45 |
+| 600 | 0,71 | 2,03 |
+| 800 | 0,41 | 1,51 |
+| **1000** | **0,50** | **1,65** |
+
+**Wichtig (Chat-GPT-Anmerkung):** das ist **Byte-Level CE pro Byte**, nicht
+Token-Level bei 32k-Vokabular. Perplexitaet 1,65 = unter 256 Byte-Klassen fast
+immer das richtige naechste Byte. **Niedriger Trainings-Loss beweist kein Rechnen**
+- das haben die Vorlagen-Datensaetze gezeigt.
+
+**Deshalb:** Checkpoint bei Schritt 1000 gespeichert (1,9 GB Gewichte, 5,7 GB
+State) und **Zero-Shot-Eval auf dem Blindtest vorbereitet** (20.11. erstellt,
+also vor dem neuen Korpus). Zwei Skripte: `eval_zero.sh` (gesamt) und
+`eval_familien.sh` (pro Familie, 60 Datensaetze, Modus m1 = Denkweg UND Antwort
+selbst erzeugt).
+
+### Die wichtigste Erkenntnis: Generatoren sind Single-Core
+
+Der Nutzer hat es richtig beobachtet: Die Anzeige „CPU 10 %" kommt daher, dass
+**ein** Kern bei 100 % laeuft und 31 Kerne leer sind. Die Generatoren benutzen
+`Rng` (SplitMix64) in einer **einzelnen Schleife** - sie skalieren nicht mit
+Kernen.
+
+**Das ist der naechste Optimierungsauftrag:**
+
+1. Generator-Parallelisierung: N Familien auf N Kerne (Rayon oder Threads),
+   jeder mit eigenem Seed aus `src/data/seeds.rs`.
+2. Training und Generierung auf **getrennte CPU-Pools** legen, damit die
+   Generierung den DataLoader nicht aushungert.
+3. RAM-Cache ist **bereits umgesetzt**: `Dataset::load` liest alle Shards in
+   `stream: Vec<u8>`, `packed_batch` schneidet Batches per Index daraus.
+   Deshalb wartet die GPU nicht auf Daten (100 % Auslastung).
+   Chat-GPTs `pin_memory`/Prefetch-Vorschlag ist PyTorch-spezifisch und
+   entfaellt im Rust-Loader.
+
+**Was parallel auf dem Server lief:** 21 Familien a 200 000 Datensaetzen nach
+`/workspace/neu50` (1,4 GB, `games` noch aktiv). `seq` erzeugte nur 127 625 von
+200 000 - der Raum war erschoepft, der Generator brach korrekt ab.
+
+### Referenzmodelle gesichert
+
+5 Modelle (je 18 MB) auf `ChangChi7/shiro-referenz`:
+`logic-refocus-23400`, `kombi-mathe2-23200`, `kombi-add-23200`, `seq-400`,
+`micro-logic-refocus`. Gedacht als **Kontrollmodelle** im RAM - nicht als
+Destillationslehrer (25M ist schwaecher als 500M).
