@@ -232,6 +232,22 @@ pub enum Command {
         dry_run: bool,
     },
     ValidateData,
+    /// **Text und Aufgaben verschraenken** (Runde 470).
+    ///
+    /// Der Loader liest sequenziell: laegen die Aufgaben gesammelt am Ende, saehe das
+    /// Modell sie einmal am Schluss und danach nie wieder - bei 10 GB Text waeren sie
+    /// nach 1,5 % des Trainings vergessen. Hier kommen sie `wiederholungen`-mal
+    /// zwischen den Text, damit sie waehrend des ganzen Trainings vorkommen.
+    Mix {
+        /// Ordner mit den Textshards.
+        text: PathBuf,
+        /// Ordner mit den Aufgaben (`*/train/*.bin`).
+        aufgaben: PathBuf,
+        /// Zielordner.
+        out: PathBuf,
+        /// Wie oft die Aufgaben zwischen dem Text wiederholt werden.
+        wiederholungen: usize,
+    },
     /// Checkpoint-Digest gegenpruefen.
     VerifyCheckpoint {
         path: Option<PathBuf>,
@@ -1109,6 +1125,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_games = false;
     // Textimport (Sprachschicht): `data import-text --in <pfad> [--in ...]`.
     let mut want_import_text = false;
+    let mut want_mix = false;
     let mut import_inputs: Vec<PathBuf> = Vec::new();
     let mut import_chunk: usize = 2048;
     let mut import_max: Option<usize> = None;
@@ -1282,6 +1299,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             }
             "import-text" => {
                 want_import_text = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "mix" => {
+                want_mix = true;
                 command_set = true;
                 saw_data = false;
             }

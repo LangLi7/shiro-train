@@ -70,6 +70,9 @@ fn real_main() -> Result<()> {
         Command::GenSample { records, out_dir } => cmd_gen_sample(records, &out_dir),
         Command::GenerateLogic { opts } => cmd_generate_logic(&opts),
         Command::ImportText { opts } => cmd_import_text(&opts),
+        Command::Mix { text, aufgaben, out, wiederholungen } => {
+            cmd_mix(text.as_path(), aufgaben.as_path(), out.as_path(), wiederholungen)
+        }
         Command::GenerateSemantics { opts } => cmd_generate_semantics(&opts),
         Command::GenerateGames { opts } => cmd_generate_games(&opts),
         Command::GenerateFormat { opts } => cmd_generate_format(&opts),
@@ -389,6 +392,51 @@ fn cmd_import_text(opts: &shiro::data::textimport::Options) -> Result<()> {
         println!("Uebersprungen : {} (Binaerdateien oder nicht lesbar)", r.skipped_files);
     }
     println!("Ziel          : {}", opts.out.display());
+    Ok(())
+}
+
+/// **Text und Aufgaben verschraenken** (Runde 470).
+///
+/// Der Loader liest sequenziell. Laegen die Aufgaben gesammelt am Ende, saehe das
+/// Modell sie einmal am Schluss und danach nie wieder - bei 10 GB Text waeren sie
+/// nach 1,5 % des Trainings vergessen. `wiederholungen` bestimmt, wie oft sie
+/// zwischen den Text treten.
+fn cmd_mix(
+    text: &std::path::Path,
+    aufgaben: &std::path::Path,
+    out: &std::path::Path,
+    wiederholungen: usize,
+) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let r = shiro::data::mix::verschraenken(text, aufgaben, out, wiederholungen)?;
+
+    println!("Text          : {}", text.display());
+    println!("Aufgaben      : {}", aufgaben.display());
+    println!("Wiederholungen: {wiederholungen}");
+    println!("Shards        : {}", r.shards);
+    println!("Datensaetze   : {}", r.records);
+    println!("davon Aufgaben: {}", r.aufgaben);
+    println!("Ziel          : {}", out.display());
+
+    // Manifest, damit `validate-data` und der Loader den Ordner pruefen koennen.
+    let mut m = Manifest::new(471, format!("gemischt: {} Datensaetze", r.records));
+    for i in 0..r.shards {
+        let name = format!("shard-{i:04}.bin");
+        let pfad = out.join(&name);
+        let raw = std::fs::read(&pfad)?;
+        let s = shiro::data::format::read_shard(&pfad)?;
+        m.shards.push(shiro::data::manifest::ShardEntry {
+            id: i as u32,
+            path: name,
+            records: s.records.len() as u64,
+            payload_bytes: s.payload_bytes(),
+            file_size: raw.len() as u64,
+            checksum: shiro::data::manifest::checksum_hex(&raw),
+        });
+    }
+    m.save(out.join("manifest.json"))?;
+    println!("Manifest      : {}", out.join("manifest.json").display());
     Ok(())
 }
 
