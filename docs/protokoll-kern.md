@@ -10652,3 +10652,33 @@ sofort gestoppt, kein Leerlauf. Checkpoint auf HF + lokal + Volume gesichert.
 - Hypothese „mehr Rechensignal" widerlegt.
 - Fakt: Zahlen-Verwechslung im Pfad (10*10 -> 50*10).
 - Unsicher: warum das 25M-Kontrollmodell (24 %) das Ablesen beherrscht.
+## Runde 319 — Direkter Pfad-Vergleich: 25M liest Zahlen korrekt, 500M nicht
+
+**Beide Modelle auf demselben sauberen 100k-Heldout (20 Records, m1):**
+
+| | 25M (30 % Antwort-EM) | 500M-100k (0 %) |
+|---|---|---|
+| `10 * 10` | **korrekt**: `10 mal 1 = 10, verschoben 100, Ergebnis 100` | **falsch**: `50 * 10 = 1000`, `20 mal 1` |
+| `103 - 20` | **korrekt**: `Einer 3-0=3, Zehner 10+0-2=8, Hunderter 1-1=0 → 83` | (Zahlen verwechselt) |
+| `101 - 40` | falsch (erfindet Entlehnung bei `1-0`) | — |
+
+**Der 25M liest die Aufgaben-Zahlen korrekt ab** und rechnet dann
+Schritt fuer Schritt richtig. Der 500M verwechselt die Multiplikanden
+(`10*10` → `50*10`). Das ist der direkte, belegte Unterschied.
+
+**Zusaetzlich:** Pfad #0 des 25M ist **wortgleich mit der Referenz**
+(inkl. korrekter Umlaut-/Ziffern-Schreibweise) - die in Runde 292
+vermutete Umlaut-Schwaeche ist beim 25M **nicht** vorhanden.
+
+**Damit bestaetigt:** Die Ursache ist das **Ablesen der Zahlen aus dem
+Prompt**, und es ist **nicht** Datenmenge (100k half nicht), **nicht**
+Korpus (fokussiert half nicht), **nicht** Kapazitaet (25M > 500M),
+**nicht** Umlaut. Es bleibt etwas am 500M-Training selbst.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 25M rechnet `10*10` korrekt, 500M erzeugt `50*10`.
+- Fakt: 25M-Pfade teils wortgleich korrekt (kein Umlaut-Problem).
+- Unsicher: warum das 500M-Training das Ablesen nicht gelernt hat -
+  weiterhin ungeklaert.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).**
