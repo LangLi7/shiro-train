@@ -10293,3 +10293,37 @@ Erwartung > 20 %, Widerlegung <= 20 %) bleibt **ohne Freigabe nicht gestartet**.
 - Unsicher: Nutzen des Laufs gegenueber den ~2,19 $/h Kosten.
 
 **Kein Pod, kein GPU. Kein Python. Goal bleibt aktiv.**
+## Runde 308 — Hypothesen-Test gestartet + Messfehler entdeckt und korrigiert
+
+**Registrierter Test (ein Faktor: Korpus):**
+500M-Lauf 2 Schritt 2000 als Basis (`.state`, 5,7 GB), fortgesetzt mit
+**fokussiertem Rechenkorpus** (100 % Zahlenantworten) statt 20-Familien-Misch.
+Config `train500-fokus.toml`: gleiche Architektur (509298176 Parameter),
+Seed 53013, lr 3e-4, cosine, fp32, Batch 6, seq 1024. 2000 Schritte.
+Erwartung > 20 %, Widerlegung <= 20 %. A100 2,19 $/h, ~52 min.
+
+**Fortschritt zum Zeitpunkt dieses Eintrags:** Schritt 2500 (Resume 2000 +
+500 neu), Train-Loss **0,056** - sehr niedrig, deutliches Auswendiglern-Risiko
+des kleinen Korpus (12818 Datensaetze). Deshalb ist der **Heldout** entscheidend.
+
+**WICHTIGER MESSFEHLER entdeckt und korrigiert:**
+Der zunaechst geplante Test-Shard (`basic-25m-eval`, Seed 31337) hatte
+**15/20 exakte Ueberlappungen** mit dem fokussierten Trainingskorpus - er kam
+aus demselben Quellkorpus (`data/final/logic`). Ein „Erfolg" darauf waere
+**Auswendiglernen** gewesen (Auftrag: „steigt nur Train-EM, als Auswendiglernen
+behandeln").
+
+**Korrektur:** Sauberen Heldout aus `fokus-rechnen/val` gebaut, indem die
+10 Dubletten (exakt im Train vorhanden) entfernt wurden:
+- `data/fokus-rechnen/heldout`: **100 Records, 0 Ueberlappung, CLI-validiert**
+- Deterministisch nach Inhalt sortiert, auf HF fuer den Test vorbereitet.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Train-Loss 0,056 (Auswendiglern-Verdacht).
+- Fakt: 15/20 Ueberlappung im alten Test-Shard -> verworfen.
+- Fakt: sauberer Heldout 0 Ueberlappung, validiert.
+- Hypothese: fokussierter Korpus hebt Heldout-EM ueber 20 % - **laeuft**.
+- Unsicher: ob niedriger Train-Loss auf Heldout durchschlaegt.
+
+**Naechste Schritte:** Checkpoint Schritt 3000 abwarten -> Heldout-Eval ->
+Entscheidung -> Pod SOFORT stoppen (kein Leerlauf).

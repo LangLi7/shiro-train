@@ -1,0 +1,26 @@
+[run]
+name = "eval-500m-fokus"
+seed = 99991
+steps = 1
+log_every = 1
+checkpoint_every = 1
+output_dir = "/root/eval-fokus-out"
+log_dir = "/root/eval-fokus-logs"
+[data]
+dir = "/root/basic-eval"
+manifest = "manifest.json"
+batch_size = 1
+seq_len = 512
+shuffle = false
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
