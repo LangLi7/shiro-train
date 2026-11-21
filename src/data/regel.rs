@@ -35,9 +35,9 @@ pub const RECORD_MAX: usize = 400;
 /// Das Zahlenband. Training und Held-out unterscheiden sich in der **Steigung**.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Band {
-    /// Steigung 2 bis 4.
+    /// Steigung 2 bis 30.
     Train,
-    /// Steigung 5 bis 7 - im Training **nicht** vorhanden.
+    /// Steigung 31 bis 99 - im Training **nicht** vorhanden.
     Val,
 }
 
@@ -45,14 +45,58 @@ impl Band {
     fn steigung_min(self) -> i64 {
         match self {
             Band::Train => 2,
-            Band::Val => 5,
+            Band::Val => 31,
         }
     }
 
     fn steigung_max(self) -> i64 {
         match self {
-            Band::Train => 4,
-            Band::Val => 7,
+            Band::Train => 30,
+            Band::Val => 99,
+        }
+    }
+
+    /// Groesster Achsenabschnitt `b`.
+    ///
+    /// **Erweitert in Runde 505.** Vorher war `b` eine **Konstante** 1..=9, ohne Bezug
+    /// zum Band - dieselbe Zeile `1 + rng.below(9)` fuer Training und Held-out.
+    /// Gemessen ergab die Familie damit **243 verschiedene** Datensaetze bei 30 000
+    /// angeforderten, eine Ausbeute von **0,8 %**: jeder Fall wiederholte sich
+    /// **123-mal**.
+    ///
+    /// Die Rechnung: 3 Steigungen x 9 Achsenabschnitte x 9 Eingaben = 243. Sie stimmt
+    /// **exakt** - der Raum war vollstaendig ausgeschoepft, und jede weitere Ziehung
+    /// konnte nur wiederholen.
+    fn b_max(self) -> i64 {
+        match self {
+            Band::Train => 99,
+            Band::Val => 999,
+        }
+    }
+
+    /// Kleinster Achsenabschnitt.
+    ///
+    /// `0` ist erlaubt - eine Gerade durch den Ursprung ist eine legitime Aufgabe und
+    /// kommt im Training bisher gar nicht vor.
+    fn b_min(self) -> i64 {
+        match self {
+            Band::Train => -50,
+            Band::Val => -500,
+        }
+    }
+
+    /// Groesster eingesetzter Wert `x`.
+    fn x_max(self) -> i64 {
+        match self {
+            Band::Train => 99,
+            Band::Val => 999,
+        }
+    }
+
+    fn x_min(self) -> i64 {
+        match self {
+            Band::Train => -20,
+            Band::Val => -200,
         }
     }
 }
@@ -110,10 +154,15 @@ pub fn generate(opts: &Options) -> Result<Data> {
 
 fn baue(rng: &mut Rng, band: Band) -> Result<Aufgabe> {
     let val = matches!(band, Band::Val);
-    let spanne = (band.steigung_max() - band.steigung_min() + 1) as usize;
-    let a = band.steigung_min() + rng.below(spanne) as i64;
-    let b = 1 + rng.below(9) as i64;
-    let x = 1 + rng.below(9) as i64;
+    let spanne_a = (band.steigung_max() - band.steigung_min() + 1) as usize;
+    let a = band.steigung_min() + rng.below(spanne_a) as i64;
+    // **Achsenabschnitt und Eingabe aus dem Band** (Runde 505). Vorher stand hier
+    // zweimal `1 + rng.below(9)` - eine Konstante, die das Band ignorierte und den
+    // Raum auf 243 Faelle begrenzte.
+    let spanne_b = (band.b_max() - band.b_min() + 1) as usize;
+    let b = band.b_min() + rng.below(spanne_b) as i64;
+    let spanne_x = (band.x_max() - band.x_min() + 1) as usize;
+    let x = band.x_min() + rng.below(spanne_x) as i64;
 
     let produkt = a * x;
     let ergebnis = produkt + b;
@@ -162,18 +211,34 @@ mod tests {
 
     #[test]
     fn die_steigungen_sind_disjunkt() {
+        // **Die Grenzen kommen aus `Band`, nicht aus Konstanten** (Runde 505).
+        // Sonst bricht der Test bei jeder Erweiterung, ohne dass etwas kaputt waere -
+        // genau das ist bei den ersten drei Familien passiert.
         let data = generate(&Options { train_records: 400, val_percent: 25, seed: 9 })
             .expect("Erzeugung");
         for a in &data.train {
-            assert!((2..=4).contains(&a.a), "Training mit Steigung {}", a.a);
+            assert!(
+                (Band::Train.steigung_min()..=Band::Train.steigung_max()).contains(&a.a),
+                "Training mit Steigung {} - erwartet {}..={}",
+                a.a,
+                Band::Train.steigung_min(),
+                Band::Train.steigung_max()
+            );
         }
         for a in &data.val {
             assert!(
-                (5..=7).contains(&a.a),
-                "Held-out mit Steigung {} - muss ausserhalb 2..=4 liegen",
-                a.a
+                (Band::Val.steigung_min()..=Band::Val.steigung_max()).contains(&a.a),
+                "Held-out mit Steigung {} - erwartet {}..={}",
+                a.a,
+                Band::Val.steigung_min(),
+                Band::Val.steigung_max()
             );
         }
+        // Und die beiden Mengen duerfen sich nicht beruehren.
+        assert!(
+            Band::Val.steigung_min() > Band::Train.steigung_max(),
+            "die Steigungsbaender ueberlappen"
+        );
     }
 
     #[test]
