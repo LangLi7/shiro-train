@@ -10719,3 +10719,41 @@ auf 500M uebertragbar.
 - Unsicher: ob ein 509M-Elternstand mit add-Kompetenz existiert - nein.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).**
+## Runde 321 — Kein kompetenter Elternstand >= 100M vorhanden
+
+**GPU-frei geprueft:**
+
+| Checkpoint | Groesse | Kompetenz |
+|---|---|---|
+| `kombi-add-step023200` (25M) | 53 MB | **Additions-Kompetenz** (Eltern von logic-refocus, 24 %) |
+| `logic-refocus-23400` (25M) | 18 MB | **30 % Antwort-EM** - bester Stand |
+| `mix100-sanity-step1` | 434 MB | untertrainiert |
+| `shiro-dense-100m-step200/400/600` | je 434 MB | **keine Ausgabe** (R245) |
+| `mittel-mix-step1000..7000` (HF) | - | 500M-Kontext, nicht add-kompetent |
+
+**Befund:** Der einzige nachweislich kompetente Elternstand ist der **25M**
+(`kombi-add`). Alle groesseren Modelle starteten frisch oder sind
+untertrainiert. Es gibt **keinen kompetenten Elternstand >= 100M**, von dem
+ein Feintuning den 25M-Erfolg reproduzieren koennte.
+
+**Damit ist der 25M-Fein tuning-Weg nicht auf die geforderte 100M-500M-
+Skala uebertragbar** - nicht aus Kapazitaetsgruenden, sondern weil die
+notwendigen kompetenten Eltern-Checkpoints fehlen. Ein solchen Elternstand
+zu erzeugen waere ein eigenes, mehrstufiges Trainingsprojekt (Additions-
+Kompetenz bei 100M+ aufbauen, dann Feintuning), deutlich groesser als die
+bisherigen Laeufe.
+
+**Ehrlicher Stand nach 321 Runden:**
+- 90-%-Ziel nicht erreicht.
+- Bester Stand: 25M logic-refocus, 30 % Antwort-EM auf sauberem Heldout.
+- 500M und 100M: alle widerlegt oder untertrainiert.
+- Der Goal (100M-500M) bleibt **unerfuel** - nicht an Code oder Daten,
+  sondern am fehlenden kompetenten Elternstand und dem Budget dafuer.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: kein kompetenter Elternstand >= 100M vorhanden.
+- Hypothese: mehrstufiges Training koennte ihn erzeugen - nicht getestet,
+  groesser als bisherige Laeufe.
+- Unsicher: ob damit 90 % erreichbar ist.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv.**
