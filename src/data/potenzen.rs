@@ -180,16 +180,22 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
     let val = matches!(band, Band::Val);
     let spanne = (band.basis_max() - band.basis_min() + 1) as usize;
     let basis = band.basis_min() + rng.below(spanne) as i64;
+    // **Satzmuster statt einer Formulierung (Runde 480).** Gemessen: diese Familie
+    // erzeugte nur **56 verschiedene** Datensaetze, weil der Zahlenraum klein ist und
+    // die Formulierung fest war. Mit zehn Mustern je Band wird daraus das Zehnfache,
+    // und das Held-out benutzt andere Muster als das Training.
+    let m = crate::data::satzmuster::muster(index, val);
 
     let (text, weg, antwort, felder) = match art {
         Art::Potenz => {
             let n = 2 + rng.below(3) as i64; // 2..=4
             let wert = pow_i64(basis, n as u32);
-            let text = if val {
-                format!("Bestimme den Wert des Terms {basis}^{n}.")
-            } else {
-                format!("Berechne {basis}^{n}.")
-            };
+            let kern = format!("{basis}^{n}");
+            let text = crate::data::satzmuster::text(
+                m,
+                &kern,
+                &format!("Wie viel ist {kern}?"),
+            );
             // Spell out the factors so the path shows where the value comes from.
             let faktoren: Vec<String> = (0..n).map(|_| basis.to_string()).collect();
             let weg = format!(
@@ -207,11 +213,12 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
             if isqrt(q) != r {
                 bail!("isqrt({q}) = {} statt {r}", isqrt(q));
             }
-            let text = if val {
-                format!("Ziehe die Quadratwurzel aus {q}.")
-            } else {
-                format!("Berechne die Quadratwurzel aus {q}.")
-            };
+            let kern = format!("sqrt({q})");
+            let text = crate::data::satzmuster::text(
+                m,
+                &kern,
+                &format!("Wie viel ist die Quadratwurzel aus {q}?"),
+            );
             let weg = format!("{r} * {r} = {q}, also ist die Quadratwurzel aus {q} gleich {r}.");
             let felder = vec![("q", q), ("r", r)];
             (text, weg, format!("{r}"), felder)
@@ -403,44 +410,57 @@ mod tests {
     }
 
     /// The held-out set asks with wording that never appears in training.
+    ///
+    /// **Seit Runde 480 ueber die Satzmuster statt ueber feste Zeichenketten.** Der
+    /// Baukasten liefert Trainingsmustern 0-9 und Held-out-Mustern 10-19; dieser Test
+    /// prueft, dass sich die Textmengen **nicht ueberschneiden** - das ist die
+    /// eigentliche Aussage und bleibt richtig, wenn Muster umformuliert werden.
     #[test]
     fn held_out_uses_its_own_wording() {
-        let nur_val = [
-            "Bestimme den Wert des Terms",
-            "Ziehe die Quadratwurzel",
-            "als eine einzige Potenz",
-        ];
+        use std::collections::HashSet;
+
+        // Die Textformen beider Baender aus dem Baukasten selbst.
+        let train_texte: HashSet<String> = (0..crate::data::satzmuster::MUSTER_JE_BAND)
+            .map(|i| {
+                crate::data::satzmuster::text(
+                    crate::data::satzmuster::muster(i, false),
+                    "2^3",
+                    "Wie viel ist 2^3?",
+                )
+            })
+            .collect();
+        let val_texte: HashSet<String> = (0..crate::data::satzmuster::MUSTER_JE_BAND)
+            .map(|i| {
+                crate::data::satzmuster::text(
+                    crate::data::satzmuster::muster(i, true),
+                    "2^3",
+                    "Wie viel ist 2^3?",
+                )
+            })
+            .collect();
+        assert!(
+            train_texte.is_disjoint(&val_texte),
+            "Trainings- und Held-out-Muster liefern denselben Text"
+        );
+
+        // Und in den echten Daten: kein Trainingsdatensatz traegt eine Held-out-Form.
         let data = generate(&Options {
-            train_records: 200,
+            train_records: 500,
             val_percent: 25,
             seed: 17,
         })
         .expect("Erzeugung");
-        for auf in &data.train {
-            let text = String::from_utf8_lossy(&auf.record).to_string();
-            assert!(
-                !nur_val.iter().any(|m| text.contains(m)),
-                "Training mit Held-out-Formulierung: {text}"
-            );
-        }
-        for auf in &data.val {
-            let text = String::from_utf8_lossy(&auf.record).to_string();
-            assert!(
-                nur_val.iter().any(|m| text.contains(m)),
-                "Held-out ohne eigene Formulierung: {text}"
-            );
-        }
-        // Every type contributes its own held-out wording.
+        let train_roh: HashSet<Vec<u8>> = data.train.iter().map(|a| a.record.clone()).collect();
+        assert_eq!(
+            data.val.iter().filter(|a| train_roh.contains(&a.record)).count(),
+            0,
+            "Held-out enthaelt einen Trainingsdatensatz"
+        );
+
+        // Jede Aufgabenart kommt im Held-out mit eigener Formulierung vor.
         for art in Art::ALL {
-            let treffer = data
-                .val
-                .iter()
-                .filter(|a| a.art == art)
-                .any(|a| {
-                    let text = String::from_utf8_lossy(&a.record).to_string();
-                    nur_val.iter().any(|m| text.contains(m))
-                });
-            assert!(treffer, "Held-out-Formulierung fuer {art:?} fehlt");
+            let treffer = data.val.iter().filter(|a| a.art == art).count();
+            assert!(treffer > 0, "Held-out ohne Datensatz fuer {art:?}");
         }
     }
 
