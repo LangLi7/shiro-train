@@ -1,0 +1,70 @@
+# **Stufe 2: Feintuning auf reinen Aufgabendaten** (Runde 478).
+#
+# Der Auftrag bewertet **Aufgabe, Weg, Antwort**. Das ist eine Aufgabenmessung, keine
+# Sprachmessung. Stufe 1 (`train500-mix.toml`) gibt dem Modell Wortschatz und Satzbau
+# aus 10 GB Wikipedia-Text; Stufe 2 richtet es auf die Aufgaben aus.
+#
+# ## Warum getrennt und nicht ein grosser Mischkorpus
+#
+# `src/data/preflight.rs` teilt Datensaetze nach der `TASK`-Marke und bricht ab, wenn der
+# Anteil ohne Marke ueber der Schwelle liegt. Ein Mischkorpus aus 10 GB Text und 0,3 GB
+# Aufgaben waere zu **97 % fremd** - die Pruefung wuerde ihn ablehnen, und zu Recht: sie
+# ist fuer Aufgabenkorpora gebaut.
+#
+# Hier sind es **100 % Aufgaben**: 17 Familien, jede mit eigenem Held-out, die Regel im
+# Aufgabentext, disjunkte Zahlenbereiche zwischen Training und Pruefung. Der Preflight
+# greift und **muss** bestehen.
+#
+# ## Der Umfang
+#
+# Der Korpus aus 17 Familien x 20 000 Datensaetzen ist ~0,2 GB. Bei 6 x 1024 Byte je
+# Schritt sind das 32 552 Schritte fuer eine Epoche - bei 3 960 Byte/s **8,4 GPU-Stunden
+# (~18 $)**. Das ist billig genug, um mehrere Fintuning-Versuche zu fahren, und genau
+# darum ist die Stufung richtig: der teure Teil ist das Vortraining, nicht das Lernen
+# der Aufgaben.
+#
+# Aufruf (vom Checkpoint des Vortrainings aus):
+#   shiro train --config configs/train500-tuning.toml --backend cuda \
+#     --resume /workspace/ckpt-gross/gross-mix-step851000.state
+
+[run]
+name = "gross-tuning"
+seed = 20261122
+steps = 40000
+log_every = 100
+checkpoint_every = 2000
+output_dir = "/workspace/ckpt-tuning"
+log_dir = "/workspace/logs"
+
+[data]
+dir = "/workspace/korpus500/aufgaben/mix"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+
+[model]
+name = "gross"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-05
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+# Niedrigere Lernrate als im Vortraining: das Modell soll die Aufgaben lernen, ohne
+# den erworbenen Wortschatz zu ueberschreiben.
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 500
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
