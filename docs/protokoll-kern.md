@@ -9280,3 +9280,28 @@ Protokoll. **Fakten und Hypothesen muessen getrennt bleiben.**
 
 **Naechster Schritt bleibt unveraendert:** Lauf 2 (ein Faktor: Daten) fertig
 auswerten. Kein OOM-Test, kein Checkpoint-Bruch ohne Messgrund.
+## Runde 278 — Vergleichsfehler korrigiert: Eval an gleichem Messpunkt
+
+**Fehler von mir:** Ich habe Lauf 2 bei **Schritt 1000** evaluiert (0 %/0 %) und
+das mit Lauf 1 bei **Schritt 2000** (10 %/0 %) verglichen. Das ist kein zulaessiger
+Vergleich - Loop-Schritt 5 verlangt „mit denselben Pruefungen auswerten", und
+dazu gehoert **derselbe Messpunkt**.
+
+**Korrigiert:** Die 0 %-Messung bei Schritt 1000 ist **nicht** die
+Entscheidungsgrundlage. Lauf 2 laeuft bis Schritt 2000; die finale Eval nutzt
+`eval-lauf2-2000.toml` (identisch zu Lauf 1 bis auf Namen/Ordner) und den
+Checkpoint `shiro-500m-lauf2-step2000.safetensors`.
+
+**Zwischenstand (nicht entscheidend):**
+
+| | Schritt 1000 Loss | Blindtest bei 1000 |
+|---|---|---|
+| Lauf 1 | 0,50 | 10 % / 0 % (bei 2000 gemessen) |
+| Lauf 2 | 1,46 | 0 % / 0 % (bei 1000 gemessen - **nicht vergleichbar**) |
+
+**Erst der Vergleich bei 2000 entscheidet** ueber die Zwei-Runden-Regel
+(Loop-Schritt 7). Bis dahin: kein Stopp, kein neuer Lauf, kein Checkpoint-Bruch.
+
+**Disziplinnotiz:** Das ist der vierte Fehler in Folge, den ich selbst gemacht
+und korrigiert habe (bf16, fusion, Checkpointing, jetzt Messpunkt). Alle stehen
+im Protokoll. Genau dafuer ist die Protokollpflicht da.
