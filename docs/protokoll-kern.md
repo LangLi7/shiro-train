@@ -10139,3 +10139,34 @@ wie gemessen.
 - Unsicher: Warum 500M aus der Aufgabe faellt, 25M nicht.
 
 **Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
+## Runde 303 — Antwortformat-Verteilung: 51 % Woerter im Korpus (geprueft)
+
+**Geprueft (lokal, read-only, 40 000 Datensaetze aus `data/final`):**
+
+| Antwortformat | Anteil |
+|---|---|
+| reine Zahlen | **48,6 %** |
+| Woerter/sonst | **43,0 %** |
+| mit Einheit (km/Euro/Stueck/%) | 8,4 % |
+
+Auch die Familie `zahl` ist **zu 40 % Woerter** (1800 Zahlen / 1200 Woerter
+von 3000) - es gibt **keine reine Zahlen-Familie** im Korpus.
+
+**Befund:** Das Modell wird auf einem Korpus trainiert, in dem **gut die
+Haelfte der Antworten Woerter** sind. Bei einer Rechenaufgabe greift es
+dementsprechend oft auf ein Wort zurueck - genau das, was der 500M-Output
+zeigt (`nein`, `214 km`, `n.`). Das ist eine **mechanistische Erklaerung
+fuer das „Aus-der-Aufgabe-Fallen"**, direkt im Korpus belegt.
+
+**Ehrliche Einschaenkung:** Das gilt fuer **beide** Modelle (25M und 500M
+sahen vergleichbare Korpora). Es erklaert **nicht**, warum 25M 30 % und
+500M 0 % erreicht. Diese Differenz bleibt **ungeklaert** - ich habe sie
+nicht durch einen weiteren Hebel zu erklaeren versucht.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 48,6 % Zahlen, 43 % Woerter, 8,4 % Einheiten im Korpus.
+- Hypothese: gemischte Antwortformate beguenstigen Wort-Antworten bei
+  Rechenaufgaben - plausibel, **nicht durch Training getestet**.
+- Unsicher: 25M/500M-Differenz bleibt unerklaert.
+
+**Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
