@@ -10845,3 +10845,36 @@ klare Freigabe.
 - Unsicher: Budget reicht fuer alle Stufen.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv, auf 500M ausgerichtet.**
+## Runde 324 — Hypothese VOR dem Training: gemischter Feintuning-Korpus
+
+**500M fix (R322). EIN Faktor gegenueber R317/318 (vorregistriert):**
+
+| | R317/318 (0 %) | Dieser Test |
+|---|---|---|
+| Feintuning-Korpus | nur Rechenaufgaben (12.818 / 100.000) | **kombi-add** (seq+quant+logic+algebra+Addition, 228.920) |
+| Checkpoint | Lauf-2 step2000 .state | gleich |
+| Schritte / lr / Batch / Seed | 2000 / 1e-4 / 6 / 53013 | gleich |
+
+**Begruendung (aus R320/323):** Der 25M `kombi-add` behielt seq/quant/
+logic/algebra im Feintuning und erreichte danach 24-30 %. Die 500M
+`fokus`/`100k` Laeufe trainierten **nur auf Rechnen** und verloren das
+Zahlen-Ablesen (R319: `10*10` -> `50*10`). Hypothese: das Entfernen der
+anderen Familien beim Feintuning verursacht den Verlust.
+
+**Erwartung:** Antwort-EM > 20 % auf dem sauberen 100k-Heldout.
+**Widerlegung:** <= 20 % → Korpus-Zusammensetzung ist nicht der Hebel.
+
+**Vorbereitet (GPU-frei):** `configs/train500-kombi-add.toml`, kombi-add
+Korpus (7 Shards + Manifest, ~58 MB) auf HF `shiro-code` (`kombi500-*`).
+
+**Budget:** ~50 min A100 (~1,85 $). Guthaben ~8,7 $ - machbar.
+
+**Nicht gestartet** ohne klare Freigabe des Nutzers (wie in R323 angekuendigt).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: kombi-add Korpus 228.920 Records, lokal+HF, 25M-Vorbild belegt.
+- Hypothese: gemischter Feintuning-Korpus erhaelt Zahlen-Ablesen -
+  **vorregistriert, nicht getestet**.
+- Unsicher: ob der Elternstand (Lauf 2, 0 %) ueberhaupt noch rettbar ist.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv, 500M fix.**

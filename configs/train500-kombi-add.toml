@@ -1,0 +1,55 @@
+# Registrierte Hypothese (Runde 324), EIN Faktor gegenueber R317/318:
+# Feintuning-Korpus = kombi-add (seq+quant+logic+algebra+Addition, 228.920
+# Records) statt NUR Rechenaufgaben. Der 25M `kombi-add` behielt diese
+# Familien und erreichte danach 24-30 %; die 500M `fokus`/`100k` Laeufe
+# trainierten nur auf Rechnen und verloren das Zahlen-Ablesen.
+#
+# Alles andere GLEICH wie R317: Checkpoint Lauf-2 step2000 (.state),
+# 2000 Schritte, lr 1e-4, Batch 6, seq 1024, Seed 53013, fp32.
+# Architektur 509298176 Parameter.
+#
+# Erwartung: Antwort-EM > 20 % auf dem sauberen 100k-Heldout.
+# Widerlegung: <= 20 % -> dann ist die Korpus-Zusammensetzung beim
+# Feintuning nicht der Hebel.
+# Budget: ~50 min (~1,85 $), Checkpoint alle 1000.
+
+[run]
+name = "kombi-add500"
+seed = 53013
+steps = 2000
+log_every = 100
+checkpoint_every = 1000
+output_dir = "/workspace/500m-kombi-add/ckpt"
+log_dir = "/workspace/500m-kombi-add/logs"
+
+[data]
+dir = "/root/kombi-add-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0001
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "constant"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
