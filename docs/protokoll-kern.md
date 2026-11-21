@@ -8380,3 +8380,92 @@ je unter 5 000 verschiedene Aufgaben.
 **Die Lehre.** Eine Stichprobe ueber die *ersten* N Datensaetze ist bei Kopien wertlos,
 weil die Kopien mit denselben Daten beginnen. Wer Ueberlappung messen will, muss
 **vollstaendig** zaehlen.
+## Runde 493 — Der Vorgaengerpfad: `mix46 -> mix77 -> mix80 -> mix100`
+
+**Der Fund.** `O:\shiro` enthaelt **132 GB** Projektbestand, den ich bis Runde 212 nicht
+gelesen hatte. Darin liegt der **dokumentierte, funktionierende Pfad**:
+
+| Lauf | Modell | startet von | Schritte | Ergebnis |
+|---|---|---|---|---|
+| `mix46` | 24M | — | bis 31 500 | — |
+| **`mix77`** | **24M** | `mix46-step031500` | 2 000 | **93,3 % Weg / 93,3 % Antwort** |
+| `mix80` | 24M | `mix77` | bis 34 500 | — |
+| `mix100` | **100M** | `mix77` | 12 000 | — |
+| `mix50` | 100M | — | 600+ | — |
+
+**Es wurde fortgesetzt, nicht neu angefangen.** Jeder Lauf baut auf dem vorigen auf.
+
+### Das 24M-Modell
+
+| | |
+|---|---|
+| Architektur | `d_model 512`, 8 Layer, 8 Heads, `d_ff 1280` |
+| **Parameter** | **24 388 352** |
+| Marker | `<AUFGABE>` 0xFE, **`<DENKWEG>` 0xFB**, `<ANTWORT>` 0xFC, `<ENDE>` 0xFF |
+| HuggingFace | `ChangChi7/shiro-25m` (privat), 93 MB, Referenz `mix19` |
+
+**Warnung zur Kompatibilitaet:** `pmh` benutzt fuer `<DENKWEG>` das Byte **0xFB**. Unser
+Projekt benutzt **0xFD** und belegt 0xFB mit *Fehler*. Die Marker sind **verschieden**;
+`pmh`-Artefakte sind nicht ohne Umformung lesbar.
+
+### Die sechs Regeln aus `O:\shiro\pmh\PROTOKOLL.md`
+
+| Regel | Befund | Messwert |
+|---|---|---|
+| **R1** | **Etikett statt Muster** | ohne Etikett **0 %**, mit Etikett **100 %** |
+| **R2** | **Schrittweise erweitern** | 3 Familien 83 %, 4 Familien 91 %, 6 von Anfang an **44-54 %** |
+| **R3** | **Bezug im Weg sichtbar** | Ketten mit Namen 67 %, als nackte Zahlen **10 %** |
+| **R4** | **Breite ist die Grenze** | 3 Summanden >90 %, 4 Summanden **<65 %** |
+| **R5** | **Komposition gelingt nicht** | zehn Formen trainiert, die elfte **0 %** |
+| **R6** | **Zero-Shot gelingt nicht** | Regel im Prompt: **0-7 %** |
+
+**R2 und R5 zusammen widerlegen meinen Plan.** Ich habe einen 13-GB-Mischkorpus mit 17
+Familien **auf einmal** gebaut - laut R2 der Fehler, der 95 % auf 44-54 % drueckt.
+
+### Der Korpus, der funktioniert hat: `mix77`
+
+| Typ | Datensaetze |
+|---|---|
+| `text` | 20 067 |
+| `close` | 5 500 |
+| `sprach` | 4 884 |
+| `ketten` | 3 000 |
+| `kette` | 1 840 |
+| `malnehmen` | 1 500 |
+| `rechnen` | 1 500 |
+| `gleichung` | 1 413 |
+| `lex` | 1 070 |
+
+**Nutzbytes: ~25 MB** bei 12 Shards - **nicht** 13 GB. Das Verhaeltnis war **1 Byte je
+Parameter** (24,4M Parameter, 25 MB Korpus), weit unter Chinchilla (20 Byte/Parameter).
+
+**`close` und `sprach` waren bereits vorhanden** - genau die zwei Familien (geschlossene
+Form, Sprachlogik), die ich in Runde 490 neu gebaut habe.
+
+### Der 100M-Lauf
+
+| | 24M | 100M |
+|---|---|---|
+| `d_model` | 512 | **768** |
+| Layer | 8 | **12** |
+| Heads | 8 | **12** |
+| `d_ff` | 1280 | **3072** |
+
+Fortsetzung auf 500M waere die naechste Verdopplung: `d_model 1536`, 24 Layer, 16 Heads,
+`d_ff 6144`.
+
+### Wo das Projekt stehen blieb
+
+**Runde 146, Bruchrechnung Versuch 2: 5 %.** An drei Aufgaben geprueft, und **jede der
+drei Rechnungen daneben**:
+
+| Aufgabe | erzeugt | richtig |
+|---|---|---|
+| `2/4 + 2/5` | `10/20 + 12/20 = 17/10` | `10/20 + 8/20 = 18/20` |
+| `3/5 + 3/5` | `15/25 + 15/25 = 23/25` | `6/5` |
+| `2/7 + 4/8` | `16/56 + 36/56 = 51/56` | `16/56 + 28/56 = 44/56` |
+
+Die **Form** stimmt (gemeinsamer Nenner, Erweitern, Addieren), die **Rechnung** nicht.
+Versuch 3 (nur gleicher Nenner) war geplant, ist aber nicht dokumentiert.
+
+**Der Nutzer-Hinweis gilt:** drei Versuche je Familie, nicht einer.
