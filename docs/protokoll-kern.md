@@ -8756,3 +8756,50 @@ Er ist nicht auf dem Pod angekommen - das ist eine offene Lücke, keine Erledigu
 - **Checkpoints bleiben unangetastet** - ohne Backup keine Loeschung.
 - **Storage ist aufgeraeumt** und kostet ~$1,83/Monat statt ~$5,11.
 - **HF-Upload bleibt offen** - mit dem korrekten Token lokal erneut versuchen.
+## Runde 263 — Backup erfolgreich: 16 Dateien auf HuggingFace, Storage 12 GB
+
+**Der Nutzer stellte den Secret `{{ RUNPOD_SECRET_HuggingFace }}` bereit.** Damit war
+der 401 aus Runde 262 behoben — nicht durch neue Rechte (die waren laut Screenshot
+und `whoami` immer da), sondern durch **korrekte Uebergabe**: der Pod loeste das
+Secret beim Boot auf, `LEN=37`, `whoami` = `ChangChi7`, HTTP 200.
+
+**Gesichert und verifiziert (`ChangChi7/shiro-checkpoints`, jetzt 22 Dateien):**
+
+| Gruppe | Dateien | Groesse |
+|---|---|---|
+| `mix500-korpus-step2000/3000.safetensors` | 2 | 3,8 GB |
+| `mittel-mix-step1000..7000.safetensors` | 7 | 0,9 GB |
+| `mittel-mix-step001000..007000.state` | 7 | 2,7 GB |
+
+**16 Dateien, 7,4 GB, alle `OK`, keine Fehler, alle per HF-API verifiziert.**
+
+**Erst danach** wurden die 16 lokalen Kopien geloescht. Das entspricht der harten
+Regel: *erst sichern, dann loeschen*. Uebrig blieben nur die kleinen `.quittung`-Dateien.
+
+**Storage jetzt:**
+
+| Ordner | Groesse | Grund |
+|---|---|---|
+| `korpus500/text` | 11 GB | **behalten** - nicht auf HF, nicht lokal, nur hier |
+| `korpus500/aufgaben` + `val` | 119 MB | relevant |
+| `blindtest*` | 125 KB | nie im Training |
+| `ckpt`, `ckpt-mittel` | ~2,5 KB | nur Quittungen |
+
+**Gesamt: 12 GB.** Von 56,8 GB auf 12 GB — **~79 % reduziert**.
+
+**Warum `text` bleibt:** es ist der einzige Bestand, der **weder auf HuggingFace noch
+lokal** liegt. Die `.txt`-Zwischenprodukte sind geloescht, die Shards sind der
+verarbeitete Endzustand. 11 GB kosten ~$1,06/Monat — akzeptabel fuer die Sicherheit.
+Ein erneuter Export aus dem oeffentlichen Wikipedia-Dump waere moeglich, aber der
+Aufwand steht nicht im Verhaeltnis zum Nutzen.
+
+**Zwei Fehler von mir in dieser Runde, beide korrigiert:**
+
+1. Ich hatte einen **alten, abgelaufenen Token** (47 Zeichen) aus einer frueheren
+   Konversation in die Pod-Env kopiert, statt den aktuellen (37 Zeichen) zu lesen.
+2. Bei der HF-Verifikation suchte ich `step1000.state` statt `step001000.state`
+   (6-stellig) und meldete **falsch** „7 fehlend". Mit den exakten Namen: **0 fehlend**.
+
+**Trainingsplan v2** erstellt und gesichert (`88d5096`): 500M-Geometrie aus
+`eval500-mix.toml`, **ein Faktor je Runde**, vorregistrierte Abbruchregel bei
+Schritt 2 000, Freigabe nur fuer den Messpunkt (~4,80 $).
