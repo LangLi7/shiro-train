@@ -10010,3 +10010,43 @@ vorregistrierte Hypothese gebaut. Die Hypothese aus Runde 297 ist **nichtig**.
 - Das 90-%-Ziel ist mit diesem Modellparadigma **nicht erreichbar**.
 
 **Kein Pod, kein GPU, kein Code geaendert. Hypothesis 297 annulliert.**
+## Runde 299 — Ursache seit Runde 193 bekannt: Uebertrag-Weitergabe (nicht Kapazitaet)
+
+**Ich habe Runde 191/193 erneut gelesen — und muss meine eigene Deutung
+aus Runde 298 korrigieren.** Dort schrieb ich „echte Kapazitaetsgrenze".
+Das Protokoll sagt praeziser und durch Gegenprobe belegt:
+
+| Variante (Runde 193) | Weg | Antwort |
+|---|---|---|
+| dreistellig MIT Uebertrag (`mix39`) | 23 % | 24 % |
+| dreistellig OHNE Uebertrag (`mix40`) | **94 %** | **93 %** |
+
+**Belegte Kette:**
+- Runde 191 deutete „Modell liest Ziffern falsch ab" -> **durch Runde 193 widerlegt**.
+- Runde 193: „es liest sie fehlerfrei, sobald keine Stelle einen Uebertrag
+  erzeugt. **Die Grenze ist der Uebertrag, und zwar seine Weitergabe ueber
+  mehr als eine Stelle**" (Sequenzlogik, nicht Wahrnehmung, nicht Kapazitaet).
+- Runde 191 vermutete „dafuer waere RunPod/Skalierung der Hebel" ->
+  **durch unsere 500M-Messung widerlegt** (500M schlechter als 25M).
+
+**Ehrlicher Stand nach 299 Runden:**
+Die Ursache ist **seit Runde 193 bekannt und durch Gegenprobe belegt**:
+Uebertrag-Weitergabe ueber mehrere Stellen. Alle seither geprueften Hebel
+(Datenmenge, Vielfalt, Struktur, Rollen, Umlaut, Puffer, Format, Modellgroesse)
+haben genau diese Sequenzlogik **nicht** behoben. 509M/20-Heads auf A100 war
+dabei schlechter als 25M.
+
+**Konsequenz:** Weitere Einzel-Hypothesen wären unverantwortlich - die
+Ursache ist bekannt, und die naive Skalierung ist getestet und gescheitert.
+Der naechste Schritt ist eine **gezielte Runde auf die Uebertrag-Weitergabe**
+(z. B. explizite Zwischen uebertraege als Teilziele, oder ein anderes
+Sequenzformat) - als eigene, vorregistrierte Runde mit klarer Widerlegungsregel.
+Ohne Freigabe starte ich nichts.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 93 % ohne Uebertrag, 24 % mit Uebertrag (Runde 193, Gegenprobe).
+- Fakt: 500M (0 %) schlechter als 25M (30 %) auf frischer Arithmetik.
+- Hypothese: gezieltes Uebertrag-Training hilft - **nicht getestet**.
+- Unsicher: ob das 90-%-Ziel damit erreichbar ist.
+
+**Kein Pod, kein GPU, kein Code geaendert.**
