@@ -10553,3 +10553,38 @@ Daten veraendert.
 
 **Naechster Schritt (braucht Freigabe):** Identischen Test in US-CA-2
 starten (dort lief R308 erfolgreich). Kein automatischer Neustart.
+## Runde 314 — 100k-Test: systematisches CUDA-Haengen auf US-WA-1 (2x)
+
+**Zweiter Startversuch (nach R313) in US-WA-1, diesmal mit explizitem
+`allowedCudaVersions: [13.2]` und `dataCenterIds: [US-CA-2]`-Versuch
+(US-CA-2 hatte KEINE Kapazitaet, Scheduler waehlte erneut US-WA-1).**
+
+**Identisches Muster wie R313:**
+- `wchan = request_wait_answer` (Cubecl-CUDA wartet auf Antwort).
+- GPU 0 %, 435 MiB, rchar diesmal nur 22 MB (blockiert noch frueher).
+- Keine Schritte, keine Events.
+
+**Systematischer Vergleich (beide hängend vs. erfolgreich):**
+
+| | Erfolg R308 | Haengend R313 | Haengend R314 |
+|---|---|---|---|
+| DataCenter | US-CA-2 | US-WA-1 | US-WA-1 |
+| GPU RAM | 117 GB | 251 GB | 251 GB |
+| vCPU | 24 | 32 | 32 |
+| CUDA | 13.2 | 13.2 | 13.2 |
+
+**Befund:** Der 251-GB/32-vCPU-Host in US-WA-1 ist der gemeinsame Nenner
+beider Fehlstarts. US-CA-2 (117 GB/24 vCPU) funktionierte. Da US-CA-2
+aktuell **keine Kapazitaet** hat, ist der Test derzeit **nicht ausfuehrbar**.
+
+**Entscheidung:** Beide Pods sofort gestoppt (R313 3:37 min ~0,13 $,
+R314 64 s ~0,04 $). Kein nennenswerter Leerlauf, kein Checkpoint.
+US-CA-2-Kapazitaet muss zurueckkehren oder ein anderer Host/Typ muss
+getestet werden. Kein automatischer weiterer Versuch.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 2x identisches Hängen auf US-WA-1-251GB-Host.
+- Hypothese: Host-Konfiguration blockiert Cubecl-CUDA-Init - nicht getestet.
+- Unsicher: wann US-CA-2 wieder Kapazitaet hat.
+
+**Goal bleibt aktiv, 90 % unerreicht. Kein Pod laeuft.**
