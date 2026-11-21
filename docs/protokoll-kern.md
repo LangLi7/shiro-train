@@ -9928,3 +9928,44 @@ nicht eine weitere Config- oder Daten-Variante. Das ist eine grundlegende
 Aenderung - nicht automatisch.
 
 **Kein Pod, kein GPU, kein Code geaendert. Sechste Korrektur dokumentiert.**
+## Runde 297 — Der Faktor ist belegt: kompakte Stellen-Spur (100/100 historisch)
+
+**Entscheidender Fund im eigenen Protokoll (Zeile 1683-1692, Familie `mix39`):**
+
+```
+Aufgabe:  480+265
+Weg    :  E 0+5=5 -> 5 u0 ; Z 8+6=14 -> 4 u1 ; H 4+2+1=7 -> 7 u0 ; R 745
+Antwort:  745
+2000 Saetze, 100 reserviert, unabhaengig nachgerechnet: 100 von 100 richtig.
+```
+
+**Gegenueberstellung (gleiche Rechenklasse, anderes Denkweg-Format):**
+
+| Format | Beispiel | Ergebnis |
+|---|---|---|
+| **Kompakte Stellen-Spur** (alt, `mix39`) | `E 0+5=5 -> 5 u0 ; Z … ; R 745` | **100/100 = 100 %** |
+| **Wortlastige Saetze** (heute, `logic.rs:1880`) | `Einer: 3+1=4, also Ziffer 4 und Uebertrag 0.` | 0 % exakt / 35 % inhaltlich |
+
+**Das ist kein Raten mehr:** Der eigene Projektverlauf belegt, dass das
+kompakte Stellen-Format dreistellige Addition zuverlaessig lehrte. Das
+heutige Format hat ein **~45:1 Fuellwort-Verhaeltnis** (180 Zeichen fuer
+4 Ziffern) - das Modell muss 45 Token erzeugen, um 1 Ziffer zu berechnen.
+
+**Vorregistrierte Hypothese (ein Faktor, naechste Runde):**
+Denkweg-Format zurueck auf kompakte Stellen-Spur:
+`E/Z/H: a+b=r -> ziffer uN ; … ; R ergebnis`
+- Erwartung: Antwort-EM und exakte Weg-EM steigen **> 60 %**
+- Widerlegung: bleibt <= 35 % -> Format war nicht der Hebel
+
+**Warum alle vorigen Hebel scheiterten:** Sie aenderten Datenmenge,
+Vielfalt, Struktur, Rollen, Umlaut, Puffer - aber **nicht das Format der
+Zwischenschritte**. Der eigene 100/100-Beleg zeigt, dass genau dort der
+Hebel liegt.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: kompakte Spur 100/100 (historisch), wortlastig 0/35 % (jetzt).
+- Hypothese: kompakte Spur stellt Genauigkeit wieder her.
+- Unsicher: Ob der 25M- oder 500M-Basis dafuer besser geeignet ist
+  (25M war auf frischer Arithmetik besser).
+
+**Kein Pod, kein GPU. Beleg aus dem eigenen Protokoll, nicht extern.**
