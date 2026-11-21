@@ -9780,3 +9780,43 @@ aber **sekundaer** gegenueber den Ziffernfehlern (`5-3=0`, erfundene Entlehnung)
 **Methodische Lehre:** Ich habe dreimal vorschnell eine Daten-/Formatursache
 vermutet und musste sie korrigieren. Der Vergleich 25M vs 500M bleibt gueltig
 (identische Byte-Kodierung). Kein Code geaendert, kein Pod, keine GPU-Kosten.
+## Runde 293 — Subtraktion: Rollenverwechslung statt Unterrepraesentation
+
+**Vorregistrierte Hypothese (Runde 292):** Subtraktion sei im Korpus
+unterrepraesentiert. **Widerlegt, GPU-frei geprueft:**
+
+| Muster im `logic`-Trainingskorpus | Zaehlung |
+|---|---|
+| `entliehen` (Subtraktion) | 5636 |
+| `bertrag`/`u1` (Addition) | 15478 |
+
+Beide reichlich vorhanden. Kein Datenmangel.
+
+**Neuer, belegter Befund aus alten Protokollen:** Das Modell beherrscht
+**Addition mit Uebertrag** Schritt fuer Schritt korrekt:
+```
+E 6+9=15 -> 5 u1 ; Z 0+0+1=1 -> 1 u0 ; H 6+8=14 -> 4 u1 ; T ... ; R 1415
+```
+Bei der **Subtraktion** aber entstehen Fehler wie `5 - 3 = 0` oder eine
+erfundene Entlehnung (`2 reicht nicht fuer 6` statt `2 - 1`).
+
+**Praezise Fehlerklasse:** Das Modell verwechselt bei der Subtraktion die
+Rollen von **Minuend und Subtrahend** (welche Ziffer ist groesser, von
+welcher wird abgezogen). Bei der Addition gibt es diese Ambiguitaet nicht -
+deshalb funktioniert Addition, Subtraktion nicht.
+
+**Vorregistrierte Hypothese fuer die naechste Runde (ein Faktor):**
+Die Subtraktions-Denkwege erhalten eine **explizite Rollenmarkierung**
+(„von {minuend} ziehe {subtrahend} ab"), sodass die Reihenfolge nicht mehr
+aus dem Kontext erraten werden muss. Erwartung: Ziffernfehler sinken,
+Antwort-EM auf Subtraktion steigt ueber 30 %.
+
+**Widerlegung:** bleibt <= 30 % oder die Rollenmarkierung wird nicht
+zuverlaessig erzeugt → dann ist die Ambiguitaet nicht der Hebel.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Addition korrekt, Subtraktion fehlerhaft, Korpus ausgewogen.
+- Hypothese: Rollenverwechslung ist die Ursache.
+- Unsicher: Ob explizite Markierung hilft - **nicht getestet**.
+
+**Kein Pod, kein GPU, kein Code geaendert.**
