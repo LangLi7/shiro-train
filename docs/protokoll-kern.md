@@ -9456,3 +9456,38 @@ Zwei Runden (Lauf 1 = Datenmenge, Lauf 2 = Datenvielfalt) ohne Zugewinn.
 
 - GPU-Pod `mrq00anbn9hh6l`: Training beendet, kein Leerlauf mehr durch Eval
 - **Pod jetzt stoppen** - keine weiteren GPU-Kosten ohne registrierte Runde.
+## Runde 280 — Direkter Basic-Math-Test: 0/5, das Modell rechnet nicht
+
+**Auf die Frage des Nutzers „hat das Modell schon Basic-Math gelernt?" gezielt
+gemessen** (CPU-Pod, finaler Lauf-2-Checkpoint, 5 reine Rechenaufgaben aus dem
+Blindtest, Modus m1):
+
+| Aufgabe | erwartet | erzeugt |
+|---|---|---|
+| 96 - 87 | 9 | `(leer)` |
+| 997 - 869 | 128 | `121` |
+| 689 * 77 | 53053 | `100 Euro` |
+| (weitere) | 1896 | `4. Ein` |
+| (weitere) | 822 | `3` |
+
+**Antwort-EM 0/5 (0 %), Weg-EM 0 %.**
+
+**Einordnung:** Bei `997 - 869` entsteht `121` - nah dran, aber falsch.
+`100 Euro` zeigt, dass das Modell aus dem Kontext-Korpus „antwortet" statt
+zu rechnen. Es hat Bruchstücke gelernt, aber **kein verlaessliches Rechnen**.
+Damit ist der schlechte Blindtest-Wert **nicht** allein auf ungesehene
+Strukturen (x^2) zurueckzufuehren - selbst einfachste Subtraktion scheitert.
+
+**Das ist der belastbare Kernbefund der gesamten 500M-Runde:**
+Zwei Laeufe, 342 MB und 1,03 GB Daten, 509M Parameter, ~2 h A100 - und das
+Modell kann nicht subtrahieren. Die Train-Loss-Senkung (5,7 -> 0,2/0,4) war
+Auswendiglernen, keine Faehigkeit.
+
+**Konsequenz:** Weitere 500M-Laeufe mit denselben Generatoren sind zwecklos.
+Der naechste echte Schritt ist nicht „mehr Daten" oder „groesseres Modell",
+sondern eine **grundlegende Aenderung des Lernformats** (z. B. schrittweises
+Rechnen mit expliziten Zwischenwerten als Ziel, oder ein anderes Modell-
+paradigma). Das ist eine eigene, vorregistrierte Runde - nicht automatisch.
+
+**Ressourcen:** CPU-Pod `g1trtaslmy4v4o` gestoppt, kein Leerlauf. GPU-Pod
+bereits gestoppt. 32 GB Checkpoints + alle Logs auf dem Volume gesichert.
