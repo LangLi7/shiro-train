@@ -8323,3 +8323,60 @@ Der Rest ist Wiederholung.
 **Beruhigend:** die Pruefung auf Ueberlappung **zwischen** den Familien ergab **null**
 gemeinsame Datensaetze. Es gibt kein Datenleck, die Familien sind wirklich verschieden -
 sie sind nur einzeln zu klein.
+## Runde 491 — Die Mathe-Korpora sind Kopien, und meine erste Messung war falsch
+
+**Die Frage, die das ausgeloest hat:** "was ist mit math basic stuff? wurde da schon was
+eingeplant? trainiert?"
+
+**Drei Messungen, zwei davon falsch — alle drei hier festgehalten.**
+
+| Messung | Methode | Ergebnis | Urteil |
+|---|---|---|---|
+| 1 | verschiedene Datensaetze je Korpus | 1 217 295 | **irrefuehrend** — zaehlt nur innerhalb eines Korpus |
+| 2 | Stichprobe: erste 20 000 je Datei | "90 000, 100 % Ueberlappung" | **falsch** — die ersten 20 000 sind bei allen Kopien dieselben |
+| 3 | **Vollzaehlung aller Datensaetze** | **306 286 verschiedene** | **richtig** |
+
+**Der echte Befund (Messung 3).**
+
+| Korpus | verschieden | davon in `kombi-mathe2` |
+|---|---|---|
+| `kombi-mathe2` | **298 086** | — |
+| `kombi-mathe` | 198 086 | **100 %** |
+| `kombi-add` | 206 286 | **96 %** |
+| **Vereinigung** | **306 286** | |
+
+Die drei grossen Mathe-Korpora sind **dieselben Daten in verschiedener Reihenfolge**.
+`kombi-mathe` steckt vollstaendig in `kombi-mathe2`, `kombi-add` zu 96 %.
+
+**Was drin steckt** (aus den Datensaetzen gelesen):
+
+```text
+Term: -10*x
+Belegung: x = 1
+Frage: Welchen Wert hat der Term?
+```
+
+**Eine Aufgabenart, 306 000 Varianten.** Terme auswerten mit wechselndem `x`.
+
+**Die Antwort auf die Frage.**
+
+| Grundrechenart | eingeplant | verschiedene Datensaetze |
+|---|---|---|
+| Terme auswerten | ja | **306 000** |
+| Zahlenfolgen, Regelausfuehrung | ja (`seq`) | viele |
+| Addition/Subtraktion mit Uebertrag | ja (`logic`) | viele |
+| **Bruchrechnung** | ja (`bruch`) | **18 563** |
+| **Prozentrechnung** | ja (`prozent`) | **540** |
+| **Potenzen, Wurzeln** | ja (`potenzen`) | **236** |
+| **Gleichungen** | ja (`gleichung`) | **4 171** |
+
+**Grundrechenarten sind eingeplant.** Trainiert hat das 4,66M-Modell das **Term-Auswerten**
+(`kombi-add`). Die Luecke sind **Prozente, Potenzen und Gleichungen** — dort gibt es
+je unter 5 000 verschiedene Aufgaben.
+
+**Der Umfang fuer 500M.** 306 286 verschiedene Mathe-Aufgaben sind bei ~350 Byte rund
+**107 MB** — **1,0 %** der 10,2 GB, die ein 500M-Modell nach Chinchilla braucht.
+
+**Die Lehre.** Eine Stichprobe ueber die *ersten* N Datensaetze ist bei Kopien wertlos,
+weil die Kopien mit denselben Daten beginnen. Wer Ueberlappung messen will, muss
+**vollstaendig** zaehlen.
