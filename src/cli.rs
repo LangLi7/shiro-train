@@ -1730,9 +1730,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     }
     if saw_data && generatoren == 0 {
         bail!(
-            "`data` braucht ein Unterkommando (`generate-logic`, `generate-semantics`, \
-             `generate-format`, `generate-quant`, `generate-seq`, `generate-formel` oder \
-             `combine`)"
+            "`data` braucht ein Unterkommando.\n\
+             Erzeugen   : generate-logic, -seq, -algebra, -quant, -gleichung, -geometrie,\n\
+             \x20            -potenzen, -regel, -folge, -bruch, -prozent, -zahl, -einheit,\n\
+             \x20            -vielfalt, -detektiv, -kontext, -semantics, -format, -games,\n\
+             \x20            -geschlossen, -sprachlogik\n\
+             Verarbeiten: import-text, mix, sprachmix, combine, validate-data, preflight"
         );
     }
 
