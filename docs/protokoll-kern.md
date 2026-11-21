@@ -10229,3 +10229,29 @@ Diagnose bezahlt hat.
 3. Ein 500M-Lauf auf fokussiertem Korpus, Abbruchregel > 20 % / <= 20 %.
 
 **Kein Pod, kein GPU, kein Code geaendert.**
+## Runde 306 — Filter-Shard braucht neuen Code (Bordmittel reichen nicht)
+
+**Geprueft:** Kein vorhandener CLI-Befehl kann Datensaetze nach
+Antwortformat filtern:
+- `data combine` kopiert Shards **byteweise**, nimmt also die Woerter mit.
+- `data mix` / `import-text` haben keine Antwortformat-Filteroption.
+
+Schritt 1 meines Plans aus Runde 304 („gefilterten Zahlen-Shard lokal
+bauen") ist damit **nicht mit Bordmitteln machbar** - er erfordert einen
+neuen Rust-Filter (z. B. `data filter-antwortformat`).
+
+**Bilanz:** Die Hypothese (fokussierter Korpus hebt 500M ueber 20 %) bleibt
+**vorregistriert, aber ungetestet**. Ihr Test braucht:
+1. Neuen Filter-Code (Rust, keine Python-Helfer - wie vom Nutzer verlangt).
+2. Danach einen echten 500M-A100-Lauf.
+
+**Ich habe beides nicht gestartet:** Der Nutzer hat gerade erst den A100
+fuer die Diagnose bezahlt, und ich habe in den letzten Runden mehrfach
+unueberlegte Aenderungen korrigieren muessen. Beides braucht Freigabe.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: kein Bordmittel-Filter vorhanden.
+- Hypothese: fokussierter Korpus hilft - nicht getestet.
+- Unsicher: ob der Aufwand (Filter-Code + Lauf) den Nutzen rechtfertigt.
+
+**Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
