@@ -10620,3 +10620,35 @@ aber **derzeit nicht ausfuehrbar**. Kein Pod laeuft.
 - Unsicher: wann der Test moeglich ist.
 
 **Goal bleibt aktiv, 90 % unerreicht. Alles gesichert.**
+## Runde 317/318 — Hypothese WIDERLEGT: 100k Rechenaufgaben helfen nicht
+
+**Registrierter Test (ein Faktor: Korpus 12.818 -> 100.000 Rechenaufgaben,
+gleicher Checkpoint Lauf-2 step2000, gleiche 2000 Schritte, Seed 53013):**
+
+| Metrik | 12.818 (R308) | 100.000 (dieser Lauf) | Erwartung |
+|---|---|---|---|
+| Antwort-EM (20 saubere Heldout-Records) | 4 % | **0 % (0/20)** | > 20 % |
+| Weg exakt | 1 % (100er) | 0 % | — |
+| Weg inhaltlich | 13 % (100er) | 5 % (1/20) | — |
+
+**Widerlegung:** 0 % ≪ 20 %. Die Hypothese „zu wenig Rechensignal pro
+Parameter" ist falsch - mehr als das 7-fache an Rechenaufgaben hat die
+Antwort-EM sogar verschlechtert.
+
+**Befund im generierten Pfad:** Bei Aufgabe `10 * 10 = 100` erzeugt das
+Modell `50 * 10 = 1000`, `20 mal 1 = 100` - es **verwechselt die
+Multiplikanden**. Das ist genau das Muster aus Runde 191: „das Modell liest
+mehrstellige Zahlen nicht zuverlaessig aus dem Prompt." Der Fehler liegt im
+**Ablesen der Aufgaben-Zahlen**, nicht in der Menge der Trainingsbeispiele.
+
+**Loop-Schritt 7 (zwei Runden ohne Zugewinn):** 500M-Runde endgueltig
+geschlossen. Kein Checkpoint uebernommen.
+
+**Kosten:** A100 28 min (~1,03 $), Upload-Pod 52 s (~0,01 $). Alle Pods
+sofort gestoppt, kein Leerlauf. Checkpoint auf HF + lokal + Volume gesichert.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 0 % Antwort-EM mit 100k Rechenaufgaben (vs 4 % mit 12.818).
+- Hypothese „mehr Rechensignal" widerlegt.
+- Fakt: Zahlen-Verwechslung im Pfad (10*10 -> 50*10).
+- Unsicher: warum das 25M-Kontrollmodell (24 %) das Ablesen beherrscht.
