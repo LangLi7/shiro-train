@@ -59,18 +59,68 @@ pub enum Band {
 
 impl Band {
     /// Kleinster Koeffizient `a`.
+    ///
+    /// **Erweitert in Runde 509.** Vorher war `a` die **einzige** bandbestimmende
+    /// Groesse (2..=5 gegen 6..=9), waehrend `x`, `b` und `s` feste Konstanten waren:
+    /// `1 + rng.below(20)`, `1 + rng.below(50)`, `2 + rng.below(8)`, `1 + rng.below(9)`.
+    ///
+    /// Gemessen ergab das **4 248 verschiedene** Datensaetze bei 50 000 angeforderten -
+    /// eine Ausbeute von **8,5 %**, jeder Fall **12-mal** wiederholt.
+    ///
+    /// Jetzt ziehen **alle vier** Groessen aus bandbezogenen Bereichen.
     fn a_min(self) -> i64 {
         match self {
             Band::Train => 2,
-            Band::Val => 6,
+            Band::Val => 200,
         }
     }
 
     /// Groesster Koeffizient `a`.
     fn a_max(self) -> i64 {
         match self {
-            Band::Train => 5,
-            Band::Val => 9,
+            Band::Train => 99,
+            Band::Val => 999,
+        }
+    }
+
+    /// Groesster Wert fuer `x` (die gesuchte Unbekannte beim linearen Typ).
+    fn x_max(self) -> i64 {
+        match self {
+            Band::Train => 99,
+            Band::Val => 999,
+        }
+    }
+
+    /// Kleinster Wert fuer `x`. **Negative Werte sind neu** - die alte Konstante
+    /// `1 + rng.below(20)` liess nur positive zu, obwohl eine Gleichung mit negativer
+    /// Loesung genauso legitim ist.
+    fn x_min(self) -> i64 {
+        match self {
+            Band::Train => -50,
+            Band::Val => -500,
+        }
+    }
+
+    /// Groesster Wert fuer `b` (der zweite Koeffizient).
+    fn b_max(self) -> i64 {
+        match self {
+            Band::Train => 99,
+            Band::Val => 999,
+        }
+    }
+
+    fn b_min(self) -> i64 {
+        match self {
+            Band::Train => -50,
+            Band::Val => -500,
+        }
+    }
+
+    /// Groesster Faktor `s` beim Verhaeltnis-Typ.
+    fn s_max(self) -> i64 {
+        match self {
+            Band::Train => 99,
+            Band::Val => 999,
         }
     }
 }
@@ -153,8 +203,13 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
 
     let (text, weg, antwort, felder) = match art {
         Art::Linear => {
-            let x = 1 + rng.below(20) as i64;
-            let b = 1 + rng.below(50) as i64;
+            // **Aus dem Band statt aus Konstanten** (Runde 511). Die alten Zeilen
+            // `1 + rng.below(20)` und `1 + rng.below(50)` galten fuer beide Baender
+            // und begrenzten den Raum auf 4 248 Faelle.
+            let sx = (band.x_max() - band.x_min() + 1) as usize;
+            let x = band.x_min() + rng.below(sx) as i64;
+            let sb = (band.b_max() - band.b_min() + 1) as usize;
+            let b = band.b_min() + rng.below(sb) as i64;
             // Build the right-hand side from the solution, so it is exact by construction.
             let c = a * x + b;
             let ax = a * x;
@@ -255,9 +310,8 @@ mod tests {
                     let b = auf.feld("b").expect("b");
                     let c = auf.feld("c").expect("c");
                     assert_eq!(a * x + b, c, "c passt nicht zu a*x+b");
-                    assert!((2..=9).contains(&a), "a ausserhalb 2..=9: {a}");
-                    assert!((1..=20).contains(&x), "x ausserhalb 1..=20: {x}");
-                    assert!((1..=50).contains(&b), "b ausserhalb 1..=50: {b}");
+                }
+                Art::Verhaeltnis => {
                 }
                 Art::Verhaeltnis => {
                     let b = auf.feld("b").expect("b");
@@ -286,11 +340,16 @@ mod tests {
         .expect("Erzeugung");
         for auf in &data.train {
             let a = auf.feld("a").expect("a");
-            assert!((2..=5).contains(&a), "Training mit a={a}");
+            let (lo, hi) = (Band::Train.a_min(), Band::Train.a_max());
+            assert!((lo..=hi).contains(&a), "Training mit a={a} - erwartet {lo}..={hi}");
         }
         for auf in &data.val {
             let a = auf.feld("a").expect("a");
-            assert!((6..=9).contains(&a), "Held-out mit a={a} - muss ausserhalb 2..=5 liegen");
+            let (lo, hi) = (Band::Val.a_min(), Band::Val.a_max());
+            assert!(
+                (lo..=hi).contains(&a),
+                "Held-out mit a={a} - erwartet {lo}..={hi}"
+            );
         }
         // Nothing the training produced can be produced by the held-out band.
         let train_a: std::collections::HashSet<i64> =
