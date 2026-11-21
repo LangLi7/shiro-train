@@ -127,14 +127,38 @@ pub fn mischen(records: &[Vec<u8>], opts: Optionen) -> (Vec<Vec<u8>>, Bericht) {
 
 /// Baut die englische Fassung eines Datensatzes: erst uebersetzen, dann markieren.
 ///
-/// Gibt `None` zurueck, wenn **keine** englische Regel greift - dann bliebe der
-/// Datensatz deutsch, und eine `[EN]`-Marke waere gelogen.
+/// Gibt `None` zurueck, wenn **nichts** uebersetzt wurde - dann bliebe der Datensatz
+/// deutsch, und eine `[EN]`-Marke waere gelogen.
+///
+/// **Zwei Stufen (Runde 500).** Erst die Phrasenregeln ([`paraphrase::uebersetze`]),
+/// dann die **Woertertabelle** ([`uebersetzung::uebersetze_woerter`]). Der erste
+/// Entwurf hatte nur die Phrasen und uebersetzte deshalb nur den Satzanfang -
+/// `Given: (1) Alle Xeno sind Wend.`
 pub fn englische_fassung(record: &[u8]) -> Option<Vec<u8>> {
-    let uebersetzt = paraphrase::uebersetze(record);
-    if uebersetzt == record {
+    let phrasen = paraphrase::uebersetze(record);
+    let phrasen_treffer = phrasen != record;
+
+    // Den Aufgabenteil Wort fuer Wort nachziehen.
+    let cut = phrasen
+        .iter()
+        .position(|b| *b == B_THINK)
+        .unwrap_or(phrasen.len());
+    let (kopf, rest) = phrasen.split_at(cut);
+    if kopf.first() != Some(&B_TASK) {
         return None;
     }
-    Some(paraphrase::setze_sprache(&uebersetzt, Sprache::En))
+    let text = String::from_utf8_lossy(&kopf[1..]).to_string();
+    let (uebersetzt, wort_treffer) = crate::data::uebersetzung::uebersetze_woerter(&text);
+
+    if !phrasen_treffer && wort_treffer == 0 {
+        return None;
+    }
+
+    let mut out = Vec::with_capacity(record.len() + 16);
+    out.push(B_TASK);
+    out.extend_from_slice(uebersetzt.as_bytes());
+    out.extend_from_slice(rest);
+    Some(paraphrase::setze_sprache(&out, Sprache::En))
 }
 
 /// **Prueft, dass kein englischer Datensatz in beiden Baendern steht.**

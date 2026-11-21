@@ -47,6 +47,7 @@ pub mod sprachlogik;
 pub mod sprachmix;
 pub mod textimport;
 pub mod vielfalt;
+pub mod uebersetzung;
 pub mod vielfaltmessung;
 pub mod bruch;
 pub mod detektiv;
