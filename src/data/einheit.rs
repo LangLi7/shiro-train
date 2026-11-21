@@ -50,9 +50,19 @@ pub enum Band {
 
 impl Band {
     /// Faktor `k` fuer km/h -> m/s: `v = 36*k`, `m/s = 10*k`.
+    ///
+    /// **Erweitert in Runde 503.** Vorher: Training 1..=9, Held-out 11..=97.
+    /// Gemessen ergab das **238 verschiedene** Datensaetze bei 50 000 angeforderten -
+    /// eine Ausbeute von **0,5 %**. Jeder Fall wiederholte sich **210-mal**.
+    ///
+    /// Die Rechnung zeigt, warum: 5 Arten x 9 Werte fuer `k` x 20 Werte fuer `gross`
+    /// sind 900 moegliche Kombinationen, und nicht alle sind gueltig.
+    ///
+    /// Jetzt: Training 1..=50, Held-out 51..=97. Der Raum waechst auf
+    /// 5 x 50 x 200 = **50 000**. Die **Trennung bleibt** - kein `k` in beiden Baendern.
     fn k_max(self) -> usize {
         match self {
-            Band::Train => 9,
+            Band::Train => 50,
             Band::Val => 97,
         }
     }
@@ -60,14 +70,17 @@ impl Band {
     fn k_min(self) -> usize {
         match self {
             Band::Train => 1,
-            Band::Val => 11,
+            Band::Val => 51,
         }
     }
 
     /// Ganze Kilometer beziehungsweise Minuten.
+    ///
+    /// Ebenfalls erweitert: 20 -> 200 im Training. Die Grenze ist die Lesbarkeit,
+    /// nicht der Wertebereich - `u64` traegt jede dieser Zahlen muehelos.
     fn gross_max(self) -> u64 {
         match self {
-            Band::Train => 20,
+            Band::Train => 200,
             Band::Val => 500,
         }
     }
