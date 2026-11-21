@@ -9106,3 +9106,41 @@ Runden ohne Zugewinn gilt Loop-Schritt 7: **Stopp**.
 
 **Budget:** Lauf 2 bei 2,19 $/h, voraussichtlich ~55 min (~2,00 $).
 Messpunkt bei Schritt 1000, End-Eval bei 2000.
+## Runde 273 — Korrektur: Burn 0.22 unterstuetzt BF16 sehr wohl
+
+**Meine fruehere Aussage war falsch:** „burn 0.22 hat keinen Autocast / kein
+bf16". Das war die **Wiedergabe eines Code-Kommentars**, keine gepruefte Tatsache.
+
+**Geprueft auf dem Pod:**
+- `burn-tensor-0.22.0` enthaelt `DType::BF16`
+- `half-2.7.1` ist als Crate vorhanden
+- `Tensor::to_dtype` existiert
+
+**Was stattdessen gilt:** Unser **eigener Code** wendet `autocast` nicht an — der
+Wert wird nur geloggt. Und das Modell ist an vielen Stellen hart auf `f32`
+verdrahtet:
+
+| Stelle | Typ |
+|---|---|
+| Parameter | `Vec<f32>` (`lm.rs:67`, `:211`, `:775`, …) |
+| Tensor-Lesen | `try_to_vec::<f32>()` (`:940`, `:950`, `:1222`) |
+| Verlust | `loss_and_grads -> (f32, GradientsParams)` (`:843`) |
+| Checkpoint | 1,9 GB fuer 500M Parameter = **4 Byte/Parameter** |
+| AdamW-Momente | `Tensor<1>` in f32 auf dem Geraet |
+
+**Die Sperre in `src/config.rs:387` ist daher richtig, aber aus einem anderen
+Grund als ich gesagt habe:** Sie verhindert, dass man `autocast = "bf16"`
+eintraegt, 2,19 $/h fuer fp32-Arbeit bezahlt und glaubt, man trainiere in bf16.
+Es ist eine **ehrliche Sperre gegen Selbsttaeuschung**, kein technisches
+Unvermoegen von Burn.
+
+**Warum wir bf16 trotzdem jetzt nicht einbauen:**
+1. Es ist kein „ein Faktor je Runde" mehr — es aendert Parameter-, Checkpoint-
+   und Optimizer-Pipeline gleichzeitig (Loop-Schritt 4 verletzt).
+2. Die **16 GB gesicherten Checkpoints** waeren nicht mehr ladbar.
+3. Lauf 2 testet gerade den **einen** Faktor (Datenvielfalt) — das muss
+   zuerst ausgewertet werden.
+
+**Fuer spaeter dokumentiert:** bf16 ist machbar ueber `Tensor::to_dtype` +
+bf16-Checkpoint-Format, erfordert aber eine eigene Runde mit Migrationspfad
+fur alte Checkpoints.
