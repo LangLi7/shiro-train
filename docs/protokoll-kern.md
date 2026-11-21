@@ -8469,3 +8469,62 @@ Die **Form** stimmt (gemeinsamer Nenner, Erweitern, Addieren), die **Rechnung** 
 Versuch 3 (nur gleicher Nenner) war geplant, ist aber nicht dokumentiert.
 
 **Der Nutzer-Hinweis gilt:** drei Versuche je Familie, nicht einer.
+## Runde 494 — Der Vorgaenger hatte Paraphrasen und ein Etikett fuer die Antwortklassen
+
+**Fund in `O:\shiro\pmh\mktool\src\main.rs` (248 KB, ein vollstaendiger Generator-Werkzeugkasten).**
+
+### `--para`: dieselbe Aufgabe, andere Worte
+
+```rust
+fn rewrite_para(rec: &[u8]) -> Vec<u8> {
+    let cut = rec.iter().position(|b| *b == B_THINK).unwrap_or(rec.len());
+    let head = &rec[..cut];          // NUR der Aufgabenteil
+    let tail = &rec[cut..];          // Denkweg und Antwort bleiben
+    let s = String::from_utf8_lossy(head)
+        .replace("Alle ", "Jedes ")
+        .replace(" sind ", " ist ");
+    let mut out = s.as_bytes().to_vec();
+    out.extend_from_slice(tail);
+    out
+}
+```
+
+**Die Umschreibung trifft nur den Aufgabenteil.** Denkweg und Antwort bleiben
+byte-identisch - das Modell lernt, dass die **Formulierung** nichts am **Ergebnis**
+aendert, und die Zahl verschiedener Byte-Folgen verdoppelt sich.
+
+| | ohne Paraphrase | mit Paraphrase |
+|---|---|---|
+| Aufgabe | "Alle A sind B" | "Jedes A ist B" |
+| Denkweg | derselbe | **derselbe** |
+| Antwort | dieselbe | **dieselbe** |
+| verschiedene Datensaetze | 1 | **2** |
+
+**Das ist der Vielfalt-Hebel, der keiner neuen Rechnung bedarf.** Auf unsere schwachen
+Familien angewandt: `potenzen` 1 411 -> 2 822, `detektiv` 468 -> 936.
+
+### Das Etikett der Antwortklassen (R1 in Aktion)
+
+`build_world` erzeugt die drei Antwortklassen **konstruktiv**:
+
+| `kind` | Antwort | Besonderheit im Text |
+|---|---|---|
+| 0 | `ja` | — |
+| 1 | `nein` | + "Es gilt nichts anderes." |
+| 2 | **`nicht ableitbar`** | **ohne** diesen Zusatz |
+
+**Der Zusatz ist das Unterscheidungszeichen.** Genau das verlangt **R1**: zwei aehnliche
+Formen ohne unterscheidendes Merkmal verdraengen sich (0 % gegen 100 %).
+
+### Weitere Werkzeuge des Vorgaengers
+
+| Option | Zweck |
+|---|---|
+| `--world <n> <out> <seed> [force]` | Ketten-Welten, `force` erzwingt die Antwortklasse |
+| `--dump <shard> <n>` | Korpus auslesen |
+| `--check`, `--checkplain` | **Korpus pruefen** (gueltig/ungueltig zaehlen) |
+| `--packboth <min> <max> <n> <out>` | beide Baender packen |
+| `--para <src> <out> <seed>` | Paraphrasen erzeugen |
+
+**Der Namensvorrat `WNAMES[28]`** (Aldo, Bento, Ciril, ...) ist groesser als unsere
+Vornamenliste und wird **gemischt** - kein Name steht immer an derselben Position.
