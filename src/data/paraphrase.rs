@@ -469,18 +469,26 @@ mod tests {
     #[test]
     fn englische_regeln_decken_dieselben_phrasen_ab() {
         // **Der Kern der Sprachvielfalt.** Jede deutsche Phrase, die eine
-        // Trainingsregel kennt, muss auch eine englische Entsprechung haben - sonst
-        // bleibt ein Teil des Korpus einsprachig.
+        // Trainingsregel kennt, braucht eine englische Entsprechung - **ausser sie
+        // ist in beiden Sprachen gleich**.
+        //
+        // `Term: ` ist der einzige solche Fall: das Wort heisst auf Englisch auch
+        // `Term`. Eine Identitaetsregel dafuer hat es frueher gegeben, und sie war
+        // **schaedlich**: sie liess den Datensatz als "uebersetzt" gelten, obwohl er
+        // unveraendert war, und blockierte damit die Worttabelle (Runde 501).
+        const GLEICH_IN_BEIDEN: [&str; 1] = ["Term: "];
         for t in &TRAIN_REGELN {
+            if GLEICH_IN_BEIDEN.contains(&t.von) {
+                continue;
+            }
             let hat_en = EN_REGELN.iter().any(|e| e.von == t.von);
-            assert!(
-                hat_en,
-                "keine englische Regel fuer die Phrase {:?}",
-                t.von
-            );
+            assert!(hat_en, "keine englische Regel fuer die Phrase {:?}", t.von);
         }
-        // **Nicht jede Trainingsphrase braucht eine englische Regel.** `Term: ` ist in
-        // beiden Sprachen gleich und faellt bewusst heraus (Runde 501).
+        // Und die Ausnahme muss auch wirklich eine sein.
+        assert!(
+            TRAIN_REGELN.iter().any(|t| t.von == "Term: "),
+            "die Ausnahme nennt eine Phrase, die es nicht mehr gibt"
+        );
     }
 
     #[test]
