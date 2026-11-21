@@ -8528,3 +8528,73 @@ Formen ohne unterscheidendes Merkmal verdraengen sich (0 % gegen 100 %).
 
 **Der Namensvorrat `WNAMES[28]`** (Aldo, Bento, Ciril, ...) ist groesser als unsere
 Vornamenliste und wird **gemischt** - kein Name steht immer an derselben Position.
+## Runde 502 — `mix77` gemessen: 26 MB erreichten 93,3 %, nicht 13 GB
+
+**Der Anlass.** Der Nutzer fragte, ob die Trainingsdaten nicht in Storage oder auf
+HuggingFace gehoeren und spaeter bereinigt werden sollten. Beim Nachsehen zeigte sich,
+dass `O:\shiro\pmh\` **132 GB** Projektbestand enthaelt, den ich bis Runde 212 nicht
+gelesen hatte.
+
+**Der Korpus, der funktioniert hat, liegt auf HuggingFace** -
+`ChangChi7/shiro-korpora`, Datei `mix77/all.tar.gz`, 8,1 MB gepackt. Heruntergeladen
+und vollstaendig gezaehlt:
+
+| | `mix77` | mein Mix (Runde 484) |
+|---|---|---|
+| Datensaetze | **59 274** | 13 213 270 |
+| **verschieden** | **39 994** | ~193 000 |
+| **Ausbeute** | **67,5 %** | 38 % |
+| **Nutzbytes** | **26,2 MB** | 12 761 MB |
+| **Ergebnis** | **93,3 % Weg / 93,3 % Antwort** | nicht gemessen |
+
+**Der Korpus ist 490-mal kleiner und erreichte das Ziel.** Was drinsteht, ist schlicht:
+
+```text
+[AUFGABE]  4x + 7 = 3x + 10
+[WEG]      1. 4x + 7 = 3x + 10. 2. 4x - 3x = 10 - 7 = 3. 3. 1x = 3. 4. x = 3 / 1 = 3.
+[ANTWORT]  3
+```
+
+**Gleichungen loesen - eine Aufgabenart, 40 000 Varianten.**
+
+### Die korrigierte Skalierungsrechnung
+
+| | 24M | **500M** |
+|---|---|---|
+| Parameter | 24 388 352 | 500 000 000 |
+| Korpus | **26,2 MB** | ? |
+| **Byte je Parameter** | **1,1** | 1,1 (gleiches Verhaeltnis) |
+| **Bedarf** | — | **~550 MB** |
+| Chinchilla (20 Byte/Param) | 488 MB | 10 445 MB |
+
+**Das 24M-Modell erreichte 93,3 % mit 1,1 Byte je Parameter** - weit unter Chinchilla
+(20 Byte). Bei gleichem Verhaeltnis braucht 500M **550 MB, nicht 10,4 GB**.
+
+### Was das ueber meinen Mix sagt
+
+| | |
+|---|---|
+| mein Mix | **12 761 MB** |
+| davon Wikipedia-Prosa | **11 151 MB (87 %)** |
+| Aufgaben | 115 MB |
+| **Anteil am Bedarf (550 MB)** | **2320 %** |
+
+**Der Mix ist nicht zu klein, sondern am falschen Ort zu gross.** Nach Regel **R2**
+(sechs Familien von Anfang an gemischt: 44-54 % statt 95 %) verdraengt die Prosa die
+Aufgaben, statt sie zu ergaenzen.
+
+### Was gesichert ist und was nicht
+
+| Bestand | Ort | Zustand |
+|---|---|---|
+| `mix46`, `mix75`, `mix76`, `mix77` | **HuggingFace** | gesichert (7,7-7,9 MB je) |
+| Checkpoints `mix500-korpus-*` | **HuggingFace** (`shiro-checkpoints`) | gesichert |
+| 24M-Modell | HuggingFace (`shiro-25m`, privat) | Token liefert 401 |
+| mein 13-GB-Mix | RunPod-Volume | **Pod gestoppt**, Volume bleibt |
+| heutige Familien | lokal `data/` | nicht gesichert |
+
+**Der Pod `tb74kochbw7ujm` ist `EXITED`** - er wurde gestoppt, ohne dass es auffiel.
+Das Volume `cmwoyonz5000007l2eazkekze` bleibt erhalten.
+
+**Die Lehre.** Ein funktionierender Trainingskorpus ist **klein und vielfaeltig**, nicht
+gross. 26 MB mit 67,5 % Ausbeute schlagen 12,7 GB mit 38 %.
