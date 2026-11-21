@@ -9144,3 +9144,58 @@ Unvermoegen von Burn.
 **Fuer spaeter dokumentiert:** bf16 ist machbar ueber `Tensor::to_dtype` +
 bf16-Checkpoint-Format, erfordert aber eine eigene Runde mit Migrationspfad
 fur alte Checkpoints.
+## Runde 275 — Korrektur des Token/s-Vergleichs; der echte Hebel ist Batch-Groesse
+
+**Meine Aussage „217M-Modell hat 180-600x mehr Token/s als unser 500M" war
+irrefuehrend.** Ich hatte einen Doku-Wert mit unserem Lauf verglichen, obwohl
+er unter **fuenf verschiedenen Bedingungen** gemessen wurde:
+
+| Doku-Benchmark | Unser Lauf |
+|---|---|
+| 217,7M Parameter | 509M |
+| H100 SXM | A100 SXM |
+| **bf16 autocast** | fp32 |
+| **fused AdamW** |AdamW (nicht fused) |
+| **PyTorch 2.4.1 / cuBLAS** | **Burn 0.22 / Cubecl** |
+
+Aus diesem Vergleich darf man **keine** Geschwindigkeitsaussage ableiten.
+
+### Der belastbare Vergleich (gleiches System)
+
+| | Schrittzeit | Token/s | Modell |
+|---|---|---|---|
+| Lauf 1 | 1542 ms | 1382 | 500M |
+| Lauf 2 | 1547 ms | 670 | 500M |
+
+**Gleiches Modell, gleiche GPU, gleiche Schrittzeit** - die Token/s schwanken nur,
+weil unterschiedlich viele Byte pro Schritt gelesen werden. **Die Datenmenge ist
+nicht der Flaschenhals.**
+
+### Die Zahl, die ich uebersehen habe
+
+```
+Bytes/s       : 987
+Effektiv      : 3014.56 GFLOPS (6*N*D, gemessen)
+```
+
+**3015 GFLOPS sind nicht langsam** (A100 fp32 peak ~19.500 GFLOPS, wir liegen
+bei ~15 %). `6*N*D` zaehlt die **Modell-FLOPs je Token**. Bei 500M Parametern
+und nur 6144 Token je Schritt wird **viel mehr an Gewichten als an Daten**
+gerechnet: compute-bound bei **zu kleinem Batch**.
+
+### Der korrigierte Hebel
+
+**Batch 6 -> 16 oder 32** (ein Faktor, kein Checkpoint-Bruch):
+- 500M-Gewichte werden auf mehr Token verteilt
+- GFLOPS-Auslastung steigt
+- **Token/s pro GPU-Stunde steigen deutlich**
+
+Das ist genau Loop-Schritt 4: **ein Faktor je Runde** - im Gegensatz zu bf16
+(3 Pipelines + 16 GB Checkpoints) und fusion (burn-remote 0.22.0 existiert nicht).
+
+**Vorher festgelegte Hypothese fuer die naechste Runde:**
+Bei Batch 16 statt 6 steigt die gemessene Token/s um mindestens 50 %, bei
+sonst identischer Konfiguration (Modell, Daten, Seed, Schritte).
+
+**Widerlegung:** Token/s bleiben unter +50 % - dann ist der Batch nicht der
+Flaschenhals, und die Ursache liegt tiefer in Burn/Cubecl.
