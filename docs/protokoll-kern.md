@@ -9820,3 +9820,37 @@ zuverlaessig erzeugt → dann ist die Ambiguitaet nicht der Hebel.
 - Unsicher: Ob explizite Markierung hilft - **nicht getestet**.
 
 **Kein Pod, kein GPU, kein Code geaendert.**
+## Runde 294 — Alle 20 Pfade klassifiziert: Umlaut ist der Haupthebel
+
+**Systematische Auswertung aller 20 generierten Denkwege** (25M-Referenz,
+Seed 31337, diagnostisches `pfade`-Feld mit 32 Eintraegen):
+
+| Fehlerklasse | Anzahl | Anteil | Belege |
+|---|---|---|---|
+| **Nur Umlaut-Rueckfall** | **13/20** | **65 %** | `für`->`fuer`, `Übertrag`->`Uebertrag` |
+| Echte Rechenfehler | 7/20 | 35 % | `42*2=84` aber Ergebnis `1844`; `25*2=50`->`45` |
+
+**Umlaut-Belege (Pfad 4/7/8/14/16/17):** `Uebertrag` statt `Übertrag`,
+inhaltlich sonst exakt korrekt. Zusammen mit den 7 `fuer`-Faellen: 13/20.
+
+**Rechenfehler-Belege (Pfad 1/3/6/12/13/15/19):** Multiplikationsfehler
+(`44*5=280` statt `220`) und Übertrag-Fehler (`4+5+1=9` statt `10`).
+**Das sind Multiplikation/Addition - keine Subtraktions-Rollenverwechslung.**
+
+**Damit widerlegt:** Rollenverwechslungs-Hypothese aus Runde 293. Ich hatte
+sie aus 3 Pfaden abgeleitet; die systematische Auswertung aller 20 zeigt
+ein anderes Bild. Das ist der vierte korrigierte Hebel in Folge - die
+systematische Pfad-Diagnose war der richtige Weg, ihn zu finden.
+
+**Neuer Faktor fuer die naechste Runde (vorregistriert):**
+**Umlaute konsequent aus den Denkwegen entfernen** (ASCII-Schreibweise
+`fuer`/`Uebertrag` im Korpus), sodass Modellausgabe und Referenz
+uebereinstimmen. Erwartung: exakte Weg-EM springt von 0 % auf >= 60 %.
+Widerlegung: bleibt unter 60 % -> dann ist der Umlaut nicht der Hebel.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 13/20 Pfade scheitern nur an Umlaut, 7/20 an echter Arithmetik.
+- Hypothese: ASCII-Korpus erhoeht exakte Weg-EM auf >= 60 %.
+- Unsicher: ob die 7 Rechenfehler dann den Antwort-EM begrenzen.
+
+**Kein Pod, kein GPU. Diagnose-Feld (3->32 Pfade) und Tests gruen.**

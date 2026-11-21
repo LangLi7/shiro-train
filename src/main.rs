@@ -3987,7 +3987,7 @@ pub fn answers_core(
                     .copied()
                     .take_while(|b| *b != shiro::data::bytes::B_ANSWER)
                     .collect();
-                if pfade.len() < 3 {
+                if pfade.len() < 32 {
                     pfade.push((
                         i,
                         String::from_utf8_lossy(&soll_pfad).to_string(),
