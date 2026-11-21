@@ -8288,3 +8288,38 @@ etwa ein Korpus bis 25 GB moeglich. Fuer 1B Parameter (20 GB Korpus) waere das k
 
 **Kein Handlungsbedarf jetzt** - der geplante Lauf passt. Aber die Zahl gehoert
 festgehalten, weil sie die Obergrenze des Vorhabens mitbestimmt.
+## Runde 480 — Die neuen Familien haben fast keine Vielfalt
+
+**Gemessen an den echten Daten.** Fuer jede Familie wurden 30 000 Datensaetze angefordert
+und die **eindeutigen** (per SHA-256) gezaehlt:
+
+| Familie | angefordert | **eindeutig** | Ausbeute |
+|---|---|---|---|
+| seq | 30 000 | 30 000 | 100 % |
+| algebra | 30 000 | 30 000 | 100 % |
+| formel | 30 000 | 30 000 | 100 % |
+| logic | 30 000 | 23 581 | 79 % |
+| quant | 30 000 | 20 018 | 67 % |
+| kontext | 30 000 | 16 318 | 54 % |
+| gleichung | 30 000 | 4 167 | **14 %** |
+| folge | 30 000 | **408** | **1,4 %** |
+| regel | 30 000 | **243** | **0,8 %** |
+| geometrie | 30 000 | **223** | **0,7 %** |
+| potenzen | 30 000 | **56** | **0,2 %** |
+
+**Der Befund:** `potenzen` erzeugt **56 verschiedene** Datensaetze und wiederholt sie dann
+30 000-mal. `regel` erzeugt 243. Das ist **derselbe Defekt wie die Ein-Vorlagen-Familie**
+aus Runde 455, nur anders verkleidet: statt einer Vorlage sind es wenige Zahlenkombinationen.
+Ein Modell, das 56 Aufgaben auswendig lernt, beantwortet alle 30 000 **ohne zu rechnen**.
+
+**Die Ausbeute ist damit ein direktes Mass fuer Vielfalt** - und sie ist pruefbar, bevor
+trainiert wird. Sie gehoert in den Preflight: eine Familie, die unter 50 % Ausbeute liegt,
+bringt weniger Vielfalt als ihre Datensatzzahl suggeriert.
+
+**Was das fuer den Korpus bedeutet:** die 17 Familien liefern zusammen rund
+**145 000 eindeutige** Datensaetze statt der angeforderten 510 000 - etwa ein Drittel.
+Der Rest ist Wiederholung.
+
+**Beruhigend:** die Pruefung auf Ueberlappung **zwischen** den Familien ergab **null**
+gemeinsame Datensaetze. Es gibt kein Datenleck, die Familien sind wirklich verschieden -
+sie sind nur einzeln zu klein.
