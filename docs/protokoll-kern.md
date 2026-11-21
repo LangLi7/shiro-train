@@ -10878,3 +10878,43 @@ Korpus (7 Shards + Manifest, ~58 MB) auf HF `shiro-code` (`kombi500-*`).
 - Unsicher: ob der Elternstand (Lauf 2, 0 %) ueberhaupt noch rettbar ist.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv, 500M fix.**
+## Runde 325 — Hypothese WIDERLEGT: gemischter Feintuning-Korpus (kombi-add)
+
+**Registrierter Test (R324), 500M Lauf-2 + 2000 Schritte auf kombi-add
+(228.920 Records: seq+quant+logic+algebra+Addition) statt nur Rechnen:**
+
+| Metrik | erwartet | gemessen (20 saubere Heldout-Records) |
+|---|---|---|
+| Antwort-EM | > 20 % | **0 % (0/20)** |
+| Weg exakt | — | 0 % |
+| Weg inhaltlich | — | 0 % |
+
+**Widerlegung:** 0 % ≪ 20 %. Der gemischte Korpus erhaelt das
+Zahlen-Ablesen nicht. Damit sind **alle drei aus dem 25M-Erfolg
+abgeleiteten Hebel fuer 500M widerlegt**:
+
+| Hebel | Runde | Ergebnis |
+|---|---|---|
+| fokussierter Rechenkorpus (12.818) | 308 | 4 % |
+| 100k Rechenaufgaben | 317/318 | 0 % |
+| kombi-add gemischt (228.920) | 325 | 0 % |
+
+**Loop-Schritt 7:** Drei Runden ohne Zugewinn. Der 500M-Weg ueber
+Feintuning-Korpus-Varianten ist endgueltig geschlossen.
+
+**Der verbleibende, ungetestete Unterschied zum 25M:** Der 25M war ein
+Feintuning eines **add-kompetenten 509M-Elternmodells** - das existiert
+nicht (R321). Der 500M startete jedes Mal vom selben 0%-Elternstand
+(Lauf-2 step2000). Feintuning eines inkompetenten Elternstands kann die
+fehlende Kompetenz nicht erzeugen - unabhaengig vom Korpus.
+
+**Kosten:** A100 28 min (~1,04 $), Upload ~0,01 $. Alle Pods sofort
+gestoppt. Checkpoint auf HF (`kombi-add500-step3000.safetensors`) + lokal
++ Volume gesichert.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 0 % mit kombi-add, alle Korpus-Hebel widerlegt.
+- Fakt: 509M-Elternstand mit Additions-Kompetenz fehlt (R321).
+- Unsicher: ob ein solcher Elternstand das 90-%-Ziel ermoeglichen wuerde.
+
+**Goal bleibt aktiv, 500M fix. Kein Pod, kein GPU.**
