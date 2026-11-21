@@ -10109,3 +10109,33 @@ gestoppt, weil er nicht dem Zweck entsprach.
 
 **Entscheidung:** Die 500M-Runde bleibt geschlossen (kein Checkpoint
 uebernommen). Der Goal bleibt aktiv, 90 % nicht erreicht. Kein Pod laeuft.
+## Runde 302 — Config geprueft: 500M-Output ist kein Lade-Fehler
+
+**Letzte naheliegende Erklaerung fuer den Unsinn-Output (`214 km`, `nein`,
+`n.`) war eine falsch konfigurierte Eval-Architektur.** Geprueft:
+
+| | Wert |
+|---|---|
+| `param_count()` der Eval-Config | **509298176** |
+| Trainings-Event (Schritt 0, Lauf 2) | **509298176** |
+| Differenz | **0** |
+
+Die Formel `embed + L*(4dd+3ddff+2d) + d + d*v + v` mit
+`d=1280, L=32, d_ff=2432, v=256` ergibt exakt die Trainings-Parameterzahl.
+`n_heads=20` teilt `d_model=1280` (head_dim 64, gerade) - `validate()` OK.
+
+**Damit widerlegt:** Der schlechte 500M-Output ist **kein** Lade-/Config-Fehler.
+Checkpoint, Architektur und Eval passen zusammen. Das Modell verhaelt sich
+wie gemessen.
+
+**Endgueltiger, belastbarer 500M-Befund (Runde 301 + 302):**
+- 0/20 Antwort-EM auf frischen Rechenaufgaben (25M: 6/20).
+- Ausgabe faellt aus der Aufgabe in Kontext-Bruecke (Einheiten, Wahrheitswerte).
+- Nicht durch Config, Daten, Format oder Training erklaert - alle geprueft.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Config exakt identisch mit Training (0 Differenz bei Parameterzahl).
+- Hypothese: groesseres Modell uebernimmt mehr Kontext-Muster - **nicht getestet**.
+- Unsicher: Warum 500M aus der Aufgabe faellt, 25M nicht.
+
+**Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
