@@ -84,6 +84,113 @@ pub const VAL_REGELN: [Regel; 7] = [
     Regel { von: "Was gibt dieses Programm aus?", nach: "Was liefert das Programm fuer eine Ausgabe?" },
 ];
 
+/// Die Sprache eines Datensatzes.
+///
+/// **Warum eine Marke und nicht nur andere Worte (Runde 497).** Der Vorgaenger hat
+/// gemessen, was ohne unterscheidendes Merkmal passiert: zwei aehnliche Aufgabenformen
+/// **verdraengen sich** - Logik positiv fiel auf **0 %**, waehrend die Zwillingsform
+/// **100 %** hielt. Mit einem Etikett stiegen **beide** auf 100 % (Regel R1 in
+/// `O:\shiro\pmh\PROTOKOLL.md`).
+///
+/// Dieselbe Lage entsteht, wenn derselbe Aufgabentyp auf **Deutsch und Englisch**
+/// auftritt. Ohne Marke sieht das Modell zwei Formen derselben Sache und kann nicht
+/// wissen, in welcher Sprache es antworten soll.
+///
+/// **Die Marke ist Text, kein Sonderbyte.** `0xFA..0xFF` sind vollstaendig belegt
+/// (Aufgabe, Denkweg, Antwort, Fehler, Korrektur, Ende) - siehe
+/// [`crate::data::bytes::SPECIALS`]. Der Vorgaenger hat es mit `LOGIK-POSITIV`
+/// genauso gemacht.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sprache {
+    /// Deutsch - die Marke `[DE]`.
+    De,
+    /// Englisch - die Marke `[EN]`.
+    En,
+}
+
+impl Sprache {
+    /// Die Marke, wie sie im Datensatz steht.
+    pub fn marke(self) -> &'static str {
+        match self {
+            Sprache::De => "[DE] ",
+            Sprache::En => "[EN] ",
+        }
+    }
+
+    /// Alle Sprachen, die der Korpus kennt.
+    pub const ALLE: [Sprache; 2] = [Sprache::De, Sprache::En];
+}
+
+/// Setzt die Sprachmarke an den Anfang des Aufgabentextes.
+///
+/// Steht schon eine Marke davor, wird sie **ersetzt** - nicht doppelt gesetzt.
+/// Das ist wichtig, weil ein Datensatz mehrfach umgeschrieben werden kann.
+pub fn setze_sprache(record: &[u8], sprache: Sprache) -> Vec<u8> {
+    let cut = record
+        .iter()
+        .position(|b| *b == B_THINK)
+        .unwrap_or(record.len());
+    let (kopf, rest) = record.split_at(cut);
+    if kopf.first() != Some(&B_TASK) {
+        return record.to_vec();
+    }
+    let text = String::from_utf8_lossy(&kopf[1..]).to_string();
+    // Eine vorhandene Marke entfernen.
+    let ohne = for_each_marke(|m| text.strip_prefix(m).map(|s| s.to_string()));
+    let mut out = Vec::with_capacity(record.len() + 8);
+    out.push(B_TASK);
+    out.extend_from_slice(sprache.marke().as_bytes());
+    out.extend_from_slice(ohne.as_bytes());
+    out.extend_from_slice(rest);
+    out
+}
+
+/// Entfernt eine fuehrende Sprachmarke, falls vorhanden.
+fn for_each_marke<F>(f: F) -> String
+where
+    F: Fn(&str) -> Option<String>,
+{
+    for s in Sprache::ALLE {
+        if let Some(rest) = f(s.marke()) {
+            return rest;
+        }
+    }
+    String::new()
+}
+
+/// Liest die Sprachmarke eines Datensatzes, falls eine gesetzt ist.
+pub fn sprache_von(record: &[u8]) -> Option<Sprache> {
+    let cut = record
+        .iter()
+        .position(|b| *b == B_THINK)
+        .unwrap_or(record.len());
+    let kopf = &record[..cut.min(record.len())];
+    if kopf.first() != Some(&B_TASK) {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&kopf[1..]).to_string();
+    Sprache::ALLE
+        .into_iter()
+        .find(|s| text.starts_with(s.marke()))
+}
+
+/// Die Umschreibungen **ins Englische** - dieselbe Aufgabe, andere Sprache.
+///
+/// Wie bei den Paraphrasen bleibt **Denkweg und Antwort unberuehrt**: die Rechnung
+/// ist sprachunabhaengig, nur die Aufgabenstellung wechselt.
+///
+/// **Die Regeln stehen auf den echten deutschen Phrasen** (Runde 496 gemessen), nicht
+/// auf geratenen.
+pub const EN_REGELN: [Regel; 7] = [
+    Regel { von: "Gegeben: ", nach: "Given: " },
+    Regel { von: "Folge: ", nach: "Sequence: " },
+    Regel { von: "Term: ", nach: "Term: " },
+    Regel { von: "Modell: ", nach: "Model: " },
+    Regel { von: "Spielart: ", nach: "Game type: " },
+    Regel { von: "Frage: ", nach: "Question: " },
+    Regel { von: "Was gibt dieses Programm aus?", nach: "What does this program print?" },
+];
+
 /// Was eine Umschreibung bewirkt hat.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wirkung {
@@ -282,6 +389,51 @@ mod tests {
         assert_eq!(neu.len(), 5);
         assert_eq!(w.umgeschrieben + w.unveraendert, 5);
         assert!(w.umgeschrieben > 0, "keine Umschreibung hat gegriffen");
+    }
+
+    #[test]
+    fn sprachmarke_wird_gesetzt_und_gelesen() {
+        let r = beispiel();
+        let de = setze_sprache(&r, Sprache::De);
+        let en = setze_sprache(&r, Sprache::En);
+        assert_eq!(sprache_von(&de), Some(Sprache::De));
+        assert_eq!(sprache_von(&en), Some(Sprache::En));
+        assert_eq!(sprache_von(&r), None, "ohne Marke darf nichts gelesen werden");
+        assert_ne!(de, en, "die Marken muessen sich unterscheiden");
+        // Der Denkweg bleibt in beiden Faellen gleich.
+        pruefe_wirkung(&r, &de).expect("DE beschaedigt den Datensatz");
+        pruefe_wirkung(&r, &en).expect("EN beschaedigt den Datensatz");
+    }
+
+    #[test]
+    fn sprachmarke_wird_nicht_doppelt_gesetzt() {
+        // **Idempotenz.** Ein Datensatz kann mehrfach umgeschrieben werden; die Marke
+        // darf sich dabei nicht stapeln.
+        let r = beispiel();
+        let einmal = setze_sprache(&r, Sprache::De);
+        let zweimal = setze_sprache(&einmal, Sprache::De);
+        assert_eq!(einmal, zweimal, "die Marke wurde doppelt gesetzt");
+        // Und ein Wechsel ersetzt sie, statt beide zu behalten.
+        let gewechselt = setze_sprache(&einmal, Sprache::En);
+        assert_eq!(sprache_von(&gewechselt), Some(Sprache::En));
+        let text = String::from_utf8_lossy(&gewechselt).to_string();
+        assert!(!text.contains("[DE]"), "die alte Marke steht noch im Text");
+    }
+
+    #[test]
+    fn englische_regeln_decken_dieselben_phrasen_ab() {
+        // **Der Kern der Sprachvielfalt.** Jede deutsche Phrase, die eine
+        // Trainingsregel kennt, muss auch eine englische Entsprechung haben - sonst
+        // bleibt ein Teil des Korpus einsprachig.
+        for t in &TRAIN_REGELN {
+            let hat_en = EN_REGELN.iter().any(|e| e.von == t.von);
+            assert!(
+                hat_en,
+                "keine englische Regel fuer die Phrase {:?}",
+                t.von
+            );
+        }
+        assert_eq!(EN_REGELN.len(), TRAIN_REGELN.len());
     }
 
     #[test]
