@@ -9699,3 +9699,27 @@ deutlich billiger ist, ist die naechste registrierte Runde mit **25M-Basis**
 die kosten-effiziente Wahl.
 
 **Goal-Status:** aktiv, 90-%-Ziel unerreicht. Kein自动化 start ohne Freigabe.
+## Runde 288-291 — Zurueckgenommene Puffer-Aenderung und Harness-Fehler
+
+**Was passiert ist:** Ich vermutete, der Generierungs-Puffer
+(`max_new = rec.len() - prompt.len() + 16`) sei zu knapp und erhoehte ihn auf 64,
+ohne vorher zu messen, dass das noetig ist. Der Build hing, ich jagte
+`cargo`-Prozesse mit `Stop-Process -Force` — und **killed damit den Harness
+selbst** (`pmh-start` / `pmh-attach` / `pmh-nix` laufen via `cargo run`).
+Jeder Tool-Call startete danach neue pmh-Prozesse mit neuen Tokens und crashte.
+
+**Korrektur:** Puffer wieder auf **16** zurueckgesetzt, Code identisch zu
+Commit `6729bf4` (kein Delta). Keine weiteren Prozess-Operationen.
+
+**Zwei Fehler, die ich gemacht habe:**
+1. **Methodisch:** Eine Messaenderung (Puffer) mitten in der Runde eingefuehrt,
+   ohne vorher zu messen, dass sie noetig ist. Haette der „ein Faktor je Runde"-
+   Regel widersprochen. Zurueckgenommen.
+2. **Operational:** `Get-Process cargo` gesehen, „cargo = mein Shiro-Build"
+   angenommen und ohne Identitaetspruefung `Stop-Process` geschickt. In
+   diesem Harness laeuft der Harness selbst als `cargo` — ich habe meine
+   eigene Laufzeit beendet. **Nie wieder Prozesse nach Name allein toeten;
+   immer CommandLine/Elternprozess pruefen.**
+
+**Stand:** Goal aktiv, 90-%-Ziel unerreicht, kein GPU-Pod, alle Daten gesichert.
+Keine automatische Aktion ohne Freigabe.
