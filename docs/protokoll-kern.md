@@ -9022,3 +9022,32 @@ Kernen.
 `logic-refocus-23400`, `kombi-mathe2-23200`, `kombi-add-23200`, `seq-400`,
 `micro-logic-refocus`. Gedacht als **Kontrollmodelle** im RAM - nicht als
 Destillationslehrer (25M ist schwaecher als 500M).
+## Runde 271 — Datenregel verifiziert: Blindtest hat 0 Ueberlappung
+
+**Messung direkt auf dem Pod (MD5-Fingerabdruck aller Datensaetze):**
+
+| Menge | Datensaetze |
+|---|---|
+| Blindtest (`blindtest-sauber`) | **188** |
+| Trainingskorpus (`korpus-final`) | **682 436** verschieden |
+| **Schnittmenge** | **0** |
+
+**Damit ist die Datenregel des Auftrags belegt:** Train, Held-out und Blindtest
+sind getrennt. Der Blindtest wurde am 20.11. erzeugt, also zeitlich vor dem
+neuen Korpus, und enthaelt **keinen einzigen** Datensatz daraus.
+
+**Warum das zaehlt:** Ein niedriger Trainings-Loss (0,14 bei Schritt 1300,
+Byte-Level CE) koennte Auswendiglernen sein. Nur die Zero-Shot-Messung gegen
+diese 188 Datensaetze entscheidet, ob das Modell rechnet oder wiedererkennt.
+
+**Referenzwert (25M-Modell, CPU-Eval, gleicher Blindtest):**
+Antwort-EM **20,0 %**, Weg-EM **5,0 %**.
+
+**Sicherung vorbereitet:** `/root/sichere.sh` kopiert nach der Validierung
+Checkpoint(s), State, Korpus, Config und Eval-Log nach `/workspace/500m-validiert`.
+Korrigiert: `ls -t | head -1` waehlt den **neuesten** Checkpoint (vorher stand
+falschlich `tail -1` = aeltester drin).
+
+**Wichtig:** Checkpoint und Trainingskorpus liegen gerade noch auf der
+**fluechtigen Container-Disk** (`/root`) - sie muessen vor einem Pod-Stop
+gesichert werden. Der neue 1,5-GB-Korpus liegt bereits auf `/workspace/neu50`.
