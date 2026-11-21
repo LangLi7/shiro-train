@@ -10682,3 +10682,40 @@ Korpus (fokussiert half nicht), **nicht** Kapazitaet (25M > 500M),
   weiterhin ungeklaert.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).**
+## Runde 320 — Config-Vergleich: hybride Lernrate widerlegt, Feintuning bestaetigt
+
+**Vergleich 25M `logic-refocus` vs 500M Laeufe:**
+
+| | 25M logic-refocus | 500M Lauf 1/2 |
+|---|---|---|
+| Lernrate | 1e-5, constant, 200 Schritte | 3e-4, cosine, 2000 Schritte |
+| Daten | `logic-large` (reine Logik) | 20-Familien-Misch |
+| Herkunft | **Feintuning aus `kombi-add-step023200.state`** | **frisch, Seed 56321** |
+| Batch/Seq | 4 x 512 | 6 x 1024 |
+
+**Hypothese „30x hoehere Lernrate hat Zahlen-Ablesen ueberschrieben"
+(Catastrophic Forgetting) ZURUECKGEZOGEN:** Der 500M startete **frisch**
+(Protokoll R272: Seed 56321, kein Elternstand). Es gab nichts zu
+ueberschreiben. Ich habe die Hypothese geprueft, bevor ich sie registriere.
+
+**Bestaetigter, belastbarer Unterschied:** Der 25M ist ein **Feintuning
+eines bereits kompetenten Elternmodells** (`kombi-add` - Addition gelernt),
+der 500M lernt **alles gleichzeitig von Null** aus einem 20-Familien-Mix.
+Der 25M „erbt" das Zahlen-Ablesen; der 500M muss es aus dem Mix mitlernen
+und scheitert daran.
+
+**Das erklaert die wide 24 % vs 0 % besser als alle vorigen Hebel** und
+ist konsistent mit R319 (25M liest Zahlen korrekt, 500M verwechselt sie).
+
+**Nicht erneut getestet:** Ein 500M-Feintuning aus einem add-kompetenten
+Elternstand waere der naechste logische Schritt - braucht aber einen
+Eltern-Checkpoint mit 509M Parametern, der **nicht existiert** (die
+500M-Laeufe starteten frisch). Damit ist der Weg der 25M nicht direkt
+auf 500M uebertragbar.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 25M = Feintuning aus add-kompetentem Eltern; 500M = frisch.
+- Fakt: Lernrate 30x hoeher, aber kein Ueberschreiben moeglich.
+- Unsicher: ob ein 509M-Elternstand mit add-Kompetenz existiert - nein.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).**
