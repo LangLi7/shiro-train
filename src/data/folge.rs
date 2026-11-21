@@ -66,12 +66,26 @@ const KINDS: [Kind; 4] = [
 ];
 
 /// Das erste Glied laeuft in beiden Baendern durch denselben Bereich.
+///
+/// **Erweitert in Runde 504.** Vorher 2..=9 - **acht** Werte. Gemessen ergab die
+/// Familie damit **408 verschiedene** Datensaetze bei 50 000 angeforderten, eine
+/// Ausbeute von **0,8 %**. Jeder Fall wiederholte sich 122-mal.
+///
+/// Die Rechnung zeigt, warum: 4 Arten x 8 erste Glieder x 6 Differenzen x 6 Indizes
+/// sind 1152 Kombinationen, und Indexkollisionen halbieren das.
+///
+/// Jetzt 2..=99. Die **Trennung liegt weiterhin allein beim bandbestimmenden
+/// Parameter** `d` beziehungsweise `q` - das erste Glied darf sich ueberlappen, weil
+/// es die Aufgabe nicht entscheidet.
 const FIRST_LO: i64 = 2;
-const FIRST_HI: i64 = 9;
+const FIRST_HI: i64 = 99;
 
 /// Indexfenster der beiden "n-tes Glied"-Typen.
-const NTH_ARITHMETIC_INDEX: (i64, i64) = (5, 10);
-const NTH_GEOMETRIC_INDEX: (i64, i64) = (3, 4);
+///
+/// Ebenfalls erweitert: das Fenster war mit 5..=10 beziehungsweise 3..=4 so schmal,
+/// dass sich die Indizes staendig wiederholten.
+const NTH_ARITHMETIC_INDEX: (i64, i64) = (5, 30);
+const NTH_GEOMETRIC_INDEX: (i64, i64) = (3, 12);
 
 /// Die Bereiche des bandbestimmenden Parameters `d` bzw. `q`.
 const DIFFERENCE_TRAIN: (i64, i64) = (2, 7);
