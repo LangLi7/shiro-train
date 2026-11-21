@@ -8803,3 +8803,69 @@ Aufwand steht nicht im Verhaeltnis zum Nutzen.
 **Trainingsplan v2** erstellt und gesichert (`88d5096`): 500M-Geometrie aus
 `eval500-mix.toml`, **ein Faktor je Runde**, vorregistrierte Abbruchregel bei
 Schritt 2 000, Freigabe nur fuer den Messpunkt (~4,80 $).
+## Runde 265 — Externe Einschaetzungen zu VRAM und Curriculum (Chat-GPT-Verlauf)
+
+**Quelle:** vom Nutzer geteilte Chat-GPT-Antworten. **Kein Messwert**, sondern externe
+Hypothesen. Was davon passt, ist unten gegen unsere eigenen Messungen geprueft.
+
+### 1. Trainingsdatenmenge
+
+Die Antwort rechnet mit **20 Tokens je Parameter** (Chinchilla): 500M -> 10 Mrd.
+Tokens -> **10 GB** bei Byte-Level. Sie sagt aber ausdruecklich, dass das eine
+*Orientierung, kein Minimum und keine Garantie* ist, und schlaegt eine
+**Skalierungsreihe** vor: 25M/84MB, 25M/500MB, 100M/500MB, 100M/2GB, 500M/2GB, 500M/10GB.
+
+**Gegen unsere Messung:**
+
+| | |
+|---|---|
+| Theorie | 10 GB fuer 500M |
+| **`mix77` gemessen** | **93,3 % auf 26 MB** bei 24M (1,1 Byte/Param) |
+| unser Korpus | **682 461 verschiedene Aufgaben, 328,9 MB** |
+
+**Fazit:** Die 10 GB sind eine hypothetische Obergrenze, kein belegtes Erfordernis.
+Aber die **Skalierungsreihe ist sinnvoll** und billiger als ein direkter 500M-Lauf.
+
+### 2. Warnung vor Duplikaten - trifft uns direkt
+
+> „Die Datenmengen sollten aus qualitativ unterschiedlichen, validierten Aufgaben
+> bestehen und **nicht einfach durch Duplikate aufgeblaeht** werden."
+
+**Unser `sprachmix`-Korpus (459,7 MB, Faktor 1,40) genau das:** 40 % zusaetzliche
+Datensaetze sind Paraphrasen und englische Fassungen **derselben** Rechnung. Der
+Denkweg bleibt byte-identisch. Das ist **Transfer-Training**, nicht neue Vielfalt.
+
+**Entscheidung:** Der Wert liegt in den **682 461 verschiedenen Aufgaben**, nicht in
+459 MB. Beide Korpora werden getrennt ausgewiesen, nicht addiert.
+
+### 3. Curriculum statt seriell oder blind zufaellig
+
+Die Antwort empfiehlt **Curriculum + Mixed Training** in drei Phasen:
+Grundlagen -> Kombination -> Generalisierung, mit **Catastrophic Forgetting** als
+Gefahr bei rein seriellem Training.
+
+**Das ist exakt Regel R2 unseres Vorgaengers:**
+3 Familien 83 %, 4 Familien 91 %, 5 Familien 88 %, 6 Familien 95 % -
+**aber 6 Familien von Anfang an gemischt: 44-54 %**.
+
+Unser 13-GB-Mix (87 % Prosa, 17 Familien auf einmal) war genau dieser Fehler und
+wurde in Runde 262 geloescht.
+
+### 4. Offene Punkte, die wir noch nicht haben
+
+| Punkt | Stand |
+|---|---|
+| **Seed-Sweeps** | jeder Lauf nutzte einen Seed - kein Robustheitstest |
+| **Getrennte RNGs** (Init / Shuffle / Augmentation / Dropout) | nicht getrennt |
+| **Difficulty Controller** | nicht vorhanden |
+| **Aufgabenstrukturen zurueckhalten** (nicht nur Zahlenbaender) | Zahlenbaender ja, Strukturen nein |
+
+### 5. Was jetzt daraus folgt
+
+1. **Kein direkter 500M-Lauf mit 10 GB.** Erst die Skalierungsreihe, klein anfangen.
+2. **Kein GPU-Start vor Freigabe.** Der Nutzer hat den Messpunkt noch nicht freigegeben.
+3. **Curriculum in Rust bauen** - als Modul, nicht als Python-Skript (harte Regel).
+4. **Seed-Sweeps** als Robustheitspruefung vorsehen.
+
+**Wichtig:** Dies sind externe Empfehlungen. Unsere eigenen Messungen (`mix77` 93,3 %
+auf 26 MB, R2 44-54 % bei zu fruehem Mischen) bleiben die Grundlage fuer Entscheidungen.
