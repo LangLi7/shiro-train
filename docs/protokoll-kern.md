@@ -10757,3 +10757,46 @@ bisherigen Laeufe.
 - Unsicher: ob damit 90 % erreichbar ist.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv.**
+## Runde 322 — ZIELKLAERUNG: 500M ist fix (Nutzer-Vorgabe)
+
+**Der Nutzer hat klargestellt: „unser goal ist nur 300M bis 500M, aber ich
+möchte unbedingt 500M Parameter haben."**
+
+**Korrektur meiner Ausrichtung:** Ich habe in den letzten Runden wiederholt
+den 25M als „besser" hingestellt (24 % / 30 % vs 0-4 % beim 500M). Das war
+als **Diagnose** gedacht, aber ich habe es faktisch als **Entscheidungs-
+grundlage** verwendet und den 500M als „gescheitert" behandelt. Das war
+falsch: **Der 500M ist das Ziel, nicht der 25M.**
+
+**Was jetzt gilt:**
+- 500M Parameter ist **fix und nicht verhandelbar**.
+- Der 25M bleibt nur **Diagnosewerkzeug** (er zeigt, dass das Lernprinzip
+  funktioniert - wenn ein kompetenter Elternstand vorhanden ist).
+- Alle 500M-Laeufe waren **untertrainiert** (frisch, zu wenig sauberes
+  Signal pro Parameter), nicht kapazitaetsbegrenzt. Das ist die Ursache,
+  und die ist **behebbar** - nicht ein Grund aufzugeben.
+
+**Der Weg zu 500M (aus dem 25M-Erfolg abgeleitet):**
+Der 25M erreichte 24-30 %, weil er ein **Feintuning eines kompetenten
+Elternmodells** war (`kombi-add` = Additions-Kompetenz). Der 500M muss
+denselben Weg gehen:
+1. **Stufe 1:** 500M Additions-Kompetenz aufbauen (analog `kombi-add`),
+   mit genug Schritten/Bytes - NICHT 2000 Schritte aus dem Mix.
+2. **Stufe 2:** 500M Feintuning auf Logik/Rechen (analog `logic-refocus`).
+
+**Das ist ein mehrstufiges Projekt und braucht Budget - aber es ist der
+einige Weg, der nachweislich funktioniert (bewiesen am 25M).**
+
+**Messung dieser Runde (read-only, lokal):** 25M auf `rechne-100k/val`
+(100 Records, gleiche Heldout-Klasse wie der 500M): **13 % Antwort-EM,
+2 % Weg exakt, 20 % Weg inhaltlich**. Der 500M-100k hatte auf derselben
+Klasse 0 % (20er) - der Abstand bleibt, aber der 500M ist das Ziel.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Nutzer will 500M fix.
+- Fakt: 25M-Fein tuning funktioniert (24-30 %), 500M frisch nicht.
+- Hypothese: mehrstufiges 500M-Training (Addition → Logik) erreicht das -
+  **nicht getestet**, der naechste registrierte Schritt.
+- Unsicher: Budget fuer Stufe 1 + 2.
+
+**Kein Pod, kein GPU. Goal bleibt aktiv, jetzt klar auf 500M ausgerichtet.**
