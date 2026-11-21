@@ -4038,14 +4038,19 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
         return Ok(());
     }
 
-    if args.answers_mode == cli::AnswersMode::M1 {
+    // Both answer modes share this path. m2 is the diagnostic counterpart to m1:
+    // it supplies the gold reasoning and measures only answer generation.
+    if matches!(
+        args.answers_mode,
+        cli::AnswersMode::M1 | cli::AnswersMode::M2
+    ) {
         let Some(limit) = args.answers else {
-            shiro::error::bail!("--answers-mode m1 braucht --answers <N>");
+            shiro::error::bail!("--answers-mode m1/m2 braucht --answers <N>");
         };
         let ckpt = args.checkpoint.as_deref();
         if ckpt.is_none() && !args.untrained {
             shiro::error::bail!(
-                "--answers-mode m1 braucht --checkpoint oder --untrained"
+                "--answers-mode m1/m2 braucht --checkpoint oder --untrained"
             );
         }
         let (o, stride) = answers_core(
@@ -4055,7 +4060,7 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             &cfg.data.manifest,
             ckpt,
             limit,
-            cli::AnswersMode::M1,
+            args.answers_mode,
         )?;
         println!("Konfiguration : {}", args.config.display());
         println!("Datenordner   : {}", cfg.data.dir.display());
@@ -4063,7 +4068,17 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             Some(p) => println!("Modell        : {}", p.display()),
             None => println!("Modell        : frisch initialisiert (Nullpunkt, kein Training)"),
         }
-        println!("Messmodus     : m1 (Denkweg und Antwort frei erzeugt)");
+        println!(
+            "Messmodus     : {} ({})",
+            match args.answers_mode {
+                cli::AnswersMode::M1 => "m1",
+                cli::AnswersMode::M2 => "m2",
+            },
+            match args.answers_mode {
+                cli::AnswersMode::M1 => "Denkweg und Antwort frei erzeugt",
+                cli::AnswersMode::M2 => "Gold-Denkweg gegeben, nur Antwort erzeugt",
+            }
+        );
         println!("Auswahl       : jeder {stride}. Datensatz des Shards");
         println!(
             "Gefragt       : {} Datensaetze, davon richtig: {} ({:.1} %)",
