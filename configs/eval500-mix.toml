@@ -1,0 +1,65 @@
+# **Messung des 500M-Laufs** (Runde 476).
+#
+# Die vorregistrierte Pruefung zu `configs/train500-mix.toml`: Held-out-EM und Weg-EM
+# im Modus m1, gemessen bei **Schritt 2 000** - das ist die Abbruchregel.
+#
+# | Weg-EM bei Schritt 2 000 | Entscheidung |
+# |---|---|
+# | **< 2 %** | Abbruch - der Zuschnitt traegt nicht |
+# | 2-10 %    | weiter bis 10 000, dann erneut entscheiden |
+# | **> 10 %** | weiter bis 851 000 |
+#
+# **Warum die Modellwerte dieselben sein muessen wie im Training:** der Checkpoint
+# wird unveraendert geladen; weichen `d_model`, `n_layers`, `n_heads` oder `d_ff` ab,
+# bricht der Lader mit `ShapeMismatch` ab. Genau das ist heute schon einmal passiert
+# (Eval-Config des 509M gegen einen 32M-Checkpoint).
+#
+# **Warum das Held-out und nicht das Training gemessen wird:** die Trainingsmenge
+# sagt nur, wie gut Vorlagen wiedererkannt werden. Die Faehigkeit zeigt sich auf
+# Datensaetzen, die das Modell nie gesehen hat.
+#
+# Aufruf:
+#   shiro eval --config configs/eval500-mix.toml --answers 40 --answers-mode m1 \
+#     --checkpoint /workspace/ckpt-gross/gross-mix-step2000.safetensors
+
+[run]
+name = "eval500-mix"
+seed = 20261121
+steps = 1
+log_every = 1
+checkpoint_every = 1
+output_dir = "/workspace/eval-out"
+log_dir = "/workspace/logs"
+
+[data]
+# Held-out der Aufgaben (nie im Training). Der Text hat kein eigenes Held-out -
+# Sprache wird nicht auf Trefferquote gemessen, sondern auf Aufgabe, Weg, Antwort.
+dir = "/workspace/korpus500/val"
+manifest = "manifest.json"
+batch_size = 1
+seq_len = 1024
+shuffle = false
+
+[model]
+name = "gross"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-05
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 1000
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
