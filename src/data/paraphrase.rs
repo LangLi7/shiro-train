@@ -84,6 +84,46 @@ pub const VAL_REGELN: [Regel; 7] = [
     Regel { von: "Was gibt dieses Programm aus?", nach: "Was liefert das Programm fuer eine Ausgabe?" },
 ];
 
+/// **Uebersetzt den Aufgabenteil ins Englische**, Denkweg und Antwort bleiben.
+///
+/// Wendet **alle** Regeln aus [`EN_REGELN`] an, deren deutsche Phrase vorkommt. Greift
+/// keine, kommt der Datensatz **unveraendert** zurueck - der Aufrufer erkennt das am
+/// Vergleich und setzt **keine** `[EN]`-Marke. Eine Marke ohne Uebersetzung waere
+/// gelogen.
+pub fn uebersetze(record: &[u8]) -> Vec<u8> {
+    let cut = record
+        .iter()
+        .position(|b| *b == B_THINK)
+        .unwrap_or(record.len());
+    let (kopf, rest) = record.split_at(cut);
+    if kopf.first() != Some(&B_TASK) {
+        return record.to_vec();
+    }
+    // Eine vorhandene Sprachmarke abtrennen - sie wird vom Aufrufer neu gesetzt.
+    let roh = String::from_utf8_lossy(&kopf[1..]).to_string();
+    // **Ohne Marke bleibt der Text, wie er ist.** `entferne_marke` gibt `None`, wenn
+    // keine Marke davorsteht - sonst wuerde der ganze Text geloescht.
+    let text = entferne_marke(&roh);
+
+    let mut neu = text.clone();
+    let mut getroffen = false;
+    for r in &EN_REGELN {
+        if neu.contains(r.von) {
+            neu = neu.replacen(r.von, r.nach, 1);
+            getroffen = true;
+        }
+    }
+    if !getroffen {
+        return record.to_vec();
+    }
+
+    let mut out = Vec::with_capacity(record.len() + 8);
+    out.push(B_TASK);
+    out.extend_from_slice(neu.as_bytes());
+    out.extend_from_slice(rest);
+    out
+}
+
 /// Die Sprache eines Datensatzes.
 ///
 /// **Warum eine Marke und nicht nur andere Worte (Runde 497).** Der Vorgaenger hat
@@ -136,7 +176,7 @@ pub fn setze_sprache(record: &[u8], sprache: Sprache) -> Vec<u8> {
     }
     let text = String::from_utf8_lossy(&kopf[1..]).to_string();
     // Eine vorhandene Marke entfernen.
-    let ohne = for_each_marke(|m| text.strip_prefix(m).map(|s| s.to_string()));
+    let ohne = entferne_marke(&text);
     let mut out = Vec::with_capacity(record.len() + 8);
     out.push(B_TASK);
     out.extend_from_slice(sprache.marke().as_bytes());
@@ -145,17 +185,19 @@ pub fn setze_sprache(record: &[u8], sprache: Sprache) -> Vec<u8> {
     out
 }
 
-/// Entfernt eine fuehrende Sprachmarke, falls vorhanden.
-fn for_each_marke<F>(f: F) -> String
-where
-    F: Fn(&str) -> Option<String>,
-{
+/// Entfernt eine fuehrende Sprachmarke - **oder gibt den Text unveraendert zurueck**.
+///
+/// **Der Fehler, den das behebt (Runde 498).** Ein erster Entwurf gab einen **leeren**
+/// String zurueck, wenn keine Marke davorstand. Damit wurde der gesamte Aufgabentext
+/// geloescht und nur die Marken blieben stehen. Der Test
+/// `die_englische_fassung_hat_englische_worte` hat das aufgedeckt.
+fn entferne_marke(text: &str) -> String {
     for s in Sprache::ALLE {
-        if let Some(rest) = f(s.marke()) {
-            return rest;
+        if let Some(rest) = text.strip_prefix(s.marke()) {
+            return rest.to_string();
         }
     }
-    String::new()
+    text.to_string()
 }
 
 /// Liest die Sprachmarke eines Datensatzes, falls eine gesetzt ist.

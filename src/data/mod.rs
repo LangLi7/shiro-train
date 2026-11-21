@@ -44,6 +44,7 @@ pub mod seq;
 pub mod si;
 pub mod seqgen;
 pub mod sprachlogik;
+pub mod sprachmix;
 pub mod textimport;
 pub mod vielfalt;
 pub mod vielfaltmessung;
