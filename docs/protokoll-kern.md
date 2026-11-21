@@ -9762,3 +9762,21 @@ nicht zuverlaessig. Das ist eine **echte Modellschwaeche**, kein Korpusfehler.
 
 **Kein Code geaendert, kein Pod.** Diagnostic `pfade`-Feld im `AnswerOutcome`
 zeugt die ersten 3 Wege - reine Beleg-Erweiterung, keine Metrik-Aenderung.
+## Runde 292 (Korrektur) — Umlaut ist konsistent kodiert
+
+**Drei gepruefte und korrigierte Hypothesen in dieser Runde:**
+
+1. „Korpus mischt fuer/für" → **falsch**. `data/final/logic` hat 5636x
+   ausschliesslich `für` (U+00FC), kein `fuer`.
+2. „Training UTF-8, Eval Latin1" → **falsch**. Beide nutzen UTF-8
+   `0xC3 0xBC` (Training 5636x, Eval 9x). Die vielen `0xFC`-Bytes im
+   Training (100947) sind **Spezialmarken** (`B_ANSWER=0xFC`), keine Umlaute.
+3. „Generierungs-Puffer 16 zu knapp" → vor Runde 290 bereits zurueckgenommen.
+
+**Bleibender, gepruefter Befund:** Das **Modell** erzeugt `fuer` (ASCII) statt
+`fuer`/`für` (UTF-8). Das ist eine echte Umlaut-Schwaeche bei `VOCAB_SIZE=256`,
+aber **sekundaer** gegenueber den Ziffernfehlern (`5-3=0`, erfundene Entlehnung).
+
+**Methodische Lehre:** Ich habe dreimal vorschnell eine Daten-/Formatursache
+vermutet und musste sie korrigieren. Der Vergleich 25M vs 500M bleibt gueltig
+(identische Byte-Kodierung). Kein Code geaendert, kein Pod, keine GPU-Kosten.
