@@ -9491,3 +9491,45 @@ paradigma). Das ist eine eigene, vorregistrierte Runde - nicht automatisch.
 
 **Ressourcen:** CPU-Pod `g1trtaslmy4v4o` gestoppt, kein Leerlauf. GPU-Pod
 bereits gestoppt. 32 GB Checkpoints + alle Logs auf dem Volume gesichert.
+## Runde 281 — m1-vs-m2-Diagnose: Rechnen selbst ist das Problem
+
+**Vorregistrierte Hypothese:** m2 (Gold-Denkweg gegeben) > 50 %.
+**Widerlegung:** m2 <= 50 %.
+
+**Ergebnis (5 Basic-Math-Aufgaben, finaler Lauf-2-Checkpoint):**
+
+| Modus | Antwort-EM | erzeugte Antworten |
+|---|---|---|
+| m1 (Denkweg frei) | 0/5 | `(leer)`, `121`, `100 Euro`, `4. Ein`, `3` |
+| m2 (Gold-Denkweg) | 0/5 | `Also`, `114`, `1108`, `3564`, `U10` |
+
+**Hypothese widerlegt.** Das Modell kann **nicht rechnen**, auch wenn man ihm
+den Denkweg schenkt. Es ist nicht die Denkweg-Generierung.
+
+**Aber:** Die m2-Zahlen sind naeher dran (997-869: 128 erwartet, 114 erzeugt;
+689*77: 53053 erwartet, 1108 erzeugt). Das Modell lernt **Zahlenmuster**, aber
+keine **exakte Arithmetik** - plausibel bei einem Byte-Level-Modell mit 256
+Klassen, das nie explizite Zwischenwerte als Trainingsziel hatte.
+
+**Loss-Messung auf denselben 5 Datensaetzen:**
+Baseline 5,82 / Perplexitaet 335,4 -> trainiert 1,28 / 3,6.
+Das Modell weist den richtigen Tokens hohe Wahrscheinlichkeit zu, kann sie
+aber beim freien Generieren nicht zuverlaessig abrufen.
+
+### Code-Fix: m2 war nicht verdrahtet
+
+`answers_core` implementierte m1 und m2, aber die CLI akzeptierte nur m1 -
+`--answers-mode m2` lief still in den Standard-Loss-Eval. Fix in `src/main.rs`:
+- CLI-Guard akzeptiert M1 **und** M2 (`matches!`)
+- gewaehlter Modus wird an `answers_core` durchgereicht (statt hart M1)
+- Anzeigetext nennt den Modus
+
+Debug-Build OK, 531 Tests gruen, CLI-Smoke-Test zeigt
+`m2 (Gold-Denkweg gegeben, nur Antwort erzeugt)`. Commit `d4fa1eb`.
+
+### Konsequenz
+
+Weitere 500M-Laeufe mit denselben Generatoren sind zwecklos (zwei Runden
+ohne Zugewinn, Loop-Schritt 7). Der naechste echte Schritt ist eine **andere
+Lernaufgabe**: explizite, pruefbare Zwischenwerte als Ziel statt nur Endergebnis
+- als eigene, vorregistrierte Runde. Kein Pod laeuft, alle Daten gesichert.
