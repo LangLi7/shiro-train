@@ -8239,3 +8239,29 @@ Fehlschlag 2 000 $ kostet.
 wie viel des Korpus das Modell ueberhaupt sieht - und damit, ob ein Lauf die Faehigkeit
 zeigen **kann**. Zu wenige Schritte und der Befund "lernt nicht" ist eine Aussage ueber
 die Konfiguration, nicht ueber das Modell.
+## Runde 477 — Zwei Schichten, zwei Pruefungen
+
+**Der Befund, der den Korpusplan korrigiert.** `src/data/preflight.rs` teilt Datensaetze
+nach der `<TASK>`-Marke: mit Marke sind es Aufgaben, ohne Marke ist es **Fremdtext**, und
+`erzwinge()` **bricht ab**, wenn der Fremdanteil ueber der Schwelle liegt.
+
+Unser geplanter Korpus waere **97 % fremd** (10 GB Wikipedia-Text gegen 0,3 GB Aufgaben).
+Die Pruefung wuerde ihn ablehnen - und das ist richtig, denn sie ist fuer **Aufgaben-
+korpora** gebaut, nicht fuer Vortraining.
+
+**Die Korrektur: der Korpus wird zweistufig.**
+
+| Stufe | Inhalt | Pruefung |
+|---|---|---|
+| **1 Vortraining** | 90 % Fliesstext, 10 % Aufgaben | Preflight greift nicht |
+| **2 Feintuning** | **100 % Aufgaben** (17 Familien, Regel im Text, getrennte Baender) | Preflight **muss** greifen |
+
+**Warum das besser ist als ein grosser Mischkorpus.** Der Auftrag bewertet **Aufgabe,
+Weg, Antwort** - das ist eine Aufgaben-Messung, keine Sprachmessung. Das Vortraining
+liefert Wortschatz und Satzbau; das Feintuning richtet das Modell auf die Aufgaben aus,
+und dort zaehlt jeder Byte.
+
+**Was sich damit aendert:** die Zahl der Schritte verteilt sich auf zwei Laeufe. Das
+Vortraining sieht viel Text, das Feintuning wenig Aufgaben - und das Feintuning ist der
+Teil, der die 90 % bringen soll. Die Abbruchregel bei Schritt 2 000 gilt fuer das
+**Vortraining**; das Feintuning bekommt eine eigene, weil es andere Daten sieht.
