@@ -8265,3 +8265,26 @@ und dort zaehlt jeder Byte.
 Vortraining sieht viel Text, das Feintuning wenig Aufgaben - und das Feintuning ist der
 Teil, der die 90 % bringen soll. Die Abbruchregel bei Schritt 2 000 gilt fuer das
 **Vortraining**; das Feintuning bekommt eine eigene, weil es andere Daten sieht.
+## Runde 479 — Der Loader haelt den Korpus zweimal im Speicher
+
+**Der Befund, gemessen im Code** (`src/data/loader.rs` Zeilen 52-67): `Dataset::load`
+liest **alle** Shards in `shards` (mit allen Datensaetzen) und baut danach den
+`stream`, in dem dieselben Bytes **noch einmal** aneinandergehaengt liegen.
+
+| Posten | Speicher bei 13 GB Korpus |
+|---|---|
+| `shards` (alle Datensaetze) | 13 GB |
+| `stream` (dieselben Bytes) | 13 GB |
+| Modell (509M, fp32) | 2 GB |
+| Optimiererzustand | 6 GB |
+| **Summe** | **~34 GB** |
+
+**Was das bedeutet:** der Plan ist mit 13 GB **machbar**, aber der Pod braucht
+**mindestens 64 GB RAM**. Der A100-Pod hatte 232 GB - reichlich. Ein kleiner Pod
+(32 GB) wuerde beim Laden sterben, und zwar **nach** dem teuren Vortraining.
+
+**Die Grenze, die daraus folgt:** bei ~34 GB je 13 GB Korpus ist bei einem 64-GB-Pod
+etwa ein Korpus bis 25 GB moeglich. Fuer 1B Parameter (20 GB Korpus) waere das knapp.
+
+**Kein Handlungsbedarf jetzt** - der geplante Lauf passt. Aber die Zahl gehoert
+festgehalten, weil sie die Obergrenze des Vorhabens mitbestimmt.
