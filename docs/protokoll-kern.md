@@ -8208,3 +8208,34 @@ sind in vier Zonen und zwei Clouds gestorben. Die Kapazitaetsabfrage in Runde 35
 denselben Stand. Ohne GPU kein Held-out-Wert, ohne Messung kein Checkpoint-Entscheid.
 
 **Kosten:** 0 $ (Code-Arbeit, kein Pod).
+
+## Runde 475 — Unterversorgung auch beim 500M-Lauf, rechtzeitig gefunden
+
+**Der Fehler, bevor er Geld kostet.** Die Konfiguration `train500-mix.toml` stand auf
+**85 000 Schritten**. Bei Batch 6 und `seq_len` 1024 sieht das Modell damit
+85 000 x 6 x 1024 = **522 MB** - also **4 %** des 13-GB-Korpus.
+
+Das ist **derselbe Unterversorgungs-Fehler** wie beim widerlegten 509M-Lauf, der bei
+Abbruch 23 % gesehen hatte und 0 von 60 Treffern erzielte. Ein Lauf mit 4 % waere
+**noch schlechter** dran gewesen - fuer 104 $ statt fuer nichts.
+
+**Die Korrektur:**
+
+| Variante | Schritte | gesehene Daten | GPU-Stunden | Kosten |
+|---|---|---|---|---|
+| zuvor konfiguriert | 85 000 | 522 MB (4 %) | 47 h | ~104 $ |
+| **jetzt konfiguriert** | **851 000** | **5,2 GB (50 %)** | 367 h | **~803 $** |
+| volle Epoche | 1 660 000 | 13 GB (100 %) | 913 h | ~2 000 $ |
+
+**Warum die Haelfte und nicht alles.** Eine volle Epoche ueber 13 GB sind 913 Stunden -
+mehr als 38 Tage. Fuer einen ersten 500M-Lauf ist die Haelfte der Chinchilla-Groessen-
+ordnung ein vertretbarer Kompromiss: genug Daten, um Faehigkeit zu zeigen, ohne dass ein
+Fehlschlag 2 000 $ kostet.
+
+**Der Messpunkt bleibt bei Schritt 2 000** (~4,80 $): er entscheidet, ob die restlichen
+~798 $ ueberhaupt sinnvoll sind. Bei Weg-EM unter 2 % wird abgebrochen.
+
+**Die Regel, die sich hier zeigt:** die Schrittzahl ist keine Nebensache. Sie bestimmt,
+wie viel des Korpus das Modell ueberhaupt sieht - und damit, ob ein Lauf die Faehigkeit
+zeigen **kann**. Zu wenige Schritte und der Befund "lernt nicht" ist eine Aussage ueber
+die Konfiguration, nicht ueber das Modell.

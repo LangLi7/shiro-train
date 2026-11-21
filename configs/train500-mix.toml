@@ -33,7 +33,15 @@ name = "gross-mix"
 seed = 20261121
 # 10,2 GB bei 6 x 1024 Byte je Schritt: 10 200 000 000 / 6144 = 1 660 156 Schritte
 # fuer eine Epoche. Bei 3 960 Byte/s sind das 716 GPU-Stunden.
-steps = 85000
+# **851 000 Schritte = 5,2 GB gesehene Daten** (851000 x 6 x 1024 = 5,23 GB).
+# Das ist die Haelfte der Chinchilla-Groessenordnung (10,2 GB fuer 500M) und kostet
+# bei 3 960 Byte/s rund 367 GPU-Stunden (~803 $). Eine volle Epoche ueber 13 GB
+# waeren 913 Stunden (~2 000 $) - mehr als 38 Tage, fuer einen ersten Lauf zu viel.
+#
+# Rechnung, die ich zuerst falsch hatte: 85 000 Schritte saehen nur 522 MB, also
+# 4 % des Korpus - derselbe Unterversorgungs-Fehler wie beim widerlegten 509M-Lauf
+# (23 % gesehen, 0 von 60 Treffern).
+steps = 851000
 log_every = 100
 checkpoint_every = 5000
 output_dir = "/workspace/ckpt-gross"
