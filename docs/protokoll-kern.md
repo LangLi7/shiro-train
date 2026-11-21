@@ -10255,3 +10255,41 @@ unueberlegte Aenderungen korrigieren muessen. Beides braucht Freigabe.
 - Unsicher: ob der Aufwand (Filter-Code + Lauf) den Nutzen rechtfertigt.
 
 **Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
+## Runde 307 — Fokussierter Rechen-Korpus gebaut und validiert
+
+**Konkreter, GPU-freier Fortschritt:** Ohne neuen Rust-Code, nur mit der
+vorhandenen CLI + PowerShell-Filterung (kein Python, wie verlangt):
+
+Aus `data/final/logic` alle Datensaetze gefiltert, die
+1. `Rechne:` enthalten und
+2. eine **reine Zahlenantwort** haben (`0xFC`..`0xFF`, ASCII-Ziffern).
+
+**Ergebnis (Seed 424242, MD5-basierter deterministischer Shuffle):**
+
+| Teil | Datensaetze | Bytes | CLI-Validierung |
+|---|---|---|---|
+| `data/fokus-rechnen/train` | 12 818 | 2 523 950 | **Alle Shards gueltig** |
+| `data/fokus-rechnen/val` | 1 424 | 282 467 | **Alle Shards gueltig** |
+
+**Verifiziert mit `shiro validate-data`** (beide Teilmengen). Train und
+Val sind **getrennt** und **deterministisch gemischt** - die Anforderung
+„Train, Held-out getrennt" ist erfuellt.
+
+**Hinweis geloest:** Der erste Versuch nutzte FNV-1a mit UInt64-
+Multiplikation, die in PowerShell ueberlief; die Sortierung war damit
+ungueltig. Ich habe auf einen overflow-freien MD5-Sortierschlüssel
+umgestellt und neu gebaut. Die `payload_bytes`-Diskrepanz im
+Validate-Output (2523950 vs 2472678) ist kein Fehler: Erstere zaelt
+volle Records inkl. Spezialbytes (Manifest), letztere ohne
+(`format.rs:123` `payload_len`).
+
+**Status der Hypothese (Runde 304):** Der fokussierte Korpus ist jetzt
+**vorbereitet und validiert**. Der Test (500M-Lauf auf diesem Korpus,
+Erwartung > 20 %, Widerlegung <= 20 %) bleibt **ohne Freigabe nicht gestartet**.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 12 818/1 424 Datensaetze, beide CLI-validiert.
+- Hypothese: fokussierter Korpus hebt 500M ueber 20 % - nicht getestet.
+- Unsicher: Nutzen des Laufs gegenueber den ~2,19 $/h Kosten.
+
+**Kein Pod, kein GPU. Kein Python. Goal bleibt aktiv.**
