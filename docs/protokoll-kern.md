@@ -10456,3 +10456,36 @@ untertrainiert**, nicht die Kapazitaet unzureichend.
 - Unsicher: ob das 90-%-Ziel damit erreichbar ist.
 
 **Kein Pod, kein GPU. Nur Korrektur und registrierte offene Frage.**
+## Runde 311 — Datenmaterial fuer fairen 500M-Test nicht mehr vorhanden
+
+**GPU-frei geprueft:**
+
+| Quelle | Reine Rechenaufgaben |
+|---|---|
+| `data/final/logic` (lokal + HF, 100k Records) | **14 242** (14 %) |
+| `data/final/zahl` (lokal) | ~60 % von 50k, aber 40 % Woerter |
+| `data/final/quant` | 0 (Einheitenantworten) |
+| **`logic-refocus` (25M-Trainingskorpus)** | **nicht auffindbar** (weder lokal noch HF) |
+
+**Die 100.000 reinen Rechenaufgaben der 25M-Referenz existieren nicht mehr.**
+Der `logic-refocus`-Korpus ist weder lokal noch auf HF `shiro-korpora`
+(49 Dateien, nur `final/*`) noch auf HF `shiro-checkpoints` zu finden.
+
+**Konsequenz:** Die offene Frage aus Runde 310 („500M mit 100k Rechenaufgaben
+testen") ist **nicht mit vorhandenem Material beantwortbar**. Ein solcher
+Test wuerde eine **Neugenerierung** voraussetzen (`generate-logic`,
+Kategorie `arithmetic`) - ein eigenes, vorregistriertes Unterfangen mit
+eigenem Budget, kein kurzer Nachtrag.
+
+**Ehrlicher Stand nach 311 Runden:**
+- 90-%-Ziel nicht erreicht.
+- Alle geprueften Hebel widerlegt oder nur mit fehlendem Material testbar.
+- Die Ursache (zu wenig Rechensignal pro Parameter) ist plausibel, aber der
+  entscheidende Test braucht neue Daten.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: nur 14.242 reine Rechenaufgaben verfuegbar; logic-refocus verschwunden.
+- Hypothese: 500M braucht ~100k Rechenbeispiele - **nicht testbar** ohne Neugenerierung.
+- Unsicher: ob Neugenerierung das Ziel erreichen wuerde.
+
+**Kein Pod, kein GPU, kein Code geaendert.**
