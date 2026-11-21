@@ -9614,3 +9614,33 @@ getestet werden (billiger, schneller, hier besser), nicht mit 500M.
 Datenmenge, Datenvielfalt, Messpunkt, Stichprobe, Extraktion, x²-Struktur,
 Denkweg-Generierung (m1/m2), Lernformat (Zwischenwerte schon drin),
 bf16/fusion/Batch/Checkpointing, **Modellgroesse (25M > 500M)**.
+## Runde 284 — Offene Unsicherheit: Weg-EM misst Wortgleichheit, nicht Inhalt
+
+**Geprueft im Code (`src/main.rs:3925-3944`):** Die Weg-EM vergleicht den
+erzeugten Denkweg per `trim_ascii_bytes` mit dem **exakten Referenz Wortlaut**
+(`soll_pfad` zwischen `B_THINK` und `B_ANSWER`).
+
+**Das ist eine bewusste Designentscheidung** (Kommentar „Runde 363"): Die
+Familien erzeugen deterministische Denkwege, deshalb gilt Gleichheit als
+Pruefung. Das ist **ueberpruefbar**, aber **strenger als der Auftrag** verlangt:
+„kurzer, **ueberpruefbarer** Lösungsweg" meint inhaltliche Korrektheit, nicht
+notwendigerweise identischen Wortlaut. Ein korrektes „12 - 5 = 7" wuerde gegen
+„10 + 2 - 5 = 7" als falsch gelten.
+
+**Einordnung (Fakten / Hypothesen / Unsicherheit getrennt):**
+- **Fakt:** Weg-EM nutzt exakte Byte-Gleichheit; beide Modelle zeigen 0 %.
+- **Hypothese:** Die echte inhaltliche Weg-Kompetenz koennte hoeher liegen als
+  die gemessene 0 %.
+- **Unsicher:** Wie hoch sie ist - **nicht gemessen**.
+
+**Was ich NICHT tue:** Die Metrik jetzt erleichtern oder eine zweite, mildere
+Metrik einfuehren. Das waere eine Aenderung des Erfolgskriteriums nach dem
+Training und wuerde den Auftrag verletzen („Zielwerte VOR dem Training
+festlegen"). Die 0 % bleibt der gueltige, konservative Wert.
+
+**Was spaeter - vor einer neuen Runde - geprueft werden koennte:** Eine
+inhaltliche Wegpruefung (Zahlenfolge/String-Normalisierung) als **vorregistrierte**
+Metrik fuer die naechste Runde, mit dokumentierter Begruendung. Das ist eine
+eigene Entscheidung, keine stillschweigende Korrektur dieser Messung.
+
+**Keine Aenderung am Code, kein Pod, keine GPU-Kosten.**
