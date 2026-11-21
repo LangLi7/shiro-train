@@ -9533,3 +9533,49 @@ Weitere 500M-Laeufe mit denselben Generatoren sind zwecklos (zwei Runden
 ohne Zugewinn, Loop-Schritt 7). Der naechste echte Schritt ist eine **andere
 Lernaufgabe**: explizite, pruefbare Zwischenwerte als Ziel statt nur Endergebnis
 - als eigene, vorregistrierte Runde. Kein Pod laeuft, alle Daten gesichert.
+## Runde 282 — Lernformat geprueft: das Format ist NICHT das Problem
+
+**Hypothese aus Runde 281:** „Zwischenwerte explizit als Ziel" sei der fehlende
+Hebel. **Widerlegt** - das Format ist bereits genau so gebaut.
+
+`src/data/logic.rs:578-591` zeigt den Datensatz-Aufbau:
+
+```
+B_THINK  " 1. Einer: 6 reicht nicht fuer 7, also eine entliehen: 10 + 6 - 7 = 9, Entlehnung 1."
+         " 2. Zehner: ..."
+B_ANSWER "  9 "
+B_END
+```
+
+- `sub_trace` (`:1919`) erzeugt **jeden Zwischenschritt explizit** mit Entlehnung
+- `mul_trace` (`:1965`) erzeugt **jedes Teilprodukt explizit** mit Verschiebung
+- `B_ANSWER` folgt direkt auf den Denkweg, Antwort ist korrekt markiert
+- `answer` wird aus den Ziffern assembled (`:1960`) und separat geschrieben
+
+**Damit sind alle naheliegenden Hebel geprueft und widerlegt:**
+
+| Hebel | Status |
+|---|---|
+| Mehr Daten (342 MB -> 1,03 GB) | zwei Runden, kein Zugewinn |
+| Datenvielfalt (682k -> 1,6M verschieden) | widerlegt (3,3 %) |
+| Messpunkt/Stichprobe/Eval-Extraktion | alle geprueft, korrekt |
+| x²-Struktur im Held-out | erklärt Algebra, aber **nicht** Basic-Math |
+| Denkweg-Generierung (m1 vs m2) | widerlegt - m2 auch 0/5 |
+| **Lernformat Zwischenwerte** | **widerlegt - schon implementiert** |
+| bf16 / fusion / Batch / Checkpointing | alle geprueft (siehe Runden 269-277) |
+
+**Endgueltige Diagnose:** Das Modell lernt die **Form** des Rechnens (Text wie
+„10+6-7=9" als Muster), aber nicht die **Operation** (Ziffernlogik). Ein
+byte-basiertes Transformer-Modell imitiert die Zwischenschritte, ohne die
+Arithmetik zu internalisieren. Mehr Daten oder Parameter aendern das nicht.
+
+**Was das fuer den Auftrag bedeutet:** Die 90-%-Ziele sind mit diesem
+Paradigma nicht erreichbar. Der naechste Schritt waere ein **anderes
+Paradigma** - z. B. externe Ausfuehrung (Calculator), symbolische Zwischenwerte
+mit direkter Token-Zielvorgabe pro Ziffer, oder ein anderes Modellformat.
+Das ist eine grundlegende Aenderung, keine weitere Trainingsrunde.
+
+**Entscheidung:** Kein Pod laeuft, keine GPU-Kosten. Die 500M-Runde ist
+abgeschlossen und dokumentiert. Der Goal bleibt aktiv, weil das 90-%-Ziel
+nicht erreicht ist - aber weitere Laeufe mit demselben Setup waeren
+zwecklos und wuerden Loop-Schritt 7 verletzen.
