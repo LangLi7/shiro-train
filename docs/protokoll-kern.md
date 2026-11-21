@@ -8598,3 +8598,54 @@ Das Volume `cmwoyonz5000007l2eazkekze` bleibt erhalten.
 
 **Die Lehre.** Ein funktionierender Trainingskorpus ist **klein und vielfaeltig**, nicht
 gross. 26 MB mit 67,5 % Ausbeute schlagen 12,7 GB mit 38 %.
+## Runde 508 — 77,8 % Ausbeute, und die Erzeugung ist nicht gleichmaessig
+
+**Zwei Messungen dieser Runde, beide neu.**
+
+### 1. Die Ausbeute der erweiterten Familien
+
+Nach den Korrekturen an sechs Familien liefern die ersten sieben:
+
+| Familie | Aufgaben | verschieden | Ausbeute |
+|---|---|---|---|
+| **seq** | 100 000 | **100 000** | **100,0 %** |
+| **algebra** | 90 720 | **90 720** | **100,0 %** |
+| semantics | 50 000 | 49 123 | 98,2 % |
+| format | 100 000 | 97 323 | 97,3 % |
+| logic | 100 000 | 70 712 | 70,7 % |
+| quant | 100 000 | 47 380 | 47,4 % |
+| **gleichung** | 50 000 | **4 248** | **8,5 %** |
+| **SUMME** | **590 720** | **459 506** | **77,8 %** |
+
+**77,8 % liegt ueber dem Wert des Vorgaengers:** `mix77` erreichte 65,8 %.
+
+**Noch nicht erweitert:** `gleichung` (8,5 %), `quant` (47,4 %) und die restlichen
+Familien. `gleichung` folgt demselben Muster wie die sechs korrigierten.
+
+### 2. Die Erzeugung ist nicht gleichmaessig - ein Betriebsbefund
+
+| Familie | Datensaetze | Zeit |
+|---|---|---|
+| `seq` | 100 000 | **127,8 s** |
+| `algebra` | 90 720 | **157,2 s** |
+| **`logic`** | **100 000** | **~1 200 s** |
+
+**`logic` ist achtmal langsamer als `seq`** bei gleicher Menge. Der Grund ist die
+Aufgabe: `logic` prueft Ketten ueber 28 Namen mit erschöpfender Suche, `seq` rechnet
+eine Formel. Ein Lauf ueber alle 21 Familien dauert damit **Stunden**, nicht Minuten.
+
+**Folge fuer den Betrieb:** Die Erzeugung wird in Stuecke von wenigen Familien
+geteilt, und jeder Lauf bekommt eine Zeitmessung. Ein PowerShell-Job, der fuenf
+Familien nacheinander startet, **hing** nach der ersten - der Fortschritt war nur an
+den erzeugten Dateien zu sehen, nicht an der Ausgabe.
+
+### Die Paraphrase war gebaut und nie aufgerufen
+
+`paraphrase::umschreibe` existiert seit Runde 221 mit sechs eigenen Tests.
+`sprachmix` importierte das Modul **nur fuer die Sprachmarken** - die
+Umschreibfunktion wurde **nirgends** aufgerufen. Derselbe Fehler wie bei `data mix`
+in Runde 483: Funktionalitaet gebaut, nicht verdrahtet, von Tests nicht erfasst.
+
+**Jetzt verdrahtet**, mit Schalter und Standard an. Ein Test prueft, dass der Schalter
+wirkt: 50 identische Datensaetze muessen mit eingeschaltetem Schalter **mehr** Ausgabe
+erzeugen als mit ausgeschaltetem.
