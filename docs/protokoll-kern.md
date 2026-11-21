@@ -9579,3 +9579,38 @@ Das ist eine grundlegende Aenderung, keine weitere Trainingsrunde.
 abgeschlossen und dokumentiert. Der Goal bleibt aktiv, weil das 90-%-Ziel
 nicht erreicht ist - aber weitere Laeufe mit demselben Setup waeren
 zwecklos und wuerden Loop-Schritt 7 verletzen.
+## Runde 283 — 25M schlaegt 500M auf frischen Rechenaufgaben
+
+**Kostenloser lokaler Vergleich** (kein Pod, CPU, Rust-Binary):
+
+| Modell | Parameter | Basic-Math (20 frische Aufgaben, Seed 31337) | Weg-EM |
+|---|---|---|---|
+| 25M-Referenz (`micro-logic-refocus-v1`) | 25 Mio. | **30 %** (6/20) | 0 % |
+| 500M Lauf 2 | 509 Mio. | **0 %** (0/5, anderer Seed) | 0 % |
+
+**Wichtig:** Die 20 Aufgaben wurden lokal mit `generate-logic --seed 31337`
+erzeugt und gefiltert (`Rechne:`). Sie sind **nicht** im 500M-Training
+(Seed 56321, anderer Korpus) und nicht im 25M-Training. Es ist ein echter
+frischer Held-out-Test.
+
+**Befund:** Die 20x kleinere 25M-Referenz rechnet auf frischen Aufgaben
+**besser** als das 500M-Modell. Modellgroesse ist hier nicht der Hebel -
+im Gegenteil: das grosse Modell hat die Arithmetik schlechter internalisiert.
+Beide haben Weg-EM 0 %: keines erzeugt einen korrekt pruefbaren Denkweg.
+
+**Beispiele 25M (falsch, aber naeher dran):**
+20500 -> 12000; 299 -> 279; 924 -> 1844; 382 -> 180; 1540 -> 1480; 204 -> 404.
+
+**Das relativiert die fruehere Aussage** „25M-Referenz 20 % auf dem Blindtest":
+auf frischem Basic-Math sind es sogar 30 %. Die 500M-Runde war von Anfang an
+der falsche Hebel fuer dieses Ziel.
+
+**Konsequenz:** Weitere 500M-Laeufe sind endgueltig ausgeschlossen. Der Goal
+bleibt aktiv, weil das 90-%-Ziel nicht erreicht ist. Der naechste echte Schritt
+ist ein anderes Lernparadigma - und sollte mit dem **25M-Modell** als Basis
+getestet werden (billiger, schneller, hier besser), nicht mit 500M.
+
+**Alle Hebel jetzt geprueft (Final-Liste):**
+Datenmenge, Datenvielfalt, Messpunkt, Stichprobe, Extraktion, x²-Struktur,
+Denkweg-Generierung (m1/m2), Lernformat (Zwischenwerte schon drin),
+bf16/fusion/Batch/Checkpointing, **Modellgroesse (25M > 500M)**.
