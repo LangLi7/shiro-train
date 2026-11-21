@@ -10202,3 +10202,30 @@ Widerlegung: bleibt <= 20 % → dann ist der Mischkorpus nicht die Ursache.
 - Unsicher: Kontrollmodell ist 20x kleiner → Groesse koennte mitwirken.
 
 **Kein Pod, kein GPU. Nur Korrektur und Registrierung.**
+## Runde 304 (Fortsetzung) — Operativer Befund zum fokussierten Korpus
+
+**Lokal geprueft (read-only, je 5000 Datensaetze proShard):**
+
+| Familie | reine Zahlenantworten |
+|---|---|
+| `logic` | 1930/5000 (39 %) |
+| `zahl` | 3000/5000 (60 %) - 40 % Woerter |
+| `quant` | 0/5000 (Einheitenantworten) |
+
+**Es gibt keinen fertigen reinen Zahlen-Shard.** Die Hypothese aus Runde 304
+brueckte einen gefilterten Shard: aus `zahl` die 1800 Zahlen + aus `logic`
+die 1930 Zahlen (pro 5000er Stichprobe; hochgerechnet auf die vollen
+Shards deutlich mehr). Das ist **Filterarbeit**, kein Generator-Neubau -
+mit vorhandener CLI machbar.
+
+**Aber:** Der Faktor ist der **Trainingskorpus** - das braucht einen echten
+500M-Lauf auf dem A100. Ich habe **keine Freigabe fuer einen neuen Lauf**
+und starte keinen, nachdem der Nutzer gerade erst den A100 fuer die
+Diagnose bezahlt hat.
+
+**Naechster Schritt (braucht Freigabe):**
+1. Gefilterten Zahlen-Shard lokal bauen (GPU-frei, wenige Minuten).
+2. Config/Training vorregistrieren (Seed, Checkpoint-Basis, Budget).
+3. Ein 500M-Lauf auf fokussiertem Korpus, Abbruchregel > 20 % / <= 20 %.
+
+**Kein Pod, kein GPU, kein Code geaendert.**
