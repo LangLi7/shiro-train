@@ -23,6 +23,9 @@ use shiro::data::preflight;
 use shiro::data::quant;
 use shiro::data::semantics;
 use shiro::data::seq;
+use shiro::data::geschlossen;
+use shiro::data::sprachlogik;
+use shiro::data::sprachmix;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::einheit;
@@ -83,6 +86,11 @@ fn real_main() -> Result<()> {
             antwortform,
         } => cmd_data_combine(&sources, &out_dir, antwortform),
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
+        Command::GenerateGeschlossen { opts } => cmd_generate_geschlossen(&opts),
+        Command::GenerateSprachlogik { opts } => cmd_generate_sprachlogik(&opts),
+        Command::SprachMix { quelle, ziel, en_jeder } => {
+            cmd_sprachmix(quelle.as_path(), ziel.as_path(), en_jeder)
+        }
         Command::GenerateKontext { opts } => cmd_generate_kontext(&opts),
         Command::Preflight {
             dir,
@@ -2553,6 +2561,139 @@ fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
 
     preflight::erzwinge(&b, max_fremd)?;
     println!("Ergebnis     : bestanden");
+    Ok(())
+}
+
+/// **Zweisprachig machen** (`src/data/sprachmix.rs`, Runde 499).
+///
+/// Setzt auf jeden Datensatz eine **Sprachmarke** und erzeugt aus jedem n-ten eine
+/// englische Fassung. Die Rechnung bleibt dieselbe, nur die Aufgabenstellung wechselt -
+/// und **die Marke verhindert den Verdraengungseffekt** aus Regel R1.
+fn cmd_sprachmix(quelle: &std::path::Path, ziel: &std::path::Path, en_jeder: usize) -> Result<()> {
+    let opts = sprachmix::Optionen { en_jeder };
+    let bericht = sprachmix::verarbeite(quelle, ziel, opts)?;
+
+    println!("Quelle        : {}", quelle.display());
+    println!("Ziel          : {}", ziel.display());
+    println!(
+        "Schalter      : jeder {}te bekommt eine englische Fassung{}",
+        en_jeder,
+        if en_jeder == 0 { " (nur markieren)" } else { "" }
+    );
+    println!("Deutsch       : {}", bericht.deutsch);
+    println!("Englisch      : {}", bericht.englisch);
+    println!("Englisch-Anteil: {:.1} %", bericht.en_anteil());
+    println!("Shards        : {}", bericht.shards);
+    println!("Pruefung      : jede Fassung traegt eine Sprachmarke");
+    Ok(())
+}
+
+/// Korpus "Geschlossene Form" (`src/data/geschlossen.rs`).
+///
+/// **Umformung statt Auswertung.** Eine rekursiv gegebene Folge soll in ihre
+/// geschlossene Form gebracht und damit gerechnet werden - Fibonacci mit Binet,
+/// die Gauss-Summe, die geometrische Reihe, die Quadratzahl-Summe. Wer nur die
+/// Rekursion auswertet, braucht n Schritte; wer die Form kennt, einen.
+///
+/// Die Antwort ist **ganzzahlig** gegen die Rekursion geprueft; die geschlossene
+/// Form steht als Formel im Denkweg, nicht als gerundete Zahl.
+fn cmd_generate_geschlossen(opts: &cli::GeschlossenGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = geschlossen::generate(&geschlossen::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus        : Geschlossene Form (Umformung)");
+    println!("Seed          : {}", opts.seed);
+    println!(
+        "Umfang        : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Training      : Fibonacci (Binet), Summe der ersten n Zahlen (Gauss)");
+    println!("Held-out      : Geometrische Reihe, Summe der Quadratzahlen");
+    println!("Pruefung      : exakt ganzzahlig gegen die Rekursion");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|a| a.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|a| a.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "geschl-t")?;
+    let mut tm = Manifest::new(
+        opts.seed,
+        format!("Geschlossene Form - Training ({} Datensaetze)", train_records.len()),
+    );
+    tm.shards.push(te);
+    tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "geschl-v")?;
+    let mut vm = Manifest::new(
+        opts.seed,
+        format!("Geschlossene Form - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    vm.shards.push(ve);
+    vm.save(val_dir.join("manifest.json"))?;
+
+    println!("Trainingskorpus: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
+    Ok(())
+}
+
+/// Korpus "Sprachlogik: Zeichensetzung" (`src/data/sprachlogik.rs`).
+///
+/// **Saetze aus einer Grammatik, nicht aus einem Text.** Damit ist die
+/// Kommaposition **konstruktiv bekannt** - es gibt nichts zu annotieren und
+/// nichts zu lizenzieren. Das schliesst den offenen Punkt O-L4 aus
+/// `docs/programmiersprachen/sprachlogik-und-analytik.md`.
+fn cmd_generate_sprachlogik(opts: &cli::SprachlogikGenOptions) -> Result<()> {
+    use shiro::data::manifest::Manifest;
+
+    let data = sprachlogik::generate(&sprachlogik::Options {
+        train_records: opts.records,
+        val_percent: opts.val_percent as u32,
+        seed: opts.seed,
+    })?;
+
+    println!("Korpus        : Sprachlogik - Zeichensetzung (D.5.E.1)");
+    println!("Seed          : {}", opts.seed);
+    println!(
+        "Umfang        : {} Training, {} Held-out ({} %)",
+        data.train.len(),
+        data.val.len(),
+        opts.val_percent
+    );
+    println!("Training      : Nebensatz, Aufzaehlung");
+    println!("Held-out      : Anrede, Einschub (andere Regeln)");
+    println!("Pruefung      : Kommaposition aus der Grammatik, nicht annotiert");
+
+    let train_dir = opts.out_dir.join("train");
+    let val_dir = opts.out_dir.join("val");
+    let train_records: Vec<Vec<u8>> = data.train.iter().map(|a| a.record.clone()).collect();
+    let val_records: Vec<Vec<u8>> = data.val.iter().map(|a| a.record.clone()).collect();
+
+    let te = write_shard_with_entry(&train_dir.join("shard-0000.bin"), &train_records, "sprach-t")?;
+    let mut tm = Manifest::new(
+        opts.seed,
+        format!("Sprachlogik Zeichensetzung - Training ({} Datensaetze)", train_records.len()),
+    );
+    tm.shards.push(te);
+    tm.save(train_dir.join("manifest.json"))?;
+
+    let ve = write_shard_with_entry(&val_dir.join("shard-0000.bin"), &val_records, "sprach-v")?;
+    let mut vm = Manifest::new(
+        opts.seed,
+        format!("Sprachlogik Zeichensetzung - Held-out ({} Datensaetze)", val_records.len()),
+    );
+    vm.shards.push(ve);
+    vm.save(val_dir.join("manifest.json"))?;
+
+    println!("Trainingskorpus: {}", train_dir.display());
+    println!("Held-out       : {}", val_dir.display());
     Ok(())
 }
 

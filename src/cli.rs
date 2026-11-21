@@ -145,6 +145,40 @@ pub enum Command {
     GenerateSeq {
         opts: SeqGenOptions,
     },
+    /// Korpus 'Geschlossene Form' (`src/data/geschlossen.rs`): eine **rekursiv**
+    /// gegebene Folge in die **geschlossene Form** umformen und damit rechnen -
+    /// Fibonacci mit Binet, Gauss-Summe, geometrische Reihe, Quadratzahl-Summe.
+    ///
+    /// **Warum das Umformung lehrt und nicht Rechnen:** wer die Rekursion nur
+    /// auswertet, braucht n Schritte; wer die geschlossene Form kennt, einen.
+    /// Die Antwort ist ganzzahlig gegen die Rekursion geprueft.
+    GenerateGeschlossen {
+        opts: GeschlossenGenOptions,
+    },
+    /// Korpus 'Sprachlogik: Zeichensetzung' (`src/data/sprachlogik.rs`).
+    ///
+    /// Die Saetze werden aus einer **Grammatik erzeugt**, nicht aus einem Text
+    /// annotiert - die Kommaposition ist damit **konstruktiv bekannt** und braucht
+    /// keine Lizenzklaerung (`docs/programmiersprachen/sprachlogik-und-analytik.md`,
+    /// O-L4).
+    GenerateSprachlogik {
+        opts: SprachlogikGenOptions,
+    },
+    /// **Zweisprachig machen** (`src/data/sprachmix.rs`): setzt auf jeden Datensatz
+    /// eine **Sprachmarke** (`[DE]` / `[EN]`) und erzeugt aus jedem n-ten eine
+    /// englische Fassung - dieselbe Rechnung, andere Sprache, gleicher Denkweg.
+    ///
+    /// **Warum die Marke noetig ist (R1):** zwei aehnliche Formen ohne
+    /// unterscheidendes Merkmal verdraengen sich - gemessen beim Vorgaenger
+    /// (0 % gegen 100 %, mit Etikett beide 100 %).
+    SprachMix {
+        /// Quellordner mit Shards.
+        quelle: PathBuf,
+        /// Zielordner.
+        ziel: PathBuf,
+        /// Jeder n-te Datensatz bekommt eine englische Fassung; `0` = nur markieren.
+        en_jeder: usize,
+    },
     /// Korpus "Formel-Verstaendnis und Funktion" (Mathematik-Stufe **A2/A3** nach
     /// **D-030**): Punkt/Vektor/Mittelpunkt und Steigung/"liegt P auf der
     /// Geraden?" (`src/data/formel.rs`).
@@ -435,6 +469,46 @@ impl Default for SeqGenOptions {
             records: 512,
             out_dir: PathBuf::from("data/seq"),
             seed: 1337,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-geschlossen` (`src/data/geschlossen.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeschlossenGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for GeschlossenGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/geschlossen"),
+            seed: 4900,
+            val_percent: 10,
+        }
+    }
+}
+
+/// Optionen fuer `shiro data generate-sprachlogik` (`src/data/sprachlogik.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SprachlogikGenOptions {
+    pub records: usize,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub val_percent: usize,
+}
+
+impl Default for SprachlogikGenOptions {
+    fn default() -> Self {
+        Self {
+            records: 512,
+            out_dir: PathBuf::from("data/sprachlogik"),
+            seed: 4890,
             val_percent: 10,
         }
     }
@@ -1105,6 +1179,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_format = false;
     let mut want_quant = false;
     let mut want_seq = false;
+    let mut want_geschlossen = false;
+    let mut want_sprachlogik = false;
+    let mut want_sprachmix = false;
+    let mut sprachmix_quelle: Option<PathBuf> = None;
+    let mut sprachmix_ziel: Option<PathBuf> = None;
+    let mut sprachmix_en_jeder: usize = 2;
     let mut want_kontext = false;
     let mut want_preflight = false;
     let mut max_fremd: f64 = 20.0;
@@ -1273,6 +1353,21 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "generate-geschlossen" => {
+                want_geschlossen = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "sprachmix" => {
+                want_sprachmix = true;
+                command_set = true;
+                saw_data = false;
+            }
+            "generate-sprachlogik" => {
+                want_sprachlogik = true;
+                command_set = true;
+                saw_data = false;
+            }
             "generate-seq" => {
                 want_seq = true;
                 command_set = true;
@@ -1321,6 +1416,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             // **Argumente des Mischens** (Runde 470): Textordner, Aufgabenordner,
             // Wiederholungen. `--out` gibt es schon und wird mitbenutzt.
+            "--quelle" => sprachmix_quelle = Some(PathBuf::from(take_value(&mut iter, "--quelle")?)),
+            "--ziel" => sprachmix_ziel = Some(PathBuf::from(take_value(&mut iter, "--ziel")?)),
+            "--en-jeder" => sprachmix_en_jeder = take_value(&mut iter, "--en-jeder")?.parse()?,
             "--text-dir" => mix_text = Some(PathBuf::from(take_value(&mut iter, "--text-dir")?)),
             "--aufgaben-dir" => {
                 mix_aufgaben = Some(PathBuf::from(take_value(&mut iter, "--aufgaben-dir")?));
@@ -1601,6 +1699,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_format,
         want_quant,
         want_seq,
+        want_geschlossen,
+        want_sprachlogik,
         want_games,
         want_algebra,
         want_zahl,
@@ -1885,6 +1985,46 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 val_percent: logic.val_percent,
                 seed: logic.seed,
                 out_dir: out_dir.clone().unwrap_or_else(|| PathBuf::from("data/seq")),
+            },
+        };
+    }
+
+    if want_sprachmix {
+        let quelle = sprachmix_quelle.ok_or_else(|| {
+            crate::error::anyhow!("`data sprachmix` braucht `--quelle <ordner>`")
+        })?;
+        let ziel = sprachmix_ziel.ok_or_else(|| {
+            crate::error::anyhow!("`data sprachmix` braucht `--ziel <ordner>`")
+        })?;
+        out.command = Command::SprachMix {
+            quelle,
+            ziel,
+            en_jeder: sprachmix_en_jeder,
+        };
+    }
+
+    if want_geschlossen {
+        out.command = Command::GenerateGeschlossen {
+            opts: GeschlossenGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/geschlossen")),
+            },
+        };
+    }
+
+    if want_sprachlogik {
+        out.command = Command::GenerateSprachlogik {
+            opts: SprachlogikGenOptions {
+                records: logic.records,
+                val_percent: logic.val_percent,
+                seed: logic.seed,
+                out_dir: out_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("data/sprachlogik")),
             },
         };
     }
