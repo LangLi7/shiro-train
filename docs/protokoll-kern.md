@@ -10422,3 +10422,37 @@ weiterer 500M-Lauf waere zwecklos.
 - Unsicher: ob ein 100M-Modell mit fokussiertem Korpus besser abschneidet.
 
 **Kein Pod, kein GPU. Alles lokal und gesichert.**
+## Runde 310 — Wichtige Einschaenkung: 500M war UNTERTRAINIERT
+
+**GPU-frei geprueft: Wie viele Rechen-Datensaetze sah jedes Modell?**
+
+| Modell | Rechen-Datensaetze | Parameter | Verhaeltnis |
+|---|---|---|---|
+| 25M (logic-refocus) | 100 000 | 25 Mio. | 1 : 250 |
+| 500M fokussiert | 12 818 | 509 Mio. | 1 : 39 700 |
+| 500M Mischkorpus | ~14 000 (14 % von 100k) | 509 Mio. | ~1 : 36 000 |
+
+**Korrektur meiner Aussage aus Runde 309 („Skalierung hat geschadet"):**
+Die war **vorschnell**. Der Vergleich war nicht kapazitaets-fair:
+- 25M: 100 000 Rechenaufgaben.
+- 500M fokussiert: nur 12 818 Rechenaufgaben (1000 Schritte Resume).
+Pro Parameter hatte das 25M-Modell **159x mehr Rechensignal**.
+
+**Die Hypothese aus Runde 304 (fokussierter Korpus) bleibt korrekt
+widerlegt** (4 % < 20 %) - aber die Ursache ist praeziser: **der Lauf war
+untertrainiert**, nicht die Kapazitaet unzureichend.
+
+**Was NIE getestet wurde:** Ein 500M-Modell mit **100 000+ Rechenaufgaben**
+(so viele wie die 25M sah). Das ist die eigentliche, noch offene Frage.
+
+**Ehrliche Korrektur der Hebel-Kette:**
+- „Modellgroesse ist der Hebel" (R 309) → zurueckgezogen, unfairer Vergleich.
+- „Fokussierter Korpus allein" (R 304) → widerlegt (untertrainiert).
+- Offen: **Rechen-Datenmenge im Verhaeltnis zur Parameterzahl.**
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 100k vs 12.818 Rechenbeispiele, 159x Unterschied pro Parameter.
+- Hypothese: 500M braucht ~100k Rechenbeispiele - nicht getestet.
+- Unsicher: ob das 90-%-Ziel damit erreichbar ist.
+
+**Kein Pod, kein GPU. Nur Korrektur und registrierte offene Frage.**
