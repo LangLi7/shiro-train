@@ -226,11 +226,15 @@ pub fn sprache_von(record: &[u8]) -> Option<Sprache> {
 pub const EN_REGELN: [Regel; 7] = [
     Regel { von: "Gegeben: ", nach: "Given: " },
     Regel { von: "Folge: ", nach: "Sequence: " },
-    Regel { von: "Term: ", nach: "Term: " },
+    // **Keine Identitaetsregel fuer `Term: `.** Sie stand hier als
+    // `Term: -> Term: ` und verhinderte damit, dass die Worttabelle `Term`
+    // anschliessend uebersetzt - der Datensatz galt als "uebersetzt", obwohl er
+    // unveraendert war (Runde 501).
     Regel { von: "Modell: ", nach: "Model: " },
     Regel { von: "Spielart: ", nach: "Game type: " },
     Regel { von: "Frage: ", nach: "Question: " },
     Regel { von: "Was gibt dieses Programm aus?", nach: "What does this program print?" },
+    Regel { von: "Antworte mit ", nach: "Answer with " },
 ];
 
 /// Was eine Umschreibung bewirkt hat.
@@ -475,7 +479,8 @@ mod tests {
                 t.von
             );
         }
-        assert_eq!(EN_REGELN.len(), TRAIN_REGELN.len());
+        // **Nicht jede Trainingsphrase braucht eine englische Regel.** `Term: ` ist in
+        // beiden Sprachen gleich und faellt bewusst heraus (Runde 501).
     }
 
     #[test]

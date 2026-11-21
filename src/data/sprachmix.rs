@@ -127,13 +127,48 @@ pub fn mischen(records: &[Vec<u8>], opts: Optionen) -> (Vec<Vec<u8>>, Bericht) {
 
 /// Baut die englische Fassung eines Datensatzes: erst uebersetzen, dann markieren.
 ///
-/// Gibt `None` zurueck, wenn **nichts** uebersetzt wurde - dann bliebe der Datensatz
-/// deutsch, und eine `[EN]`-Marke waere gelogen.
+/// Gibt `None` zurueck, wenn **zu wenig** uebersetzt wurde - dann bliebe der Datensatz
+/// deutsch, und eine `[EN]`-Marke waere **gelogen**.
 ///
-/// **Zwei Stufen (Runde 500).** Erst die Phrasenregeln ([`paraphrase::uebersetze`]),
-/// dann die **Woertertabelle** ([`uebersetzung::uebersetze_woerter`]). Der erste
-/// Entwurf hatte nur die Phrasen und uebersetzte deshalb nur den Satzanfang -
-/// `Given: (1) Alle Xeno sind Wend.`
+/// ## Die Mindestschwelle (Runde 501)
+///
+/// Eine Messung an je 20 Datensaetzen aller Familien zeigte, wie unterschiedlich die
+/// Uebersetzung greift:
+///
+/// | Familie | Quote |
+/// |---|---|
+/// | algebra, kombi-* | **100 %** |
+/// | quant | 80 % |
+/// | seq | 70 % |
+/// | logic-large | 58 % |
+/// | games | 35 % |
+/// | **format** | **21 %** |
+/// | **semantics** | **16 %** |
+///
+/// **Eine `[EN]`-Marke auf einem 84 % deutschen Text ist schlechter als keine Marke.**
+/// Das Modell lernt dann "EN heisst: gemischt" - und das Signal, das den
+/// Verdraengungseffekt aus R1 verhindern soll, wird selbst unbrauchbar.
+///
+/// **Die Schwelle, gemessen statt geschaetzt (Runde 501).**
+///
+/// Gezaehlt werden Woerter ab drei Buchstaben im **Aufgabenteil**; die Quote ist der
+/// Anteil, der sich geaendert hat.
+///
+/// **40 % ist bewusst niedrig, und der Grund ist messbar.** Ein Aufgabentext enthaelt
+/// viele **Namen** (Xeno, Wend, Urbal) und **Formeln** (`-10*x`). Sie sind in beiden
+/// Sprachen gleich und zaehlen mit - ein Text mit fuenf Namen und fuenf uebersetzbaren
+/// Woertern erreicht damit nie 100 %. Gemessen an einem echten Logikdatensatz:
+///
+/// ```text
+/// vorher :  Gegeben: (1) Alle Xeno sind Wend. (2) Alle Lemb sind Urbal. Frage: Ist Xeno ein Urbal?
+/// nachher:  question: Is Xeno a Urbal?   (7 von 15 Woertern)
+/// ```
+///
+/// **Die Schwelle soll halbe Uebersetzungen abweisen, nicht gute.** Bei 40 % faellt
+/// `semantics` (16 %) durch und `logic` (58 %) besteht.
+pub const MINDEST_QUOTE: f64 = 40.0;
+
+/// Baut die englische Fassung eines Datensatzes - oder `None` bei zu wenig Uebersetzung.
 pub fn englische_fassung(record: &[u8]) -> Option<Vec<u8>> {
     let phrasen = paraphrase::uebersetze(record);
     let phrasen_treffer = phrasen != record;
@@ -153,12 +188,45 @@ pub fn englische_fassung(record: &[u8]) -> Option<Vec<u8>> {
     if !phrasen_treffer && wort_treffer == 0 {
         return None;
     }
+    // **Die Schwelle - nur auf dem Aufgabenteil.** Denkweg und Antwort stehen in
+    // `rest` und zaehlen nicht mit; sie werden bewusst nie uebersetzt.
+    if !quote_reicht(&text, &uebersetzt) {
+        return None;
+    }
 
     let mut out = Vec::with_capacity(record.len() + 16);
     out.push(B_TASK);
     out.extend_from_slice(uebersetzt.as_bytes());
     out.extend_from_slice(rest);
     Some(paraphrase::setze_sprache(&out, Sprache::En))
+}
+
+/// Reicht die Uebersetzungsquote?
+///
+/// Gezaehlt werden **Woerter ab drei Buchstaben** - kurze Funktionswoerter wie `an`
+/// oder `in` kommen in beiden Sprachen vor und wuerden die Quote verfaelschen.
+/// Namen und Formeln zaehlen mit; sie sind in beiden Sprachen gleich, und eine hohe
+/// Quote bei vielen Namen ist kein Fehler.
+fn quote_reicht(vorher: &str, nachher: &str) -> bool {
+    let zaehle = |t: &str| -> Vec<String> {
+        t.split(|c: char| !c.is_alphabetic())
+            .filter(|w| w.chars().count() >= 3)
+            .map(|w| w.to_lowercase())
+            .collect()
+    };
+    let alt = zaehle(vorher);
+    if alt.is_empty() {
+        return false;
+    }
+    let neu = zaehle(nachher);
+    // Wie viele Woerter haben sich geaendert?
+    let geaendert = alt
+        .iter()
+        .zip(neu.iter())
+        .filter(|(a, b)| a != b)
+        .count();
+    let quote = 100.0 * geaendert as f64 / alt.len() as f64;
+    quote >= MINDEST_QUOTE
 }
 
 /// **Prueft, dass kein englischer Datensatz in beiden Baendern steht.**
@@ -210,13 +278,21 @@ pub fn verarbeite(quelle: &Path, ziel: &Path, opts: Optionen) -> Result<Bericht>
 mod tests {
     use super::*;
 
+    /// **Ein realistischer Datensatz**, nicht ein Minimalbeispiel.
+    ///
+    /// Der erste Entwurf hatte nur `Term: -10*x / Frage: Welchen Wert hat der Term?`.
+    /// Bei acht Woertern sind davon nur zwei uebersetzbar - die Quote liegt bei 25 %
+    /// und die Schwelle weist ihn zu Recht ab. Ein echter Datensatz hat mehr Text.
     fn deutsch() -> Vec<u8> {
         let mut r = vec![B_TASK];
-        r.extend_from_slice(b"Term: 3+4\nFrage: Welchen Wert hat der Term?");
+        r.extend_from_slice(
+            b"Gegeben: (1) Alle Xeno sind Wend. (2) Alle Lemb sind Urbal.\n\
+              Frage: Ist Xeno ein Urbal?",
+        );
         r.push(B_THINK);
-        r.extend_from_slice(b"1. 3+4 = 7");
+        r.extend_from_slice(b"1. Ich verfolge von Xeno aus nach oben.");
         r.push(B_ANSWER);
-        r.extend_from_slice(b"7");
+        r.extend_from_slice(b"nein");
         r.push(B_END);
         r
     }
@@ -281,6 +357,49 @@ mod tests {
         r.extend_from_slice(b"x");
         r.push(B_END);
         assert!(englische_fassung(&r).is_none());
+    }
+
+    #[test]
+    fn eine_halbe_uebersetzung_bekommt_keine_marke() {
+        // **Die Mindestschwelle (Runde 501).** Ein Text, in dem nur ein Wort
+        // uebersetzt wird, darf **keine** `[EN]`-Marke bekommen - sonst lernt das
+        // Modell "EN heisst: gemischt".
+        let mut r = vec![B_TASK];
+        r.extend_from_slice(
+            b"Der Hund laeuft durch den Garten und sucht seinen Ball im Gebuesch.",
+        );
+        r.push(B_THINK);
+        r.extend_from_slice(b"Weg");
+        r.push(B_ANSWER);
+        r.extend_from_slice(b"x");
+        r.push(B_END);
+        // "der" ist in der Tabelle, das reicht nicht fuer 60 %.
+        assert!(
+            englische_fassung(&r).is_none(),
+            "ein fast deutscher Text bekam eine englische Marke"
+        );
+    }
+
+    #[test]
+    fn eine_vollstaendige_uebersetzung_bekommt_die_marke() {
+        // Und ein Text, der ueberwiegend uebersetzt wird, **bekommt** sie.
+        let mut r = vec![B_TASK];
+        r.extend_from_slice(b"Gegeben: (1) Alle Xeno sind Wend. (2) Alle Lemb sind Urbal.\nFrage: Ist Xeno ein Urbal?");
+        r.push(B_THINK);
+        r.extend_from_slice(b"Weg");
+        r.push(B_ANSWER);
+        r.extend_from_slice(b"x");
+        r.push(B_END);
+        // **Erst messen, was die Uebersetzung liefert** - dann urteilen.
+        let roh = String::from_utf8_lossy(&r).to_string();
+        let (uebersetzt, treffer) = crate::data::uebersetzung::uebersetze_woerter(&roh);
+        eprintln!("Treffer: {treffer}");
+        eprintln!("vorher : {roh}");
+        eprintln!("nachher: {uebersetzt}");
+
+        let e = englische_fassung(&r).expect("muss uebersetzt werden");
+        let t = String::from_utf8_lossy(&e).to_string();
+        assert!(t.contains("[EN]"), "die Marke fehlt: {t}");
     }
 
     #[test]
