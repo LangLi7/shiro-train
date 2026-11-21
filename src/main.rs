@@ -3788,6 +3788,53 @@ mod answers_mode_tests {
         ];
         assert_eq!(m1_answer(&output).as_deref(), Some(b"105".as_slice()));
     }
+
+    /// m2 prompt ends after B_ANSWER, so the gold reasoning stays in the prompt
+    /// and the model only continues with the answer.
+    #[test]
+    fn m2_prompt_includes_gold_reasoning() {
+        let record = [
+            shiro::data::bytes::B_TASK,
+            b' ',
+            b'Q',
+            shiro::data::bytes::B_THINK,
+            b' ',
+            b'g',
+            b'o',
+            b'l',
+            b'd',
+            shiro::data::bytes::B_ANSWER,
+            b' ',
+            b'4',
+            shiro::data::bytes::B_END,
+        ];
+        let end = answers_prompt_end(&record, cli::AnswersMode::M2).unwrap();
+        assert_eq!(
+            &record[..end],
+            &[
+                shiro::data::bytes::B_TASK,
+                b' ',
+                b'Q',
+                shiro::data::bytes::B_THINK,
+                b' ',
+                b'g',
+                b'o',
+                b'l',
+                b'd',
+                shiro::data::bytes::B_ANSWER,
+            ]
+        );
+    }
+
+    /// m2 takes the answer directly from the continuation after the prompt.
+    #[test]
+    fn m2_extracts_answer_from_continuation() {
+        let completion = [b' ', b'1', b'2', b'8', b' ', shiro::data::bytes::B_END];
+        assert_eq!(
+            trim_ascii_bytes(&completion[..completion.len() - 1]),
+            b"128"
+        );
+    }
 }
 
 /// Trefferquote fuer `m1` oder `m2`. Bei `m1` bekommt das Modell nur Aufgabe und
