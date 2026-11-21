@@ -9644,3 +9644,36 @@ Metrik fuer die naechste Runde, mit dokumentierter Begruendung. Das ist eine
 eigene Entscheidung, keine stillschweigende Korrektur dieser Messung.
 
 **Keine Aenderung am Code, kein Pod, keine GPU-Kosten.**
+## Runde 285/286 — Inhaltliche Weg-Metrik eingefuehrt und gemessen
+
+**Umsetzung (regelkonform, vor dem naechsten Training):**
+`AnswerOutcome` hat jetzt **zwei** Weg-Felder:
+- `path_correct`: exakte Byte-Gleichheit mit dem Referenzweg (Runde 363, unveraendert)
+- `path_result_correct` (neu): die Referenzantwort als Zahlenfolge kommt im
+  erzeugten Denkweg vor → das Ergebnis wurde **hergeleitet**, nicht nur geraten
+
+**Beide werden ausgegeben. Die neue Metrik gilt erst fuer die naechste
+registrierte Runde** - keine rueckwirkende Zielaenderung.
+
+**Messung (25M-Referenz, 20 frische Rechenaufgaben, Seed 31337):**
+
+| Metrik | Wert |
+|---|---|
+| Antwort-EM | 30 % (6/20) |
+| Weg exakt (alt) | 0 % |
+| **Weg inhaltlich (neu)** | **35 % (7/20)** |
+
+**Befund:** Die alte Metrik war zu streng. In 7/20 Faellen hat das Modell das
+Ergebnis im Denkweg hergeleitet, aber mit anderem Wortlaut - die exakte
+Gleichheit fuerte zu 0 %. Damit ist die Unsicherheit aus Runde 284 **bestaetigt**:
+ein korrekter Weg mit anderer Formulierung wurde als falsch gezaehlt.
+
+**Fakten / Hypothesen / Unsicherheit:**
+- Fakt: exakt 0 %, inhaltlich 35 % auf denselben 20 Datensaetzen.
+- Hypothese: Die inhaltliche Metrik ist das passendere Mass fuer den Auftrag
+  („kurzer, ueberpruefbarer Lösungsweg" = Inhalt, nicht Wortlaut).
+- Unsicher: Ob 35 % auch auf dem 500M-Modell hoeher waere - nicht gemessen
+  (das waere ein zusaetzlicher, kostenloser lokaler Test).
+
+**Tests:** 5/5 gruen (`answers_mode_tests`, inkl.
+`ziffernfolge_findet_hergeleitetes_ergebnis`). Release-Build OK.

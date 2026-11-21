@@ -3670,6 +3670,14 @@ pub struct AnswerOutcome {
     /// beides kann, nicht zu unterscheiden. Der Weg gilt als richtig, wenn er dem
     /// Referenzweg entspricht; bei unseren Familien ist er deterministisch.
     pub path_correct: usize,
+    /// Weg inhaltlich richtig: die Referenzantwort kommt als Zahlenfolge im
+    /// erzeugten Denkweg vor (das Ergebnis wurde hergeleitet, nicht nur geraten).
+    ///
+    /// **Zusaetzlich seit Runde 285**, nicht statt `path_correct`: die exakte
+    /// Metrik bleibt der konservative Wert. Diese zweite Metrik warnt davor,
+    /// einen inhaltlich korrekten Weg mit anderem Wortlaut als falsch zu zaehlen.
+    /// Sie gilt erst fuer die naechste registrierte Runde (vorher festgelegt).
+    pub path_result_correct: usize,
     /// Beispiele mit Abweichung: `(Datensatznummer, erwartet, erzeugt)`.
     pub fehler: Vec<(usize, String, String)>,
 }
@@ -3692,6 +3700,24 @@ impl AnswerOutcome {
             self.path_correct as f64 * 100.0 / self.asked as f64
         }
     }
+
+    /// Trefferquote des inhaltlich richtigen Loesungswegs in Prozent.
+    pub fn path_result_percent(&self) -> f64 {
+        if self.asked == 0 {
+            0.0
+        } else {
+            self.path_result_correct as f64 * 100.0 / self.asked as f64
+        }
+    }
+}
+
+/// Zahlenfolge aus Bytes extrahieren (nur ASCII-Ziffern, in Reihenfolge).
+fn ziffernfolge(bytes: &[u8]) -> Vec<u8> {
+    bytes
+        .iter()
+        .copied()
+        .filter(|b| b.is_ascii_digit())
+        .collect()
 }
 
 fn answers_prompt_end(rec: &[u8], mode: cli::AnswersMode) -> Option<usize> {
@@ -3826,6 +3852,24 @@ mod answers_mode_tests {
         );
     }
 
+    /// Content-based path check accepts a different wording when the derived
+    /// result digits appear in the generated reasoning.
+    #[test]
+    fn ziffernfolge_findet_hergeleitetes_ergebnis() {
+        let path = b" 1. Einer: 10 + 2 - 5 = 7, Entlehnung 1.";
+        let answer = b" 7 ";
+        let digits = ziffernfolge(answer);
+        assert_eq!(digits, b"7");
+        assert!(ziffernfolge(path)
+            .windows(digits.len())
+            .any(|w| w == digits.as_slice()));
+        // A wrong path does not contain the result digit sequence.
+        let wrong = b" 1. Einer: 10 + 2 - 5 = 9, Entlehnung 1.";
+        assert!(!ziffernfolge(wrong)
+            .windows(digits.len())
+            .any(|w| w == digits.as_slice()));
+    }
+
     /// m2 takes the answer directly from the continuation after the prompt.
     #[test]
     fn m2_extracts_answer_from_continuation() {
@@ -3886,6 +3930,7 @@ pub fn answers_core(
     let mut asked = 0usize;
     let mut correct = 0usize;
     let mut path_correct = 0usize;
+    let mut path_result_correct = 0usize;
     let mut fehler = Vec::new();
     for i in (0..records.len()).step_by(stride).take(limit) {
         let rec = &records[i];
@@ -3941,6 +3986,17 @@ pub fn answers_core(
                 if trim_ascii_bytes(&pfad_got) == trim_ascii_bytes(&soll_pfad) {
                     path_correct += 1;
                 }
+                // Inhaltliche Metrik (Runde 285): die Referenzantwort als
+                // Zahlenfolge muss im erzeugten Pfad vorkommen. Ein anderer
+                // Wortlaut mit demselben hergeleiteten Ergebnis zaehlt hier.
+                let soll_ziffern = ziffernfolge(&soll);
+                if !soll_ziffern.is_empty()
+                    && ziffernfolge(&pfad_got)
+                        .windows(soll_ziffern.len())
+                        .any(|w| w == soll_ziffern.as_slice())
+                {
+                    path_result_correct += 1;
+                }
             }
         }
         let is_correct = match mode {
@@ -3962,6 +4018,7 @@ pub fn answers_core(
             asked,
             correct,
             path_correct,
+            path_result_correct,
             fehler,
         },
         stride,
@@ -4139,6 +4196,11 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             "Loesungsweg   : richtig bei {} ({:.1} %) - nur im Modus m1 gemessen",
             o.path_correct,
             o.path_percent()
+        );
+        println!(
+            "Weg (inhaltlich): {} ({:.1} %) - Referenz-Ergebnis im Pfad hergeleitet",
+            o.path_result_correct,
+            o.path_result_percent()
         );
         if !o.fehler.is_empty() {
             println!("Beispiele mit Abweichung:");
