@@ -2184,6 +2184,60 @@ mod tests {
         assert_eq!(p(&["eval"]).unwrap().command, Command::Eval);
     }
 
+    /// **`data mix` wird geparst** (Runde 482).
+    ///
+    /// Dieser Test fehlte, und deshalb blieb unbemerkt, dass `data mix` zwar als
+    /// Variante existierte, aber **keine Argumente** annahm: der Parser setzte
+    /// `want_mix`, wertete es nie aus und kannte `--text-dir` nicht. Build und alle
+    /// Tests liefen durch, weil **nichts diesen Pfad beruehrte**.
+    ///
+    /// Ein Kommando, das niemand aufruft, ist ungeprueft - dieser Test ruft es auf.
+    #[test]
+    fn parses_data_mix_with_its_arguments() {
+        let a = p(&[
+            "data",
+            "mix",
+            "--text-dir",
+            "korpus/text",
+            "--aufgaben-dir",
+            "korpus/aufgaben",
+            "--out",
+            "korpus/mix",
+            "--wiederholungen",
+            "20",
+        ])
+        .expect("mix muss parsen");
+        assert_eq!(
+            a.command,
+            Command::Mix {
+                text: PathBuf::from("korpus/text"),
+                aufgaben: PathBuf::from("korpus/aufgaben"),
+                out: PathBuf::from("korpus/mix"),
+                wiederholungen: 20,
+            }
+        );
+
+        // Die Vorgabe fuer die Wiederholungen, damit ein Aufruf ohne den Schalter
+        // nicht null-mal wiederholt.
+        let b = p(&[
+            "data", "mix", "--text-dir", "t", "--aufgaben-dir", "a", "--out", "o",
+        ])
+        .expect("mix muss auch ohne --wiederholungen parsen");
+        match b.command {
+            Command::Mix { wiederholungen, .. } => {
+                assert!(wiederholungen > 0, "Vorgabe muss groesser als 0 sein");
+            }
+            andere => panic!("falscher Befehl: {andere:?}"),
+        }
+
+        // Ohne Pflichtangaben: klarer Fehler statt stiller Fehlbedienung.
+        assert!(p(&["data", "mix"]).is_err(), "mix ohne Argumente muss scheitern");
+        assert!(
+            p(&["data", "mix", "--text-dir", "t"]).is_err(),
+            "mix ohne Aufgaben muss scheitern"
+        );
+    }
+
     /// Defaults der Chat-Optionen, wie sie in `HELP` stehen.
     #[test]
     fn chat_defaults_match_help() {
