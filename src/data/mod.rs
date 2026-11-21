@@ -14,6 +14,7 @@
 
 pub mod algebra;
 pub mod backup;
+pub mod curriculum;
 pub mod bytes;
 pub mod format;
 pub mod formatgen;

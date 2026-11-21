@@ -179,6 +179,13 @@ pub enum Command {
         /// Jeder n-te Datensatz bekommt eine englische Fassung; `0` = nur markieren.
         en_jeder: usize,
     },
+    /// **Curriculum-Plan** (`src/data/curriculum.rs`): zeigt, welche Familien in
+    /// welcher Phase mit welchem Anteil gezogen werden - schrittweise, und mit
+    /// alten Familien im Zug gegen Catastrophic Forgetting.
+    Curriculum {
+        /// Korpusordner mit den Familien-Unterordnern.
+        dir: PathBuf,
+    },
     /// **Trainingsdaten sichern** (`src/data/backup.rs`).
     ///
     /// Kopiert einen Korpusordner rekursiv an einen Zielort (`O:\shiro`) und meldet
@@ -1194,6 +1201,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_sprachlogik = false;
     let mut want_sprachmix = false;
     let mut want_backup = false;
+    let mut want_curriculum = false;
+    let mut curriculum_dir: Option<PathBuf> = None;
     let mut backup_quelle: Option<PathBuf> = None;
     let mut backup_ziel: Option<PathBuf> = None;
     let mut sprachmix_quelle: Option<PathBuf> = None;
@@ -1372,6 +1381,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "curriculum" => {
+                want_curriculum = true;
+                command_set = true;
+                saw_data = false;
+            }
             "backup" => {
                 want_backup = true;
                 command_set = true;
@@ -1435,6 +1449,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             // **Argumente des Mischens** (Runde 470): Textordner, Aufgabenordner,
             // Wiederholungen. `--out` gibt es schon und wird mitbenutzt.
+            "--curriculum-dir" => curriculum_dir = Some(PathBuf::from(take_value(&mut iter, "--curriculum-dir")?)),
             "--backup-src" => backup_quelle = Some(PathBuf::from(take_value(&mut iter, "--backup-src")?)),
             "--backup-dst" => backup_ziel = Some(PathBuf::from(take_value(&mut iter, "--backup-dst")?)),
             "--quelle" => sprachmix_quelle = Some(PathBuf::from(take_value(&mut iter, "--quelle")?)),
@@ -2027,6 +2042,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         };
     }
 
+    if want_curriculum {
+        let dir = curriculum_dir.ok_or_else(|| {
+            crate::error::anyhow!("`data curriculum` braucht `--curriculum-dir <ordner>`")
+        })?;
+        out.command = Command::Curriculum { dir };
+    }
     if want_backup {
         let quelle = backup_quelle.ok_or_else(|| {
             crate::error::anyhow!("`data backup` braucht `--backup-src <ordner>`")

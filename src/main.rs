@@ -27,6 +27,7 @@ use shiro::data::geschlossen;
 use shiro::data::sprachlogik;
 use shiro::data::sprachmix;
 use shiro::data::backup;
+use shiro::data::curriculum;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::einheit;
@@ -89,6 +90,7 @@ fn real_main() -> Result<()> {
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::GenerateGeschlossen { opts } => cmd_generate_geschlossen(&opts),
         Command::GenerateSprachlogik { opts } => cmd_generate_sprachlogik(&opts),
+        Command::Curriculum { dir } => cmd_curriculum(dir.as_path()),
         Command::Backup { quelle, ziel } => cmd_backup(quelle.as_path(), ziel.as_path()),
         Command::SprachMix { quelle, ziel, en_jeder } => {
             cmd_sprachmix(quelle.as_path(), ziel.as_path(), en_jeder)
@@ -2563,6 +2565,71 @@ fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
 
     preflight::erzwinge(&b, max_fremd)?;
     println!("Ergebnis     : bestanden");
+    Ok(())
+}
+
+/// **Curriculum-Plan ausgeben** (`src/data/curriculum.rs`, Runde 266).
+///
+/// Liest die Familien des Korpus und zeigt, welche in welcher Phase mit welchem
+/// Anteil gezogen werden. Schrittweise und mit alten Familien im Zug - das
+/// verhindert den R2-Fehler (zu fruehes Mischen) und Catastrophic Forgetting.
+fn cmd_curriculum(dir: &std::path::Path) -> Result<()> {
+    use std::collections::HashMap;
+
+    let mut verfuegbar: HashMap<String, usize> = HashMap::new();
+    if let Ok(eintraege) = std::fs::read_dir(dir) {
+        for e in eintraege.flatten() {
+            let p = e.path();
+            if !p.is_dir() {
+                continue;
+            }
+            // **Datensaetze zaehlen, nicht Shard-Dateien.** Jede Familie hat genau
+            // eine `.bin` - die Zahl stand vorher immer bei 1, und damit waren
+            // alle Curriculum-Anteile 1. Das Manifest trägt die echte Anzahl.
+            let mut n = 0usize;
+            let kandidat = p.join("train/manifest.json");
+            let manifest = if kandidat.exists() {
+                kandidat
+            } else {
+                p.join("manifest.json")
+            };
+            if let Ok(text) = std::fs::read_to_string(&manifest) {
+                if let Ok(m) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if let Some(shards) = m.get("shards").and_then(|s| s.as_array()) {
+                        for s in shards {
+                            n += s.get("records").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                        }
+                    }
+                }
+            }
+            if n == 0 {
+                n = std::fs::read_dir(&p)
+                    .map(|r| r.flatten().filter(|x| x.path().extension().and_then(|s| s.to_str()) == Some("bin")).count())
+                    .unwrap_or(0);
+            }
+            if n > 0 {
+                verfuegbar.insert(e.file_name().to_string_lossy().to_string(), n);
+            }
+        }
+    }
+    if verfuegbar.is_empty() {
+        println!("Keine Familien mit Shards in {}", dir.display());
+        return Ok(());
+    }
+
+    println!("Korpus: {}", dir.display());
+    println!("Familien: {}", verfuegbar.len());
+    println!();
+    for i in 0..curriculum::PHASEN.len() {
+        let z = curriculum::ziehung(i, 10_000, &verfuegbar)?;
+        println!("Phase {} - {}", i + 1, z.phase);
+        let mut anteile: Vec<_> = z.anteile.iter().collect();
+        anteile.sort_by(|a, b| b.1.cmp(a.1));
+        for (familie, n) in anteile.iter().take(8) {
+            println!("  {:<16} {:>6}  ({:>4.1} %)", familie, n, 100.0 * **n as f64 / z.gesamt as f64);
+        }
+        println!();
+    }
     Ok(())
 }
 
