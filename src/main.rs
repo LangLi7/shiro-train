@@ -3678,6 +3678,9 @@ pub struct AnswerOutcome {
     /// einen inhaltlich korrekten Weg mit anderem Wortlaut als falsch zu zaehlen.
     /// Sie gilt erst fuer die naechste registrierte Runde (vorher festgelegt).
     pub path_result_correct: usize,
+    /// Diagnose: die ersten erzeugten Denkwege (Modus m1), damit sichtbar wird,
+    /// wo das Ergebnis verloren geht. Keine Metrik, nur Belege.
+    pub pfade: Vec<(usize, String, String)>,
     /// Beispiele mit Abweichung: `(Datensatznummer, erwartet, erzeugt)`.
     pub fehler: Vec<(usize, String, String)>,
 }
@@ -3931,6 +3934,7 @@ pub fn answers_core(
     let mut correct = 0usize;
     let mut path_correct = 0usize;
     let mut path_result_correct = 0usize;
+    let mut pfade = Vec::new();
     let mut fehler = Vec::new();
     for i in (0..records.len()).step_by(stride).take(limit) {
         let rec = &records[i];
@@ -3983,6 +3987,13 @@ pub fn answers_core(
                     .copied()
                     .take_while(|b| *b != shiro::data::bytes::B_ANSWER)
                     .collect();
+                if pfade.len() < 3 {
+                    pfade.push((
+                        i,
+                        String::from_utf8_lossy(&soll_pfad).to_string(),
+                        String::from_utf8_lossy(&pfad_got).to_string(),
+                    ));
+                }
                 if trim_ascii_bytes(&pfad_got) == trim_ascii_bytes(&soll_pfad) {
                     path_correct += 1;
                 }
@@ -4019,6 +4030,7 @@ pub fn answers_core(
             correct,
             path_correct,
             path_result_correct,
+            pfade,
             fehler,
         },
         stride,
@@ -4202,6 +4214,11 @@ fn cmd_eval(args: &cli::Args) -> Result<()> {
             o.path_result_correct,
             o.path_result_percent()
         );
+        for (i, soll, got) in &o.pfade {
+            println!("  Pfad #{i}:");
+            println!("    soll : {soll}");
+            println!("    erzeugt: {got}");
+        }
         if !o.fehler.is_empty() {
             println!("Beispiele mit Abweichung:");
             for (i, soll, got) in &o.fehler {

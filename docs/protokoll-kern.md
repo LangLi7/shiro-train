@@ -9723,3 +9723,42 @@ Commit `6729bf4` (kein Delta). Keine weiteren Prozess-Operationen.
 
 **Stand:** Goal aktiv, 90-%-Ziel unerreicht, kein GPU-Pod, alle Daten gesichert.
 Keine automatische Aktion ohne Freigabe.
+## Runde 292 — Umlaut-Schreibweise als Fehlerquelle (geprueft, korrigiert)
+
+**Diagnose an 25M, 4 frischen Rechenaufgaben mit Pfad-Ausgabe:**
+
+Pfad #0 war **inhaltlich korrekt** (`52 - 35 = 17`), wurde aber von der
+exakten Weg-Metrik als falsch gezaehlt. Der einzige Unterschied:
+
+| | Text |
+|---|---|
+| Referenz | `2 reicht nicht **für** 5 ...` (UTF-8 `0xC3 0xBC`) |
+| Modell | `2 reicht nicht **fuer** 5 ...` (ASCII) |
+
+**Meine erste Hypothese war falsch:** Ich vermutete, der Trainingskorpus
+enthalte `fuer` und der Test `für`. Geprueft: `data/final` enthaelt **ueberall
+`für`** (logic 5636x, quant 204770x, kontext 1576x, games 7809x, vielfalt
+7685x), der Eval-Shard ebenfalls. **Beide konsistent - kein Datenfehler.**
+Die fruehere Behauptung („Trainingskorpus hat kein für") war ein Messfehler
+meinerseits: Ich hatte nur den Algebra-Shard geprueft, der keine Woerter
+mit „für" enthaelt.
+
+**Korrigierter Befund:** Das **Modell** faellt bei Umlauten auf ASCII-Umschrift
+zurueck (`für` -> `fuer`). Bei `VOCAB_SIZE=256` ist `ü` ein Multi-Byte-Zeichen
+(`0xC3 0xBC`), das nicht zu den ASCII-Ziffern gehoert - das Modell lernt es
+nicht zuverlaessig. Das ist eine **echte Modellschwaeche**, kein Korpusfehler.
+
+**Zwei klar getrennte Fehlerklassen im Basic-Math-Test:**
+1. **Umlaut-Rueckfall** (`fuer` statt `fuer`): inhaltlich korrekt, exakt falsch -
+   erklaert einen Teil der 0 % exakter Weg-EM.
+2. **Echte Ziffernfehler**: Pfad #5 `5 - 3 = 0` statt `= 2`, Pfad #10 erfindet
+   eine Entlehnung (`2 reicht nicht fuer 6` statt `2 - 1`). Das ist das
+   eigentliche Rechnenproblem.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 25M erzeugt `fuer` statt `fuer` bei Umlautwoertern.
+- Hypothese: Umlaut-Rueckfall ist eine Byte-Vokabular-Grenze.
+- Unsicher: Wie viele der IDC-Fehler auf Umlaut vs Ziffern zurueckzufuehren sind.
+
+**Kein Code geaendert, kein Pod.** Diagnostic `pfade`-Feld im `AnswerOutcome`
+zeugt die ersten 3 Wege - reine Beleg-Erweiterung, keine Metrik-Aenderung.
