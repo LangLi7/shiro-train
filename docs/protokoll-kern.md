@@ -9361,3 +9361,38 @@ darf nicht als Gesamtversagen gelesen werden; entscheidend ist, ob die
 - Fakt: 0 quadratische Trainingsbeispiele, Blindtest-Algebra quadratisch.
 - Hypothese: Modell rechnet linear, scheitert nur an x^2-Struktur.
 - Unsicher: Ob die 5 neuen-Zahlen-Klassen generalisieren - misst der finale Eval.
+## Runde 277 — Eval-Stichprobe zu klein: 30er-Eval ergaenzt
+
+**Geprueft:** Die 10 evaluierten Datensaetze („jeder 18.") verteilen sich:
+
+| # | Klasse | Struktur |
+|---|---|---|
+| 0,1 | algebra | **x^2 - ungesehen** |
+| 2 | formel | linear |
+| 3 | geometrie | Punkt A/B - ungesehen |
+| 4,5 | kontext | Textaufgabe |
+| 6 | logik | Wenn-dann |
+| 7 | rechnen | Subtraktion |
+| 8 | quant | Mengen |
+| 9 | seq | Folge |
+
+**4 von 10 Datensaetzen testen ungesehene Strukturen.** Selbst perfekte
+Generalisierung auf die 6 gesehenen Klassen wuerde hier maximal ~60 % ergeben.
+**Die 10er-Stichprobe darf nicht allein fuer das 90-%-Ziel herangezogen werden.**
+
+**Korrektur (zwei Messungen, verschiedener Zweck):**
+
+1. **10er-Eval (auto_eval_final.sh)**: bleibt der **faire Vergleich mit Lauf 1**
+   (gleiche Stichprobe, gleiche Config, gleicher Messpunkt bei 2000). Nur dieser
+   Vergleich entscheidet ueber die Zwei-Runden-Regel.
+2. **30er-Eval (`eval-lauf2-bal.toml`, `--answers 30`)**: ergaenzt die
+   **belastbare Klassen-Interpretation**. 30 Datensaetze (jeder 6.) sont die
+   Verteilung besser aus; Ergebnisse werden **pro Klasse** gelesen.
+
+**Fakten/Hypothesen getrennt:**
+- Fakt: 4/10 Eval-Datensaetze sind ungesehene Strukturen.
+- Hypothese: Die 10er-EM unterschaetzt die echte Generalisierung.
+- Unsicher: 30er-Ergebnis - wird nach dem 2000er Checkpoint gemessen.
+
+**Disziplin:** Das ist der fuenfte Selbstfehler, der korrigiert wird (bf16,
+fusion, Checkpointing, Messpunkt, jetzt Stichprobengroesse). Alle im Protokoll.
