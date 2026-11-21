@@ -9969,3 +9969,44 @@ Hebel liegt.
   (25M war auf frischer Arithmetik besser).
 
 **Kein Pod, kein GPU. Beleg aus dem eigenen Protokoll, nicht extern.**
+## Runde 298 — SCHWERER LESEFEHLER: 100/100 war der Verifier, nicht das Modell
+
+**Ich muss Runde 297 vollstaendig zurueckziehen.**
+
+Der angebliche Beleg „kompakte Stellen-Spur 100/100 richtig" (Zeile 1692)
+war die **Generator-/Verifier-Genauigkeit**: „2000 Saetze, 100 reserviert,
+**unabhaengig nachgerechnet**: 100 von 100 richtig". Das prueft, ob die
+**Gold-Daten** mathematisch stimmen — nicht, ob das Modell sie loest.
+
+**Das echte Modellergebnis steht direkt darunter (Runde 191, Zeile 1707):**
+
+| Komponente | Wert |
+|---|---|
+| Weg | 23 % |
+| Antwort | 24 % |
+| Klasse | 100 % (nur die Datensatz-Klassifikation) |
+
+**Entscheidungsregel von damals:** „Unter 60 = echte Grenze. Dann ist die
+Kapazitaet oder die Sequenzlaenge der Deckel, und jedes weitere Training
+derselben Form ist verlorene Zeit."
+
+**Korrigierte Erkenntnis:**
+- Kompaktes Format: 24 % (Runde 191, getestet).
+- Wortlastiges Format: 30 % Antwort / 35 % inhaltlich (jetzt).
+- **Beide Formate scheitern auf derselben Klasse.** Kein Formathebel.
+- Es ist eine **echte Grenze** des Modells bei mehrstelligen Operationen -
+  genau das, was Runde 191 schon feststellte.
+
+**Das ist der siebte korrigierte Hebel und der schwerste Lesefehler:** Ich
+habe eine Verifier-Zahl als Modellergebnis zitiert und daraus eine
+vorregistrierte Hypothese gebaut. Die Hypothese aus Runde 297 ist **nichtig**.
+
+**Ehrlicher Gesamtstand nach 298 Runden:**
+- 500M und 25M beide weit unter 90 %.
+- Alle geprueften Hebel (Daten, Vielfalt, Struktur, Rollen, Umlaut,
+  Puffer, Format) sind widerlegt oder schon getestet.
+- Runde 191 hat die Kapazitaetsgrenze korrekt diagnostiziert; die spaeteren
+  Runden haben sie nicht ueberwinden koennen.
+- Das 90-%-Ziel ist mit diesem Modellparadigma **nicht erreichbar**.
+
+**Kein Pod, kein GPU, kein Code geaendert. Hypothesis 297 annulliert.**
