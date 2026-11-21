@@ -9305,3 +9305,23 @@ Checkpoint `shiro-500m-lauf2-step2000.safetensors`.
 **Disziplinnotiz:** Das ist der vierte Fehler in Folge, den ich selbst gemacht
 und korrigiert habe (bf16, fusion, Checkpointing, jetzt Messpunkt). Alle stehen
 im Protokoll. Genau dafuer ist die Protokollpflicht da.
+## Runde 275 — Eval-Methodik geprueft: kein Messartefakt
+
+**Critical check:** Die 0 %/10 %-Werte koennten ein Extraktionsfehler sein.
+Geprueft im Code (`src/main.rs`):
+
+| Stelle | Befund |
+|---|---|
+| `m1_answer` (`:3718`) | sucht `B_ANSWER` im generierten Text, nimmt alles danach bis `B_END`, trimmt ASCII |
+| `max_new` (`:3865`) | M1 = `rec.len() - prompt.len() + 16` - **Grosszuegig** bemessen |
+| Prompt (`:3860`) | nur Aufgabe + Denkweg-Marke, **kein** Referenzweg, **keine** Referenzantwort |
+
+**Ergebnis:** Die Extraktion ist korrekt, das Budget reicht. Wenn `(leer)`
+erscheint, hat das Modell **kein `B_ANSWER`-Marker** erzeugt. Das ist ein
+**echtes Modellproblem**, kein Messartefakt.
+
+**Bedeutung fuer die Entscheidung:** Die schlechten Blindtest-Werte duerfen
+nicht mit „Eval kaputt" erklärt werden. Sie sind der belastbare Befund, gegen
+den der finale Vergleich bei Schritt 2000 haelt.
+
+**Stand:** Lauf 2 bei Schritt 1300/2000, Auto-Eval wartet auf Checkpoint 2000.
