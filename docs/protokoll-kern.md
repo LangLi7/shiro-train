@@ -9325,3 +9325,39 @@ nicht mit „Eval kaputt" erklärt werden. Sie sind der belastbare Befund, gegen
 den der finale Vergleich bei Schritt 2000 haelt.
 
 **Stand:** Lauf 2 bei Schritt 1300/2000, Auto-Eval wartet auf Checkpoint 2000.
+## Runde 276 — Blindtest-Struktur geprueft: Algebra ist ungesehene Klasse
+
+**Geprueft auf dem Pod:**
+
+| Shard | Blindtest-Inhalt | Klasse im Training? |
+|---|---|---|
+| algebra | `-2*x^2 + 22*x + 49` (quadratisch) | **NEIN** |
+| formel | `f(x) = -5*x + 61` (linear) | ja |
+| kontext | Stueck/Euro-Textaufgabe | ja |
+| logik | Syllogismen | ja |
+| quant | Mengen P ohne Q | ja |
+| seq | verschraenkte Differenzen | ja |
+
+**Zaehlung im Trainingskorpus (`korpus-neu2`, erste 20k je Shard):**
+quadratisch = **0**, linear = **40 127**.
+
+**Bedeutung:** Der Blindtest enthaelt mit Algebra **eine voellig ungesehene
+Aufgabenstruktur** (x^2), waehrend das Training nur lineare Terme zeigt.
+Die 0 % auf Algebra-Beispielen (erwartet `-731`, `822`) sind daher
+**Zero-Shot auf neue Struktur** - nicht beweisend fuer fehlendes Rechnen.
+
+**Aber:** Die anderen 5 Klassen sind gesehene Klassen mit anderen Zahlen -
+das ist der eigentliche Held-out-Test und der korrekte Generalisierungscheck.
+
+**Das ist genau die ChatGPT-Forderung:** „held-out task structures in addition
+to number bands". Wir haben sie - zufaellig durch den alten Blindtest.
+
+**Konsequenz fuer die Auswertung:** Der finale Vergleich bei Schritt 2000
+muss **pro Klasse** interpretiert werden. Ein 0 %-Wert auf Algebra allein
+darf nicht als Gesamtversagen gelesen werden; entscheidend ist, ob die
+5 gesehenen Klassen mit neuen Zahlen funktionieren.
+
+**Fakten/Hypothesen getrennt:**
+- Fakt: 0 quadratische Trainingsbeispiele, Blindtest-Algebra quadratisch.
+- Hypothese: Modell rechnet linear, scheitert nur an x^2-Struktur.
+- Unsicher: Ob die 5 neuen-Zahlen-Klassen generalisieren - misst der finale Eval.
