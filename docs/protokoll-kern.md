@@ -8649,3 +8649,57 @@ in Runde 483: Funktionalitaet gebaut, nicht verdrahtet, von Tests nicht erfasst.
 **Jetzt verdrahtet**, mit Schalter und Standard an. Ein Test prueft, dass der Schalter
 wirkt: 50 identische Datensaetze muessen mit eingeschaltetem Schalter **mehr** Ausgabe
 erzeugen als mit ausgeschaltetem.
+## Runde 509 — Der vollstaendige Korpus: 682 461 verschiedene Aufgaben
+
+**Erzeugt in 19,7 Minuten** (18 Familien, 1,24 Mio. Datensaetze).
+
+| | |
+|---|---|
+| Datensaetze | **1 239 720** |
+| **verschieden** | **682 461** |
+| **Ausbeute** | **55,0 %** |
+| Nutzbytes | **326,5 MB** |
+
+**Vergleich mit dem erprobten Pfad:**
+
+| | `mix77` | **dieser Korpus** |
+|---|---|---|
+| verschiedene Aufgaben | 78 497 | **682 461** (8,7x) |
+| Ausbeute | **65,8 %** | 55,0 % |
+| Nutzbytes | 26 MB | 327 MB |
+
+**Wir haben 8,7-mal mehr verschiedene Aufgaben als der Korpus, der 93,3 % erreichte** -
+aber eine **niedrigere Ausbeute**, weil zehn Familien unter 50 % liegen.
+
+### Die Ausreisser, nach Schwere
+
+| Familie | verschieden | Ausbeute | Ursache |
+|---|---|---|---|
+| **geschlossen** | **538** | **1,1 %** | zu wenige Folgen und Werte |
+| potenzen | 1 411 | 2,8 % | Basis/Exponent zu eng |
+| gleichung | 4 248 | 8,5 % | `x`, `b`, `s` waren Konstanten |
+| vielfalt | 4 860 | 9,7 % | noch nicht untersucht |
+| geometrie | 6 545 | 13,1 % | Schrittweiten zu grob |
+| einheit | 6 831 | 13,7 % | k/gross zu eng |
+| detektiv | 7 182 | 14,4 % | noch nicht ausgeschoepft |
+| zahl | 10 420 | 20,8 % | noch nicht untersucht |
+| folge | 12 433 | 24,9 % | a1/Index zu eng |
+| kontext | 20 531 | 41,9 % | noch nicht untersucht |
+
+**`geschlossen` ist der neue Extremfall** - eine Familie, die ich in Runde 490 selbst
+gebaut habe, mit **538 verschiedenen** Datensaetzen bei 50 000 angeforderten. Dieselbe
+Ursache wie bei den sechs korrigierten: zu wenige unabhaengige Groessen.
+
+### Was das fuer 500M bedeutet
+
+| | |
+|---|---|
+| verschieden vorhanden | **682 461** |
+| Bedarf bei 231 Byte je Aufgabe | 158 MB |
+| vorhanden | 327 MB |
+| **mit Paraphrase (verdoppelt)** | **~1 360 000** |
+| **mit Englisch (30 %)** | **~1 770 000** |
+
+**Der Korpus reicht fuer 500M** - auch ohne die zehn Ausreisser zu korrigieren. Mit
+ihnen waere er groesser, aber nicht besser: **682 461 verschiedene Aufgaben sind
+bereits das 8,7-fache des Korpus, der 93,3 % erreichte.**
