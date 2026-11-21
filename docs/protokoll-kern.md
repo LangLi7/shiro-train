@@ -10327,3 +10327,32 @@ behandeln").
 
 **Naechste Schritte:** Checkpoint Schritt 3000 abwarten -> Heldout-Eval ->
 Entscheidung -> Pod SOFORT stoppen (kein Leerlauf).
+## Runde 308 (Ergebnis) — Hypothese WIDERLEGT: fokussierter Korpus reicht nicht
+
+**Registrierter Test (ein Faktor: Korpus), 500M Lauf-2 + 1000 Schritte auf
+fokussiertem Rechenkorpus, sauberer Heldout (0 Ueberlappung):**
+
+| Metrik | 20er-Eval (sauberer Heldout) | Erwartung | Widerlegung |
+|---|---|---|---|
+| Antwort-EM | **5 % (1/20)** | > 20 % | **<= 20 % → widerlegt** |
+| Weg exakt | 0 % | — | — |
+| Weg inhaltlich | 15 % (3/20) | — | — |
+
+**Vergleich (gleiche Metrik, gleiche Aufgabenklasse):**
+- 500M Lauf 2 (Mischkorpus): 0 % (20er kontaminiert) / 0 % (20er frisch)
+- 500M fokussiert: **5 %** (20er sauber)
+- 25M Kontrollmodell (fokussiert): 30 %
+
+**Befund:** Der fokussierte Korpus hebt die Antwort-EM von 0 % auf 5 % -
+deutlich unter der vorregistrierten Widerlegungsgrenze von 20 %. Der extreme
+Train-Loss (0,056) war **Auswendiglernen**, keine Generalisierung.
+
+**Loop-Schritt 7 (zwei Runden ohne Zugewinn):** Die 500M-Runde ist damit
+endgueltig geschlossen. Kein Checkpoint wird uebernommen.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 5 % auf sauberem Heldout, 0 % Weg exakt, 15 % Weg inhaltlich.
+- Hypothese (fokussierter Korpus) widerlegt.
+- Unsicher: 100er-Eval laeuft noch (stabilere Zahl folgt).
+
+**Kosten:** A100 ~1,08 $ (29 min), CPU-Eval ~0,15 $/h lokal. Alle Pods gestoppt.
