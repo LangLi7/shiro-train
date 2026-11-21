@@ -179,6 +179,14 @@ pub enum Command {
         /// Jeder n-te Datensatz bekommt eine englische Fassung; `0` = nur markieren.
         en_jeder: usize,
     },
+    /// **Vielfalt messen** (`src/data/vielfaltmessung.rs`): zählt, wie viele
+    /// Datensätze in einem Shard-Ordner wirklich verschieden sind. Ein Modul, das
+    /// seit Runde 480 existierte und **nie verdrahtet war** - derselbe Fehler wie
+    /// bei der Paraphrase.
+    VielfaltMessen {
+        /// Ordner mit `.bin`-Shards (z. B. `data/final/algebra/train`).
+        dir: PathBuf,
+    },
     /// **Curriculum-Plan** (`src/data/curriculum.rs`): zeigt, welche Familien in
     /// welcher Phase mit welchem Anteil gezogen werden - schrittweise, und mit
     /// alten Familien im Zug gegen Catastrophic Forgetting.
@@ -1201,6 +1209,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_sprachlogik = false;
     let mut want_sprachmix = false;
     let mut want_backup = false;
+    let mut want_vielfaltmessen = false;
+    let mut vielfalt_dir: Option<PathBuf> = None;
     let mut want_curriculum = false;
     let mut curriculum_dir: Option<PathBuf> = None;
     let mut backup_quelle: Option<PathBuf> = None;
@@ -1381,6 +1391,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "vielfalt-messen" => {
+                want_vielfaltmessen = true;
+                command_set = true;
+                saw_data = false;
+            }
             "curriculum" => {
                 want_curriculum = true;
                 command_set = true;
@@ -1449,6 +1464,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             // **Argumente des Mischens** (Runde 470): Textordner, Aufgabenordner,
             // Wiederholungen. `--out` gibt es schon und wird mitbenutzt.
+            "--vielfalt-dir" => vielfalt_dir = Some(PathBuf::from(take_value(&mut iter, "--vielfalt-dir")?)),
             "--curriculum-dir" => curriculum_dir = Some(PathBuf::from(take_value(&mut iter, "--curriculum-dir")?)),
             "--backup-src" => backup_quelle = Some(PathBuf::from(take_value(&mut iter, "--backup-src")?)),
             "--backup-dst" => backup_ziel = Some(PathBuf::from(take_value(&mut iter, "--backup-dst")?)),
@@ -1751,6 +1767,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
         want_potenzen,
         want_geometrie,
         want_folge,
+        // **Verarbeitungsbefehle** - die vier oben genannten Flag-Variablen standen
+        // bisher nicht im Array. Ohne sie zaehlt `generatoren` 0, und jeder dieser
+        // Befehle wurde als "kein Unterkommando" abgelehnt (Runde 267).
+        want_sprachmix,
+        want_backup,
+        want_curriculum,
+        want_vielfaltmessen,
     ]
     .iter()
     .filter(|w| **w)
@@ -2040,6 +2063,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             ziel,
             en_jeder: sprachmix_en_jeder,
         };
+    }
+
+    if want_vielfaltmessen {
+        let dir = vielfalt_dir.ok_or_else(|| {
+            crate::error::anyhow!("`data vielfalt-messen` braucht `--vielfalt-dir <ordner>`")
+        })?;
+        out.command = Command::VielfaltMessen { dir };
     }
 
     if want_curriculum {

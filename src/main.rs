@@ -28,6 +28,7 @@ use shiro::data::sprachlogik;
 use shiro::data::sprachmix;
 use shiro::data::backup;
 use shiro::data::curriculum;
+use shiro::data::vielfaltmessung;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::einheit;
@@ -90,6 +91,7 @@ fn real_main() -> Result<()> {
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::GenerateGeschlossen { opts } => cmd_generate_geschlossen(&opts),
         Command::GenerateSprachlogik { opts } => cmd_generate_sprachlogik(&opts),
+        Command::VielfaltMessen { dir } => cmd_vielfalt_messen(dir.as_path()),
         Command::Curriculum { dir } => cmd_curriculum(dir.as_path()),
         Command::Backup { quelle, ziel } => cmd_backup(quelle.as_path(), ziel.as_path()),
         Command::SprachMix { quelle, ziel, en_jeder } => {
@@ -2565,6 +2567,20 @@ fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
 
     preflight::erzwinge(&b, max_fremd)?;
     println!("Ergebnis     : bestanden");
+    Ok(())
+}
+
+/// **Vielfalt messen** (`src/data/vielfaltmessung.rs`, Runde 267).
+///
+/// Zählt, wie viele Datensätze in einem Ordner wirklich **verschieden** sind.
+/// Das Modul existierte seit Runde 480 - und war nie verdrahtet.
+fn cmd_vielfalt_messen(dir: &std::path::Path) -> Result<()> {
+    let b = vielfaltmessung::messe(dir)?;
+    println!("Ordner      : {}", dir.display());
+    println!("Gelesen     : {}", b.gelesen);
+    println!("Verschieden : {}", b.eindeutig);
+    println!("Ausbeute    : {:.1} %", b.ausbeute());
+    println!("Verdaechtig : {}", if b.ist_verdaechtig() { "JA - unter 50 %" } else { "nein" });
     Ok(())
 }
 

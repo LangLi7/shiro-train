@@ -51,11 +51,20 @@ impl Art {
 }
 
 /// Das Zahlenband. Training und Held-out ueberlappen **nicht**.
+///
+/// **Erweitert in Runde 492.** Vorher: Basis 2..=5 im Training, 6..=9 im Held-out.
+/// Gemessen ergab das **236 verschiedene** Datensaetze bei 30 000 angeforderten -
+/// eine Ausbeute von **0,8 %**. Jeder Fall wiederholte sich 127-mal, und ein Modell,
+/// das 236 Aufgaben auswendig lernt, besteht jede Pruefung ohne zu rechnen.
+///
+/// Jetzt: Basis 2..=20 im Training, 21..=40 im Held-out. Der Raum waechst von
+/// 4 auf 19 Basen, dazu Exponenten bis 6 statt bis 4. Die **Trennung bleibt** -
+/// keine Basis kommt in beiden Baendern vor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Band {
-    /// Basis 2..=5, Wurzel 2..=9.
+    /// Basis 2..=20, Wurzel 2..=30.
     Train,
-    /// Basis 6..=9, Wurzel 11..=20 - im Training nicht vorhanden.
+    /// Basis 21..=40, Wurzel 31..=60 - im Training nicht vorhanden.
     Val,
 }
 
@@ -64,31 +73,44 @@ impl Band {
     fn basis_min(self) -> i64 {
         match self {
             Band::Train => 2,
-            Band::Val => 6,
+            Band::Val => 21,
         }
     }
 
     /// Groesste Basis einer Potenz.
+    ///
+    /// **Die Grenze ist der Wertebereich, nicht die Didaktik.** `i64` traegt
+    /// `40^6 = 4,1 Mrd.` muehelos; die Grenze 40 haelt die Antworten lesbar.
     fn basis_max(self) -> i64 {
         match self {
-            Band::Train => 5,
-            Band::Val => 9,
+            Band::Train => 20,
+            Band::Val => 40,
         }
+    }
+
+    /// Kleinster Exponent einer Potenz.
+    fn exponent_min(self) -> i64 {
+        2
+    }
+
+    /// Groesster Exponent einer Potenz.
+    fn exponent_max(self) -> i64 {
+        6
     }
 
     /// Kleinste Wurzel (die Zahl, deren Quadrat unter der Wurzel steht).
     fn wurzel_min(self) -> i64 {
         match self {
             Band::Train => 2,
-            Band::Val => 11,
+            Band::Val => 31,
         }
     }
 
     /// Groesste Wurzel.
     fn wurzel_max(self) -> i64 {
         match self {
-            Band::Train => 9,
-            Band::Val => 20,
+            Band::Train => 30,
+            Band::Val => 60,
         }
     }
 }
@@ -188,7 +210,9 @@ fn baue(rng: &mut Rng, band: Band, index: usize) -> Result<Aufgabe> {
 
     let (text, weg, antwort, felder) = match art {
         Art::Potenz => {
-            let n = 2 + rng.below(3) as i64; // 2..=4
+            // **Exponent aus dem Band**, nicht fest 2..=4 (Runde 492).
+            let spanne_e = (band.exponent_max() - band.exponent_min() + 1) as usize;
+            let n = band.exponent_min() + rng.below(spanne_e) as i64;
             let wert = pow_i64(basis, n as u32);
             let kern = format!("{basis}^{n}");
             let text = crate::data::satzmuster::text(
@@ -288,7 +312,16 @@ mod tests {
                 Art::Potenz => {
                     let a = auf.feld("a").expect("a");
                     let n = auf.feld("n").expect("n");
-                    assert!((2..=4).contains(&n), "n ausserhalb 2..=4: {n}");
+                    // **Die Grenzen kommen aus `Band`, nicht aus einer Konstanten**
+                    // (Runde 492). Sonst bricht der Test bei jeder Erweiterung, ohne
+                    // dass etwas kaputt waere.
+                    let band = if auf.val { Band::Val } else { Band::Train };
+                    assert!(
+                        (band.exponent_min()..=band.exponent_max()).contains(&n),
+                        "n={n} ausserhalb {}..={}",
+                        band.exponent_min(),
+                        band.exponent_max()
+                    );
                     assert_eq!(auf.antwort, pow_i64(a, n as u32).to_string());
                 }
                 Art::Wurzel => {
@@ -326,11 +359,16 @@ mod tests {
             match auf.art {
                 Art::Wurzel => {
                     let q = auf.feld("q").expect("q");
-                    assert!(q <= 81, "Trainings-Radikand {q} zu gross");
+                    // Die Wurzel liegt im Band; ihr Quadrat ist der Radikand.
+                    let grenze = Band::Train.wurzel_max().pow(2);
+                    assert!(q <= grenze, "Trainings-Radikand {q} ueber {grenze}");
                 }
                 _ => {
                     let a = auf.feld("a").expect("a");
-                    assert!((2..=5).contains(&a), "Training mit Basis {a}");
+                    assert!(
+                        (Band::Train.basis_min()..=Band::Train.basis_max()).contains(&a),
+                        "Training mit Basis {a}"
+                    );
                 }
             }
         }
@@ -338,11 +376,20 @@ mod tests {
             match auf.art {
                 Art::Wurzel => {
                     let q = auf.feld("q").expect("q");
-                    assert!(q >= 121, "Held-out-Radikand {q} im Trainingsbereich");
+                    let untergrenze = Band::Val.wurzel_min().pow(2);
+                    assert!(
+                        q >= untergrenze,
+                        "Held-out-Radikand {q} unter {untergrenze} - im Trainingsbereich"
+                    );
                 }
                 _ => {
                     let a = auf.feld("a").expect("a");
-                    assert!((6..=9).contains(&a), "Held-out mit Basis {a} - muss ausserhalb 2..=5 liegen");
+                    assert!(
+                        (Band::Val.basis_min()..=Band::Val.basis_max()).contains(&a),
+                        "Held-out mit Basis {a} - muss in {}..={} liegen",
+                        Band::Val.basis_min(),
+                        Band::Val.basis_max()
+                    );
                 }
             }
         }

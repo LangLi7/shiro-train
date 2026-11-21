@@ -56,7 +56,7 @@ pub struct Folge {
 }
 
 /// Die Folgen des **Trainings**.
-pub const TRAIN_FOLGEN: [Folge; 2] = [
+pub const TRAIN_FOLGEN: [Folge; 4] = [
     Folge {
         name: "Fibonacci",
         rekursiv: "f(n) = f(n-1) + f(n-2)  mit  f(0) = 0, f(1) = 1",
@@ -69,10 +69,22 @@ pub const TRAIN_FOLGEN: [Folge; 2] = [
         geschlossen: "S(n) = n * (n+1) / 2",
         zaehler: "n",
     },
+    Folge {
+        name: "Summe der ersten n ungeraden Zahlen",
+        rekursiv: "U(n) = U(n-1) + (2n - 1)  mit  U(0) = 0",
+        geschlossen: "U(n) = n^2",
+        zaehler: "n",
+    },
+    Folge {
+        name: "Summe der ersten n Zweierpotenzen",
+        rekursiv: "Z(n) = Z(n-1) + 2^n  mit  Z(-1) = 0",
+        geschlossen: "Z(n) = 2^(n+1) - 1",
+        zaehler: "n",
+    },
 ];
 
 /// Die Folgen des **Held-outs** - andere Formeln als im Training.
-pub const VAL_FOLGEN: [Folge; 2] = [
+pub const VAL_FOLGEN: [Folge; 4] = [
     Folge {
         name: "Geometrische Reihe",
         rekursiv: "G(n) = G(n-1) + a * r^n  mit  G(-1) = 0",
@@ -83,6 +95,18 @@ pub const VAL_FOLGEN: [Folge; 2] = [
         name: "Summe der ersten n Quadratzahlen",
         rekursiv: "Q(n) = Q(n-1) + n^2  mit  Q(0) = 0",
         geschlossen: "Q(n) = n * (n+1) * (2n+1) / 6",
+        zaehler: "n",
+    },
+    Folge {
+        name: "Summe der ersten n Kubikzahlen",
+        rekursiv: "K(n) = K(n-1) + n^3  mit  K(0) = 0",
+        geschlossen: "K(n) = (n * (n+1) / 2)^2",
+        zaehler: "n",
+    },
+    Folge {
+        name: "Dreieckszahlen mit Schrittweite",
+        rekursiv: "D(n) = D(n-1) + s * n  mit  D(0) = 0",
+        geschlossen: "D(n) = s * n * (n+1) / 2",
         zaehler: "n",
     },
 ];
@@ -160,6 +184,25 @@ fn baue(rng: &mut Rng, val: bool) -> Result<Aufgabe> {
             let n = 2 + rng.below(10) as i64; // 2..=11
             (n, geometrisch(a, r, n))
         }
+        // **Die vier neuen Folgen (Runde 510).**
+        "Summe der ersten n ungeraden Zahlen" => {
+            let n = 5 + rng.below(400) as i64;
+            (n, n * n)
+        }
+        "Summe der ersten n Zweierpotenzen" => {
+            // n bis 40, damit 2^(n+1) in i64 bleibt.
+            let n = 2 + rng.below(39) as i64;
+            (n, 2i64.pow(n as u32 + 1) - 1)
+        }
+        "Summe der ersten n Kubikzahlen" => {
+            let n = 5 + rng.below(300) as i64;
+            let d = n * (n + 1) / 2;
+            (n, d * d)
+        }
+        "Dreieckszahlen mit Schrittweite" => {
+            let n = 5 + rng.below(300) as i64;
+            (n, n * (n + 1) / 2)
+        }
         _ => {
             let n = 5 + rng.below(200) as i64;
             (n, n * (n + 1) * (2 * n + 1) / 6)
@@ -231,6 +274,10 @@ fn glied_name(f: &Folge) -> &'static str {
         "Fibonacci" => "f(n)",
         "Summe der ersten n Zahlen" => "S(n)",
         "Geometrische Reihe" => "G(n)",
+        "Summe der ersten n ungeraden Zahlen" => "U(n)",
+        "Summe der ersten n Zweierpotenzen" => "Z(n)",
+        "Summe der ersten n Kubikzahlen" => "K(n)",
+        "Dreieckszahlen mit Schrittweite" => "D(n)",
         _ => "Q(n)",
     }
 }
@@ -349,11 +396,24 @@ mod tests {
                 .expect("Zahl als Antwort");
             assert_eq!(antwort, a.ergebnis, "Antwort im Datensatz weicht ab");
             // Und gegen die Rekursion.
+            // **Jede Folge bekommt ihre eigene Rechnung** (Runde 511). Der alte
+            // Test hatte einen `_`-Zweig mit `geometrisch(1, 2, a.n)`. Die neue
+            // Kubikzahlen-Folge fiel hinein und rechnete `2^305` - ein Ueberlauf,
+            // obwohl die Formel selbst stimmt. Ein Sammelzweig versteckt genau
+            // die Faelle, die man pruefen will.
             let erwartet = match a.folge {
                 "Fibonacci" => fibonacci(a.n),
                 "Summe der ersten n Zahlen" => a.n * (a.n + 1) / 2,
                 "Summe der ersten n Quadratzahlen" => a.n * (a.n + 1) * (2 * a.n + 1) / 6,
-                _ => geometrisch(1, 2, a.n), // wird unten genauer geprueft
+                "Summe der ersten n ungeraden Zahlen" => a.n * a.n,
+                "Summe der ersten n Zweierpotenzen" => 2i64.pow(a.n as u32 + 1) - 1,
+                "Summe der ersten n Kubikzahlen" => {
+                    let d = a.n * (a.n + 1) / 2;
+                    d * d
+                }
+                "Dreieckszahlen mit Schrittweite" => a.n * (a.n + 1) / 2,
+                "Geometrische Reihe" => continue, // hat seinen eigenen Test
+                _ => panic!("unbekannte Folge: {}", a.folge),
             };
             if a.folge != "Geometrische Reihe" {
                 assert_eq!(a.ergebnis, erwartet, "Ergebnis weicht ab fuer {}", a.folge);
