@@ -42,6 +42,7 @@ pub mod si;
 pub mod seqgen;
 pub mod textimport;
 pub mod vielfalt;
+pub mod vielfaltmessung;
 pub mod bruch;
 pub mod detektiv;
 pub mod zahl;
