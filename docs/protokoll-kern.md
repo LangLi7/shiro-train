@@ -9854,3 +9854,40 @@ Widerlegung: bleibt unter 60 % -> dann ist der Umlaut nicht der Hebel.
 - Unsicher: ob die 7 Rechenfehler dann den Antwort-EM begrenzen.
 
 **Kein Pod, kein GPU. Diagnose-Feld (3->32 Pfade) und Tests gruen.**
+## Runde 295 — Umlaut-Hypothese zurueckgezogen (Metrischer Artefakt)
+
+**Geprueft:** Ich habe die inhaltliche Weg-Korrektheit **unabhaengig von der
+Umlaut-Schreibweise** berechnet (Ergebniszahl aus dem Referenzpfad, Ziffern
+im erzeugten Pfad gesucht):
+
+| Metrik | Jetzt | Nach hypothetischer Umlaut-Entfernung |
+|---|---|---|
+| Exakte Weg-EM | 0 % | ~65 % (**nur Metrik-Effekt**) |
+| Inhaltliche Weg-EM | **7/20 = 35 %** | **35 % (unveraendert)** |
+| Antwort-EM | 6/20 = 30 % | 30 % (unveraendert) |
+
+**Erkenntnis:** Die 13 Umlaut-Faelle sind **inhaltlich bereits korrekt** -
+sie sind exakt die 7 inhaltlich korrekten Faelle (mit Ueberlappung der
+Zaehlung). Ein Training auf ASCII wuerde **keinen einzigen neuen
+Rechenfall** hinzufuegen. Es wuerde nur die **exakte** Metrik schoenen,
+weil dann `fuer` = Referenz waere.
+
+**Zurueckgezogen:** Die Umlaut-Hypothese aus Runde 294 („exakte Weg-EM
+springt auf >= 60 %") ist ein **messbarer, aber inhaltlich wirkungsloser**
+Hebel. Ich starte keine Runde dafuer.
+
+**Der echte, verbleibende Hebel:** 7/20 = 35 % **echte Rechenfehler**
+(`44*5=280` statt `220`, `4+5+1=9` statt `10`, `25*2=45` statt `50`).
+Das ist die Lücke, die das 90-%-Ziel tatsaechlich blockiert.
+
+**Ehrlicher Stand der Ziele:**
+- Antwort-EM: 30 % (Ziel 90 %) - Luecke 60 Pp
+- Weg inhaltlich: 35 % (Ziel 90 %) - Luecke 55 Pp
+- Weg exakt: 0 % (Ziel 90 %) - Luecke 90 Pp, davon ~65 Pp messbedingt
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Umlaut-Entfernung aendert inhaltliche Metrik nicht.
+- Hypothese: Rechenfehler sind der echte Hebel - **nicht getestet**.
+- Unsicher: Wie sich Rechenfehler mit mehr/besseren Daten entwickeln.
+
+**Fuenfter korrigierter Hebel.** Kein Pod, kein GPU, kein Code geaendert.
