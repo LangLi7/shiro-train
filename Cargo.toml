@@ -14,6 +14,12 @@ default = ["cpu"]
 cpu = ["burn/flex", "burn/simd", "burn/rayon"]
 # GPU-Pfad: nur mit --features cuda baubar, braucht ein CUDA-faehiges Image (B5).
 cuda = ["burn/cuda"]
+# **Hinweis zu Kernel-Fusion (Runde 269, nicht aktiviert):**
+# Burn 0.22 startet je Tensor-Operation einen eigenen Kernel (~320 bei 32 Layern),
+# was die gemessenen 1,54 s/Schritt erklaert. Das offizielle `burn/fusion`-Feature
+# ist hier **nicht nutzbar**: es zieht `burn-remote 0.22.0`, das auf crates.io
+# nicht existiert (nur `0.22.0-pre.x`) - ein Upstream-Release-Defekt.
+# Ein Upgrade auf Burn >= 0.23 oder ein Patch waere eine eigene Runde.
 # Modellablage auf dem HuggingFace Hub (`shiro hub pull|push`).
 # Bewusst NICHT im Standardbau: der Trainings- und Messpfad soll ohne
 # Netzwerk-Stack bauen, und ein Pod ohne HF-Bedarf soll ihn nicht mitschleppen.
