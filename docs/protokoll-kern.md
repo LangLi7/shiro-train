@@ -10170,3 +10170,35 @@ nicht durch einen weiteren Hebel zu erklaeren versucht.
 - Unsicher: 25M/500M-Differenz bleibt unerklaert.
 
 **Kein Pod, kein GPU, kein Code geaendert. Goal bleibt aktiv.**
+## Runde 304 — Korrektur: 25M war Kontrollmodell auf fokussiertem Korpus
+
+**Gefunden in Zeile 9023-9024:** Die 25M-Referenz (`micro-logic-refocus`)
+war ein **Kontrollmodell**, gedacht zum Vergleich im RAM — ausdruecklich
+„nicht als Destillationslehrer (25M ist schwaecher als 500M)".
+
+**Korrektur meiner Aussage aus Runde 283:** Ich hatte „25M schlaegt 500M"
+als fairen Vergleich bezeichnet (gleiche 20 Aufgaben). Das war **nicht fair**:
+Die Modelle sahen **verschiedene Trainingsdaten** -
+25M: fokussierter Logik-Korpus (`logic-refocus`).
+500M: 20-Familien-Mischkorpus (51 % Wortantworten, siehe Runde 303).
+
+**Aber daraus folgt der erste durch einen Kontrollvergleich gestuetzte Hebel:**
+
+| Modell | Trainingskorpus | Antwort-EM (20 frische Aufgaben) |
+|---|---|---|
+| 25M | fokussiert `logic-refocus` | 30 % |
+| 500M | 20-Familien-Misch | 0 % |
+
+**Vorregistrierte Hypothese (ein Faktor):**
+Ein **fokussierter Rechen-Korpus** (ausschliesslich Zahlenantworten, keine
+Woerter/Einheiten) statt des 20-Familien-Mischkorpus hebt die 500M-
+Antwort-EM auf **> 20 %**.
+Widerlegung: bleibt <= 20 % → dann ist der Mischkorpus nicht die Ursache.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 25M Kontrollmodell auf fokussiertem Korpus, 30 %.
+- Fakt: 500M auf Mischkorpus, 0 %, Config verifiziert (Runde 302).
+- Hypothese: fokussierte Daten sind der Hebel - **nicht getestet**.
+- Unsicher: Kontrollmodell ist 20x kleiner → Groesse koennte mitwirken.
+
+**Kein Pod, kein GPU. Nur Korrektur und Registrierung.**
