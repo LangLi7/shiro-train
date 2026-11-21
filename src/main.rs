@@ -26,6 +26,7 @@ use shiro::data::seq;
 use shiro::data::geschlossen;
 use shiro::data::sprachlogik;
 use shiro::data::sprachmix;
+use shiro::data::backup;
 use shiro::data::bruch;
 use shiro::data::detektiv;
 use shiro::data::einheit;
@@ -88,6 +89,7 @@ fn real_main() -> Result<()> {
         Command::GenerateSeq { opts } => cmd_generate_seq(&opts),
         Command::GenerateGeschlossen { opts } => cmd_generate_geschlossen(&opts),
         Command::GenerateSprachlogik { opts } => cmd_generate_sprachlogik(&opts),
+        Command::Backup { quelle, ziel } => cmd_backup(quelle.as_path(), ziel.as_path()),
         Command::SprachMix { quelle, ziel, en_jeder } => {
             cmd_sprachmix(quelle.as_path(), ziel.as_path(), en_jeder)
         }
@@ -2561,6 +2563,22 @@ fn cmd_preflight(dir: &Path, manifest: &str, max_fremd: f64) -> Result<()> {
 
     preflight::erzwinge(&b, max_fremd)?;
     println!("Ergebnis     : bestanden");
+    Ok(())
+}
+
+/// **Trainingsdaten sichern** (`src/data/backup.rs`, Runde 264).
+///
+/// Kopiert den Korpus rekursiv nach `O:\shiro` und meldet, was passiert ist.
+/// Es wird **nie gelöscht** - erst sichern, dann darf am Ursprung etwas weg.
+fn cmd_backup(quelle: &std::path::Path, ziel: &std::path::Path) -> Result<()> {
+    let b = backup::sichere(quelle, ziel)?;
+    println!("Quelle      : {}", quelle.display());
+    println!("Ziel        : {}", ziel.display());
+    println!("Kopiert     : {} Dateien", b.dateien);
+    println!("Unveraendert: {} Dateien", b.unveraendert);
+    println!("Bytes       : {}", b.bytes);
+    println!("MB          : {:.1}", b.bytes as f64 / 1048576.0);
+    println!("Loeschung   : keine - Backup kopiert nur");
     Ok(())
 }
 

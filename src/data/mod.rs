@@ -13,6 +13,7 @@
 //!   Held-out-Vorraten (`shiro data generate-logic`). Siehe `LOGIC_ANALYTICS.md`.
 
 pub mod algebra;
+pub mod backup;
 pub mod bytes;
 pub mod format;
 pub mod formatgen;

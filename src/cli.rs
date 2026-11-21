@@ -179,6 +179,17 @@ pub enum Command {
         /// Jeder n-te Datensatz bekommt eine englische Fassung; `0` = nur markieren.
         en_jeder: usize,
     },
+    /// **Trainingsdaten sichern** (`src/data/backup.rs`).
+    ///
+    /// Kopiert einen Korpusordner rekursiv an einen Zielort (`O:\shiro`) und meldet
+    /// Dateianzahl und Byte-Summe. Kopiert **nur**, loescht nie - die harte Regel
+    /// lautet: erst sichern, dann darf irgendwo geloescht werden.
+    Backup {
+        /// Quellordner (z. B. `data/final`).
+        quelle: PathBuf,
+        /// Zielordner (z. B. `O:\shiro\trainingsdaten-...`).
+        ziel: PathBuf,
+    },
     /// Korpus "Formel-Verstaendnis und Funktion" (Mathematik-Stufe **A2/A3** nach
     /// **D-030**): Punkt/Vektor/Mittelpunkt und Steigung/"liegt P auf der
     /// Geraden?" (`src/data/formel.rs`).
@@ -1182,6 +1193,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
     let mut want_geschlossen = false;
     let mut want_sprachlogik = false;
     let mut want_sprachmix = false;
+    let mut want_backup = false;
+    let mut backup_quelle: Option<PathBuf> = None;
+    let mut backup_ziel: Option<PathBuf> = None;
     let mut sprachmix_quelle: Option<PathBuf> = None;
     let mut sprachmix_ziel: Option<PathBuf> = None;
     let mut sprachmix_en_jeder: usize = 2;
@@ -1358,6 +1372,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
                 command_set = true;
                 saw_data = false;
             }
+            "backup" => {
+                want_backup = true;
+                command_set = true;
+                saw_data = false;
+            }
             "sprachmix" => {
                 want_sprachmix = true;
                 command_set = true;
@@ -1416,6 +1435,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             "--src" => combine_sources.push(PathBuf::from(take_value(&mut iter, "--src")?)),
             // **Argumente des Mischens** (Runde 470): Textordner, Aufgabenordner,
             // Wiederholungen. `--out` gibt es schon und wird mitbenutzt.
+            "--backup-src" => backup_quelle = Some(PathBuf::from(take_value(&mut iter, "--backup-src")?)),
+            "--backup-dst" => backup_ziel = Some(PathBuf::from(take_value(&mut iter, "--backup-dst")?)),
             "--quelle" => sprachmix_quelle = Some(PathBuf::from(take_value(&mut iter, "--quelle")?)),
             "--ziel" => sprachmix_ziel = Some(PathBuf::from(take_value(&mut iter, "--ziel")?)),
             "--en-jeder" => sprachmix_en_jeder = take_value(&mut iter, "--en-jeder")?.parse()?,
@@ -2004,6 +2025,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args> {
             ziel,
             en_jeder: sprachmix_en_jeder,
         };
+    }
+
+    if want_backup {
+        let quelle = backup_quelle.ok_or_else(|| {
+            crate::error::anyhow!("`data backup` braucht `--backup-src <ordner>`")
+        })?;
+        let ziel = backup_ziel.ok_or_else(|| {
+            crate::error::anyhow!("`data backup` braucht `--backup-dst <ordner>`")
+        })?;
+        out.command = Command::Backup { quelle, ziel };
     }
 
     if want_geschlossen {
