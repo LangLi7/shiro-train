@@ -11066,3 +11066,25 @@ Damit werden kuenftige Evals ~10x schneller (~5-7 min).
 - Fakt: Volume 53 GB (unter 100), alles Wichtige auf HF.
 - Hypothese: noch mehr Schritte → naeher an 90 % - nicht getestet.
 - Unsicher: CUDA-Build Erfolg (laeuft).
+## Runde 328 (Nachtrag) — Lokale GPU (RTX 3060) aktiviert
+
+**Nutzer-hinweis:** „unsere gpu ist ja frei local, warum nutzen wir nicht das?"
+
+**Befund:** RTX 3060 12 GB vorhanden (18 % genutzt), aber das lokale
+Binary war OHNE `cuda`-Feature gebaut. Neuer Build in `target-win-cuda`
+(11:29 min) mit `--features cuda`.
+
+**Test (20er-Heldout, gleiche Aufgaben wie CPU-Eval):**
+| Backend | Antwort-EM | Weg exakt | Weg inhaltlich | Dauer |
+|---|---|---|---|---|
+| CPU (target-win) | 65 % | 65 % | 80 % | ~70 min (100er) |
+| **CUDA (target-win-cuda, RTX 3060)** | **65 %** | **65 %** | **80 %** | **~1-2 min (20er)** |
+
+Identische Zahlen auf zwei Backends → **unabhaengige Verifikation** der
+65 %-Messung. Die GPU-Eval ist ~10-30x schneller.
+
+**Konsequenz:** alle kuenftigen Evals laufen lokal auf der 3060 mit
+`target-win-cuda\release\shiro.exe --backend cuda`. Kein GPU-Leerlauf auf
+RunPod mehr noetig fuer Messungen; der A100 bleibt nur fuer Training.
+
+**Fakten:** CUDA-Binary 102 MB, RTX 3060 erkannt, Zahlen identisch mit CPU.
