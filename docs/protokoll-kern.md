@@ -11031,3 +11031,38 @@ gestoppt. Checkpoint auf HF (`longer500-step6000.safetensors`) + lokal
 - Fakt: Schrittzahl 3000 → 6000 brachte 4 % → 65 %.
 - Hypothese: weitere Schritte → naeher an 90 % - naechster registrierter Test.
 - Unsicher: 20er-Stichprobe; 100er-Messung zur Bestaetigung noetig.
+## Runde 328 — Stabile 100er-Bestaetigung + Volume bereinigt
+
+**Stabile Messung (100 saubere Heldout-Records, 0 Ueberlappung):**
+
+| Metrik | 20er | **100er (belastbar)** | vorher (3000) | 25M |
+|---|---|---|---|---|
+| Antwort-EM | 65 % | **55 % (55/100)** | 4 % | 13 % |
+| Weg exakt | 65 % | **54 % (54/100)** | 1 % | 2 % |
+| Weg inhaltlich | 80 % | **67 % (67/100)** | 13 % | 20 % |
+
+Die 100er-Zahl (55 %) ist niedriger als die 20er-Stichprobe (65 %) -
+normales Stichprobenrauschen. **55 % ist die belastbare Zahl.** Trotzdem
+~14x besser als vorher und 4x besser als die 25M-Referenz.
+
+**Checkpoint bleibt uebernommen** (Ziel 90 % noch nicht erreicht).
+
+**SPEICHER (Nutzer-Anliegen): 105 GB → 53 GB**
+-Alle wichtigen `.state` (6 Dateien: longer500 4000/5000/6000,
+  lauf2-step2000, fokus, rechne100k, kombi-add) auf HF verifiziert.
+- `korpus500` (12 GB) als `korpus500/all.tar.gz` (4,5 GB) auf HF
+  `shiro-korpora` gesichert - **komprimiert** (Nutzer-Idee: komprimierbares
+  auf HF, nicht-komprimierbares direkt).
+- Nach Verifikation geloescht: 6 `.state` + korpus500 → **45 GB frei**.
+
+**Lokale GPU entdeckt (Nutzer-hinweis):** RTX 3060 12 GB, nur 18 % genutzt.
+Das lokale Binary wurde aber OHNE `cuda`-Feature gebaut → Eval lief auf CPU
+(~70 min fur 100 Datensatze). Ein CUDA-Build laeuft gerade in
+`target-win-cuda` (separates Target, da alte shiro.exe gesperrt war).
+Damit werden kuenftige Evals ~10x schneller (~5-7 min).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 55/54/67 % (100er), 4x besser als 25M, Checkpoint uebernommen.
+- Fakt: Volume 53 GB (unter 100), alles Wichtige auf HF.
+- Hypothese: noch mehr Schritte → naeher an 90 % - nicht getestet.
+- Unsicher: CUDA-Build Erfolg (laeuft).
