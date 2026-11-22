@@ -11196,3 +11196,38 @@ Erwartung: Antwort-EM > 70 %. Widerlegung: <= 70 %.
 Danach ist das Budget aufgebraucht; Goal bleibt aktiv mit 70 % (nicht 90 %).
 
 **Fakten:** 1,58 $ Rest, 1500 Schritte machbar, ~1,46 $. Kein Pod gestartet.
+## Runde 329/330 — Letzter Lauf: 10500 Schritte → 73 % (Budget aufgebraucht)
+
+**Letzter registrierter Test (R329 Budget-Entscheid): 9000 → 10500 Schritte,
+1500 weitere, gleiche Config.** Resume vom 70%-Modell.
+
+**Ergebnis (sauberer Heldout, 100 Datensätze, RTX 3060 CUDA):**
+
+| Metrik | 3000 | 6000 | 9000 | **10500** |
+|---|---|---|---|---|
+| Antwort-EM | 4 % | 55 % | 70 % | **73 %** |
+| Weg exakt | 1 % | 54 % | 69 % | **72 %** |
+| Weg inhaltlich | 13 % | 67 % | 70 % | **73 %** |
+
+**Entscheidung: Checkpoint ÜBERNEHMEN.** Erwartung (> 70 %) erfüllt, wenn
+auch knapp. Zuwächse werden kleiner: +15, +15, +3 Prozentpunkte.
+
+**Gesamttrend:** 4 % → 55 % → 70 % → 73 % Antwort-EM. Der 500M übertrifft
+die 25M-Referenz (24-30 %) um das 2,4-fache.
+
+**BUDGET AUFGEBRAUCHT:** 1,58 $ vor dem Lauf, ~1,52 $ verbraucht, ~0,06 $
+Rest. Kein weiteres Training ohne neues Guthaben moeglich.
+
+**Goal-Status:** 73 % < 90 % Ziel. Goal BLEIBT AKTIV. Der naechste Schritt
+braucht neues RunPod-Guthaben (oder adaptive Gewichtung auf lokaler 3060,
+was aber kein 500M-Training erlaubt - 12 GB VRAM zu klein).
+
+**Kosten gesamt diese Runde:** A100 42 min (~1,52 $), Upload ~0,01 $.
+Alle Pods sofort gestoppt. Checkpoint auf HF (`steps10500-step10500.safetensors`
++ `.state`) + lokal + Volume gesichert.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 73/72/73 % bei 10500 Schritten, Budget aufgebraucht.
+- Fakt: Schrittzahl-Hypothese in 3 aufeinanderfolgenden Laeufen bestaetigt.
+- Unsicher: ob weitere Schritte das 90-%-Ziel erreichen wuerden (nicht testbar
+  ohne Guthaben). Zuwachs zuletzt nur noch +3 %.
