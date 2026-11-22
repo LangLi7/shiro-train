@@ -10952,3 +10952,41 @@ und Heldout niedrig bleibt, ist es Auswendiglernen (Auftragsregel).
 - Unsicher: ob langes Training auf 12.818 Records ueberfitet.
 
 **Kein Pod, kein GPU. Goal bleibt aktiv, 500M fix.**
+## Runde 326/327 — Volume-Warnung + adaptive Verstaerkung (Nutzer)
+
+**Nutzer-Anregung (woertlich sinngemaess):**
+„step bei step trainieren aus dem basis um es quasi zu verstaerken bestehende
+netzte — wenn ein bereich schwach wird zb basic math, wird das quasi mehr
+von diese aufgaben gegeben und wenn ein anderes dann diese im verhaeltniss.
+btw volumes sollten wir auch checken, das es nicht ueber 100GB geht."
+
+**Ich verstehe das als zwei Dinge:**
+1. **Adaptive Verstaerkung:** Vom Basis-Checkpoint schrittweise weitertrainieren,
+   wobei die Aufgaben-Mischung nach der aktuellen Schwaeche gewichtet wird
+   (schwache Kategorie → proportional mehr Aufgaben). Der aktuelle Lauf
+   (Resume vom 4%-Checkpoint, 3000 statt 1000 Schritte) ist Schritt 1 davon.
+   Die **adaptive Gewichtung** registriere ich als naechste Hypothese.
+2. **Volume-Limit:** 89 GB von 100 GB belegt - kritisch.
+
+**Volume-Aufschluesselung (gemessen):**
+| Verzeichnis | Groesse | Backup-Status |
+|---|---|---|
+| 500m-validiert | 31 GB | Lauf-2 step2000 .state wird gebraucht; Rest loeschbar |
+| 500m-longer (laufend) | 16 GB | Checkpoints 4000/5000 fertig, 6000 kommt |
+| korpus500 | 12 GB | auf HF shiro-korpora gesichert → loeschbar |
+| 500m-fokus/rechne100k/kombi-add/ckpt-500m | je 7,6 GB | .safetensors auf HF, .state NICHT |
+
+**Regel:** Nichts loeschen, bevor Backup verifiziert ist (Nutzer-Regel).
+Der laufende Checkpoint 6000 braucht noch ~7,6 GB → dann ~97 GB.
+
+**Geplanter Bereinigungsreihenfolge NACH dem Test:**
+1. Checkpoint 6000 fertig → Gewichte+State auf HF sichern.
+2. `korpus500` loeschen (HF-Backup vorhanden) → -12 GB.
+3. Alte `.state` der widerlegten Laeufe einzeln auf HF laden, dann loeschen.
+
+**Training:** Schritt 5100, 59:24, GPU 100 % - stabil, kein Leerlauf.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 89/100 GB Volume, Lauf schreibt noch 1 Checkpoint.
+- Hypothese: adaptive Gewichtung nach Schwaeche verbessert - nicht getestet.
+- Unsicher: ob 97 GB reichen bis zur Bereinigung.
