@@ -11187,3 +11187,12 @@ Checkpoint auf HF (`steps9000-step9000.safetensors`) + lokal + Volume.
 - Fakt: 70/69/70 % bei 9000 Schritten (100er, sauber).
 - Hypothese: 12000 Schritte → weiter Richtung 90 % - nicht getestet.
 - Unsicher: Budget fuer einen weiteren Lauf.
+## Runde 329 (Budget-Entscheid) — letzter Lauf mit Restguthaben
+
+**Guthaben: 1,58 $. Ein voller 3000er-Lauf (2,94 $) ist nicht drin.**
+**Letzter registrierter Test: 1500 weitere Schritte (~40 min, ~1,46 $).**
+Resume vom 70%-Modell (`steps9000-step9000.state`), identischer Korpus/lr/Seed.
+Erwartung: Antwort-EM > 70 %. Widerlegung: <= 70 %.
+Danach ist das Budget aufgebraucht; Goal bleibt aktiv mit 70 % (nicht 90 %).
+
+**Fakten:** 1,58 $ Rest, 1500 Schritte machbar, ~1,46 $. Kein Pod gestartet.
