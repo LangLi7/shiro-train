@@ -11231,3 +11231,35 @@ Alle Pods sofort gestoppt. Checkpoint auf HF (`steps10500-step10500.safetensors`
 - Fakt: Schrittzahl-Hypothese in 3 aufeinanderfolgenden Laeufen bestaetigt.
 - Unsicher: ob weitere Schritte das 90-%-Ziel erreichen wuerden (nicht testbar
   ohne Guthaben). Zuwachs zuletzt nur noch +3 %.
+## Runde 332 — Paraphrase-Transfer gemessen (GPU-frei, RTX 3060)
+
+**Auftrag verlangt Paraphrase-Transfer als vierte Metrik. Mit dem vorhandenen
+Werkzeug `werkzeug/paraphrase.ps1` auf dem 73%-Modell (steps10500) gemessen,
+sauberer Heldout (rechne-100k/val), 20 Aufgaben, 4 Formulierungen:**
+
+| Formulierung | Treffer |
+|---|---|
+| `trainiert` (Referenz) | 100 % |
+| `Bitte loese:` (fremd) | **80 %** |
+| `Rechne:` (fremd) | **100 %** |
+| `Frage:` (fremd) | **100 %** |
+
+**Einordnung:** Der Transfer ist intakt — das Modell loest umformulierte
+Aufgaben fast so gut wie die trainierte Form. Fruehere Runden hatten hier
+0-50 % (R150/151/259). Damit sind alle vier geforderten Messungen fuer das
+aktuelle Modell dokumentiert:
+
+| Metrik | Wert |
+|---|---|
+| Held-out-EM (100er) | 73 % |
+| Weg exakt (100er) | 72 % |
+| Weg inhaltlich (100er) | 73 % |
+| **Paraphrase-Transfer** | **80-100 %** |
+
+**Budget:** 0,02 $ Rest - kein weiteres A100-Training. Goal bleibt aktiv
+(73 % < 90 %), aber alle vier Metriken sind jetzt sauber gemessen.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Paraphrase 80-100 % auf 20 Aufgaben, 3 fremde Formulierungen.
+- Unsicher: 20er-Stichprobe; grosse Stichprobe waere belastbarer, aber das
+  Skript startet pro Generation einen Prozess (~80 Laeufe, ~20 min).
