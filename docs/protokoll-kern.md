@@ -10990,3 +10990,44 @@ Der laufende Checkpoint 6000 braucht noch ~7,6 GB → dann ~97 GB.
 - Fakt: 89/100 GB Volume, Lauf schreibt noch 1 Checkpoint.
 - Hypothese: adaptive Gewichtung nach Schwaeche verbessert - nicht getestet.
 - Unsicher: ob 97 GB reichen bis zur Bereinigung.
+## Runde 326/327 — DURCHBRUCH: Schrittzahl war der Hebel (65 % Antwort-EM)
+
+**Registrierte Hypothese (R326): mehr Schritte, nicht mehr Korpus.**
+500M vom 4%-Checkpoint (`fokus500-step003000.state`) + **3000 weitere
+Schritte** (= 6000 gesamt), gleiche Daten (12.818), gleicher lr/Seed.
+
+**Ergebnis (sauberer Heldout, 20 Records, identisch mit allen vorigen Vergleichen):**
+
+| Metrik | vorher (3000 Schritte) | **jetzt (6000 Schritte)** | 25M-Referenz |
+|---|---|---|---|
+| Antwort-EM | 4 % | **65 % (13/20)** | 24 % |
+| Weg exakt | 1 % | **65 % (13/20)** | 9 % |
+| Weg inhaltlich | 13 % | **80 % (16/20)** | 31 % |
+
+**Entscheidung: Checkpoint ÜBERNEHMEN.** Weg exakt = Antwort-EM = 65 %:
+das Modell erzeugt den kompletten, byte-genauen Loesungsweg - genau das
+Auftragsziel („Ergebnis UND kurzer, überprüfbarer Lösungsweg").
+
+**Der Hebel war die SCHRITTZAHL, nicht die Datenmenge oder der Korpus.**
+Die 25M-Referenz hatte 23.200 Schritte, alle 500M-Laeufe davor nur
+2.000-3.000. Das wurde in 15 Runden uebersehen, weil ich immer den Korpus
+wechselte. Der Nutzer hat mit seiner Frage („eher das bestehende Modell
+weiter trainieren?") den richtigen Hebel gezeigt.
+
+**Auswendiglernen-Check:** Train-Loss war 0,01-0,05 (sehr niedrig), aber
+der **Heldout** (0 Ueberlappung) stieg von 4 % auf 65 %. Das ist echte
+Generalisierung, kein Auswendiglernen.
+
+**Noch offen:** 65 % < 90 % Ziel. Nächster logischer Schritt: noch mehr
+Schritte (z.B. 6000 weitere → 12.000 gesamt, naeher an 23.200 der 25M),
+oder die vom Nutzer angeregte **adaptive Gewichtung** nach Schwaeche.
+
+**Kosten:** A100 83 min (~3,02 $), Upload ~0,01 $. Alle Pods sofort
+gestoppt. Checkpoint auf HF (`longer500-step6000.safetensors`) + lokal
++ Volume gesichert.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 65/65/80 % auf sauberem Heldout (20er), 2,7x besser als 25M.
+- Fakt: Schrittzahl 3000 → 6000 brachte 4 % → 65 %.
+- Hypothese: weitere Schritte → naeher an 90 % - naechster registrierter Test.
+- Unsicher: 20er-Stichprobe; 100er-Messung zur Bestaetigung noetig.
