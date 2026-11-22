@@ -11377,3 +11377,37 @@ Addition), kein Formatproblem. Der guenstigste Hebel ist nicht
 - Hypothese: gezieltes Additions-Training hebt die 73 % - nicht getestet.
 - Unsicher: 8 von 27 Faellen inspiziert; Rest koennte anders sein (aber alle
   acht zeigen dasselbe Muster, und die Zahlen-Differenzen sind\+/-10/100/700).
+## Runde 336 — Hypothese praeszisiert: Uebertrag/Stellenwert beim Addieren
+
+**Aus den 8 inspizierten Fehlern (Runde 335) faellt ein klares Muster auf:**
+
+| # | erwartet | erzeugt | Differenz | Stelle |
+|---|---|---|---|---|
+| 3 | 2550 | 2560 | +10 | Zehner |
+| 7 | 4305 | 4205 | -100 | Hunderter |
+| 26 | 1554 | 1564 | +10 | Zehner |
+| 28 | 5994 | 5294 | -700 | Hunderter |
+| 30 | 2464 | 2454 | -10 | Zehner |
+| 31 | 3808 | 3908 | +100 | Hunderter |
+| 32 | 6156 | 5956 | -200 | Hunderter |
+
+**Alle 7 Differenzen sind Vielfache von 10 oder 100 (Zehner/Hunderter).
+Kein Fehler liegt in den Einer-Stellen.** Das ist das Signature-Muster eines
+**Uebertrags-/Stellenwertfehlers** beim Addieren der Teilprodukte - nicht ein
+allgemeines Rechenversagen.
+
+**Registrierte Hypothese (VOR dem naechsten Training, das Guthaben braucht):**
+"Gezieltes Training auf Uebertrag/Stellenwert beim mehrstelligen Addieren hebt
+die byte-genaue Antwort-EM von 73 % auf > 90 %." EIN Faktor: Daten-/Gewichtungs-
+Fokus auf Additionsfaelle mit Uebertrag. Widerlegung: <= 73 % oder nur
+Train-EM steigt (Auswendiglernen).
+
+**Warum das guenstiger ist als mehr Schritte:** Die Zuwaechse schrumpfen
+(+15, +15, +3). Ein gezielter Eingriff in die nachgewiesene Schwaeche
+(Uebertrag) verspricht mehr als weitere 3000 Schritte.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 7/7 Differenzen sind 10er/100er-Stellen, keine Einer-Fehler.
+- Fakt: Guthaben -0,14 $, Training nicht moeglich.
+- Hypothese: Uebertrag-Training hebt EM - vorregistriert, nicht getestet.
+- Unsicher: nur 8 Faelle inspiziert (7 mit Ziffern-Differenz), Rest ungesehen.
