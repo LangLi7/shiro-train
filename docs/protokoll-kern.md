@@ -11156,3 +11156,34 @@ erfuellt den Zweck, ist aber kein Universalmodell. 90 % noch nicht erreicht.
 - Fakt: chat generiert Format korrekt, Zahlen bei `23*17` falsch.
 - Fakt: 55 % auf verteiltem Heldout, nicht auf beliebigen neuen Zahlen.
 - Unsicher: wie stark die 55 % auf die Trainingsverteilung begrenzt sind.
+## Runde 329 — 9000 Schritte: 70 % Antwort-EM (weiterer Sprung)
+
+**Registrierte Hypothese (R329): 6000 → 9000 Schritte, ein Faktor.**
+Resume vom 55%-Modell, 3000 weitere Schritte, identischer Korpus/lr/Seed.
+
+**Ergebnis (sauberer Heldout, 100 Datensätze, RTX 3060 CUDA):**
+
+| Metrik | 3000 | 6000 | **9000** |
+|---|---|---|---|
+| Antwort-EM | 4 % | 55 % | **70 % (70/100)** |
+| Weg exakt | 1 % | 54 % | **69 % (69/100)** |
+| Weg inhaltlich | 13 % | 67 % | **70 % (70/100)** |
+
+**Entscheidung: Checkpoint ÜBERNEHMEN.** Antwort-EM = Weg inhaltlich = 70 %;
+der exakte Weg liegt bei 69 % — fast immer korrekter, byte-genauer
+Lösungsweg. Erwartung (> 55 %) erfüllt.
+
+**Trend bestaetigt Schrittzahl als Hebel:** 4 % → 55 % → 70 %.
+Die 25M-Referenz hatte 23.200 Schritte und 24-30 %; der 500M ist jetzt
+bereits deutlich besser - mit 9000 von 23.200 Schritten.
+
+**Naheliegender naechster Schritt:** weitere 3000 Schritte (12000 gesamt),
+naeher an 23.200. Budget pruefen (Guthaben war 4,55 $, dieser Lauf ~2,94 $).
+
+**Kosten:** A100 80 min (~2,94 $), Upload ~0,01 $. Alle Pods sofort gestoppt.
+Checkpoint auf HF (`steps9000-step9000.safetensors`) + lokal + Volume.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 70/69/70 % bei 9000 Schritten (100er, sauber).
+- Hypothese: 12000 Schritte → weiter Richtung 90 % - nicht getestet.
+- Unsicher: Budget fuer einen weiteren Lauf.
