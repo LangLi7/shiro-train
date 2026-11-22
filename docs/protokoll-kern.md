@@ -11112,3 +11112,20 @@ gebraucht wird → lokal `O:\shiro`, nicht auf HF (100-GB-Private-Limit schonen)
 
 **Fakten:** 4 READMEs geschrieben, 2 Duplikate verschoben+verifiziert+gelöscht.
 Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).
+## Runde 329 — Hypothese VOR dem Training: 6000 → 9000 Schritte
+
+**Fortsetzung vom 55%-Modell.** Der 6000er Lauf brachte 55 % Antwort-EM
+(von 4 %). Die 25M-Referenz hatte 23.200 Schritte. Hypothese: noch mehr
+Schritte bringen noch mehr.
+
+**EIN Faktor:** Schrittzahl 6000 → 9000 (3000 weitere).
+Gleich: Korpus (fokus 12.818), lr 3e-4 cosine, Seed 53013, Batch 6, Architektur.
+
+**Erwartung:** Antwort-EM > 55 %. **Widerlegung:** <= 55 %.
+**Budget:** 3000 Schritte (~78 min, ~2,85 $). Guthaben 4,55 $ → 1,70 $ Reserve.
+**Eval:** danach lokal auf RTX 3060 (CUDA-Binary, ~2 min statt 70 min).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 55 % bei 6000 Schritten (100er, belastbar).
+- Hypothese: 9000 Schritte > 55 % - vorregistriert, nicht getestet.
+- Unsicher: ob 6000 bereits das Maximum ist.
