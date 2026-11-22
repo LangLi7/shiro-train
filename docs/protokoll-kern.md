@@ -11411,3 +11411,37 @@ Train-EM steigt (Auswendiglernen).
 - Fakt: Guthaben -0,14 $, Training nicht moeglich.
 - Hypothese: Uebertrag-Training hebt EM - vorregistriert, nicht getestet.
 - Unsicher: nur 8 Faelle inspiziert (7 mit Ziffern-Differenz), Rest ungesehen.
+## Runde 337 — Uebertrag-Test vorbereitet (GPU-frei, kein Guthaben)
+
+**Guthaben weiterhin -0,14 $. Training nicht moeglich. Ich habe den
+registrierten Uebertrag-Test vorbereitet, damit er sofort startbar ist.**
+
+**Gefundene Ressource `data/add` (lokal, nicht auf HF):**
+| Ordner | Inhalt |
+|---|---|
+| `train-2d` | 8.100 Faelle, Klassen U0 (4455, kein Uebertrag) / U1 (3645, mit Uebertrag) |
+| `eval-3d` | 2.000 Faelle, U0 1106 / U1 894 |
+| `eval-4d`, `add-nd/eval-5d`, `eval-6d` | groessere Stellen |
+
+Jeder Record enthaelt einen vollstaendigen Stellenwert-Denkweg
+(`E … u1 ; Z … u0 ; H … u1 ; R … ü …`) - exakt die Struktur, in der die
+8 inspizierten Fehler entstehen (letzte Addition 444+1110 falsch).
+
+**Pruefung der Hypothese (R336) - warum fokus-rechnen nicht reicht:**
+Der aktuelle 73%-Lauf trainierte auf `fokus-rechnen` (12.818 Records),
+ueberwiegend Multiplikation. Die Addition der Teilprodukte ist ein
+**Teilschritt**, der dort nicht als eigenes Trainingsziel vorkommt.
+
+**Vorbereiteter Test (EIN Faktor):**
+Resume vom 73%-Modell (`steps10500-step10500.state`), 1500-3000 Schritte
+auf `data/add/train-2d` + `eval-3d`-Mix (U0/U1 ausgewogen), identischer
+lr/Seed/Architektur. Erwartung: byte-genaue EM > 73 %. Widerlegung: <= 73 %.
+Auswendiglernen-Check: Held-out `eval-4d` muss ebenfalls steigen.
+
+**Offen:** Korpus liegt nur lokal - vor dem Pod-Start auf HF laden (wie immer).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: data/add hat U0/U1-Klassen und Stellenwert-Denkwege.
+- Fakt: fokus-rechnen enthaelt keine gezielte Additions-Teilschritt-Aufgabe.
+- Hypothese: Additions-Feintraining hebt EM - vorregistriert, nicht getestet.
+- Unsicher: ob 2d/3d genuegt oder 4d/5d noetig ist.
