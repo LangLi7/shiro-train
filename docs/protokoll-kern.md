@@ -11263,3 +11263,40 @@ aktuelle Modell dokumentiert:
 - Fakt: Paraphrase 80-100 % auf 20 Aufgaben, 3 fremde Formulierungen.
 - Unsicher: 20er-Stichprobe; grosse Stichprobe waere belastbarer, aber das
   Skript startet pro Generation einen Prozess (~80 Laeufe, ~20 min).
+## Runde 333 — Ursachen-Isolation: Inhalt 100 %, Byte-Form 73 % (Befund + Unsicherheit)
+
+**GPU-frei auf der RTX 3060 mit `--probe` (100 Saetze, pass@3) am 73%-Modell
+gemessen. Guthaben negativ (-0,14 $), kein A100-Training moeglich.**
+
+| Messung | Wert |
+|---|---|
+| Normaleval (`--answers 100`, byte-genau) | **73 %** |
+| Probe `A-exakt` (Inhalt bei Teacher forcing) | **100 %** |
+| Probe `B` (frei erzeugt) | **100 %** |
+| Terminierungsfehler | 0 % |
+| Faehigkeitsfehler (Inhalt) | 0 % |
+| pass@3 Zuwachs | +0,0 Pp |
+| Fehler/Zufall | 0,000 (vs. Zufallsdistanz 1950,75) |
+
+**Befund:** Der Probe-Modus berichtet „Inhalt richtig (A-exakt): 100 %",
+waehrend die Normaleval byte-genau 73 % misst. Das legt nahe: Der **Inhalt**
+der Antworten ist korrekt, die **Byte-Form** weicht bei 27 % ab. Terminierung
+und Rechnen sind nicht das Problem.
+
+**WICHTIGE UNSICHERHEIT:** Der Probe-Modus koennte eine andere Datenquelle
+oder einen anderen Vergleich verwenden als die Normaleval (die Ausgabe zeigt
+„Typ ?" statt einer Klassifikation). Ich habe das nicht verifiziert. Der
+Befund ist daher eine **Hypothese**, kein bestaetigter Sachverhalt. Die
+**73 % bleiben die belastbare EM-Zahl.**
+
+**Konsequenz fuer die naechste Hypothese (bei neuem Guthaben):** Falls der
+Befund stimmt, waere „Antwortform normalisieren" ein Hebel, der nicht mehr
+Schritte braucht - das koennte den Weg zu 90 % verkuerzen. Muss aber zuerst
+mit einem sauberen Vergleichstest (gleiche Daten, gleicher Vergleich) geprueft
+werden.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Probe meldet 100 % Inhalt, Normaleval 73 % byte-genau.
+- Fakt: Guthaben -0,14 $, kein Training moeglich.
+- Hypothese: Inhalt korrekt, Byte-Form weicht ab - nicht verifiziert.
+- Unsicher: Probe-Datenquelle und Vergleichsmodus unbekannt.
