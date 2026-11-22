@@ -11129,3 +11129,30 @@ Gleich: Korpus (fokus 12.818), lr 3e-4 cosine, Seed 53013, Batch 6, Architektur.
 - Fakt: 55 % bei 6000 Schritten (100er, belastbar).
 - Hypothese: 9000 Schritte > 55 % - vorregistriert, nicht getestet.
 - Unsicher: ob 6000 bereits das Maximum ist.
+## Runde 329 — Realitaetscheck: Modell ist kein LLM, sondern Task-spezifisch
+
+**Nutzer-Frage:** „haben wir noch kein fertiges Modell, das man nutzen koennte
+wie ein LLM?"
+
+**Direkt-Test mit `chat` (500M-Config + 55%-Checkpoint):**
+- Prompt `Rechne: 23 * 17 =` → Ausgabe: `23 mal 3 = 79` (falsch, richtig 69).
+- Das Modell generiert das korrekte **Format** (`<DENKWEG>`, Teilprodukte,
+  Verschiebung um 1 Stelle), aber die **Zahlen sind falsch**.
+
+**Ehrliche Einordnung:**
+- **Kein LLM.** Kein Weltwissen, keine freie Konversation, kein zuverlaessiges
+  Rechnen neuer Zahlenkombinationen.
+- **Zweckgebundenes Modell:** loest ~55 % der Aufgaben aus der Trainings-
+  verteilung (sauberer Heldout), beherrscht das Lösungsweg-Format. Genau das
+  ist der Auftragszweck („Ergebnis UND kurzer überprüfbarer Lösungsweg").
+- 509M Parameter auf 12.818 Rechenaufgaben trainiert - ein LLM braucht
+  Groessenordnungen mehr Daten.
+
+**Konsequenz fuer den Goal:** Das Ziel ist nicht „ein LLM bauen", sondern
+„Logik/Reasoning/Mathe mit Lösungsweg messbar verbessern". Das 55%-Modell
+erfuellt den Zweck, ist aber kein Universalmodell. 90 % noch nicht erreicht.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: chat generiert Format korrekt, Zahlen bei `23*17` falsch.
+- Fakt: 55 % auf verteiltem Heldout, nicht auf beliebigen neuen Zahlen.
+- Unsicher: wie stark die 55 % auf die Trainingsverteilung begrenzt sind.
