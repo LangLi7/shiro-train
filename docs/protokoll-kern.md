@@ -11445,3 +11445,28 @@ Auswendiglernen-Check: Held-out `eval-4d` muss ebenfalls steigen.
 - Fakt: fokus-rechnen enthaelt keine gezielte Additions-Teilschritt-Aufgabe.
 - Hypothese: Additions-Feintraining hebt EM - vorregistriert, nicht getestet.
 - Unsicher: ob 2d/3d genuegt oder 4d/5d noetig ist.
+## Runde 338 — Uebertrag-Test vollstaendig vorbereitet (startklar)
+
+**Guthaben weiterhin -0,14 $. Kein Training. Ich habe alles fuer den Test
+vorbereitet, sodass der Pod-Start nur noch einen Befehl braucht.**
+
+**Auf HF verifiziert (7 Dateien in shiro-code):**
+- `carryadd-train-shard.bin` + `carryadd-train-manifest.json` (8100 Faelle, U0/U1)
+- `carryadd-eval3d-*` (2000, Auswendiglernen-Check Stufe 1)
+- `carryadd-eval4d-*` (4-stellig, Auswendiglernen-Check Stufe 2)
+- `train500-carryadd.toml` (Config: EIN Faktor Korpus, alles andere gleich)
+
+**Pod-Befehl (bei Guthaben):**
+Resume `/workspace/500m-10500/ckpt/steps10500-step010500.state`,
+Config `train500-carryadd.toml`, 1500 Schritte, A100 ~1,46 $.
+
+**Auswertung danach:**
+1. byte-genaue EM auf eval-4d (held-out, nie im Training): Ziel > 73 %.
+2. Heldout `rechne-100k/val` (wie bisher) → Vergleichbarkeit mit 4/55/70/73 %.
+3. Auswendiglernen: wenn nur eval-3d steigt, eval-4d aber nicht → verwerfen.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 7 Dateien auf HF verifiziert, Config fertig, Pod-Befehl dokumentiert.
+- Fakt: Guthaben -0,14 $, kein Start moeglich.
+- Hypothese: Additions-Fokus hebt EM - vorregistriert, nicht getestet.
+- Unsicher: 1500 Schritte koennten zu kurz sein; bei Erfolg nachjustieren.

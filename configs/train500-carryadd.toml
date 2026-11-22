@@ -1,0 +1,49 @@
+# Registrierte Hypothese (R336/337): gezieltes Additions-Training hebt die
+# byte-genaue EM von 73 % auf > 90 %. EIN Faktor: Korpus (fokus-rechnen →
+# carry-add 2d/3d mit Uebertrag). Resume vom 73%-Modell.
+# GLEICH: lr 3e-4 cosine, Seed 53013, Batch 6, Architektur 500M.
+#
+# Erwartung: Antwort-EM > 73 %. Widerlegung: <= 73 %.
+# Auswendiglernen-Check: eval-4d (andingere Stellen) muss ebenfalls steigen.
+# Budget: 1500 Schritte (~40 min, ~1,46 $) - Guthaben derzeit -0,14 $.
+
+[run]
+name = "carryadd500"
+seed = 53013
+steps = 1500
+log_every = 100
+checkpoint_every = 1500
+output_dir = "/workspace/500m-carryadd/ckpt"
+log_dir = "/workspace/500m-carryadd/logs"
+
+[data]
+dir = "/root/carryadd-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
