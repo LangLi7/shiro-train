@@ -11470,3 +11470,36 @@ Config `train500-carryadd.toml`, 1500 Schritte, A100 ~1,46 $.
 - Fakt: Guthaben -0,14 $, kein Start moeglich.
 - Hypothese: Additions-Fokus hebt EM - vorregistriert, nicht getestet.
 - Unsicher: 1500 Schritte koennten zu kurz sein; bei Erfolg nachjustieren.
+## Runde 339 — Baselines auf den neuen Held-outs gemessen (Loop-Schritt 2)
+
+**Vor dem registrierten Additions-Test musste die Ausgangslage auf den neuen
+Held-out-Sätzen gemessen werden (sonst ist die Hypothese nicht falsifizierbar).
+GPU-frei auf der RTX 3060, 73%-Modell (steps10500):**
+
+| Held-out | Records | Antwort-EM | Weg exakt | Weg inhaltlich |
+|---|---|---|---|---|
+| `carryadd eval-3d` | 50 | **0 %** | 0 % | 2 % |
+| `carryadd eval-4d` | 30 | **0 %** | 0 % | 0 % |
+
+**Ursache der 0 % (aus Fehlerbeispielen sichtbar):** Das Modell antwortet im
+**Multiplikations-Format** ("Also ist 44 * 24 = 1108") oder in natuerlicher
+Sprache ("1. Einer: 0 + 3 = 3 ..."), waehrend der Additions-Korpus die kompakte
+Stellenwert-Notation erwartet ("E 7+0=7 ... ; R 1127").
+
+**Das ist keine Faehigkeits-, sondern eine Format-Divergenz:** Das Modell
+wurde auf `fokus-rechnen` (ueberwiegend Multiplikation) trainiert und kennt
+das Additions-Ausgabeformat nicht. Genau das soll der registrierte Test
+(korpus = carryadd 2d/3d) korrigieren.
+
+**Falsifizierbarkeit jetzt gegeben:**
+- Erwartung: eval-3d/4d Antwort-EM > 0 % (ideal > 73 %), Format korrekt.
+- Widerlegung: weiter 0 % oder nur eval-3d (Train-Split-Naehe) steigt,
+  eval-4d bleibt 0 % → Auswendiglernen, verwerfen.
+- Vergleichbarkeit: zusaetzlich alter Heldout `rechne-100k/val` messen
+  (muss bei ~73 % bleiben - geschuetzte Faehigkeit).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Baselines 0 % auf eval-3d und eval-4d.
+- Fakt: Fehler zeigen Format-Divergenz (Multiplikation statt Stellenwert).
+- Hypothese: carryadd-Feintraining hebt EM - vorregistriert, nicht getestet.
+- Unsicher: ob 1500 Schritte reichen, um das Format vollstaendig zu lernen.
