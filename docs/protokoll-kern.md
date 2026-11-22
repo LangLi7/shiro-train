@@ -11088,3 +11088,27 @@ Identische Zahlen auf zwei Backends → **unabhaengige Verifikation** der
 RunPod mehr noetig fuer Messungen; der A100 bleibt nur fuer Training.
 
 **Fakten:** CUDA-Binary 102 MB, RTX 3060 erkannt, Zahlen identisch mit CPU.
+## Runde 328 — HF aufgeräumt und sortiert (Nutzer-Anliegen)
+
+**Nutzer:** „sollten wir auch huggingface bischen aufräumen sortieren richtig,
+um den übersicht zu schaffen was und wie was ist, zb fertig models und
+train data ect."
+
+**Durchgeführt (HF, alles verifiziert):**
+
+| Repo | Aktion |
+|---|---|
+| shiro-checkpoints | README: Aktiv / Basis / Archiv (widerlegte Läufe) klar getrennt |
+| shiro-code | README: Trainings-Configs mit Ergebnis, Eval-Configs, Binaries, Korpus-Shards, Skripte |
+| shiro-korpora (Dataset) | README: aktuelle Quelle, `final/*` 24 Kategorien, mix-Archive |
+| shiro-referenz | README: 25M-Referenzmodelle und warum behalten |
+| shiro-korpora (Model, Legacy) | auf 4 eindeutige Dateien bereinigt; 2 Duplikate (bruch/paraphrasen) ins Dataset verschoben und dort verifiziert, dann erst im Model gelöscht |
+
+**Aufbewahrungsregel (Nutzer):** Nicht-komprimierbares (Gewichte) direkt auf
+HF; komprimierbares (Korpus) als .tar.gz; was nicht für kommendes Training
+gebraucht wird → lokal `O:\shiro`, nicht auf HF (100-GB-Private-Limit schonen).
+
+**Volume:** 53 GB (nach Bereinigung von 105 GB). Alles Wichtige auf HF.
+
+**Fakten:** 4 READMEs geschrieben, 2 Duplikate verschoben+verifiziert+gelöscht.
+Kein Pod, kein GPU. Goal bleibt aktiv (90 % unerreicht).
