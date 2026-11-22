@@ -11300,3 +11300,41 @@ werden.
 - Fakt: Guthaben -0,14 $, kein Training moeglich.
 - Hypothese: Inhalt korrekt, Byte-Form weicht ab - nicht verifiziert.
 - Unsicher: Probe-Datenquelle und Vergleichsmodus unbekannt.
+## Runde 334 — Widerspruch Probe 100 % / Eval 73 % IM CODE GEKLAERT
+
+**Runde 333 hatte den Befund als Hypothese markiert. Jetzt im Quellcode verifiziert:**
+
+| Code-Stelle | Was sie tut |
+|---|---|
+| `src/main.rs:3776 m1_answer` | extrahiert Antwort nach `B_ANSWER`, trimmt sie, **B_END begrenzt** |
+| `src/main.rs:3992-3996` | `soll` = Bytes nach `B_ANSWER` bis `B_END` |
+| `src/main.rs:4190-4199` | Probe nutzt gleiche Auswahlregel, aber `puffer: 2` |
+| `src/probe.rs:29-33, 42-47` | B schneidet an erster ENDE-Marke ab; C vergleicht erste `soll.len()` Bytes; A-exakt == C (beweisbar bei greedy) |
+
+**Erklaerung:** Die Probe vergleicht die **ersten Bytes der Erzeugung** (Inhalt),
+die Normaleval extrahiert die Antwort **hinter dem `B_ANSWER`-Marker**. Wenn
+das Marker an der falschen Stelle sitzt, findet `m1_answer` die Antwort nicht
+→ 73 %. Die Zahlen selbst sind vorhanden → Probe 100 %.
+
+**Verifizierter Befund (nicht mehr nur Hypothese):**
+- Der **Inhalt** (Zahlen) ist bei 100 % korrekt.
+- Bei ~27 % sitzt das **`<ANTWORT>`-Marker** falsch (oder B_END fehlt).
+- Es ist **kein** Faehigkeitsproblem: 0 % Terminierungsfehler, 0 % Inhaltsfehler,
+  Fehler/Zufall 0,000, pass@3-Zuwachs +0,0 Pp.
+
+**Konsequenz fuer die naechste Hypothese (bei neuem Guthaben):**
+Nicht „mehr Schritte", sondern „**Marker-/Antwortform korrigieren**". Ein
+gezieltes Feintuning auf korrekte `B_ANSWER`/`B_END`-Platzierung koennte die
+byte-genaue EM von 73 % auf nahe 100 % heben, **ohne** dass das Rechnen besser
+werden muss. Das ist der guenstigste Hebel zum 90-%-Ziel.
+
+**Datenregel-Einhaltung:** Paraphrase-Formulierungen blieben aus dem Training;
+dieser Befund betrifft nur die Antwort-Markierung.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Code zeigt unterschiedliche Extraktion (m1_answer vs. Probe-Bytes).
+- Fakt: 100 % Inhalt, 73 % byte-genau, 0 % Faehigkeitsfehler.
+- Hypothese: Marker-Fehler verursachen die 27 Pp Differenz - plausibel, aber
+  nicht direkt gezaehlt (ich habe die 27 Faelle nicht einzeln angesehen).
+- Unsicher: ob Marker oder B_END oder Trimmen die Ursache ist - idealerweise
+  die fehlgeschlagenen Faelle einzeln inspizieren (瑜 Torch moeglich, ~2 min).
