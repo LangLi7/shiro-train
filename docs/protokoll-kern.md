@@ -11503,3 +11503,31 @@ das Additions-Ausgabeformat nicht. Genau das soll der registrierte Test
 - Fakt: Fehler zeigen Format-Divergenz (Multiplikation statt Stellenwert).
 - Hypothese: carryadd-Feintraining hebt EM - vorregistriert, nicht getestet.
 - Unsicher: ob 1500 Schritte reichen, um das Format vollstaendig zu lernen.
+## Runde 340 — Baseline repliziert: 73 % mit anderem Seed identisch
+
+**GPU-freie Replikation auf der RTX 3060, anderer Seed (424242 statt 99991):**
+
+| Messung | 1. Lauf (seed 99991) | Replikation (seed 424242) |
+|---|---|---|
+| Antwort-EM | 73 % | **73 %** |
+| Weg exakt | 72 % | **72 %** |
+| Weg inhaltlich | 73 % | **73 %** |
+
+Exakt identisch. Der Seed aendert laut Code nur die Ziehung der
+Trainingsdaten, nicht die Messung - das ist hier empirisch bestaetigt.
+
+**Bedeutung:** Die 73 % sind eine stabile, reproduzierbare Baseline. Sie ist
+die geschuetzte Faehigkeit, die nach dem registrierten carryadd-Test nicht
+sinken darf.
+
+**Vollstaendiger Messstand vor dem Test:**
+| Heldout | Baseline | Rolle |
+|---|---|---|
+| rechne-100k/val | 73 % (2x repliziert) | geschuetzte Faehigkeit |
+| carryadd eval-3d | 0 % | Lücke (Format-Divergenz) |
+| carryadd eval-4d | 0 % | Lücke + Auswendiglernen-Check |
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 73/72/73 % mit zwei Seeds identisch.
+- Fakt: Guthaben -0,14 $, kein Training.
+- Unsicher: ob der Test die 0 % auf carryadd hebt, ohne die 73 % zu senken.
