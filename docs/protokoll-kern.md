@@ -11338,3 +11338,42 @@ dieser Befund betrifft nur die Antwort-Markierung.
   nicht direkt gezaehlt (ich habe die 27 Faelle nicht einzeln angesehen).
 - Unsicher: ob Marker oder B_END oder Trimmen die Ursache ist - idealerweise
   die fehlgeschlagenen Faelle einzeln inspizieren (瑜 Torch moeglich, ~2 min).
+## Runde 335 — KORREKTUR: Runde 334 war falsch — echte Rechenfehler, keine Marker
+
+**Runde 334 hatte behauptet: Inhalt 100 %, nur `<ANTWORT>`-Marker falsch.
+Das ist WIDERLEGT.** Ich habe die 8 fehlgeschlagenen Faelle einzeln inspiziert
+(`--answers 100`, Fehlerliste aus `src/main.rs:4068`):
+
+| # | erwartet | erzeugt | Differenz |
+|---|---|---|---|
+| 3 | 2550 | 2560 | +10 |
+| 7 | 4305 | 4205 | -100 |
+| 26 | 1554 | 1564 | +10 |
+| 27 | 1554 | 1564 | +10 |
+| 28 | 5994 | 5294 | -700 |
+| 30 | 2464 | 2454 | -10 |
+| 31 | 3808 | 3908 | +100 |
+| 32 | 6156 | 5956 | -200 |
+
+**Alle Marker sind korrekt** (sowohl erwartet als auch erzeugt haben die
+Leerzeichen-Form). Die **Zahlen sind falsch**. Die Denkwege zeigen den Fehler
+im letzten Schritt: `444 + 1110 = 1564` (richtig 1554), `448 + 3360 = 3908`
+(richtig 3808). Das Modell addiert Teilprodukte mehrstellig falsch.
+
+**Warum Runde 334 tauuschte:** Der Probe-Modus vergleicht die ersten Bytes der
+Erzeugung. Da die Antwort am ENDE des Denkwegs steht und der Denkweg bis zum
+letzten Rechenschritt korrekt ist, wirkt der Inhalt „zu 100 % richtig". Der
+Punkt, an dem der Fehler entsteht, liegt **innerhalb** der Ziffern, nicht am
+Marker. Die 27 Pp Differenz sind echte Rechenfehler im letzten Schritt.
+
+**Korrigierter Befund:** Es ist ein **Faehigkeitsproblem** (mehrstellige
+Addition), kein Formatproblem. Der guenstigste Hebel ist nicht
+„Marker korrigieren", sondern **gezieltes Training der Teilprodukt-Addition**
+(z. B. mehr Additions-Korpus oder adaptive Gewichtung auf Additionsfaelle).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 8/8 inspizierte Fehler sind Rechenfehler, Marker alle korrekt.
+- Fakt: Denkweg bis zum letzten Additionsschritt korrekt.
+- Hypothese: gezieltes Additions-Training hebt die 73 % - nicht getestet.
+- Unsicher: 8 von 27 Faellen inspiziert; Rest koennte anders sein (aber alle
+  acht zeigen dasselbe Muster, und die Zahlen-Differenzen sind\+/-10/100/700).
