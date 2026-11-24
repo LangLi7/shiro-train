@@ -11622,3 +11622,31 @@ frischen Satz gemessen werden, nicht auf `rechne-100k/val`.
 - Fakt: `rechne-100k/train` hat 100.000 Records aus nur 14.146 unique (6x).
 - Hypothese: Das Modell memoriert Zahlenbereiche statt Stellenwert-Regeln zu lernen.
 - Unsicher: wie viel 3-stelliges Training heben wuerde - nicht getestet.
+## Runde 344 — Die Zahlen mit Konfidenzintervallen (Wilson, 95 %)
+
+**Die beiden Zahlen sind statistisch signifikant verschieden - der
+Held-out war nicht nur "etwas leichter", sondern eine andere Aufgabe.**
+
+| Messung | Treffer | EM | 95 %-KI |
+|---|---|---|---|
+| Frischer Blindtest (disjunkt) | 3/120 | 2,5 % | **[0,9 %, 7,1 %]** |
+| Held-out `rechne-100k/val` | 73/100 | 73,0 % | **[63,6 %, 80,7 %]** |
+| `add/eval-3d` | 0/50 | 0,0 % | [0,0 %, 7,1 %] |
+| `add/eval-4d` | 0/30 | 0,0 % | [0,0 %, 11,4 %] |
+
+**Die Intervalle von 2,5 % und 73 % ueberlappen sich nicht.** Damit ist
+ausgeschlossen, dass die Differenz ein Stichprobenartefakt ist: die 73 %
+gelten fuer die kleine Zahlenverteilung des Trainings, die 2,5 % fuer
+frische Aufgaben. Beides sind praezise Messungen, sie messen nur
+verschiedene Dinge.
+
+**Konsequenz fuer die Berichterstattung:** Ab jetzt wird die ehrliche
+Fortschrittszahl am frischen Blindtest berichtet (2,5 %), nicht am
+Held-out derselben Verteilung (73 %). Der alte Wert bleibt als
+Vergleichswert dokumentiert, aber nicht als Erfolgszahl.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 2,5 % [0,9-7,1] vs 73 % [63,6-80,7], disjunkte Intervalle.
+- Fakt: `steps9000-step009000.state` auf HF nachgeholt (6,1 GB).
+- Hypothese: Die Luecke ist der Zahlenbereich, nicht die Regel.
+- Unsicher: ob 3-/4-stelliges Training sie schliesst - nicht getestet.
