@@ -1,61 +1,41 @@
-# **500M auf gemischtem Korpus (Runde 465).**
+# Runde 363: Cache plus Verfahren.
 #
-# Der Lauf, der das Ziel traegt: 500M Parameter auf ~10 GB Korpus aus sauberem
-# Wikipedia-Fliesstext und verifizierten Aufgaben aus 17 Familien.
+# Der Nutzer hat den Punkt gemacht: auswendig Gelerntes ist ein Cache, kein
+# Fehler. Ein Mensch ruft das kleine Einmaleins ab und rechnet nur die
+# grossen Faelle schriftlich. Das Modell soll dasselbe tun.
 #
-# ## Was gegenueber dem widerlegten 509M-Lauf anders ist
+# Korpus `mix-100k`: 29 % zweistellig (Cache), 24 % dreistellig (Uebergang),
+# 47 % vier- bis fuenfstellig (Verfahren). 56.661 unique, 44,5 % Ueberlappung
+# mit dem alten Training - der Cache-Anteil, gewollt.
 #
-# Der erste 509M-Lauf endete bei 0 von 60 Treffern (p = 0,0004). Die Ursache war
-# **nicht** die Groesse, sondern der Zuschnitt: 84 MB Korpus mit **einer Vorlage je
-# Familie**. Ein Modell, das die Vorlage kennt, beantwortet alle Datensaetze, ohne zu
-# rechnen - der Verlust faellt, die Faehigkeit bleibt null.
+# EIN Faktor: Korpus (Zahlenbereich und Mischung).
+# GLEICH: Prosa-Format, lr 3e-4 cosine, Seed 53013, Architektur 500M,
+# Resume vom 73%-Modell, 5000 Schritte.
 #
-# Drei Faktoren sind hier anders, und sie sind **vorher festgelegt**, nicht nachtraeglich
-# angepasst:
-#
-#   1. **Korpus 10,2 GB statt 84 MB** - 121x mehr, die Chinchilla-Groessenordnung
-#   2. **Aufgaben mit 20 Satzbaumustern** statt einer Vorlage (`vielfalt.rs`)
-#   3. **Aufgaben 20x verschraenkt** ueber den Text, nicht am Ende gesammelt
-#
-# ## Die vorregistrierte Abbruchregel
-#
-# **Messpunkt bei Schritt 2 000** (5,7 % des Laufs, ~2,2 GPU-Stunden, ~4,80 $):
-#   - Weg-EM **< 2 %**  -> **Abbruch**. Dann traegt der Zuschnitt nicht, und weitere
-#                          700 Stunden aendern nichts.
-#   - Weg-EM **2-10 %** -> weiter bis Schritt 10 000, dann erneut entscheiden.
-#   - Weg-EM **> 10 %** -> weiter bis 85 000 (eine Epoche).
-#
-# **Diese Regel steht vor dem Start fest.** Sie nachtraeglich zu lockern waere genau
-# der Fehler, den der Auftrag verbietet.
+# GEMESSEN WIRD auf `gross-100k/val` (4-5-stellig, 0 % Ueberlappung,
+# Baseline 0,0 % bei 30 Records) - dort zaehlt das Verfahren, nicht der Cache.
+# Schutz: alter Heldout (Baseline 73 %).
+# Budget: 5000 Schritte ~2,2 h ~4,8 $.
 
 [run]
-name = "gross-mix"
-seed = 20261121
-# 10,2 GB bei 6 x 1024 Byte je Schritt: 10 200 000 000 / 6144 = 1 660 156 Schritte
-# fuer eine Epoche. Bei 3 960 Byte/s sind das 716 GPU-Stunden.
-# **851 000 Schritte = 5,2 GB gesehene Daten** (851000 x 6 x 1024 = 5,23 GB).
-# Das ist die Haelfte der Chinchilla-Groessenordnung (10,2 GB fuer 500M) und kostet
-# bei 3 960 Byte/s rund 367 GPU-Stunden (~803 $). Eine volle Epoche ueber 13 GB
-# waeren 913 Stunden (~2 000 $) - mehr als 38 Tage, fuer einen ersten Lauf zu viel.
-#
-# Rechnung, die ich zuerst falsch hatte: 85 000 Schritte saehen nur 522 MB, also
-# 4 % des Korpus - derselbe Unterversorgungs-Fehler wie beim widerlegten 509M-Lauf
-# (23 % gesehen, 0 von 60 Treffern).
-steps = 851000
+name = "mix500"
+seed = 53013
+steps = 5000
 log_every = 100
 checkpoint_every = 5000
-output_dir = "/workspace/ckpt-gross"
-log_dir = "/workspace/logs"
+output_dir = "/workspace/500m-mix/ckpt"
+log_dir = "/workspace/500m-mix/logs"
 
 [data]
-dir = "/workspace/korpus500/mix"
+dir = "/root/mix-train"
 manifest = "manifest.json"
 batch_size = 6
 seq_len = 1024
 shuffle = false
+pack = true
 
 [model]
-name = "gross"
+name = "mix500"
 d_model = 1280
 n_layers = 32
 n_heads = 20
@@ -63,7 +43,7 @@ d_ff = 2432
 vocab_size = 256
 max_seq_len = 1024
 rope_theta = 10000.0
-rms_norm_eps = 1e-05
+rms_norm_eps = 1e-5
 tie_embeddings = false
 dropout = 0.0
 
@@ -71,7 +51,7 @@ dropout = 0.0
 lr = 0.0003
 weight_decay = 0.1
 grad_clip = 1.0
-warmup_steps = 1000
+warmup_steps = 100
 schedule = "cosine"
 
 [precision]
