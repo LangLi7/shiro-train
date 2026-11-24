@@ -11835,3 +11835,43 @@ Antwort, wenn der Weg stimmt?).
 - Fakt: Loss 0,0166 trotz m1 = 3,3 %.
 - Hypothese: Der Denkweg braucht eigene Uebung, nicht nur die Antwort.
 - Unsicher: ob mehr Schritte die Drift beheben - der Loss war schon minimal.
+## Runde 356 — Neuer Lauf: mehr Datenabdeckung (registriert VOR dem Ergebnis)
+
+**Der Befund, der die Hypothese bestimmt:** Der Aufgabenraum ist weitgehend
+erschoepft. Ein frisch erzeugter 100k-Korpus (Seed 777001) hat 18.185 unique
+Aufgaben aus 100.000 - und ueberlappt zu **68,8 %** mit `fokus-rechnen`
+bzw. 86,2 % mit `rechne-100k`. Mehr Daten bringen also nur begrenzt Neues.
+
+**Registrierte Hypothese (Loop-Schritt 3, vor dem Lauf):**
+Ein Korpus mit breiterer Verteilung (`vielfalt-100k`: 12 % `2+2` statt 0,4 %,
+18.185 unique) hebt die Antwort-EM auf dem **disjunkten** `blindtest-neu`
+von 2,5 % auf **> 20 %**, ohne den alten Heldout unter 70 % zu druecken.
+
+**Warum das ein sinnvoller Test ist, obwohl 69 % ueberlappen:** Der Pruefsatz
+`blindtest-neu` bleibt zu 100 % disjunkt zu **beiden** Korpora. Ein Gewinn
+dort kann also nicht aus direkter Wiederholung stammen.
+
+**Widerlegung:** <= 2,5 % auf `blindtest-neu`, oder Schutzmetrik < 70 %.
+
+**Lauf (Loop-Schritt 4, dokumentiert):**
+| Feld | Wert |
+|---|---|
+| Pod | `nhjr3fs363gsln`, A100 SXM 80GB, 2,19 $/h |
+| Resume | `steps10500-step010500.state` (73 %) |
+| Korpus | `vielfalt-100k` (Prosa-Format, 19,5 MB, 18.185 unique) - **EIN Faktor** |
+| Format | **unveraendert** (Prosa - die Lehre aus R355) |
+| Config | `train500-vielfalt.toml`, 5000 Schritte, lr 3e-4 cosine, Seed 53013 |
+| Ziel | 15500 |
+| Budget | ~2,2 h, ~4,8 $ |
+| Geprueft | Resume-State vorhanden (6,1 GB), READY, TRAIN_START |
+
+**Auswertung nach dem Lauf (alles m1, nie m2):**
+1. `blindtest-neu` (disjunkt) - Zielgroesse, Baseline 2,5 %
+2. alter Heldout - Schutz, Baseline 73 %
+3. `add/eval-3d`/`eval-4d` - unveraendert bei 0 % erwartet
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 18.185 unique aus 100.000; 68,8 % Ueberlappung mit dem alten Training.
+- Fakt: Lauf gestartet, Resume-State geprueft, Format unveraendert.
+- Hypothese: Breitere Verteilung hebt die disjunkte EM - wird gerade getestet.
+- Unsicher: ob 5000 Schritte reichen; ob die 69 % Ueberlappung den Test trueben.

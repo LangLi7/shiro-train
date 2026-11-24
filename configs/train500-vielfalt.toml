@@ -1,0 +1,52 @@
+# Runde 356: Hypothese "mehr Datenabdeckung".
+# EIN Faktor: Korpus (fokus-rechnen -> vielfalt-100k, gleiche Prosa-Form,
+# breitere Verteilung, 18.185 unique statt 14.146).
+# GLEICH: Format (Prosa), lr 3e-4 cosine, Seed 53013, Architektur 500M,
+# Resume vom 73%-Modell.
+#
+# Erwartung: EM auf `blindtest-neu` (disjunkt) steigt von 2,5 % auf > 20 %.
+# Widerlegung: <= 2,5 % oder Schutzmetrik (alter Heldout) faellt unter 70 %.
+# ACHTUNG: Der Korpus ueberlappt zu 69 % mit fokus-rechnen. Ein Gewinn kann
+# deshalb auch nur mehr Memorization sein - der disjunkte Test entscheidet.
+# Budget: 5000 Schritte ~2,2 h ~4,8 $.
+
+[run]
+name = "vielfalt500"
+seed = 53013
+steps = 5000
+log_every = 100
+checkpoint_every = 5000
+output_dir = "/workspace/500m-vielfalt/ckpt"
+log_dir = "/workspace/500m-vielfalt/logs"
+
+[data]
+dir = "/root/vielfalt-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
