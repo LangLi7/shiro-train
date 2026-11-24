@@ -11577,3 +11577,48 @@ bei ~1,60 $ pro Lauf und sporadischer Nutzung waere das Geldverbrennung.
 - Fakt: 9 Pods geloescht, nur der Trainings-Pod laeuft.
 - Hypothese: carryadd-Training hebt die Additions-EM - wird gerade getestet.
 - Unsicher: ob 1500 Schritte bei 8.100 Records generalisieren oder memorieren.
+## Runde 343b — Der frische Blindtest: 2,5 Prozent. Die 73 Prozent sind ueberschaetzt.
+
+**Der Test:** 120 Aufgaben, Generator `carry_arithmetic`, Seed 90210 (nie im
+Training verwendet), Format identisch zu `rechne-100k/val`. Disjunktheit
+geprueft: **0 von 120 Aufgaben** kommen in `fokus-rechnen/train` oder
+`rechne-100k/train` vor. Gesichert auf HF (`blindtest-neu-val-*`).
+
+**Ergebnis (73%-Modell, RTX 3060, Modus m1, 120 Records):**
+| Metrik | Wert |
+|---|---|
+| Antwort-EM | **2,5 %** (3/120) |
+| Weg exakt | 0,0 % |
+| Weg inhaltlich | 10,0 % |
+
+**Was das bedeutet - und es ist unangenehm:**
+
+| Messung | Wert | Verteilung |
+|---|---|---|
+| `rechne-100k/val` (bisher "73 %") | 73 % | gleiche wie Training: kleine Zahlen |
+| Frischer Satz, disjunkt | **2,5 %** | groessere Zahlen (3-stellig +, 3x2-stellig *) |
+| `add/eval-3d` (3-stellig) | 0 % | 3-stellig |
+| `add/eval-4d` (4-stellig) | 0 % | 4-stellig |
+
+**Die 73 % generalisieren nicht.** Auf einem nie gesehenen Satz derselben
+Familie, aber mit groesseren Zahlen, bleibt fast nichts uebrig. Die frühere
+Zahl war ein Held-out aus **derselben Verteilung** wie das Training - die
+Nähe zum Training hat sie getragen, nicht die Rechenfaehigkeit.
+
+**Das ist der Befund, den der Auftrag verlangt:** "Train, Held-out und
+Blindtest getrennt" - hier zeigt sich, warum. Der Held-out hat ausgewaehlt,
+der Blindtest berichtet, und der Bericht ist 2,5 %.
+
+**Folge fuer die Hypothesenbewertung (R336):** Die Hypothese "Uebertrag-
+Training hebt die EM auf > 90 %" ist mit dem laufenden Lauf **nicht**
+sinnvoll pruefbar, weil der Lauf auf `train-2d` (2-stellig) trainiert und
+damit dieselbe Verteilungsnaehe reproduziert. Der Lauf wird trotzdem
+ausgewertet (er war vorregistriert), aber die Generalisierung muss auf dem
+frischen Satz gemessen werden, nicht auf `rechne-100k/val`.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 2,5 % auf 120 disjunkten, formatgleichen Aufgaben.
+- Fakt: 73 % auf dem veralteten Held-out derselben Verteilung.
+- Fakt: `rechne-100k/train` hat 100.000 Records aus nur 14.146 unique (6x).
+- Hypothese: Das Modell memoriert Zahlenbereiche statt Stellenwert-Regeln zu lernen.
+- Unsicher: wie viel 3-stelliges Training heben wuerde - nicht getestet.
