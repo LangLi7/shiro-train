@@ -11650,3 +11650,53 @@ Vergleichswert dokumentiert, aber nicht als Erfolgszahl.
 - Fakt: `steps9000-step009000.state` auf HF nachgeholt (6,1 GB).
 - Hypothese: Die Luecke ist der Zahlenbereich, nicht die Regel.
 - Unsicher: ob 3-/4-stelliges Training sie schliesst - nicht getestet.
+## Runde 346 — Der Blindtest ist nicht schwerer, er ist anders verteilt
+
+**Die Verteilungsanalyse erklaert die 2,5 % - und sie korrigiert meine
+Deutung aus Runde 343b.**
+
+| Aufgabentyp | Frischer Blindtest (120) | Alter Heldout (2000) | Training (100k) |
+|---|---|---|---|
+| `+` 2+2-stellig | **31 (26 %)** | 5 (0,3 %) | 385 (0,4 %) |
+| `*` 2x2-stellig | **28 (23 %)** | 21 (1,0 %) | 3.123 (3,1 %) |
+| `-` 2-2-stellig | **21 (18 %)** | 0 (0 %) | 1.059 (1,1 %) |
+| `*` 3x2-stellig | 11 (9 %) | 914 (46 %) | 28.072 (28 %) |
+| `-` 3-3-stellig | 8 | 77 | 25.538 |
+| `-` 3-2-stellig | 7 | 711 | 20.780 |
+| `+` 2+3-stellig | 6 | 30 | 2.065 |
+| `+` 3+3-stellig | 5 | 199 | 16.977 |
+| `+` 3+2-stellig | 3 | 43 | 2.001 |
+
+**Der frische Satz besteht zu 67 % aus kleinen Aufgaben (2-stellig), die im
+Training nur 4,6 % ausmachen.** Der alte Heldout dagegen spiegelt die
+Trainingsverteilung fast genau (46 % `3x2`-Multiplikation vs 28 % im Training).
+
+**Praezisere Deutung als in R343b:** Es ist kein allgemeines
+"Generalisationsversagen", sondern ein **Verteilungs-Shift**. Das Modell
+folgt der Verteilung, mit der es trainiert wurde: haeufige Klassen
+(3x2-Multiplikation, 3-3-Subtraktion) sitzen, seltene Klassen (2+2-Addition,
+2-2-Subtraktion) nicht. Die 2,5 % messen, wie gut es **ausserhalb** der
+Trainingsverteilung arbeitet - und dort ist es schwach.
+
+**Damit ist auch die 73 % richtig eingeordnet:** Sie ist keine Ueberschaetzung
+im statistischen Sinn, sondern eine Messung **innerhalb** der
+Trainingsverteilung. Beide Zahlen sind korrekt; sie beantworten verschiedene
+Fragen.
+
+| Frage | Antwort | Satz |
+|---|---|---|
+| "Wie gut rechnet es auf der Trainingsverteilung?" | 73 % | alter Heldout |
+| "Wie gut rechnet es auf einer anderen Mischung?" | 2,5 % | frischer Satz |
+
+**Konsequenz fuer die naechste Hypothese (nicht mehr "mehr Schritte"):**
+Die Luecke ist die **Abdeckung der Aufgabentypen**, nicht die Stellenzahl
+(3-stellige Additionen sind mit 16.977 im Training reichlich vorhanden).
+Kandidat: ein Korpus mit **ausgewogener** Verteilung ueber alle Typen,
+EIN Faktor, gemessen auf einem Satz mit derselben ausgewogenen Verteilung.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Frischer Satz 67 % kleine Aufgaben, Training 4,6 %.
+- Fakt: Alter Heldout spiegelt die Trainingsverteilung.
+- Fakt: `rechne-100k/train` = 100.000 Records aus 14.146 unique (7x wiederholt).
+- Hypothese: Ausgewogene Verteilung schliesst die Luecke - nicht getestet.
+- Unsicher: ob 2,5 % auf 120 Records stabil ist (KI [0,9-7,1]).
