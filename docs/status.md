@@ -119,3 +119,55 @@ pro Schritt. Ein Burn-Upgrade waere eine eigene Runde.
 
 **Was noch offen ist:** Der Vielfalt-Lauf (Runde 356) ist fertig trainiert
 (Step 15000), aber noch nicht ausgewertet. Der Mix-Lauf ist vorbereitet.
+---
+
+## Loop-Bilanz, 25.11.2026 — die Regel greift
+
+Der Auftrag verlangt in Schritt 7: *"wiederholen oder nach zwei Runden ohne
+Zugewinn stoppen"*. Diese Bedingung ist jetzt erfuellt.
+
+| Runde | Faktor | Ziel (neue Aufgaben) | Schutz (alter Heldout) | Urteil |
+|---|---|---|---|---|
+| 355 | Carryadd-Korpus + Format | 0,0 % | **0 %** (von 73) | verworfen, Rueckschritt |
+| 374 | Vielfalt-Korpus | 0,0 % | 100 % | nicht uebernommen, Gleichstand |
+
+**Zwei Runden, kein Zugewinn bei der Zielgroesse.** Der beste Stand bleibt
+`steps10500` mit 73 % auf der Trainingsverteilung und 0 % auf jeder anderen
+Laenge.
+
+### Was gemessen ist (nicht geschaetzt)
+
+| Frage | Antwort | Beleg |
+|---|---|---|
+| Rechnet es auf neuen Aufgaben? | **nein**, 0 % | `gross-100k`, `lang-test`, `lang-test7` |
+| Rechnet es auf der Trainingsverteilung? | **ja**, 73 % | `rechne-100k/val`, 2x repliziert |
+| Ist es Auswendiglernen? | **ja**, Dosis-Wirkung | 57 % Ueberlappung -> 87,3 %, 0 % -> 2,5 % |
+| Kann es den Weg frei erzeugen? | **nein**, 3,3 % (m1) gegen 100 % (m2) | eigener Trainingssatz |
+| Haelt es Umformulierungen aus? | **ja**, 90-100 % | Paraphrase, 40 Beispiele |
+| Ist der Kontext die Ursache? | **nein**, 927 B passen in 1024 | Laengenmatrix |
+
+### Was das ehrlich bedeutet
+
+Die Luecke ist nicht klein: **0 % gegen 90 %**. Sie laesst sich mit den
+bisherigen Mitteln nicht schliessen - jede Runde kostet 4,6 $ und aendert
+nichts an der Zielgroesse.
+
+Der fehlende Faktor ist mit hoher Wahrscheinlichkeit die **Schrittzahl auf
+vielfaeltigen Daten** (5000 Schritte = 0,3 Epochen, Loss nur bis 0,049). Das
+ist aber eine **Hypothese, nicht gemessen** - sie zu pruefen kostet bei
+1,54 s/Schritt ein Vielfaches des bisherigen Budgets.
+
+### Drei Wege, die offen stehen
+
+1. **Infrastruktur zuerst** (der laufende Audit): eine Zeile bringt 16 GB
+   VRAM, jede Halbierung der Schrittzeit halbiert die Kosten eines Versuchs.
+   Danach ist "mehr Schritte" ueberhaupt erst bezahlbar.
+2. **Aufgabe verkleinern**: 90 % auf einem engeren Bereich (etwa nur
+   2-stellige Addition) waere erreichbar - aber das ist eine andere Aufgabe
+   als die im Auftrag.
+3. **Ehrlich abschliessen**: festhalten, dass ein 500M-Byte-Modell mit
+   diesem Datenansatz bei 0 % auf neuen Aufgaben steht, und die Bedingungen
+   dokumentieren, unter denen es weitergehen wuerde.
+
+**Empfehlung:** Weg 1. Er ist der einzige, der die Kosten senkt, ohne die
+Aufgabe zu veraendern.
