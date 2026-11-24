@@ -11940,3 +11940,47 @@ der Baseline ist damit **gemessene Generalisation**, nicht Wiedererkennung.
 - Hypothese: Der 500M lernt die Stellenwert-Regel, wenn er sie nicht
   memorieren kann - wird in der naechsten Runde gemessen.
 - Unsicher: ob 5000 Schritte reichen; ob der 500M fuer 5 Stellen gross genug ist.
+## Runde 362b — Multiplikation freigegeben (meine Sperre war falsch) + Methoden-Fahrplan
+
+**Korrektur an meiner eigenen Entscheidung.** Ich hatte die Multiplikation in
+`Hard` gesperrt mit der Begruendung "5x5 sprengt den Kontext". Das war falsch:
+`mul_trace` erzeugt je Ziffer des zweiten Faktors ein Teilprodukt, bei 5x5 sind
+das 5 Teilprodukte plus eine Additionszeile - rund 400 Byte, nicht 2 kByte.
+
+**Gemessen am Korpus (100.000 Aufgaben):**
+| Kennzahl | Wert |
+|---|---|
+| unique | **99.570 (99,6 %)** |
+| Operatoren | 33.377 `-`, 33.359 `*`, 33.264 `+` (gleich verteilt) |
+| max. Record-Laenge | **466 Bytes** (Kontext 1024) |
+| Median-Laenge | 359 Bytes |
+| Ueberlappung mit altem Training | 0 % (4-5-stellig, nie gesehen) |
+| Beispiele | `53150 * 5433`, `50250 + 54411`, `52123 - 45120` |
+
+**Zwei Tests kodierten die alte Annahme und mussten mit:**
+- `arithmetic_records_always_show_a_carry`: forderte zweiten Faktor
+  zweistellig - jetzt beide Faktoren mindestens zweistellig.
+- `answers_are_reproducible_from_the_trace`: Grenze war 10 Mio, 5x5 erreicht
+  ~10 Mrd - jetzt 100 Mrd.
+
+**Alle 28 Tests gruen.**
+
+**Neuer Fahrplan (`docs/methoden-fahrplan.md`):** Der Nutzer hat eine
+Methodenliste beigesteuert (Stellenwert, Teilprodukte, long division,
+Distributivgesetz, Karatsuba, Proben, Euklid, Square-and-Multiply, Binaer,
+Horner, Gauss). Daraus drei Regeln: eine Ziffer pro Token, Scratchpad
+(vollstaendiger Denkweg), **Probe als Pflichtschritt**.
+
+**Der wichtigste fehlende Test: Laengengeneralisation.** Trainiere bis 5
+Stellen, teste mit 8-10. Bricht das Modell dort ein, hat es Muster gelernt
+statt das Verfahren. Das ist der eigentliche Massstab und fehlt bisher.
+
+**Nebenbefund: Paraphrase-Transfer mit 40 Beispielen** (vorher nur 20):
+trainiert 100 %, Bitte 90 %, Rechne 100 %, Frage 100 %. Geschuetzte
+Faehigkeit ueber 90 % - aber auf der Trainingsverteilung.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 99.570 unique, 33.359 Multiplikationen, max 466 B, 28 Tests gruen.
+- Fakt: Paraphrase 90-100 % auf 40 Beispielen.
+- Hypothese: Der 500M lernt das Stellenwert-Verfahren aus 4-5-stelligen Aufgaben.
+- Unsicher: ob es auf 8-10 Stellen generalisiert - der entscheidende Test.

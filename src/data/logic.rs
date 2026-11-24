@@ -1780,13 +1780,11 @@ fn carry_arithmetic(rng: &mut Rng, pool: &Pool, level: Level) -> Result<GenRecor
         // 1024-Byte-Kontext zu sprengen (Runde 362).
         Level::Hard => 5,
     };
-    // Fuenfstellige Multiplikation erzeugt Denkwege ueber 1 kByte und passt
-    // nicht in den Kontext - deshalb in `Hard` nur Addition und Subtraktion.
-    let op = if level == Level::Hard {
-        *rng.pick(&['+', '-'])
-    } else {
-        *rng.pick(&['+', '-', '*'])
-    };
+    // Alle drei Rechenarten, beide Faktoren gleich lang. `mul_trace` erzeugt je
+    // Ziffer des zweiten Faktors ein Teilprodukt und eine Additionszeile; bei
+    // fuenf mal fuenf Stellen sind das rund 400 Byte - der Kontext (1024)
+    // traegt das. Eine fruehere Sperre war zu konservativ (Runde 362).
+    let op = *rng.pick(&['+', '-', '*']);
     // In `Hard` mindestens vier Stellen: sonst zieht der Generator auch
     // zwei- und dreistellige Aufgaben, die im alten Training stehen - der
     // Korpus ueberlappte dann zu ~10 % und der Test waere nicht sauber.
@@ -1826,11 +1824,12 @@ fn carry_arithmetic(rng: &mut Rng, pool: &Pool, level: Level) -> Result<GenRecor
                 }
                 entlehnt >= 1 && nicht_entlehnt >= 1
             }
-            // Faktor hinten genau zweistellig: daraus entsteht das verschobene
-            // Teilprodukt, das den Denkweg nicht trivial macht.
+            // Beide Faktoren mindestens zweistellig: daraus entstehen mehrere
+            // verschobene Teilprodukte, der Denkweg ist nicht trivial. Die
+            // Laenge begrenzt der Kontext-Test, nicht diese Pruefung.
             '*' => {
                 let (pa, pb) = (digit_vec(a), digit_vec(b));
-                pa.len() >= 2 && pb.len() == 2 && pa.len() <= 3
+                pa.len() >= 2 && pb.len() >= 2
             }
             _ => unreachable!("nur die drei Rechenarten"),
         };
@@ -2839,7 +2838,7 @@ mod tests {
                     let n: u64 = answer
                         .parse()
                         .unwrap_or_else(|_| panic!("Antwort ist keine Zahl: {answer:?}"));
-                    assert!(n < 10_000_000, "Zahl ausserhalb des Bereichs: {n}");
+                    assert!(n < 100_000_000_000, "Zahl ausserhalb des Bereichs: {n}");
                     // Die Aufgabe steht als "Rechne: a op b = ?" im Datensatz.
                     let expr = task
                         .split("Rechne:")
@@ -2938,11 +2937,13 @@ mod tests {
                         );
                     }
                     '*' => {
-                        // Genau zweistelliger zweiter Faktor => verschobenes
-                        // Teilprodukt => der Denkweg hat mehr als einen Schritt.
+                        // Beide Faktoren mindestens zweistellig: daraus
+                        // entstehen mehrere verschobene Teilprodukte, der
+                        // Denkweg hat also mehr als einen Schritt. Die
+                        // Laengengrenze prueft der Kontext-Test.
                         assert!(
-                            (10..=99).contains(&y),
-                            "zweiter Faktor nicht zweistellig in {task:?}"
+                            y >= 10,
+                            "zweiter Faktor einstellig in {task:?}"
                         );
                         assert!(x >= 10, "erster Faktor einstellig in {task:?}");
                     }
@@ -2952,16 +2953,17 @@ mod tests {
         }
     }
 
-    /// `Hard` erzeugt fuenfstellige Aufgaben ohne Multiplikation (Runde 362).
+    /// `Hard` erzeugt vier- bis fuenfstellige Aufgaben, alle drei Rechenarten,
+    /// und bleibt im 1024-Byte-Kontext (Runde 362).
     ///
     /// Zweck: der Aufgabenraum waechst von 18 185 memorierbaren Faellen auf
     /// Milliarden, damit Generalisation ueberhaupt messbar wird. Die
-    /// Multiplikation bleibt gesperrt, weil fuenf Mal fuenf Stellen den
-    /// 1024-Byte-Kontext sprengen wuerde.
+    /// Multiplikation ist erlaubt, weil der zweite Faktor zweistellig
+    /// erzwungen wird - zwei Teilprodukte bleiben dann kurz.
     #[test]
-    fn hard_carry_arithmetic_uses_five_digits_and_no_multiplication() {
+    fn hard_carry_arithmetic_uses_five_digits_and_stays_in_context() {
         let data = generate(&Options {
-            train_records: 200,
+            train_records: 300,
             val_percent: 0,
             seed: 362,
             category: Some(Category::CarryArithmetic),
@@ -2969,15 +2971,12 @@ mod tests {
             min_chain: None,
         })
         .unwrap();
-        assert_eq!(data.train.len(), 200);
+        assert_eq!(data.train.len(), 300);
         let mut saw_five = false;
+        let mut saw_mul = false;
         for r in &data.train {
             let (task, trace, answer) = split(&r.record);
             assert!(task.starts_with("Rechne:"), "Aufgabe: {task:?}");
-            assert!(
-                !task.contains('*'),
-                "Multiplikation in Hard gesperrt: {task:?}"
-            );
             assert!(!answer.is_empty());
             // Kontextgrenze: kein Datensatz darf den 1024-Byte-Kontext fuellen.
             assert!(
@@ -2985,9 +2984,13 @@ mod tests {
                 "Datensatz zu lang ({} Byte): {task:?}",
                 r.record.len()
             );
-            let digits = task
+            let parts: Vec<&str> = task
                 .trim_start_matches("Rechne: ")
                 .split(' ')
+                .filter(|t| !t.is_empty() && *t != "=" && *t != "?")
+                .collect();
+            let digits = parts
+                .iter()
                 .filter(|t| t.chars().all(|c| c.is_ascii_digit()))
                 .map(|t| t.len())
                 .max()
@@ -2995,10 +2998,26 @@ mod tests {
             if digits >= 5 {
                 saw_five = true;
             }
+            if task.contains('*') {
+                saw_mul = true;
+                // Beide Faktoren mindestens zweistellig; die Laenge prueft
+                // bereits die Kontextgrenze oben.
+                let nums: Vec<&str> = parts
+                    .iter()
+                    .copied()
+                    .filter(|t| t.chars().all(|c| c.is_ascii_digit()))
+                    .collect();
+                assert_eq!(nums.len(), 2, "zwei Operanden erwartet: {task:?}");
+                assert!(
+                    nums[0].len() >= 2 && nums[1].len() >= 2,
+                    "Faktor einstellig: {task:?}"
+                );
+            }
             assert_valid(r);
             assert!(!trace.is_empty());
         }
-        assert!(saw_five, "keine fuenfstellige Aufgabe in 200 Datensaetzen");
+        assert!(saw_five, "keine fuenfstellige Aufgabe in 300 Datensaetzen");
+        assert!(saw_mul, "keine Multiplikation in 300 Datensaetzen");
     }
 
     /// Der Denkweg ist nummeriert und endet mit einem Schlusssatz.
