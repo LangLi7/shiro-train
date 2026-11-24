@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "vocab_size": 256,
+  "byte_order": "little",
+  "record_encoding": "raw-bytes-with-special-tokens",
+  "seed": 99991,
+  "note": "Blindtest, ohne Schnittmenge mit Training und Held-out",
+  "shards": [
+    {
+      "id": 0,
+      "path": "shard-0000.bin",
+      "records": 188,
+      "payload_bytes": 58178,
+      "file_size": 58586,
+      "checksum": "ef73c20c3ae6668a8763aa93757332e20bd5b81c09abdfd6288884bf6f5a4167"
+    }
+  ]
+}
