@@ -11754,3 +11754,41 @@ ueberschrieben - das waere ein zweiter, unerwuenschter Effekt.
 - Fakt: `fokus-rechnen` und `add/train-2d` haben verschiedene Formate.
 - Hypothese: Das neue Format wird gelernt, das alte teilweise verloren.
 - Unsicher: wie stark der Formatverlust die 73 % drueckt - laeuft gerade.
+## Runde 355 — Checkpoint-Entscheidung: VERWORFEN. Katastrophales Vergessen.
+
+**Die vollstaendige Messreihe (Loop-Schritt 5 und 6):**
+
+| Satz | vorher (steps10500) | nachher (carryadd 12000) | Bewertung |
+|---|---|---|---|
+| `add/eval-4d` (4-stellig) | 0 % | **0 %** | kein Zugewinn |
+| `add/eval-3d` (3-stellig) | 0 % | **0 %** | kein Zugewinn |
+| alter Heldout `rechne-100k/val` | **73 %** | **0 %** | **Schutzmetrik zerstoert** |
+| frischer Blindtest | 2,5 % | **0 %** | kein Zugewinn |
+
+**Entscheidung nach Loop-Schritt 6: NICHT UEBERNEHMEN.**
+
+Die Regel verlangt: uebernehmen nur wenn Zielwerte erreicht **und** geschuetzte
+Faehigkeiten innerhalb der Toleranz. Beides ist verletzt:
+- Die Zielgroessen bleiben bei 0 % (Baseline war ebenfalls 0 %).
+- Die geschuetzte Faehigkeit faellt von 73 % auf 0 %.
+
+**Ursache (aus R354 bekannt):** Der Lauf hat das Ausgabeformat gewechselt.
+`fokus-rechnen` schreibt `Rechne: 22 - 14 = ?` mit Prosa, `add/train-2d`
+schreibt `10+10` mit `E 0+0=0 -> 0 u0`. Nach 1500 Schritten auf dem neuen
+Format kann das Modell das alte nicht mehr - **katastrophales Vergessen**.
+
+**Was der Lauf trotzdem gelehrt hat (wertvoller als die Metrik):**
+1. Ein Formatwechsel ueberschreibt eine Faehigkeit in 1500 Schritten
+   vollstaendig. Format ist kein Detail, es ist die halbe Faehigkeit.
+2. 8.100 Records reichen nicht, um ein neues Format zu lernen **und** das
+   alte zu behalten. Beim naechsten Mal: alter Korpus + neuer Korpus gemischt.
+
+**Bester Stand bleibt `steps10500`** (73 % auf dem alten Heldout, 2,5 % auf
+dem frischen Blindtest). `carryadd500-step12000` bleibt auf HF als
+dokumentierter Fehlschlag, wird aber nicht als Stand gefuehrt.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 0/0/0/0 nach dem Lauf; alter Heldout von 73 % auf 0 %.
+- Fakt: Die Ursache ist der Formatwechsel, nicht die Rechenaufgabe.
+- Hypothese: Alter + neuer Korpus gemischt verhindert das Vergessen.
+- Unsicher: wie viel Mischungsverhaeltnis noetig ist - nicht getestet.
