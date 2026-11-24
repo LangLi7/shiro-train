@@ -55,3 +55,35 @@ Dieser Test fehlt bisher vollständig und wird ab der nächsten Runde mitgemesse
 0 % Überlappung. Das ist der Ausgangspunkt. Die Proben (6) fehlen noch — sie
 sind der nächste sinnvolle Ausbauschritt, weil sie dem Modell Selbstprüfung
 beibringen.
+
+## Nachtrag: Memorieren ist ein Cache, kein Fehler
+
+Der Nutzer hat einen Punkt gemacht, der das Korpus-Design aendert:
+
+> "es sollte auch lernen was auswendig gelernt zu haben auch zu nutzen,
+> evt spart das geschwindigkeit beim rechnen"
+
+**Richtig.** Auswendig gelerntes ist kein Gegner des Verfahrens, sondern sein
+Cache: Ein Mensch rechnet das kleine Einmaleins nicht jedes Mal her, er ruft
+es ab - und wendet das schriftliche Verfahren nur auf die Faelle an, die er
+nicht im Kopf hat. Ein Modell sollte dasselbe tun.
+
+**Was daraus folgt:**
+
+| Stufe | Anteil im Korpus | Rolle |
+|---|---|---|
+| 2-stellig | ~29 % | **Cache** - haeufig, memorierbar, schnell |
+| 3-stellig | ~24 % | Uebergang |
+| 4-5-stellig | ~47 % | **Verfahren** - Milliarden Faelle, nicht memorierbar |
+
+Der Korpus `mix-100k` (Runde 363) hat diese Mischung: 56.661 unique von
+100.000, 44,5 % Ueberlappung mit dem alten Training - das ist der
+Cache-Anteil und er ist **gewollt**, nicht ein Fehler.
+
+**Der entscheidende Punkt fuer die Messung:** Trainiert wird auf dem Mix,
+gemessen auf dem **disjunkten** 4-5-stelligen Satz (`gross-100k/val`, 0 %
+Ueberlappung, Baseline 0 %). So misst die Zahl das Verfahren und nicht den
+Cache.
+
+Falsch waere das Gegenteil: nur grosse Aufgaben trainieren und dann
+feststellen, dass kleine verloren gehen (katastrophales Vergessen, Runde 355).
