@@ -11875,3 +11875,28 @@ dort kann also nicht aus direkter Wiederholung stammen.
 - Fakt: Lauf gestartet, Resume-State geprueft, Format unveraendert.
 - Hypothese: Breitere Verteilung hebt die disjunkte EM - wird gerade getestet.
 - Unsicher: ob 5000 Schritte reichen; ob die 69 % Ueberlappung den Test trueben.
+## Runde 361 — Der Generator kann keine groesseren Zahlen (Grenze der Strategie)
+
+**Geprueft:** `data generate-logic --category arithmetic --level hard` antwortet
+`FEHLER: Kategorie arithmetic ist in Stufe hard nicht vorgesehen`. Im Code
+ist es bewusst gesperrt (`logic.rs`: `CarryArithmetic => level != Level::Hard`),
+weil drei Stellen mal drei Stellen den Zahlenraum sprengt.
+
+**Damit ist die Strategie an einer harten Grenze:**
+- `arithmetic` erzeugt nur `easy`/`medium`, also 2- bis 3-stellig.
+- Der Aufgabenraum dort ist endlich (18.185 unique aus 100.000).
+- Mehr Daten derselben Familie bringen nichts (68,8 % Ueberlappung).
+- Groessere Zahlen (4-6-stellig) gaebe es nur mit einer Code-Aenderung.
+
+**Warum das zaehlt:** Die Luecke zwischen 2,5 % (neue Aufgaben) und 73 %
+(Trainingsverteilung) ist genau die Luecke zwischen "memoriert" und
+"generalisiert". Sie laesst sich nicht mit mehr Daten desselben Raums
+schliessen - dafuer braucht es Aufgaben, deren Raum nicht in 18.185 Faelle
+passt. Kandidaten: groessere Stellenzahlen (Code-Aenderung noetig), andere
+Aufgabentypen, oder Aufgaben mit variabler Struktur (Textaufgaben).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: `arithmetic` ist in `hard` gesperrt; nur easy/medium verfuegbar.
+- Fakt: Der Raum hat 18.185 unique; 68,8 % Ueberlappung mit dem alten Training.
+- Hypothese: Generalisation braucht einen Raum, der nicht auswendig lernbar ist.
+- Unsicher: ob der 500M die Regel bei groesseren Zahlen ueberhaupt lernt.
