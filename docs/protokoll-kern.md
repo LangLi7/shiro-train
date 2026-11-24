@@ -11984,3 +11984,34 @@ Faehigkeit ueber 90 % - aber auf der Trainingsverteilung.
 - Fakt: Paraphrase 90-100 % auf 40 Beispielen.
 - Hypothese: Der 500M lernt das Stellenwert-Verfahren aus 4-5-stelligen Aufgaben.
 - Unsicher: ob es auf 8-10 Stellen generalisiert - der entscheidende Test.
+## Runde 374 — Vielfalt-Lauf ausgewertet: kein Zugewinn, Loop-Regel greift
+
+**Der Lauf:** `vielfalt500`, 5000 Schritte ab dem 73-%-Checkpoint, Korpus
+`vielfalt-100k` (18.185 unique, 69 % Ueberlappung mit dem alten Training).
+
+| Satz | Baseline | **Vielfalt-Checkpoint** | Bewertung |
+|---|---|---|---|
+| alter Heldout (Schutz) | 73,0 % | **100 %** (20/20) | Schutz gehalten, sogar besser |
+| `gross-100k` 4-5-stellig (Ziel) | 0,0 % | **0,0 %** (0/25) | **kein Zugewinn** |
+| `lang-test7` 7-stellig | 0,0 % | **0,0 %** (0/15) | kein Zugewinn |
+
+**Entscheidung: nicht uebernehmen.** Die Zielwerte sind nicht erreicht (0 statt
+90 %), also greift Loop-Schritt 6. Der Checkpoint ist auch nicht schlechter als
+der alte - er ist gleichwertig mit besserem Schutz - aber Gleichstand ist kein
+Fortschritt.
+
+**Loop-Bilanz:** Damit sind es **zwei Runden ohne Zugewinn** (Carryadd R355,
+Vielfalt R374). Die Regel in Schritt 7 verlangt an dieser Stelle den Stopp.
+Der naechste Schritt ist deshalb **kein weiterer Trainingslauf**, sondern die
+Infrastruktur: Solange 1,54 s/Schritt und 74 GB VRAM fuer ein 2-GB-Modell
+anfallen, kostet jede Runde 4,6 $ statt 1,5 $ - und mehr Schritte, die der
+eigentliche fehlende Faktor sind, sind damit unbezahlbar.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Schutz 100 %, Ziel 0,0 %, Laenge 0,0 % - gemessen, nicht geschaetzt.
+- Fakt: 5000 Schritte auf 100k vielfaeltigen Aufgaben sind zu wenig; der Loss
+  fiel nur von ~0,07 auf 0,049 und blieb damit weit ueber dem der engen
+  Korpora (0,017).
+- Hypothese: Der fehlende Faktor ist **Schrittzahl auf dem vielfaeltigen
+  Korpus**, nicht die Vielfalt selbst. Ungeprueft, weil zu teuer.
+- Unsicher: ob 20.000 Schritte reichen oder ob die Aufgabe dafuer zu schwer ist.
