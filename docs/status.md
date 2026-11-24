@@ -84,3 +84,38 @@ Variante: breitere Verteilung im gleichen Raum.
 - Volume (69 GB, 6,57 $/Monat) soll bis 20.12. weg; Plan in `docs/storage-plan.md`
 - R2-Bucket braucht einen API-Token vom Nutzer
 - Der Original-Blindtest (188 Datensätze) ist jetzt in GitHub gesichert
+
+---
+
+## Nachtrag 24.11.2026 (nach Runde 370)
+
+**Die Laengenmatrix ist vollstaendig gemessen** (73-%-Modell, Modus m1):
+
+| Satz | Stellen | EM | Weg |
+|---|---|---|---|
+| Trainingsverteilung | 2-3 | **73 %** | 72 % |
+| `gross-100k/val` | 4-5 | **0,0 %** | 0,0 % |
+| `lang-test7` | 7 | **0,0 %** | 0,0 % |
+| `lang-test` | 8-10 | **0,0 %** | 0,0 % |
+
+**Das Modell kann genau eine Laenge.** Jede andere ist null, nicht schwaecher.
+Damit ist die These "rechnet und laesst bei laengeren Zahlen nach" widerlegt.
+
+**Paraphrase-Transfer mit 40 Beispielen** (vorher nur 20):
+trainiert 100 %, Bitte 90 %, Rechne 100 %, Frage 100 %.
+
+**Was seit dem letzten Bericht gebaut wurde:**
+- 4-5-stellige Aufgaben im Generator (`--max-digits`), inklusive Multiplikation
+  bis 7 Stellen; darueber hinaus nur `+`/`-`, weil 10x10 den Kontext sprengt
+  (gemessen: 1074 Bytes bei 1024).
+- Ein gemischter Korpus `mix-100k` nach dem Cache-Prinzip (2-stellig als Cache,
+  4-5-stellig als Verfahren).
+- Ein Auswertungsskript, das alle vier Saetze in einem Lauf misst.
+
+**Die Optimierungsfrage ist geklaert und blockiert:** Burn 0.22 bietet kein
+FlashAttention, das Fusions-Feature ist nicht nutzbar (fehlende Abhaengigkeit),
+BF16-Casts fehlen. Der gemessene Grund fuer 1,54 s/Schritt sind ~320 Kernel
+pro Schritt. Ein Burn-Upgrade waere eine eigene Runde.
+
+**Was noch offen ist:** Der Vielfalt-Lauf (Runde 356) ist fertig trainiert
+(Step 15000), aber noch nicht ausgewertet. Der Mix-Lauf ist vorbereitet.
