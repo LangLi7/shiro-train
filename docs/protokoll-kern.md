@@ -11531,3 +11531,49 @@ sinken darf.
 - Fakt: 73/72/73 % mit zwei Seeds identisch.
 - Fakt: Guthaben -0,14 $, kein Training.
 - Unsicher: ob der Test die 0 % auf carryadd hebt, ohne die 73 % zu senken.
+## Runde 343 — Guthaben da, Uebertrag-Test gestartet (R342-Hypothese laeuft)
+
+**Guthaben: 19,86 USD** (vorher -0,14). Der seit Runde 332 blockierte Test laeuft.
+
+**Lauf (dokumentiert nach Loop-Schritt 4):**
+| Feld | Wert |
+|---|---|
+| Pod | `co3u4efftm3cm5`, A100 SXM 80GB, US-MD-1, 2,19 $/h |
+| Resume | `steps10500-step010500.state` (73 %) |
+| Korpus | `carryadd-train` (8.100 Additionsfaelle, U0/U1) - **EIN geaenderter Faktor** |
+| Config | `train500-carryadd.toml`, 1500 Schritte, lr 3e-4 cosine, Seed 53013 |
+| Ziel | 12000 (= 10500 + 1500) |
+| Loss | 0.0229 bei Schritt 10900 (Perplexity 1.023) |
+
+**Vorregistrierte Erwartung (R336):** Antwort-EM auf carryadd eval-3d/4d
+> 0 % (Baseline), Ziel > 73 %. Widerlegung: weiter 0 % oder nur eval-3d.
+**Schutz:** alter Heldout `rechne-100k/val` muss bei ~73 % bleiben.
+
+**Warnsignal, ehrlich notiert:** Loss 0.023 auf 8.100 Records nach ~10
+Epochen ist sehr niedrig - das kann Auswendiglernen sein. Der Held-out-
+Test auf `eval-4d` (nie im Training, groessere Stellen) entscheidet.
+
+**Nebenbefund: Blindtest war nicht gesichert.** Er lag ausschliesslich auf
+dem Volume (`/workspace/blindtest`, `/workspace/blindtest-sauber`, 125 KB).
+Runde 343 hat ihn geholt, per MD5 gegen den Pod verifiziert (9/9) und in
+GitHub versioniert (`97f28a3`). Die Sicherheitsluecke ist geschlossen.
+
+**Pods aufgeraeumt:** 9 ueberfluessige Pods terminiert (Upload-Pods,
+gestoppte Trainings-Pods, Audit, Compile). Sie blockierten Host-GPUs und
+Container-Disk. Nur der laufende Trainings-Pod bleibt.
+
+**Storage-Entscheidung (Plan bis 20.12.):** Das Volume (69 GB, 6,57 $/Monat)
+wird nicht mehr gebraucht - die Container-Disk (50 GB) ist im Pod-Preis
+enthalten. Neuer Ablauf: State von Cloudflare R2 in den Container, trainieren,
+Checkpoint nach R2/HF, Pod stoppen. R2: 10 GB gratis, danach 0,015 $/GB/Monat,
+**Egress kostenlos** (entscheidend, weil pro Lauf ~6 GB geladen werden).
+69 GB kosten dort 0,89 $/Monat statt 6,57 $; nach Entruempelung ~0,08 $.
+**Keine GPU-Reservierung:** Das Formular ist fuer 8x A100 ueber 12 Monate;
+bei ~1,60 $ pro Lauf und sporadischer Nutzung waere das Geldverbrennung.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Guthaben 19,86 $, Training laeuft, Loss 0.023 bei Schritt 10900.
+- Fakt: Blindtest jetzt in GitHub, 9/9 MD5 verifiziert.
+- Fakt: 9 Pods geloescht, nur der Trainings-Pod laeuft.
+- Hypothese: carryadd-Training hebt die Additions-EM - wird gerade getestet.
+- Unsicher: ob 1500 Schritte bei 8.100 Records generalisieren oder memorieren.
