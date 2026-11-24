@@ -175,3 +175,40 @@ Das ist ein eigener Lauf und kommt nach dem Mix-Lauf.
 | 8-10-stellig, `+`/`-` | 927 B | **0,0 %** |
 | 4-5-stellig, alle Operatoren | 466 B | **0,0 %** |
 | 2-3-stellig, Trainingsverteilung | ~300 B | 73 % (alter Heldout) |
+## Die Laengenmatrix ist vollstaendig — und sie ist eindeutig (Runde 367)
+
+Gemessen mit dem 73-%-Modell (`steps10500`), Modus m1, jeweils 20-30 Aufgaben:
+
+| Test | Stellenzahl | Record-Laenge | EM | Weg |
+|---|---|---|---|---|
+| Trainingsverteilung | 2-3 | ~300 B | **73 %** | 72 % |
+| `gross-100k/val` | 4-5 | 466 B | **0,0 %** | 0,0 % |
+| `lang-test7` | 7 | 684 B | **0,0 %** | 0,0 % |
+| `lang-test` | 8-10 | 927 B | **0,0 %** | 0,0 % |
+
+**Das Modell kann genau eine Laenge: die, auf der es trainiert wurde.**
+Jede andere ist null - nicht schlechter, sondern null.
+
+**Was das ausschliesst und was nicht:**
+- Ausgeschlossen: "Das Modell kann rechnen und verliert bei laengeren Zahlen
+  an Genauigkeit." Es verliert nicht an Genauigkeit, es kann die Laenge nicht.
+- Nicht ausgeschlossen: dass es mit Training auf laengeren Zahlen lernt.
+  Genau das testet der Mix-Lauf.
+- Nicht bewiesen: dass der Kontext (927 B < 1024 B) die Ursache ist. Die
+  Aufgaben passen in den Kontext - die Laenge ist es also **nicht** allein.
+
+**Nebenbefund zur Head-Zahl:** Eine fremde Analyse behauptete 16 Heads; die
+Config hat `n_heads = 20` (head_dim 64). Die 6138 statt 6144 Bytes pro Schritt
+kommen von `pack = true`, das am Shard-Ende Reste laesst.
+
+**Bestaetigt: die Attention materialisiert die Scores-Matrix**
+(`lm.rs:280`: `q.matmul(k.swap_dims(2, 3)) * scale + mask.clone()`). Bei
+20 Heads, Batch 6 und 1024 Stellen sind das ~480 MiB pro Layer, mit Scores
+und Probs ueber 32 Layer ~30 GiB. Das erklaert die 74 GB VRAM bei einem
+2-GB-Modell.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Alle Laengen ausserhalb der Trainingsverteilung sind 0,0 %.
+- Fakt: n_heads = 20, Attention ohne FlashAttention, FP32.
+- Hypothese: Der Mix-Lauf (2-5-stellig gemischt) aendert das.
+- Unsicher: ob 5000 Schritte reichen, um mehrere Laengen zugleich zu lernen.
