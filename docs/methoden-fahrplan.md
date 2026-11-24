@@ -87,3 +87,27 @@ Cache.
 
 Falsch waere das Gegenteil: nur grosse Aufgaben trainieren und dann
 feststellen, dass kleine verloren gehen (katastrophales Vergessen, Runde 355).
+## Offener Punkt: der Laengentest braucht einen Generator-Zugang (Runde 364)
+
+**Versuch 1, gescheitert:** `data import-text --in <jsonl>` nimmt die Datei als
+**Text** auf. Im Ergebnis-Shard standen 0 Sonderbytes (0xFE/0xFD/0xFC/0xFF) -
+statt der Record-Struktur lag der JSON-Rohtext im Shard. Der Befehl ist fuer
+Textkorpora gedacht, nicht fuer Aufgaben-Records.
+
+**Versuch 2, verworfen:** `data combine` braucht zwei Quellkorpora mit
+`--src`, hilft hier nicht. `data mix` mischt Text und Aufgaben, nicht zwei
+Aufgabenkorpora.
+
+**Der saubere Weg (noch nicht gebaut):** ein Parameter `--max-digits`, der
+`max_digits` in `carry_arithmetic` ueberschreibt. Dann erzeugt derselbe
+Generator 8-10-stellige Aufgaben im **gleichen** Byte-Format, mit korrektem
+Denkweg und ohne Handarbeit.
+
+Aufwand: `Options` bekommt ein Feld, `carry_arithmetic` einen Parameter,
+`cli.rs` und `main.rs` reichen ihn durch; die Options-Literale in den Tests
+bekommen `..Default::default()`. Rund zehn Stellen.
+
+**Warum das nicht in dieser Runde passiert ist:** Der laufende Lauf belegt
+die GPU, und eine Aenderung an `Options` beruehrt alle Aufrufer - das will
+ich nicht zwischen zwei Messungen machen. Der Test bleibt der naechste
+Schritt nach der Auswertung.
