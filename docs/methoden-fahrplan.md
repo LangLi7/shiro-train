@@ -111,3 +111,67 @@ bekommen `..Default::default()`. Rund zehn Stellen.
 die GPU, und eine Aenderung an `Options` beruehrt alle Aufrufer - das will
 ich nicht zwischen zwei Messungen machen. Der Test bleibt der naechste
 Schritt nach der Auswertung.
+## Tool-Nutzung: was zaehlt und was nicht (Runde 365)
+
+Aus den Gespraechen mit anderen Agenten stammt ein Strang, der das Design
+erweitert. Die Kernpunkte, auf die ich mich festlege:
+
+### Zwei Faehigkeiten, die man nicht verwechseln darf
+
+| | Faehigkeit A: native Mathematik | Faehigkeit B: Tool-gestuetzt |
+|---|---|---|
+| Was das Modell tut | selbst rechnen | Aufgabe zerlegen, Operation waehlen, Ergebnis deuten |
+| Was es braucht | Training auf Rechenwegen | Training auf Syntax und Auswahl |
+| Ehrliche Zahl | EM auf neuen Aufgaben | EM auf neuen Aufgaben **plus** Werkzeug |
+
+**Ein Taschenrechner ist kein Schummeln** - ein Mathematiker nutzt ihn auch.
+Aber die beiden Zahlen duerfen nie vermischt werden. Wenn ein Teil der
+Leistung aus dem Werkzeug kommt, ist die native Faehigkeit nicht gemessen.
+
+### Vier Benchmark-Kategorien (ab jetzt getrennt berichtet)
+
+| Kategorie | Werkzeug | Was gemessen wird |
+|---|---|---|
+| A: Native | nein | eigenstaendige Mathematik |
+| B: Tool-Usage | ja | Werkzeugwahl, Eingaben, Interpretation |
+| C: Hybrid | optional | eigener Weg **plus** Werkzeug |
+| D: Generalisation | ja | neue Aufgaben und Zahlenbereiche |
+
+### Die harte Grenze, die bleibt
+
+Der Nutzer hat sie klar gezogen: **Der Rechenweg muss vom Modell kommen.**
+Ein Werkzeug, das den Weg ersetzt, macht die Antwort ungueltig - dann ist es
+kein Reasoning mehr, sondern ein Rechner mit Sprachhuelle.
+
+Daraus folgt die einzige zulaessige Rolle: **Der Wrapper prueft, er rechnet
+nicht.** Er stellt fest, ob der Weg stimmt und ob die Antwort zum Weg passt.
+Das ist eine schaerfere Messung, keine Erleichterung.
+
+### Was das fuer die ggT-Luecke bedeutet
+
+Das Projekt hat gemessen: Bruch **mit** ggT-Suche 12,5 %, **ohne** Suche
+97,5 %. Ein Verifier kann das nicht verbessern - er kann nur feststellen,
+dass der Weg falsch ist. Wenn der Weg vom Modell kommen muss, bleibt es bei
+12,5, bis das Modell die Suche selbst lernt.
+
+### Der offene Punkt, den der Nutzer zu Recht betont
+
+> "es hat nur schlechter abgeschnitten weil es nicht darauf trainiert wurde"
+
+Richtig. Ein Modell, das nie eine `CALC:`-Syntax gesehen hat, kann sie nicht
+ausgeben. Bevor eine Faehigkeit als "kann es nicht" gilt, muss sie trainiert
+worden sein. Die Reihenfolge lautet also:
+
+1. Syntax im Korpus (deterministisch erzeugt, 0 $)
+2. Training (~5 $, ein Lauf)
+3. Messung in Kategorie B, **getrennt** von A
+
+Das ist ein eigener Lauf und kommt nach dem Mix-Lauf.
+
+### Gemessene Baselines fuer die Laengenmatrix (Runde 365)
+
+| Test | Laenge | Baseline (steps10500) |
+|---|---|---|
+| 8-10-stellig, `+`/`-` | 927 B | **0,0 %** |
+| 4-5-stellig, alle Operatoren | 466 B | **0,0 %** |
+| 2-3-stellig, Trainingsverteilung | ~300 B | 73 % (alter Heldout) |
