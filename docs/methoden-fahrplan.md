@@ -212,3 +212,27 @@ und Probs ueber 32 Layer ~30 GiB. Das erklaert die 74 GB VRAM bei einem
 - Fakt: n_heads = 20, Attention ohne FlashAttention, FP32.
 - Hypothese: Der Mix-Lauf (2-5-stellig gemischt) aendert das.
 - Unsicher: ob 5000 Schritte reichen, um mehrere Laengen zugleich zu lernen.
+## Warum die Optimierung nicht einfach ist (Runde 369)
+
+Die Analyse von aussen (FlashAttention, BF16, Checkpointing) ist in der Sache
+richtig, aber die Umsetzung stoesst an eine Grenze im Projekt:
+
+| Hebel | Status |
+|---|---|
+| FlashAttention | in Burn 0.22 **nicht verfuegbar** |
+| Kernel-Fusion (`burn/fusion`) | **nicht nutzbar**: zieht `burn-remote 0.22.0`, das auf crates.io fehlt |
+| BF16 | Casts fehlen; `config.rs` erlaubt nur `fp32` |
+| Gradient Checkpointing | nicht implementiert |
+
+**Der gemessene Grund fuer die 1,54 s/Schritt:** Burn 0.22 startet je
+Tensor-Operation einen eigenen Kernel, bei 32 Layern rund 320 pro Schritt.
+Das steht so im `Cargo.toml` und ist keine Vermutung.
+
+**Was das kostet:** 5000 Schritte x 1,54 s = 2,1 h = etwa 4,6 $. Mit Fusion
+waere es grob ein Drittel davon. Der Hebel ist also real, aber er verlangt ein
+Burn-Upgrade (>= 0.23) oder einen eigenen Patch - eine eigene Runde mit
+Regressionsrisiko, kein Config-Wert.
+
+**Entscheidung:** Erst die laufenden Experimente (Vielfalt, Mix) auswerten.
+Die Optimierung aendert die Geschwindigkeit, nicht die Guete - sie wird
+gemacht, wenn die Richtung steht, nicht vorher.
