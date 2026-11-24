@@ -277,7 +277,12 @@ impl Lm {
             let k = rope.apply(k, arch, &rope_cos, &rope_sin).swap_dims(1, 2);
             let v = v.swap_dims(1, 2);
 
-            let scores = q.matmul(k.swap_dims(2, 3)) * scale + mask.clone();
+            // Scale q before the product, not the product. `(q*s) @ k^T` equals
+            // `(q @ k^T)*s`, but the first scales a [b,h,s,hd] tensor (31 MB at
+            // batch 6) while the second scales the [b,h,s,s] score matrix
+            // (503 MB) and holds that copy for the backward pass.
+            let q = q * scale;
+            let scores = q.matmul(k.swap_dims(2, 3)) + mask.clone();
             let probs = activation::softmax(scores, 3);
             let ctx = probs.matmul(v); // [b, h, s, hd]
             let ctx = ctx.swap_dims(1, 2).reshape([b, s, arch.d_model]);
@@ -381,7 +386,9 @@ impl Lm {
             };
             cache[layer_index] = Some((all_k.clone(), all_v.clone()));
 
-            let scores = q.matmul(all_k.swap_dims(2, 3)) * scale + mask.clone();
+            // Same reordering as the training path: scale q, not the scores.
+            let q = q * scale;
+            let scores = q.matmul(all_k.swap_dims(2, 3)) + mask.clone();
             let probs = activation::softmax(scores, 3);
             let ctx = probs.matmul(all_v);
             let ctx = ctx.swap_dims(1, 2).reshape([b, s, arch.d_model]);
