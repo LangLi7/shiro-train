@@ -11792,3 +11792,46 @@ dokumentierter Fehlschlag, wird aber nicht als Stand gefuehrt.
 - Fakt: Die Ursache ist der Formatwechsel, nicht die Rechenaufgabe.
 - Hypothese: Alter + neuer Korpus gemischt verhindert das Vergessen.
 - Unsicher: wie viel Mischungsverhaeltnis noetig ist - nicht getestet.
+## Runde 355b — Die Ursache ist nicht nur das Format: m2 = 100 %, m1 = 3,3 %
+
+**Der Widerspruch, der die Diagnose schaerft.** Der Trainingssatz des
+Carryadd-Laufs selbst ergab im Modus m1 nur 3,3 % - bei einem Loss von
+0,0166. Das kann nicht sein, wenn das Modell den Denkweg gelernt hat.
+
+**Aufloesung durch den Modusvergleich:**
+
+| Modus | Was gegeben ist | Antwort-EM |
+|---|---|---|
+| m2 | Gold-Denkweg steht im Prompt | **100 %** (30/30) |
+| m1 | nur die Aufgabe, Denkweg frei | **3,3 %** (1/30) |
+
+**Das Modell kann die Antwort aus dem Denkweg ableiten, aber den Denkweg
+nicht selbst erzeugen.** Und die Fehlerfaelle zeigen das Muster:
+
+```
+soll :  E 8+0=8  -> 8  u0 ; Z 8+1=9  -> 9  u0 ; R 98
+erzeugt: E 8+0=10 -> 0  u1 ; Z 8+1+1=12 -> 2 u1 ; H 0+0+1=1 -> 1 u0 ; R 1
+```
+
+Es addiert auf der Einerstelle **systematisch 1 zu viel** (2+0=3, 1+0=2,
+4+0=5, 7+0=8) und erfindet daraus einen Uebertrag, der den ganzen Pfad
+kippt. Als ob es den Uebertrag aus der vorherigen Stelle erwartet - aber
+die Einerstelle ist die erste.
+
+**Die methodische Lehre, die wichtiger ist als der Lauf:**
+Ein niedriger Teacher-Forcing-Loss (0,0166) sagt **nichts** ueber freie
+Generierung. Der Loss misst das naechste Byte **gegeben die Wahrheit**;
+die freie Generierung akkumuliert einen fruehen Fehler ueber den ganzen
+Pfad. Deshalb ist m2 allein als Erfolgsmass wertlos - m2 ist 100 %, und
+trotzdem ist der Lauf unbrauchbar.
+
+**Konsequenz fuer alle kuenftigen Laeufe:** Der Erfolg wird an m1 gemessen,
+nie an m2 und nie am Loss. m2 bleibt nur als Diagnosewerkzeug (kann es die
+Antwort, wenn der Weg stimmt?).
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: m2 100 %, m1 3,3 % auf dem Trainingssatz selbst.
+- Fakt: Fehlermuster ist ein erfundener Uebertrag auf der Einerstelle.
+- Fakt: Loss 0,0166 trotz m1 = 3,3 %.
+- Hypothese: Der Denkweg braucht eigene Uebung, nicht nur die Antwort.
+- Unsicher: ob mehr Schritte die Drift beheben - der Loss war schon minimal.
