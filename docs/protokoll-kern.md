@@ -11700,3 +11700,57 @@ EIN Faktor, gemessen auf einem Satz mit derselben ausgewogenen Verteilung.
 - Fakt: `rechne-100k/train` = 100.000 Records aus 14.146 unique (7x wiederholt).
 - Hypothese: Ausgewogene Verteilung schliesst die Luecke - nicht getestet.
 - Unsicher: ob 2,5 % auf 120 Records stabil ist (KI [0,9-7,1]).
+## Runde 354 — Der Lauf ist fertig, und zwei Befunde ordnen alles neu
+
+**Lauf abgeschlossen (dokumentiert):**
+| Feld | Wert |
+|---|---|
+| Pod | `co3u4efftm3cm5`, A100 SXM 80GB, US-MD-1, 2,19 $/h |
+| Dauer | 2452,8 s (1500 Schritte) |
+| Loss | 8,02 -> **0,0166** (best 0,0158), Perplexity 1,0167 |
+| Checkpoint | `carryadd500-step12000.safetensors` (2,0 GB) - HF + lokal |
+| State | `carryadd500-step012000.state` (6,1 GB) - HF |
+| Pod | **terminiert** (keine Kosten) |
+
+### Befund 1: Das Modell memoriert stark - mit Dosis-Wirkung
+
+Zweite unabhaengige Stichprobe (`bt-pool`, Seed 771133, 150 Records):
+
+| Satz | Ueberlappung mit Training | Antwort-EM |
+|---|---|---|
+| `bt-pool` | **57 %** (516/908 in `fokus-rechnen`) | **87,3 %** [81,1-91,8] |
+| `blindtest-neu` | **0 %** (0/120) | **2,5 %** [0,9-7,1] |
+
+**Die Leistung folgt der Ueberlappung, nicht der Faehigkeit.** Wo 57 % der
+Aufgaben im Training standen, sind es 87,3 %; wo keine stand, 2,5 %. Das ist
+der direkte Nachweis von Auswendiglernen, den der Auftrag verlangt
+("steigt nur Train-EM, als Auswendiglernen behandeln").
+
+**Konsequenz fuer alle kuenftigen Tests:** Jeder Satz MUSS gegen das
+Training auf Ueberlappung geprueft werden, bevor seine Zahl etwas bedeutet.
+Zwei Messungen ohne diese Pruefung sind wertlos.
+
+### Befund 2: Der Carryadd-Lauf ist auch ein Formatwechsel
+
+Die beiden Korpora benutzen **verschiedene Ausgabeformate**:
+
+| Korpus | Format |
+|---|---|
+| `fokus-rechnen` (Training des 73 %-Modells) | `Rechne: 22 - 14 = ?` + Prosa ("1. Einer: ... 3. Also ist ...") |
+| `add/train-2d` (Carryadd-Lauf) | `10+10` + kompakte Stellenwert-Notation (`E 0+0=0 -> 0 u0 ; Z 1+1=2 -> 2 u0 ; R 20`) |
+
+Damit aendert der Lauf **zwei** Dinge gleichzeitig: Korpus **und** Format.
+Streng nach Loop-Schritt 4 waere das eine Verletzung der Ein-Faktor-Regel.
+Sie wird ehrlich vermerkt: der Korpus bringt sein Format mit, die Trennung
+war beim Aufsetzen nicht gesehen.
+
+**Folge:** Der Schutztest auf `rechne-100k/val` (altes Format) misst jetzt
+auch **Forgetting**. Faellt er stark, hat das Modell das alte Format
+ueberschrieben - das waere ein zweiter, unerwuenschter Effekt.
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: Loss 0,0166, Checkpoint gesichert, Pod terminiert.
+- Fakt: 57 % Ueberlappung -> 87,3 %; 0 % -> 2,5 %.
+- Fakt: `fokus-rechnen` und `add/train-2d` haben verschiedene Formate.
+- Hypothese: Das neue Format wird gelernt, das alte teilweise verloren.
+- Unsicher: wie stark der Formatverlust die 73 % drueckt - laeuft gerade.
