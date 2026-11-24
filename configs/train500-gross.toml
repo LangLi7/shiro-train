@@ -1,0 +1,56 @@
+# Runde 363: Der Korpus, der Memorieren unmoeglich macht.
+#
+# 4-5-stellige Addition/Subtraktion, 99.096 unique von 100.000 (99,1 %),
+# 0,0 % Ueberlappung mit dem bisherigen Training. Der Aufgabenraum hat
+# Milliarden Kombinationen - Auswendiglernen kann die Leistung hier nicht
+# erklaeren, nur eine gelernte Regel.
+#
+# EIN Faktor: Korpus (Zahlenbereich 2-3-stellig -> 4-5-stellig).
+# GLEICH: Prosa-Format, lr 3e-4 cosine, Seed 53013, Architektur 500M,
+# Resume vom 73%-Modell, 5000 Schritte.
+#
+# Baseline (VOR dem Lauf zu messen): steps10500 auf gross-100k/val.
+# Erwartung: Antwort-EM > 0 % (Baseline), ideal > 20 %.
+# Widerlegung: <= Baseline oder Schutzmetrik (alter Heldout) < 70 %.
+# Budget: 5000 Schritte ~2,2 h ~4,8 $.
+
+[run]
+name = "gross500"
+seed = 53013
+steps = 5000
+log_every = 100
+checkpoint_every = 5000
+output_dir = "/workspace/500m-gross/ckpt"
+log_dir = "/workspace/500m-gross/logs"
+
+[data]
+dir = "/root/gross-train"
+manifest = "manifest.json"
+batch_size = 6
+seq_len = 1024
+shuffle = false
+pack = true
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 1024
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 100
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"

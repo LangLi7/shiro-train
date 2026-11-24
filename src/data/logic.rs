@@ -218,19 +218,22 @@ impl Level {
 /// Welche Kategorie ist in welcher Stufe sinnvoll?
 ///
 /// Begruendung je Sperre:
-/// - `CarryArithmetic` in `Hard`: drei Stellen mal drei Stellen erzeugt
-///   Datensaetze ueber 1 kByte. Der Kontext der Roadmap ist 1-2 kByte - ein
-///   Datensatz, der den halben Kontext fuellt, verdraengt die Praemissen.
 /// - `PropositionalLogic` in `Hard`: ohne die Sperre waeren vier Variablen und
 ///   zwei Verschachtelungsebenen moeglich; die Auswertungsspur wuerde laenger als
 ///   die Aufgabe und verdraengt die Praemissen aus dem Kontext.
+///
+/// `CarryArithmetic` in `Hard` ist **frei** (Runde 362): fuenfstellige Addition
+/// und Subtraktion bleiben unter dem 1-kByte-Kontext, und der Aufgabenraum
+/// waechst von 18 185 memorierbaren Faellen auf Milliarden. Die Multiplikation
+/// ist in `Hard` gesperrt, weil fuenf Mal fuenf Stellen den Kontext sprengt -
+/// die Sperre sitzt deshalb in der Operatorwahl, nicht in `category_fits`.
 fn category_fits(cat: Category, level: Level) -> bool {
     match cat {
         Category::CategoryChain => true,
         Category::PropositionalLogic => level != Level::Hard,
         Category::ConditionalRules => true,
         Category::NumberSequence => true,
-        Category::CarryArithmetic => level != Level::Hard,
+        Category::CarryArithmetic => true,
     }
 }
 
@@ -1773,16 +1776,26 @@ fn carry_arithmetic(rng: &mut Rng, pool: &Pool, level: Level) -> Result<GenRecor
     let max_digits = match level {
         Level::Easy => 2,
         Level::Medium => 3,
-        // Hard ist fuer diese Kategorie gesperrt (siehe `category_fits`), aber der
-        // Zweig bleibt vollstaendig, damit die Sperre an genau einer Stelle steht.
-        Level::Hard => 3,
+        // Fuenf Stellen: der Aufgabenraum waechst auf Milliarden, ohne den
+        // 1024-Byte-Kontext zu sprengen (Runde 362).
+        Level::Hard => 5,
     };
-    let op = *rng.pick(&['+', '-', '*']);
+    // Fuenfstellige Multiplikation erzeugt Denkwege ueber 1 kByte und passt
+    // nicht in den Kontext - deshalb in `Hard` nur Addition und Subtraktion.
+    let op = if level == Level::Hard {
+        *rng.pick(&['+', '-'])
+    } else {
+        *rng.pick(&['+', '-', '*'])
+    };
+    // In `Hard` mindestens vier Stellen: sonst zieht der Generator auch
+    // zwei- und dreistellige Aufgaben, die im alten Training stehen - der
+    // Korpus ueberlappte dann zu ~10 % und der Test waere nicht sauber.
+    let min_digits = if level == Level::Hard { 4 } else { 2 };
 
     let mut chosen: Option<(u64, u64)> = None;
     for _ in 0..512 {
-        let da = rng.range(2, max_digits);
-        let db = rng.range(2, max_digits);
+        let da = rng.range(min_digits, max_digits);
+        let db = rng.range(min_digits, max_digits);
         let mut a = pool.number(rng, da);
         let mut b = pool.number(rng, db);
         if matches!(op, '-' | '*') && a < b {
@@ -2651,10 +2664,7 @@ mod tests {
     /// Eine gesperrte Kombination wird abgelehnt statt still erzeugt.
     #[test]
     fn disallowed_category_level_combinations_are_rejected() {
-        for (cat, level) in [
-            (Category::CarryArithmetic, Level::Hard),
-            (Category::PropositionalLogic, Level::Hard),
-        ] {
+        for (cat, level) in [(Category::PropositionalLogic, Level::Hard)] {
             assert!(!category_fits(cat, level));
             let err = generate(&Options {
                 train_records: 10,
@@ -2940,6 +2950,55 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// `Hard` erzeugt fuenfstellige Aufgaben ohne Multiplikation (Runde 362).
+    ///
+    /// Zweck: der Aufgabenraum waechst von 18 185 memorierbaren Faellen auf
+    /// Milliarden, damit Generalisation ueberhaupt messbar wird. Die
+    /// Multiplikation bleibt gesperrt, weil fuenf Mal fuenf Stellen den
+    /// 1024-Byte-Kontext sprengen wuerde.
+    #[test]
+    fn hard_carry_arithmetic_uses_five_digits_and_no_multiplication() {
+        let data = generate(&Options {
+            train_records: 200,
+            val_percent: 0,
+            seed: 362,
+            category: Some(Category::CarryArithmetic),
+            level: Some(Level::Hard),
+            min_chain: None,
+        })
+        .unwrap();
+        assert_eq!(data.train.len(), 200);
+        let mut saw_five = false;
+        for r in &data.train {
+            let (task, trace, answer) = split(&r.record);
+            assert!(task.starts_with("Rechne:"), "Aufgabe: {task:?}");
+            assert!(
+                !task.contains('*'),
+                "Multiplikation in Hard gesperrt: {task:?}"
+            );
+            assert!(!answer.is_empty());
+            // Kontextgrenze: kein Datensatz darf den 1024-Byte-Kontext fuellen.
+            assert!(
+                r.record.len() < 1024,
+                "Datensatz zu lang ({} Byte): {task:?}",
+                r.record.len()
+            );
+            let digits = task
+                .trim_start_matches("Rechne: ")
+                .split(' ')
+                .filter(|t| t.chars().all(|c| c.is_ascii_digit()))
+                .map(|t| t.len())
+                .max()
+                .unwrap_or(0);
+            if digits >= 5 {
+                saw_five = true;
+            }
+            assert_valid(r);
+            assert!(!trace.is_empty());
+        }
+        assert!(saw_five, "keine fuenfstellige Aufgabe in 200 Datensaetzen");
     }
 
     /// Der Denkweg ist nummeriert und endet mit einem Schlusssatz.

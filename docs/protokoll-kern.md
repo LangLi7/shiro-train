@@ -11900,3 +11900,43 @@ Aufgabentypen, oder Aufgaben mit variabler Struktur (Textaufgaben).
 - Fakt: Der Raum hat 18.185 unique; 68,8 % Ueberlappung mit dem alten Training.
 - Hypothese: Generalisation braucht einen Raum, der nicht auswendig lernbar ist.
 - Unsicher: ob der 500M die Regel bei groesseren Zahlen ueberhaupt lernt.
+## Runde 362 — Der Ausweg aus der Memorization-Falle: 4-5-stellige Aufgaben
+
+**Der Befund aus R361 war: der Generator kann nur 2-3-stellig, der Raum hat
+18.185 unique, und 69 % ueberlappen mit dem alten Training. Damit war die
+Strategie am Ende.**
+
+**Die Loesung: eine gezielte Code-Aenderung.**
+`CarryArithmetic` war in `Level::Hard` gesperrt, weil dreistellige
+Multiplikation Datensaetze ueber 1 kByte erzeugt. Die Sperre ist jetzt
+aufgehoben, aber **nur fuer Addition und Subtraktion** (Multiplikation
+bleibt gesperrt, weil 5x5 den 1024-Byte-Kontext sprengt). Zusaetzlich
+erzwingt `Hard` mindestens vier Stellen.
+
+| Eigenschaft | alter Korpus | **neuer Korpus** |
+|---|---|---|
+| Aufgaben | 100.000 | 100.000 |
+| unique | 18.185 (18 %) | **99.096 (99,1 %)** |
+| Ueberlappung mit Training | 68,8 % | **0,0 %** (Stichprobe 3000) |
+| Stellenzahl | 2-3 | **4-5** |
+| Operatoren | + - * | **+ -** (je ~50 %) |
+| Laengster Record | ~300 B | **471 B** (Kontext 1024) |
+| Moegliche Aufgaben | ~18.000 | **Milliarden** |
+
+**Warum das der entscheidende Test ist:** Bei 4-5-stelligen Aufgaben kann
+Auswendiglernen die Leistung nicht erklaeren - es gibt Milliarden
+Kombinationen und keine stand im bisherigen Training. Jede Leistung ueber
+der Baseline ist damit **gemessene Generalisation**, nicht Wiedererkennung.
+
+**Abgesichert durch Tests (28 gruen, inklusive neuem Test):**
+- `hard_carry_arithmetic_uses_five_digits_and_no_multiplication`
+- Datensaetze bleiben unter 1024 Byte
+- Keine Multiplikation in `Hard`
+- Mindestens eine fuenfstellige Aufgabe in 200 Datensaetzen
+
+**Fakten/Hypothesen/Unsicherheit:**
+- Fakt: 99.096 unique, 0,0 % Ueberlappung, 471 B max, 28 Tests gruen.
+- Fakt: Korpus und Config auf HF (`gross100k-*`, `train500-gross.toml`).
+- Hypothese: Der 500M lernt die Stellenwert-Regel, wenn er sie nicht
+  memorieren kann - wird in der naechsten Runde gemessen.
+- Unsicher: ob 5000 Schritte reichen; ob der 500M fuer 5 Stellen gross genug ist.
