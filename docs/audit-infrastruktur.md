@@ -388,3 +388,31 @@ Ergebnis deutlich davon ab, stimmt die Implementierung nicht.
 
 **Kosten dieser Messreihe:** zwei Pods, zusammen ~15 min ≈ 0,55 $, davon
 0,29 $ fuer einen Cargo-Build, der auf der GPU lief und keine GPU brauchte.
+## Die dritte Lektion: der bezahlte Volume lag ungenutzt da
+
+Drei Messpods sind gescheitert, weil `/root` nach einem Container-Neustart leer
+war — Build, Daten und Skripte jedes Mal weg. Der Grund war nicht Runpod,
+sondern ich: Das Konto hat ein **Global Volume** `shiro-projekt` (89,3 GB,
+8,04 $/Monat, in jedem Rechenzentrum verfügbar), das als `/workspace`
+gemountet ist. Ich habe trotzdem alles nach `/root` geschrieben — auf ein
+ephemeres Container-Disk.
+
+**Die Regel:** Alles, was einen Neustart überleben soll, liegt unter
+`/workspace`:
+
+| Was | Pfad |
+|---|---|
+| Binary | `/workspace/bin/shiro` |
+| Trainingsdaten | `/workspace/data/<korpus>` |
+| Build-Verzeichnis | `/workspace/target` |
+| Checkpoints | `/workspace/<lauf>/ckpt` |
+
+`/root` ist nur fuer Werkzeuge, die sich in einer Minute neu installieren
+lassen (Rustup, pip-Pakete).
+
+**Was das gekostet hat:** drei Builds à ~5 Minuten auf einer A100, rund
+0,60 $ — fuer Arbeit, die einmal auf den Volume gehoert haette. Und drei
+Runden, in denen die Messung nicht stattfand.
+
+**Warum es passiert ist:** Ich habe den Storage als Ablage fuer Checkpoints
+verstanden, nicht als Arbeitsverzeichnis. Beides ist derselbe Volume.
