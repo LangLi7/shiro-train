@@ -12233,3 +12233,30 @@ Gemessen am 25.11.2026, Modus m1, 30 Antworten, `eval-blindtest-neu`
 **Was noch offen ist:** Der `gross16k`-Lauf (16 000 Schritte, voller Korpus)
 liefert die vierte Zahl. Wenn auch er bei 0 % liegt, ist die Frage „rechnet das
 Modell" fuer diesen Aufbau beantwortet - negativ.
+## Runde 465-467 — gross16k: Loss faellt, Aussage fehlt noch
+
+**Stand 25.11.2026, 03:55 (Lauf bei Schritt 12800 von 26500):**
+
+| Schritt | Loss |
+|---|---|
+| 10600 | 0,158 |
+| 11000 | 0,109 |
+| 11800 | 0,118 |
+| 12800 | **0,089** |
+
+Der Loss faellt monoton auf 0,089 — deutlich unter den 0,15 des gross1000-Laufs.
+Das ist ein gutes Zeichen, aber **kein Beweis**: Beim gross1000-Lauf fiel der
+Loss ebenfalls auf 0,15, waehrend der Blindtest bei 0 % blieb.
+
+**Ein Fehler, der die Auswertung verhindert:** Der Checkpoint bei Schritt 12000
+wurde als `.state` vollstaendig geschrieben (6,1 GB), als `.safetensors` aber
+**0 Bytes**. Der State laesst sich nicht direkt auswerten (`header too large`),
+und der `.safetensors`-Block ist das, was `eval` braucht.
+
+**Konsequenz:** Die Zwischenauswertung bei 12000 ist nicht moeglich. Der naechste
+Checkpoint (16000) entscheidet. Wird er wieder leer geschrieben, ist das ein
+Fehler im Schreibpfad und muss vor dem naechsten Lauf behoben werden.
+
+**Was sich nicht geaendert hat:** Die ehrliche Bilanz des Projekts bleibt bei
+0 % auf ungesehenen Aufgaben (siehe Blindeck-Reihe). Ob gross16k daran etwas
+aendert, ist offen — der Loss sagt es nicht.
