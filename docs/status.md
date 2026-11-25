@@ -223,3 +223,36 @@ denn es gab keinen.
 
 **Der Paraphrase-Transfer** ist ungemessen (Generator vorhanden, Daten fehlen).
 Jede Transfer-Aussage beruht damit auf den Zielsaetzen, nicht auf Umformulierungen.
+## Korrektur 25.11.2026, 04:05 — die ehrliche Zahl ist 0 Prozent
+
+Bis heute stand in diesem Dokument „73 % auf 2-3-stelligen Aufgaben" als
+geschuetzte Faehigkeit. **Das war falsch.**
+
+Dieselbe Aufgabe, zwei Saetze:
+
+| Satz | Aufgaben im Training? | richtig |
+|---|---|---|
+| `eval-fokus-local` | ja | 73,0 % |
+| `blindtest-neu` | **nein** | **0,0 %** |
+
+Beide enthalten 2-3-stellige Arithmetik. Der Unterschied ist nur, ob die
+Aufgaben gesehen wurden. Die 73 % messen Wiedererkennen, nicht Rechnen.
+
+**Die ehrliche Bilanz:**
+
+| Faehigkeit | Wert |
+|---|---|
+| 2-3-stellig, ungesehen | **0 %** |
+| 4-5-stellig, ungesehen | 0 % |
+| 7-stellig | 0 % |
+| 8-10-stellig | 0 % |
+| 2-3-stellig, **gesehen** | 73 % |
+
+**Was daraus folgt:** Jede kuenftige Runde fuehrt den **Blindtest** als
+Schutz-Satz. `eval-fokus-local` taugt dafuer nicht, weil er aus der
+Trainingsverteilung stammt.
+
+**Was der laufende Lauf (gross16k) noch beitragen kann:** Er ist der erste
+Lauf mit vollstaendigem Korpus und einer vollen Epoche. Wenn der Loss bis
+Schritt 12000 auf 0,11 faellt, ist das ein Signal - aber erst der Blindtest
+entscheidet, ob es Rechnen oder wieder Memorization ist.
