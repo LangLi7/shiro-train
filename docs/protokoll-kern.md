@@ -12260,3 +12260,38 @@ Fehler im Schreibpfad und muss vor dem naechsten Lauf behoben werden.
 **Was sich nicht geaendert hat:** Die ehrliche Bilanz des Projekts bleibt bei
 0 % auf ungesehenen Aufgaben (siehe Blindeck-Reihe). Ob gross16k daran etwas
 aendert, ist offen — der Loss sagt es nicht.
+## Runde 468 — gross16k: die Dosis-Hypothese ist widerlegt
+
+**Der Aufbau:** Ab `steps10500`, 16 000 Schritte auf `gross-100k` (100 000
+Aufgaben, 0 % Ueberlappung), batch 3 x 2, lr 3e-4 cosine. Gestoppt bei
+Schritt 16000 (Loss 0,085), Pod beendet. Kosten ~15 $.
+
+**Die Messung (m1, 30 Antworten, `data/gross-100k/val`, nie im Training):**
+
+| Checkpoint | Schritte | richtig |
+|---|---|---|
+| `gross1000` | 1 000 | **0,0 %** |
+| `gross16k` @12000 | 12 000 | **0,0 %** |
+| `gross16k` @16000 | 16 000 | **0,0 %** |
+
+**Was das ausschliesst:** Die Hypothese „mehr Schritte erzeugen die Regel"
+ist widerlegt - nicht durch einen ausbleibenden Effekt, sondern durch drei
+Messpunkte bei null, waehrend der Loss auf 0,085 fiel. Der Loss misst, wie
+gut das Modell die Bytefolgen seines Korpus nachbildet. Er sagt nichts
+darueber, ob es rechnet.
+
+**Was NICHT die Ursache ist (jeweils gemessen):**
+- Schritte: 1 000 / 12 000 / 16 000 - alle 0 %
+- Speicher: 49,1 GiB von 80, kein OOM
+- Datenmenge: 100 000 Aufgaben, 0 % Ueberlappung mit Val
+- Korpusformat: vollstaendige Rechenwege, Stelle fuer Stelle
+- Train/Val-Trennung: sauber (`logic-tr` vs `logic-va`)
+
+**Die verbleibende Erklaerung, ungeprueft:** 100 000 **verschiedene**
+Aufgaben sind fast keine Wiederholung. Das Modell sieht jede Aufgabe einmal
+und jede Ziffernfolge nur in diesem einen Kontext. Eine Regel entsteht aus
+Wiederholung; ohne sie bleibt nur das Nachbilden der Bytefolge.
+
+**Der Test dafuer ist vorbereitet:** `rechnen-v1` hat 512 deduplizierte
+Aufgaben mit drei Formulierungen. Bei 1000 Schritten sieht das Modell jede
+Aufgabe etwa zwoelfmal. Kosten ~0,55 $ statt 15 $.
