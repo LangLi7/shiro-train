@@ -449,3 +449,29 @@ ich den Build als Nebenprodukt des Messpods behandelt habe.
 mehr Speicher, aber weiterhin 1,54 s pro Schritt. Als naechstes kaeme die
 Schrittzeit - und dafuer ist der einzige gemessene Hebel bisher die
 Batch-Groesse, die jetzt mehr Spielraum hat.
+## Die vierte Lektion: geloescht, bevor gesichert war
+
+Beim Aufraeumen des Volumes (97,5 GB → 16 GB) habe ich 65 GB geloescht und
+**erst danach** geprueft, was auf HuggingFace liegt. Die betroffenen Staende
+waren alt (Steps 1000–6000), und die wichtigen (`steps10500`, `vielfalt500`)
+sind unversehrt — aber das war Glueck, nicht Verfahren.
+
+**Die richtige Reihenfolge:**
+
+1. Pruefen, was auf HF liegt (`list_repo_files`, nicht raten).
+2. Fehlendes hochladen und den Erfolg bestaetigen (`UPLOAD_OK`, nicht "laeuft").
+3. Erst dann lokal loeschen.
+4. Erst dann den Volume verkleinern.
+
+**Was es gekostet haette, wenn es schiefgegangen waere:** Die alten Staende
+sind nicht reproduzierbar. Ein geloeschter Checkpoint ist endgueltig, auch
+wenn der Code und der Seed bekannt sind — die Gewichte sind das Ergebnis von
+Stunden Rechenzeit.
+
+**Was jetzt auf HF liegt** (`ChangChi7/shiro-checkpoints`, privat):
+`steps10500` (Gewichte + State), `steps9000` (Gewichte),
+`vielfalt500` (Gewichte + State). Das sind funf Dateien und der vollstaendige
+aktuelle Bestand.
+
+**Fuer die Zukunft:** Jeder Checkpoint geht zuerst zu HF, dann darf er lokal
+geloescht werden. Der Volume ist ein Cache, nicht das Archiv.
