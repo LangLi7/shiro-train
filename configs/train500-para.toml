@@ -1,0 +1,55 @@
+# Runde 476: Paraphrase-Transfer.
+#
+# Der Auftrag verlangt vier Messungen; die Paraphrase fehlte. `rechnen-v1` hat
+# drei Formulierungen, aber über VERSCHIEDENE Aufgaben (0 gemeinsame) - das ist
+# kein Transfer-Test, sondern drei getrennte Sätze.
+#
+# Dieser Korpus behebt das: 127 Aufgaben, jede in zwei Formen.
+#   Training: "Rechne: 2232 + 6240 = ?"
+#   Test:     "Finde den Wert von 2232 + 6240."
+# Gleiche Antwort, gleicher Rechenweg, andere Worte. Wer hier besteht, hat die
+# Aufgabe erkannt; wer scheitert, hat nur die Schreibweise gelernt.
+#
+# Erzeugt aus `data/rechnen-v1/train` (Runde 476, siehe Protokoll).
+
+[run]
+name = "para1k"
+seed = 1337
+steps = 1000
+log_every = 50
+checkpoint_every = 500
+output_dir = "target-win/para1k/ckpt"
+log_dir = "target-win/para1k/logs"
+
+[data]
+dir = "data/rechnen-para/train"
+manifest = "manifest.json"
+batch_size = 3
+seq_len = 512
+shuffle = true
+pack = true
+grad_accum = 2
+
+[model]
+name = "mix500"
+d_model = 1280
+n_layers = 32
+n_heads = 20
+d_ff = 2432
+vocab_size = 256
+max_seq_len = 512
+rope_theta = 10000.0
+rms_norm_eps = 1e-5
+tie_embeddings = false
+dropout = 0.0
+
+[optim]
+lr = 0.0003
+weight_decay = 0.1
+grad_clip = 1.0
+warmup_steps = 50
+schedule = "cosine"
+
+[precision]
+weights = "fp32"
+autocast = "fp32"
