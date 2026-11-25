@@ -853,8 +853,46 @@ impl SplitMix {
 
 /// Gleichverteilte Startwerte in `[-k, k]` aus dem eigenen Generator.
 impl SplitMix {
+    /// Gleichverteilte Startwerte in `[-k, k]`, auf allen Kernen erzeugt.
+    ///
+    /// **Bit-identisch zur sequenziellen Fassung.** SplitMix64 erhoeht seinen
+    /// Zustand bei jedem Aufruf um eine feste Konstante, also lautet der Zustand
+    /// nach `i` Schritten `start + i * GOLDEN`. Jeder Thread beginnt bei
+    /// `start + chunk_start * GOLDEN` und erzeugt damit dieselben Werte wie eine
+    /// Schleife ueber alle `n` Elemente. Die Parallelisierung aendert das
+    /// Ergebnis also nicht - nur die Zeit.
+    ///
+    /// Gemessen: 509M Parameter brauchten sequenziell 90-140 s vor dem ersten
+    /// GPU-Schritt. Das war mehr als 50 Trainingsschritte.
     fn uniform_vec(&mut self, n: usize, k: f32) -> Vec<f32> {
-        (0..n).map(|_| (self.next_f32() * 2.0 - 1.0) * k).collect()
+        const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
+        let base = self.state;
+        self.state = base.wrapping_add((n as u64).wrapping_mul(GOLDEN));
+
+        let threads = std::thread::available_parallelism()
+            .map(|t| t.get())
+            .unwrap_or(4)
+            .min(16);
+        // Unter 64k Elementen kostet ein Thread-Start mehr, als er einbringt.
+        if n < 1 << 16 || threads < 2 {
+            let mut rng = SplitMix::new(base);
+            return (0..n).map(|_| (rng.next_f32() * 2.0 - 1.0) * k).collect();
+        }
+
+        let chunk = n.div_ceil(threads);
+        let mut out = vec![0.0f32; n];
+        std::thread::scope(|s| {
+            for (t, slice) in out.chunks_mut(chunk).enumerate() {
+                let offset = (t as u64).wrapping_mul(chunk as u64).wrapping_mul(GOLDEN);
+                let mut rng = SplitMix::new(base.wrapping_add(offset));
+                s.spawn(move || {
+                    for v in slice.iter_mut() {
+                        *v = (rng.next_f32() * 2.0 - 1.0) * k;
+                    }
+                });
+            }
+        });
+        out
     }
 }
 
@@ -1518,5 +1556,38 @@ mod kv_cache_tests {
             .generate(prompt, 12, 0.0, 0, 11)
             .expect("Cache-Generierung");
         assert_eq!(actual, expected);
+    }
+}
+
+#[cfg(test)]
+mod init_tests {
+    use super::*;
+
+    /// Die parallele Erzeugung muss **bit-identisch** zur sequenziellen sein.
+    ///
+    /// SplitMix64 erhoeht seinen Zustand pro Aufruf um GOLDEN, also ist der
+    /// Zustand nach i Schritten start + i*GOLDEN. Beginnt jeder Thread bei
+    /// seinem eigenen Offset, entstehen dieselben Werte wie in einer Schleife.
+    /// Weicht auch nur ein Wert ab, ist die Offset-Rechnung falsch - und jedes
+    /// Modell haette andere Startgewichte als vorher.
+    #[test]
+    fn parallel_init_matches_sequential_exactly() {
+        let n = 300_000usize; // ueber der 64k-Schwelle, also parallel
+        let k = 0.125f32;
+
+        let mut seq_rng = SplitMix::new(12345);
+        let sequential: Vec<f32> = (0..n)
+            .map(|_| (seq_rng.next_f32() * 2.0 - 1.0) * k)
+            .collect();
+
+        let mut par_rng = SplitMix::new(12345);
+        let parallel = par_rng.uniform_vec(n, k);
+
+        assert_eq!(sequential.len(), parallel.len());
+        for (i, (a, b)) in sequential.iter().zip(parallel.iter()).enumerate() {
+            assert_eq!(a.to_bits(), b.to_bits(), "Wert {i} weicht ab: {a} gegen {b}");
+        }
+        // Der Zustand muss danach ebenfalls gleich weitergelaufen sein.
+        assert_eq!(seq_rng.next_u64(), par_rng.next_u64(), "RNG-Zustand laeuft auseinander");
     }
 }
