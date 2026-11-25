@@ -193,3 +193,33 @@ Transfer beruht damit auf den Zielsaetzen, nicht auf Paraphrasen.
 **Was zu tun ist:** Paraphrase-Daten erzeugen (der Generator existiert), eine
 Eval-Config daneben legen, und den Satz in `eval-vielfalt.ps1` aufnehmen -
 als **fuenften** Satz, nach dem Schutz.
+## Stand 25.11.2026, 03:50 — der Dosis-Test laeuft
+
+**Was laeuft:** `gross16k`, 16 000 Schritte auf `gross-100k` (100 000 Aufgaben),
+ab Checkpoint `steps10500`, `batch 3 x 2` (49,1 GiB), Zwischen-Checkpoint alle
+4000 Schritte. Rund 6,8 h, etwa 15 $.
+
+**Was er beantworten soll:** Ob die Rechenprozedur entsteht, wenn das Modell
+den Korpus **vollstaendig** sieht statt zu 6 %. Der vorige Lauf (1000 Schritte)
+hat gezeigt, dass das Modell in dieser Zeit zerstoeren kann, ohne aufzubauen.
+
+**Die Abbruchbedingung:** Beim ersten Checkpoint (4000 Schritte) wird
+ausgewertet. Liegen Schutz und Ziel beide bei 0 %, wird abgebrochen.
+
+### Was nebenbei erledigt wurde
+
+**Volume:** 97,5 GB → 8,2 GB. Die alten Staende waren Zwischenresultate
+(Steps 1000-6000) und sind geloescht; `gross1000` (verworfen) ebenfalls. Auf
+HF liegen `steps10500` (Gewichte + State), `steps9000` (Gewichte) und
+`vielfalt500` (Gewichte + State). **Ersparnis: 8 $/Monat.**
+
+**Ein Fehler, der fast einen Lauf gekostet haette:** Der Shard auf dem Volume
+war abgeschnitten (5,6 von 35,6 MB), das Manifest meldete aber 100 000 Records.
+Der Lader haette in eine zu kurze Datei gelesen. Gefunden durch den Vergleich
+von `file_size` im Manifest mit der echten Groesse — nicht durch einen Fehler,
+denn es gab keinen.
+
+### Was offen bleibt
+
+**Der Paraphrase-Transfer** ist ungemessen (Generator vorhanden, Daten fehlen).
+Jede Transfer-Aussage beruht damit auf den Zielsaetzen, nicht auf Umformulierungen.
