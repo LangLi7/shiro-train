@@ -171,3 +171,25 @@ ist aber eine **Hypothese, nicht gemessen** - sie zu pruefen kostet bei
 
 **Empfehlung:** Weg 1. Er ist der einzige, der die Kosten senkt, ohne die
 Aufgabe zu veraendern.
+## Luecke im Auftrag: der Paraphrase-Transfer wird nicht gemessen
+
+Der Auftrag verlangt vier Messungen: Train-EM, Held-out-EM,
+**Paraphrase-Transfer** und Gueltigkeit der Loesungswege.
+
+**Was davon existiert:**
+
+| Messung | Stand |
+|---|---|
+| Held-out (Schutz) | `eval-fokus-local.toml`, gemessen |
+| Zielsaetze (4-5-, 7-, 8-10-stellig) | `eval-gross100k/langtest7/langtest.toml`, gemessen |
+| Blindtest | `data/blindtest{,-neu,-sauber}` + `eval-blindtest-neu.toml` |
+| **Paraphrase-Transfer** | **Generator vorhanden (`src/data/paraphrase.rs`), Daten nie erzeugt** |
+
+**Was das bedeutet:** Die Regel „Paraphrase-Formulierungen nie im Training"
+ist eingehalten - es gibt gar keine. Aber die Faehigkeit, dieselbe Aufgabe in
+anderer Formulierung zu erkennen, ist **un gemessen**. Jede Aussage ueber
+Transfer beruht damit auf den Zielsaetzen, nicht auf Paraphrasen.
+
+**Was zu tun ist:** Paraphrase-Daten erzeugen (der Generator existiert), eine
+Eval-Config daneben legen, und den Satz in `eval-vielfalt.ps1` aufnehmen -
+als **fuenften** Satz, nach dem Schutz.
