@@ -173,3 +173,73 @@ und der Loss fiel nur auf 0,049 (gegen 0,017 bei den engen Korpora).
 **Jede Halbierung der Schrittzeit halbiert die Kosten eines Experiments.**
 Das ist der Grund, warum die Infrastruktur jetzt vor weiteren Trainingsläufen
 kommt — nicht als Selbstzweck.
+
+---
+
+## Nachtrag 25.11.2026 — gemessen, und die Rechnung war falsch
+
+Der Auftrag verlangt ausdruecklich keine Optimierung auf Basis von Rechnungen.
+Genau deshalb wurde Hebel 1 gemessen. **Das Ergebnis widerlegt meine eigene
+Schaetzung.**
+
+### Der Messaufbau
+
+Ein A100 SXM 80 GB, `gross-100k`, batch 6 x 1024, 50 Schritte, identische
+Konfiguration fuer beide Varianten, VRAM-Peak per `nvidia-smi`-Poller alle
+300 ms. Nur `src/model/lm.rs` unterschied sich (`712214c` gegen `574f835`).
+
+### Die Zahlen
+
+| Variante | Peak | Lauf | Urteil |
+|---|---|---|---|
+| Hebel 1 (`q * scale`) | **80.397 MiB** (78,5 GiB) | Exit 0, 108 s | laeuft durch |
+| Baseline (`scores * scale`) | **81.139 MiB** (79,2 GiB) | **Exit 101, OOM** | bricht ab |
+
+Der Unterschied ist **742 MiB**, nicht 16 GB. Meine Rechnung war um den Faktor
+20 daneben.
+
+### Warum die Rechnung falsch war
+
+Burn faltet `tensor * skalar` offenbar in den Kernel: es entsteht **kein
+eigener 503-MB-Tensor** im Autograd-Graph. Damit war die "skalierte Kopie",
+die ich im Audit als eigenen Speicherposten gefuehrt habe, nie real.
+
+Was real bleibt, sind **drei** Tensoren pro Layer:
+
+| Tensor | Groesse | 32 Layer |
+|---|---|---|
+| `q.matmul(k^T)` | 503 MB | 16,1 GB |
+| `+ mask` (Broadcast materialisiert) | 503 MB | 16,1 GB |
+| `softmax`-Ergebnis | 503 MB | 16,1 GB |
+| MLP-Aktivierungen | ~300 MB | 9,6 GB |
+| statisch (Weights, AdamW, Gradienten) | | 8,2 GB |
+| **Summe** | | **~66 GB** |
+| gemessener Peak | | **78,5 GiB** |
+
+Die Luecke zwischen 66 und 78,5 ist Allokator-Fragmentierung und Workspace —
+nicht weitere Tensoren, die ich benennen koennte.
+
+### Was das fuer die weiteren Hebel bedeutet
+
+- **Hebel 2 (Softmax in-place, 16 GB versprochen):** Der einzige verbleibende
+  Einzeltensor-Hebel ohne FlashAttention. Aber Burn braucht `probs` fuer den
+  Backward — in-place geht nur mit einem eigenen Op. Ungeprueft.
+- **Hebel 3 (FlashAttention, 32 GB):** unveraendert der groesste Hebel, aber
+  nicht in Burn 0.22 verfuegbar.
+- **Die 0,7 GB aus Hebel 1 sind trotzdem wertvoll:** Sie sind die Differenz
+  zwischen OOM und kein-OOM. Bei 74 GB Auslastung auf einer 80-GB-Karte
+  entscheidet jedes GB darueber, ob ein Lauf ueberhaupt startet.
+
+### Was ich daraus fuer die Methodik mitnehme
+
+Die Rechnung am Code war nuetzlich, um die Kandidaten zu finden. Sie war
+**nicht** nuetzlich, um ihre Groesse zu bestimmen. Der naechste Hebel wird
+zuerst gemessen, dann bewertet — nicht umgekehrt.
+
+### Offen
+
+Der Vergleich ist nicht vollstaendig sauber: die Baseline lief in OOM, also
+liess sie sich nicht zu Ende messen. Ein belastbarer A/B-Vergleich braucht
+einen Batch, der in **beide** Varianten passt (batch 4 oder 5), damit beide
+Peaks vergleichbar sind. Das ist der naechste Messschritt, nicht der naechste
+Code-Schritt.
