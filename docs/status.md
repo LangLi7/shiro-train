@@ -284,3 +284,38 @@ entscheidet, ob es Rechnen oder wieder Memorization ist.
 **Was davon zuerst pruefen:** Punkt 2 kostet einen Lauf auf einem Korpus mit
 **einer** Operation und ist damit der billigste echte Test. Punkt 5 kostet einen
 groesseren Lauf. Punkt 4 ist ein Umbau.
+## Stand 25.11.2026, 06:40 — der Dosis-Test ist beendet, Ergebnis null
+
+**Die Messung, die den Lauf beendet hat:** Derselbe ungesehene 5-stellige Satz,
+drei Checkpoints, drei Mal 0,0 %:
+
+| Checkpoint | Schritte auf gross-100k | Loss | richtig |
+|---|---|---|---|
+| gross1000 | 1 000 | 0,15 | 0,0 % |
+| gross16k @12000 | 12 000 | 0,12 | 0,0 % |
+| gross16k @16000 | 16 000 | 0,085 | 0,0 % |
+
+**Kosten:** ~15 $, 3,5 h A100. **Entscheidung:** Lauf bei 16000 gestoppt, Pod
+beendet, Checkpoint verworfen (0 % < 90 % Ziel, kein Zugewinn).
+
+**Was damit ausgeschlossen ist** (gemessen, nicht vermutet): Schritte, Speicher,
+Datenmenge, Korpusformat, Train/Val-Trennung.
+
+**Die einzige offene Erklaerung:** 100 000 verschiedene Aufgaben sind fast keine
+Wiederholung. Eine Rechenregel entsteht aus Wiederholung.
+
+**Der vorbereitete Test:** `rechnen-v1` - 512 deduplizierte Aufgaben, drei
+Formulierungen, vier Operatoren, Zahlen 1-9999, Val und Held-out getrennt.
+1000 Schritte (batch 3 x 2) sehen jede Aufgabe etwa zwoelfmal. **Kosten ~0,55 $,
+Dauer ~26 min.** Korpus und Config liegen auf HuggingFace
+(`ChangChi7/shiro-code`, `rechnen-v1/` und `configs/rechnen1k.toml`).
+
+**Wartet auf Freigabe.** Kein Lauf ohne Zustimmung.
+
+### Was seit dem letzten Stand sonst passiert ist
+
+- Volume: 97,5 GB -> 8,2 GB (8 $/Monat gespart), alle wichtigen Staende auf HF.
+- `gross16k`-Checkpoints als `.safetensors` waren **0 Bytes**: `/workspace` ist
+  NFS, der atomare Schreibpfad von Burn scheitert dort still. Ausweg:
+  `shiro export --resume <state> --out <dir>` schreibt nach `/root` (lokal).
+- `werkzeug/eval-parallel.ps1` wertet mehrere Checkpoints gleichzeitig aus.
