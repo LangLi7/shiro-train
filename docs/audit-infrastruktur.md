@@ -352,3 +352,39 @@ hat wie der Pod. Docker ist in WSL vorhanden (29.9.3), das Image zieht einmal
 Eigenschaften zu pruefen — erst den GPU-Pod fuer CPU-Arbeit, dann WSL fuer ein
 Pod-Binary. Beide Male war die Information vorher verfuegbar. Die Pruefung
 `cat /etc/os-release` und `ldd --version` haette je eine Sekunde gekostet.
+## Nachtrag 25.11.2026 — die Batch-Kurve, gemessen
+
+Drei Laeufe, gleicher Pod, gleiche Daten (`gross-100k`), gleiche 50 Schritte,
+gleiche Konfiguration bis auf `batch_size`. Peak per `nvidia-smi` alle 300 ms.
+
+| Batch | Peak | Lauf | Ersparnis gegen 6 |
+|---|---|---|---|
+| 6 | 78,5 GiB | 108 s, Exit 0 | — |
+| 4 | 57,7 GiB | 77 s, Exit 0 | −20,8 GiB |
+| 3 | **46,2 GiB** | 67 s, Exit 0 | **−32,3 GiB** |
+
+**Was das belegt:**
+
+1. **Die Aktivierungen skalieren linear mit dem Batch**, wie im Design
+   angenommen: rund 10,8 GiB je Batch-Einheit. Der statische Anteil
+   (Weights, AdamW, Gradienten) bleibt bei ~8 GiB und ist in allen drei
+   Werten enthalten.
+2. **Batch 3 laeuft mit 46,2 GiB** — auf einer 80-GB-Karte bleibt damit
+   Platz fuer eine doppelte Sequenzlaenge oder einen groesseren Puffer.
+3. **Ueberraschung: kleiner ist nicht langsamer.** Batch 3 braucht 67 s fuer
+   50 Schritte, Batch 6 deren 108. Ein Teil davon ist die kuerzere
+   Modell-Initialisierung, ein Teil echte Rechenzeit — der Durchsatz pro
+   Beispiel ist bei kleinerem Batch also nicht schlechter.
+
+**Was daraus folgt:** Gradient Accumulation mit 2 Mikro-Batches à 3
+reproduziert die effektive Batch-Groesse 6 bei **46 statt 78,5 GiB**. Das ist
+der Hebel, den der Auftrag unter "Use gradient accumulation where appropriate"
+vorsieht, und er kostet keine Numerik-Aenderung.
+
+**Was noch fehlt:** Der Code hat diese Accumulation nicht. `train_step` macht
+Forward, Backward, Clipping und AdamW in einem Durchgang. Die Implementierung
+ist der naechste Schritt — mit der Zahl 46,2 GiB als Pruefpunkt: Weicht das
+Ergebnis deutlich davon ab, stimmt die Implementierung nicht.
+
+**Kosten dieser Messreihe:** zwei Pods, zusammen ~15 min ≈ 0,55 $, davon
+0,29 $ fuer einen Cargo-Build, der auf der GPU lief und keine GPU brauchte.
