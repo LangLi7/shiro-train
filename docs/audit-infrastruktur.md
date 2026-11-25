@@ -305,3 +305,25 @@ Das Fusions-Feature zieht `burn-remote 0.22.0`, das auf crates.io fehlt.
 
 Schritt 1 ist wichtig: Wenn batch 3 nur 20 statt 38 GiB spart, stimmt das
 lineare Modell nicht, und die Implementierung muesste anders aussehen.
+## Nachtrag: der teuerste Fehler war nicht im Code, sondern im Ablauf
+
+Beim zweiten Messpod stand die A100 acht Minuten bei **0 % Auslastung**, weil
+zuerst das Rust-Binary gebaut wurde. Ein Cargo-Build ist reine CPU-Arbeit.
+
+**Was das kostet:** 2,19 $/h auf einer A100 gegen ~0,10 $/h auf einem CPU-Pod.
+Acht Minuten sind 0,29 $ statt 0,013 $ — rund das Zwanzigfache, fuer nichts.
+
+**Warum es passiert ist:** Das Binary aus dem ersten Messpod wurde beim
+Terminieren weggeworfen. Es ist 139 MB und aendert sich nur, wenn sich der
+Rust-Code aendert. Es gehoert auf HuggingFace, nicht in einen fluechtigen
+Container.
+
+**Die Regel ab jetzt:**
+
+1. Binary einmal bauen, zu `ChangChi7/shiro-code` hochladen.
+2. Jeder weitere Pod zieht es in Sekunden statt es in Minuten zu bauen.
+3. Gebaut wird nur, wenn sich `src/` geaendert hat — und dann auf einem
+   CPU-Pod, nicht auf dem Messpod.
+
+Das ist keine Code-Optimierung, sondern Ablauf-Hygiene. Sie spart pro
+Messrunde mehr Geld als jede der bisher diskutierten Speicher-Optimierungen.
