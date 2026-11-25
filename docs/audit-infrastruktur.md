@@ -416,3 +416,36 @@ Runden, in denen die Messung nicht stattfand.
 
 **Warum es passiert ist:** Ich habe den Storage als Ablage fuer Checkpoints
 verstanden, nicht als Arbeitsverzeichnis. Beides ist derselbe Volume.
+## Gradient Accumulation: gemessen und bestaetigt
+
+Implementiert in `ab1f4ca`, gemessen am 25.11.2026 auf einer A100 80 GB,
+`gross-100k`, 50 Schritte, Peak per `nvidia-smi` alle 300 ms.
+
+| Variante | Batch | Akkumulation | Effektiv | Peak | Lauf |
+|---|---|---|---|---|---|
+| vorher | 6 | 1 | 6 | **78,5 GiB** | Exit 0 |
+| **nachher** | **3** | **2** | **6** | **49,1 GiB** | Exit 0 |
+
+**29,4 GiB gespart bei gleicher effektiver Batch-Groesse.** Der Graph lebt
+wirklich nur fuer einen Mikro-Batch: 49,1 GiB liegt nahe an den 46,2 GiB, die
+batch 3 ohne Akkumulation brauchte (die 2,9 GiB Differenz sind der zweite
+Batch-Puffer, der zwischen den Mikro-Schritten gehalten wird).
+
+**Was das praktisch bedeutet:** Auf einer 80-GB-Karte bleiben bei gleicher
+Batch-Groesse rund 30 GB frei - genug fuer die doppelte Sequenzlaenge oder
+einen groesseren Batch. Und ein Trainingslauf mit 5000 Schritten kostet damit
+nicht mehr Speicher als einer, der vorher nichtStarted.
+
+**Ein Fehler kam dabei ans Licht:** `gflat` gab die Gradienten als Tensoren
+**im Autograd-Graph** zurueck. Mit einem `backward`-Aufruf unsichtbar, mit
+zwei ein Use-after-free (`STATUS_ACCESS_VIOLATION`). Jetzt `detach`et. Ohne
+die Akkumulation waere der Fehler nie aufgefallen.
+
+**Kosten:** CPU-Build 0,02 $, GPU-Messung 0,12 $ - zusammen **0,14 $**.
+Der Weg dorthin hat allerdings vier GPU-Builds gekostet (rund 0,65 $), weil
+ich den Build als Nebenprodukt des Messpods behandelt habe.
+
+**Naechster offener Punkt:** Die 5000-Schritte-Laeufe brauchen jetzt nicht
+mehr Speicher, aber weiterhin 1,54 s pro Schritt. Als naechstes kaeme die
+Schrittzeit - und dafuer ist der einzige gemessene Hebel bisher die
+Batch-Groesse, die jetzt mehr Spielraum hat.
