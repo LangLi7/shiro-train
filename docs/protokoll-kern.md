@@ -12212,3 +12212,24 @@ mitgemessen.
 **Was daraus folgt:** Jede kuenftige Runde muss den **Blindtest** als
 Schutz-Satz fuehren, nicht `eval-fokus-local`. Sonst wiederholt sich der
 Fehler, einen Memorization-Wert als Faehigkeit zu lesen.
+## Die Blindtest-Reihe: alle Staende auf derselben Aufgabe
+
+Gemessen am 25.11.2026, Modus m1, 30 Antworten, `eval-blindtest-neu`
+(2-3-stellige Arithmetik, **nie im Training**):
+
+| Checkpoint | was er ist | richtig |
+|---|---|---|
+| `steps10500` | 10 500 Schritte, 2-3-stellig trainiert | **0,0 %** |
+| `vielfalt500` | 15 000 Schritte, gemischter Korpus | **3,3 %** |
+| `gross1000` | 1000 Schritte auf 5-stellig | **0,0 %** |
+
+**Drei Staende, drei Zahlen, eine Aussage:** Kein Checkpoint rechnet
+2-3-stellige Aufgaben, die er nicht gesehen hat. Der eine Treffer bei
+`vielfalt500` ist bei 30 Antworten nicht von Zufall zu unterscheiden.
+
+**Was das fuer die Bewertung bedeutet:** Die Komponente „Aufgabe" ist bei
+**0 %**, nicht bei 73 %. Die 73 % waren der Trainingsverteilungsbereich.
+
+**Was noch offen ist:** Der `gross16k`-Lauf (16 000 Schritte, voller Korpus)
+liefert die vierte Zahl. Wenn auch er bei 0 % liegt, ist die Frage „rechnet das
+Modell" fuer diesen Aufbau beantwortet - negativ.
