@@ -191,6 +191,22 @@ pub struct DataConfig {
     /// Vorgabe bleibt `false`, damit frueher gemessene Laeufe vergleichbar bleiben.
     #[serde(default)]
     pub pack: bool,
+    /// Gradient Accumulation: so viele Mikro-Batches je Optimizer-Schritt.
+    ///
+    /// `1` (Vorgabe) ist das alte Verhalten - ein Batch, ein Schritt. Ein Wert
+    /// groesser 1 verteilt die effektive Batch-Groesse auf mehrere Mikro-Batches
+    /// und mittelt deren Gradienten. Der Speicher-Peak faellt dabei auf den eines
+    /// Mikro-Batches: gemessen 78,5 GiB bei `batch_size 6` gegen 46,2 GiB bei
+    /// `batch_size 3` (A100 80 GB, 50 Schritte, `gross-100k`).
+    ///
+    /// Die Zahl der Optimizer-Schritte in `[run] steps` bleibt dieselbe; jeder
+    /// Schritt sieht dann `grad_accum * batch_size` Beispiele statt `batch_size`.
+    #[serde(default = "default_grad_accum")]
+    pub grad_accum: usize,
+}
+
+fn default_grad_accum() -> usize {
+    1
 }
 
 fn default_data_dir() -> PathBuf {
@@ -326,6 +342,7 @@ impl Default for DataConfig {
             seq_len: default_seq_len(),
             shuffle: false,
             pack: false,
+            grad_accum: default_grad_accum(),
         }
     }
 }

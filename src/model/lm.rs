@@ -481,6 +481,79 @@ impl Trainer {
     /// Die Zielpositionen kommen aus `Batch::valid` - Auffuellbytes am Zeilenende
     /// gehen **nicht** in den Loss ein (dieselbe Regel wie `ops::cross_entropy`).
     pub fn train_step(&mut self, batch: &Batch, lr: f64) -> Result<StepOutcome> {
+        let (loss, n, gs) = self.forward_backward(batch)?;
+        if n == 0 {
+            return Ok(StepOutcome {
+                loss,
+                targets: 0,
+            });
+        }
+        self.optimizer_step(&gs, lr)?;
+        Ok(StepOutcome {
+            loss,
+            targets: n,
+        })
+    }
+
+    /// Ein Optimizer-Schritt ueber mehrere Mikro-Batches (Gradient Accumulation).
+    ///
+    /// Jeder Mikro-Batch durchlaeuft `forward_backward` und gibt seinen
+    /// Autograd-Graph dabei frei; nur die Gradienten bleiben. Bei `batch_size 3`
+    /// und zwei Mikro-Batches ist der Speicher-Peak deshalb der eines
+    /// Batch-3-Schritts (gemessen 46,2 GiB) statt der eines Batch-6-Schritts
+    /// (78,5 GiB) - bei gleicher effektiver Batch-Groesse.
+    ///
+    /// Die Gradienten werden **gemittelt**, nicht summiert: sonst haenge die
+    /// effektive Lernrate an der Zahl der Mikro-Batches, und dieselbe Config
+    /// verhielte sich je nach Hardware anders.
+    pub fn train_step_accum(&mut self, batches: &[Batch], lr: f64) -> Result<StepOutcome> {
+        let mut acc: Vec<Tensor<1>> = Vec::new();
+        let mut loss_sum = 0.0f32;
+        let mut n_sum = 0usize;
+        let mut parts = 0usize;
+
+        for b in batches {
+            let (loss, n, gs) = self.forward_backward(b)?;
+            if n == 0 {
+                continue;
+            }
+            loss_sum += loss * n as f32;
+            n_sum += n;
+            parts += 1;
+            if acc.is_empty() {
+                acc = gs;
+            } else {
+                for (a, g) in acc.iter_mut().zip(gs) {
+                    *a = a.clone() + g;
+                }
+            }
+        }
+
+        if n_sum == 0 {
+            return Ok(StepOutcome {
+                loss: f32::NAN,
+                targets: 0,
+            });
+        }
+
+        let k = parts as f32;
+        for a in acc.iter_mut() {
+            *a = a.clone() / k;
+        }
+        self.optimizer_step(&acc, lr)?;
+
+        Ok(StepOutcome {
+            loss: loss_sum / n_sum as f32,
+            targets: n_sum,
+        })
+    }
+
+    /// Forward, Cross-Entropy und Backward fuer einen Batch.
+    ///
+    /// Gibt Loss, Zahl der Zielpositionen und die Gradienten als flache Tensoren
+    /// zurueck. Der Autograd-Graph wird hier verworfen - genau darin liegt der
+    /// Speichervorteil, wenn mehrere Mikro-Batches hintereinander laufen.
+    fn forward_backward(&self, batch: &Batch) -> Result<(f32, usize, Vec<Tensor<1>>)> {
         let batch_size = batch.batch_size;
         let seq_len = batch.seq_len;
         let toks: Vec<i32> = batch.input.iter().map(|b| *b as i32).collect();
@@ -500,10 +573,7 @@ impl Trainer {
         }
         let n = idx.len();
         if n == 0 {
-            return Ok(StepOutcome {
-                loss: f32::NAN,
-                targets: 0,
-            });
+            return Ok((f32::NAN, 0, Vec::new()));
         }
         let idx = Tensor::<1, Int>::from_data(TensorData::new(idx, [n]), device);
         let y = Tensor::<1, Int>::from_data(TensorData::new(y, [n]), device);
@@ -522,6 +592,14 @@ impl Trainer {
         // Host und jeder Schritt schob rund 6 GB ueber PCIe; der Host sah nur den Loss.
         let grads = GradientsParams::from_grads(loss.backward(), &self.model);
         let gs = grads_device(&self.model, &grads)?;
+        Ok((loss_value, n, gs))
+    }
+
+    /// AdamW auf vorbereiteten Gradienten, inklusive globalem Norm-Clipping.
+    fn optimizer_step(&mut self, gs: &[Tensor<1>], lr: f64) -> Result<()> {
+        if gs.is_empty() {
+            return Ok(());
+        }
 
         // Globales Norm-Clipping wie in `adamw_step`: die Summen bleiben Tensoren,
         // gelesen wird einmal statt je Parameter.
@@ -553,7 +631,7 @@ impl Trainer {
             bc2: 1.0 - self.cfg.beta2.powi(n_step as i32),
         };
         let mut k = 0usize;
-        adam_all(&mut self.model, &gs, &mut self.m, &mut self.v, &mut k, &args)?;
+        adam_all(&mut self.model, gs, &mut self.m, &mut self.v, &mut k, &args)?;
         if k != gs.len() || k != self.m.len() {
             crate::error::bail!(
                 "AdamW: {k} Parameter aktualisiert, {} Gradienten und {} Zustandsteile erwartet",
@@ -562,11 +640,7 @@ impl Trainer {
             );
         }
         self.step += 1;
-
-        Ok(StepOutcome {
-            loss: loss_value,
-            targets: n,
-        })
+        Ok(())
     }
 }
 
@@ -1120,7 +1194,11 @@ fn gflat<const D: usize>(p: &Param<Tensor<D>>, grads: &GradientsParams) -> Resul
     let t = grads
         .get::<D>(p.id)
         .ok_or_else(|| crate::error::anyhow!("Kein Gradient fuer Parameter {}", p.id.val()))?;
-    Ok(t.reshape([n]))
+    // `detach()` ist fuer die Gradienten-Akkumulation Pflicht: ohne ihn haengt
+    // der flache Gradient am Autograd-Graph seines Mikro-Batches. Der wird beim
+    // naechsten `backward()` freigegeben, und die gesammelten Tensoren zeigen
+    // ins Leere - im Test als STATUS_ACCESS_VIOLATION sichtbar geworden.
+    Ok(t.reshape([n]).detach())
 }
 
 /// Hyperparameter eines AdamW-Schritts auf dem Geraet.

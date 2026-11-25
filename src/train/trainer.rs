@@ -374,9 +374,22 @@ pub fn run_real(
         let global = start_step + step;
         let step_done = global + 1;
         let step_started = Instant::now();
-        let batch = step_batch(cfg, &ds, global);
         let lr = learning_rate_over(cfg, global, start_step + cfg.run.steps) as f64;
-        let out = trainer.train_step(&batch, lr)?;
+        let accum = cfg.data.grad_accum.max(1);
+        let out = if accum == 1 {
+            let batch = step_batch(cfg, &ds, global);
+            trainer.train_step(&batch, lr)?
+        } else {
+            // Gradient Accumulation: der Autograd-Graph lebt nur fuer einen
+            // Mikro-Batch, die Gradienten werden gemittelt. Der Batch-Index
+            // zaehlt global weiter, damit ein fortgesetzter Lauf dieselben
+            // Daten sieht wie ein durchgehender.
+            let mut micro = Vec::with_capacity(accum);
+            for m in 0..accum {
+                micro.push(step_batch(cfg, &ds, global * accum + m));
+            }
+            trainer.train_step_accum(&micro, lr)?
+        };
 
         let ms = step_started.elapsed().as_secs_f64() * 1000.0;
         let bytes = out.targets as u64;
