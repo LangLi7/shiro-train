@@ -12176,3 +12176,39 @@ billigere Weg zur Dosis.
 **Abbruchbedingung:** Nach dem ersten Checkpoint (4000 Schritte, ~24 % der
 Beispiele) wird ausgewertet. Liegt der Schutz dann bei 0 % **und** das Ziel bei
 0 %, wird abgebrochen und die restlichen ~11 $ bleiben gespart.
+## Der Blindtest entlarvt die 73 Prozent
+
+**Gemessen am 25.11.2026, Modus m1, 30 Antworten je Satz, Checkpoint `steps10500`:**
+
+| Satz | richtig | Rolle |
+|---|---|---|
+| `eval-fokus-local` (trainingsnah, 2-3-stellig) | **73,0 %** | bisher als „Schutz" gefuehrt |
+| `blindtest-neu` (2-3-stellig, **ungesehen**) | **0,0 %** | ehrliche Generalisierung |
+
+Beide Saetze enthalten 2-3-stellige Arithmetik. Der Unterschied ist nicht die
+Schwierigkeit, sondern ob die Aufgaben im Training waren.
+
+**Was das bedeutet:** Die 73 % waren **Memorization**. Auf ungesehenen Aufgaben
+derselben Art rechnet das Modell nichts - 0 von 30, bei 30 Antworten und
+einem Wert, der bei echter Faehigkeit mit 73 % Wahrscheinlichkeit mindestens
+einmal getroffen haette.
+
+**Warum das frueher nicht auffiel:** `eval-fokus-local` ist der Satz, auf dem
+die Laeufe trainiert wurden; er stand als „Schutz" in der Auswertung. Ein
+Schutz-Satz, der aus dem Trainingsverteilungsbereich stammt, kann Memorization
+nicht von Faehigkeit unterscheiden. Der Blindtest kann es - er wurde nur nie
+mitgemessen.
+
+**Die ehrliche Bilanz des Modells ist damit:**
+
+| Faehigkeit | ehrlich |
+|---|---|
+| 2-3-stellige Arithmetik, ungesehen | **0 %** |
+| 4-5-stellig, ungesehen | 0 % |
+| 7-stellig | 0 % |
+| 8-10-stellig | 0 % |
+| 2-3-stellig, **gesehen** | 73 % |
+
+**Was daraus folgt:** Jede kuenftige Runde muss den **Blindtest** als
+Schutz-Satz fuehren, nicht `eval-fokus-local`. Sonst wiederholt sich der
+Fehler, einen Memorization-Wert als Faehigkeit zu lesen.
