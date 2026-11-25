@@ -12150,3 +12150,29 @@ billiger ist als mehr Schritte.
 **Was daran teuer ist:** 20 000 Schritte kosten bei 1,54 s rund 8,5 h, also
 etwa 18,60 $. Das ist der Preis fuer die Beantwortung der Frage, die seit drei
 Runden offen ist.
+## Runde 450 — gross16k: der Lauf, der die Dosis testet
+
+**Freigabe:** Der Nutzer hat den 16 000-Schritte-Lauf ausdruecklich erlaubt
+(Budget begrenzt, Aufladung moeglich). Kosten ~15 $.
+
+**Die Abweichung, die beim Start auffiel:** Der Shard auf dem Volume ist
+**5,6 MB** und enthaelt rund **10 000** der 100 000 Records; das Manifest sagt
+weiterhin 100 000, der Download war unvollstaendig.
+
+**Was der Lauf damit wirklich testet:**
+
+| | geplant | tatsaechlich |
+|---|---|---|
+| Records | 100 000 | ~10 000 |
+| Beispiele (16 000 Schritte x 6) | 96 000 | 96 000 |
+| Epochen | 0,96 | **~9,6** |
+
+Statt einer Epoche auf 100 000 Aufgaben laufen **zehn Epochen auf 10 000**.
+Das ist nicht der geplante Lauf, aber der **schaerfere** Test: Wenn die
+Prozedur bei 10 000 Aufgaben und zehn Wiederholungen nicht entsteht, entsteht
+sie bei 100 000 und einer Wiederholung erst recht nicht - Wiederholung ist der
+billigere Weg zur Dosis.
+
+**Abbruchbedingung:** Nach dem ersten Checkpoint (4000 Schritte, ~24 % der
+Beispiele) wird ausgewertet. Liegt der Schutz dann bei 0 % **und** das Ziel bei
+0 %, wird abgebrochen und die restlichen ~11 $ bleiben gespart.
