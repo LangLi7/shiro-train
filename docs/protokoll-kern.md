@@ -12062,3 +12062,57 @@ Das Modell steht unveraendert bei **73 %** auf seiner Trainingsverteilung und
 **0–2,5 %** ausserhalb. Zwei Runden ohne Zugewinn (Carryadd, Vielfalt) haben
 die Loop-Regel ausgeloest. Die Infrastruktur macht den naechsten Versuch
 billiger und sicherer, aber sie beantwortet nicht, ob er gelingt.
+## Runde 429 — gross1000: die Hypothese ist widerlegt
+
+**Die Frage:** Reichen mehr Schritte auf 4-5-stelligen Aufgaben, um die Faehigkeit
+zu erzeugen? Zwei Runden ohne Zugewinn hatten das offen gelassen.
+
+**Der Aufbau:** Checkpoint `steps10500` (73 % auf 2-3-stelligen), 1000 weitere
+Schritte auf `gross-100k` (4-5-stellig, 0 % Ueberlappung mit dem alten Korpus),
+batch 3 x 2 (Gradient Accumulation), lr 3e-4 cosine, 1733 s auf einer A100.
+
+**Das Ergebnis:**
+
+| Satz | Baseline | danach |
+|---|---|---|
+| alter Heldout (Schutz) | **73,0 %** | **0,0 %** |
+| 4-5-stellig (Ziel) | 0,0 % | **0,0 %** |
+| Weg (Schutz) | — | 0,0 % |
+
+**Nichts gelernt, alles zerstört.** Der Loss fiel von 0,33 auf 0,15 - das war
+kein Lernen, sondern das Ueberschreiben der alten Faehigkeit durch den neuen
+Korpus.
+
+**Warum das die Hypothese widerlegt und nicht nur nicht bestaetigt:** Es war
+kein ausbleibender Effekt. 1000 Schritte haben die alte Faehigkeit innerhalb
+von 29 Minuten vollstaendig geloescht. Das Modell ist also in der Lage, sein
+Verhalten in dieser Zeit grundlegend zu aendern - es aendert es nur in die
+falsche Richtung.
+
+**Was das ueber den Korpus sagt:** `gross-100k` enthaelt 100 000 Aufgaben mit
+4-5-stelligen Zahlen. In 1000 Schritten sieht das Modell bei batch 6 rund
+6000 Beispiele - etwa 6 % des Korpus, ohne Wiederholung. Das reicht nicht, um
+die Rechenprozedur zu lernen (dafuer braucht es die Prozedur, nicht die
+Beispiele), aber es reicht, um die alte Prozedur zu ueberschreiben.
+
+**Die Loop-Regel greift:** Schutz 0 % < 70 % Toleranz. Der Checkpoint ist
+verworfen, egal wie der Ziel-Satz aussieht. Das ist die **dritte** Runde ohne
+Zugewinn (Carryadd 355, Vielfalt 374, gross1000 429).
+
+**Was NICHT die Ursache ist:**
+- Nicht die Schrittzeit (1,54 s, unveraendert)
+- Nicht der Speicher (49,1 GiB, 30 GB frei)
+- Nicht die Datenmenge (100 000 Aufgaben, 0 % Ueberlappung)
+- Nicht die Lernrate (3e-4, wie in allen Laeufen)
+
+**Was die Ursache sein koennte (Hypothesen, ungeprueft):**
+1. **Der Korpus traegt die Prozedur nicht.** `gross-100k` enthaelt Ergebnisse,
+   aber ob die Loesungswege die Rechenregel zeigen, ist nicht geprueft.
+2. **Der Loss ist das falsche Signal.** Er faellt auf 0,15, weil das Modell die
+   Bytefolgen des Korpus lernt - nicht, weil es rechnet.
+3. **500M Parameter sind zu klein fuer die Prozedur.** Unwahrscheinlich bei
+   4-stelligen Additionen, aber nicht ausgeschlossen.
+
+**Der naechste Schritt waere nicht „mehr Schritte", sondern „den Korpus
+pruefen":** Enthaelt er Loesungswege, die die Regel zeigen? Wenn nicht, ist
+jeder Trainingslauf auf ihm vergeblich.
