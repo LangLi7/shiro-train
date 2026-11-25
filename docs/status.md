@@ -256,3 +256,31 @@ Trainingsverteilung stammt.
 Lauf mit vollstaendigem Korpus und einer vollen Epoche. Wenn der Loss bis
 Schritt 12000 auf 0,11 faellt, ist das ein Signal - aber erst der Blindtest
 entscheidet, ob es Rechnen oder wieder Memorization ist.
+## Die offene Frage: warum entsteht die Rechenregel nicht?
+
+**Fakten (gemessen):**
+- Der Korpus enthaelt vollstaendige Rechenwege (Stelle fuer Stelle, mit Uebertrag).
+- Der Loss faellt auf 0,10 (Perplexity 1,11).
+- Auf ungesehenen Aufgaben: 0 %.
+- Auf gesehenen: 73 %.
+- Der Korpus ist ausschliesslich 5-stellig; der Blindtest ist 2-3-stellig.
+
+**Hypothesen, keine davon geprueft:**
+
+1. **Zu wenig Schritte.** 16 000 Schritte sind 0,96 Epochen. Laeuft.
+2. **Drei Operationen gleichzeitig.** Der Korpus mischt Addition, Subtraktion
+   und Multiplikation. Vielleicht lernt das Modell drei Regeln gleichzeitig
+   nicht in einer Epoche - eine Operation allein waere der sauberere Test.
+3. **Lernrate zu hoch.** 3e-4 bei batch 6 ist fuer ein 500M-Modell nicht
+   ungewoehnlich, aber bei byte-level Eingaben und 1024 Token kann sie zu
+   gross sein, um eine exakte Prozedur zu formen.
+4. **Byte-level ist der falsche Eingaberaum.** Ziffern als einzelne Bytes sind
+   fuer Arithmetik unguenstig; ein Tokenizer mit Zahlentokens wuerde die
+   Stellenstruktur sichtbarer machen. Das ist eine Architekturaenderung und
+   braucht Freigabe.
+5. **500M sind zu klein.** Bei 4-stelliger Multiplikation mit 20 Teilschritten
+   ist das nicht ausgeschlossen, aber 500M sollten fuer Addition reichen.
+
+**Was davon zuerst pruefen:** Punkt 2 kostet einen Lauf auf einem Korpus mit
+**einer** Operation und ist damit der billigste echte Test. Punkt 5 kostet einen
+groesseren Lauf. Punkt 4 ist ein Umbau.
