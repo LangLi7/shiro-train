@@ -327,3 +327,28 @@ Container.
 
 Das ist keine Code-Optimierung, sondern Ablauf-Hygiene. Sie spart pro
 Messrunde mehr Geld als jede der bisher diskutierten Speicher-Optimierungen.
+## Die Build-Umgebung: warum zweimal gescheitert
+
+Ein Linux-Binary fuer den Pod muss gegen eine **nicht neuere** glibc gelinkt
+sein als der Pod hat. Der Pod laeuft auf Ubuntu 22.04 mit glibc **2.35**.
+
+| Versuch | Ergebnis |
+|---|---|
+| Build auf dem A100-Pod | laeuft, kostet aber 5 min GPU-Zeit (0,18 $) |
+| Build in WSL lokal | **scheitert**: WSL hat glibc 2.43, das Binary verlangt sie |
+| Build im Docker-Container `nvidia/cuda:12.4.1-devel-ubuntu22.04` | **der richtige Weg** — dieselbe glibc wie der Pod, kostenlos |
+
+Der WSL-Fehler im Klartext:
+
+```
+/root/shiro: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.43' not found
+```
+
+**Die Regel:** Builds laufen in einem Container, der dieselbe Distribution
+hat wie der Pod. Docker ist in WSL vorhanden (29.9.3), das Image zieht einmal
+~2 GB und liegt dann lokal.
+
+**Was ich daraus mitnehme:** Ich habe zweimal eine Umgebung benutzt, ohne ihre
+Eigenschaften zu pruefen — erst den GPU-Pod fuer CPU-Arbeit, dann WSL fuer ein
+Pod-Binary. Beide Male war die Information vorher verfuegbar. Die Pruefung
+`cat /etc/os-release` und `ldd --version` haette je eine Sekunde gekostet.
