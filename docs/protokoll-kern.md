@@ -12015,3 +12015,50 @@ eigentliche fehlende Faktor sind, sind damit unbezahlbar.
 - Hypothese: Der fehlende Faktor ist **Schrittzahl auf dem vielfaeltigen
   Korpus**, nicht die Vielfalt selbst. Ungeprueft, weil zu teuer.
 - Unsicher: ob 20.000 Schritte reichen oder ob die Aufgabe dafuer zu schwer ist.
+## Runden 388–428 — Infrastruktur (Auftrag: Senior Rust ML Systems Engineer)
+
+Dieser Block gehoert **nicht** zum Trainingsloop: Es wurde kein Modell
+trainiert, keine Faehigkeit veraendert. Er dokumentiert die Arbeit am
+Trainingsstapel selbst, weil sie die Kosten jeder kuenftigen Runde bestimmt.
+
+### Was gemessen wurde
+
+| Hebel | vorher | nachher | Verfahren |
+|---|---|---|---|
+| Skalierung vor dem Produkt | — | **742 MiB** | A/B auf A100, 50 Schritte, Peak alle 300 ms |
+| VRAM-Peak (effektiv batch 6) | **78,5 GiB** | **49,1 GiB** | Gradient Accumulation, batch 3 × 2 |
+| Storage (Runpod Volume) | 97,5 GB / 8,78 $ | **16 GB / ~1,44 $** | alte Staende geloescht, wichtiger Rest auf HF |
+| Initialisierung | 90–140 s (1 Kern) | parallelisiert, ungemessen im Kaltstart | `uniform_vec` auf alle Kerne, bit-identisch |
+
+**Die Zahl, die zaehlt:** 78,5 → 49,1 GiB bei unveraenderter effektiver
+Batch-Groesse. Damit ist die Sequenzlaenge 2048 in Reichweite (mit batch 1),
+und die OOM-Grenze ist nicht mehr der bestimmende Faktor.
+
+**Die Zahl, die NICHT besser wurde:** Die Schrittzeit bleibt bei **1,54 s**.
+Sie haengt an den ~320 Kernel-Starts pro Schritt (32 Layer, je Tensor-Operation
+einer), nicht am Speicher. Ein 5000-Schritte-Lauf kostet weiter ~4,8 $.
+
+### Was dabei gefunden wurde
+
+`gflat` gab Gradienten als Tensoren **im Autograd-Graph** zurueck. Mit einem
+`backward`-Aufruf unsichtbar; mit zwei ein Use-after-free, das ein Test als
+`STATUS_ACCESS_VIOLATION` zeigte. Jetzt `detach`et. Ohne die Akkumulation waere
+der Fehler erst in einem langen Lauf als unerklaerlicher Absturz aufgetaucht.
+
+### Was der Auftrag verlangt und was blockiert ist
+
+| Arbeitspaket | Status |
+|---|---|
+| Gradient Accumulation | **erledigt**, gemessen |
+| Skalierung vor dem Produkt | **erledigt**, 742 MiB |
+| Initialisierung parallel | **erledigt**, bit-identisch getestet |
+| BF16 | **blockiert**: Casts fehlen in `lm.rs`, `config.rs:386` erlaubt nur fp32 |
+| FlashAttention | **blockiert**: nicht in Burn 0.22 |
+| Kernel-Fusion | **blockiert**: Fusions-Feature zieht fehlendes `burn-remote` |
+
+### Was das nicht aendert
+
+Das Modell steht unveraendert bei **73 %** auf seiner Trainingsverteilung und
+**0–2,5 %** ausserhalb. Zwei Runden ohne Zugewinn (Carryadd, Vielfalt) haben
+die Loop-Regel ausgeloest. Die Infrastruktur macht den naechsten Versuch
+billiger und sicherer, aber sie beantwortet nicht, ob er gelingt.
