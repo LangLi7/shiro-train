@@ -243,3 +243,65 @@ liess sie sich nicht zu Ende messen. Ein belastbarer A/B-Vergleich braucht
 einen Batch, der in **beide** Varianten passt (batch 4 oder 5), damit beide
 Peaks vergleichbar sind. Das ist der naechste Messschritt, nicht der naechste
 Code-Schritt.
+## Phase 2 — Design: was als Naechstes wirklich hilft
+
+Nach der Messung ist die Reihenfolge klar. Sie folgt nicht dem, was am
+elegantesten klingt, sondern dem, was pro investiertem Dollar am meisten
+Speicher freigibt.
+
+### Der Befund, der alles verschiebt
+
+`train_step` (`lm.rs:483-568`) macht Forward, Cross-Entropy, `backward()`,
+Clipping und AdamW **in einem Durchgang**. Der Autograd-Graph lebt damit fuer
+die volle Batch-Groesse. Genau das ist der Speicherposten: **~58 GB
+Aktivierungen** bei batch 6.
+
+### Kandidat A — Batch kleiner, Gradienten akkumulieren (groesster Hebel, kein API-Eingriff)
+
+**Idee:** 3 Micro-Batches à 2 statt 1 Batch à 6. Der Graph lebt nur fuer einen
+Micro-Batch, die Gradienten werden summiert, AdamW laeuft einmal.
+
+**Erwartung:** Aktivierungen skalieren linear mit dem Batch.
+`58 GB × 2/6 ≈ 19 GB` → Peak faellt von 78,5 auf **~40 GiB**.
+Die effektive Batch-Groesse bleibt 6, das Lernergebnis sollte gleich sein.
+
+**Kosten:** Rechenzeit steigt leicht (3 kleinere statt 1 grosser Schritt), der
+Durchsatz sinkt um wenige Prozent.
+
+**Aufwand:** mittel. `train_step` muss in `forward_backward` (gibt Loss und
+Gradienten) und `optimizer_step` (Clipping und AdamW) geteilt werden, dazu ein
+`grad_accum`-Feld in der Config und eine Gruppierung im Trainingsloop.
+
+**Risiko:** klein. Bei `grad_accum = 1` ist der Pfad identisch zu heute, und
+das laesst sich als Regressionstest pruefen (gleicher Loss-Verlauf bei
+gleichem Seed).
+
+**Das ist der einzige Kandidat, der den Peak halbiert, ohne die Numerik
+anzufassen.** Er ist im Auftrag ausdruecklich vorgesehen.
+
+### Kandidat B — Sequenz 512 statt 1024 (billig, aber aendert die Aufgabe)
+
+Die Scores-Matrix waechst quadratisch: halbe Sequenz = viertel Speicher.
+Aber die Aufgaben brauchen bis 927 Bytes Kontext. **Nicht empfohlen** — das
+waere eine andere Aufgabe.
+
+### Kandidat C — Softmax in-place (16 GB versprochen, ungeprueft)
+
+Burn braucht `probs` fuer den Backward. In-place geht nur mit einem eigenen Op,
+und ob Burn 0.22 das zulaesst, ist **nicht geprueft**. Nach der Lehre aus
+Hebel 1: erst ein Wegwerf-Experiment, dann eine Zahl in der Doku.
+
+### Kandidat D — FlashAttention (32 GB, nicht verfuegbar)
+
+Unveraendert der groesste Einzelhebel und unveraendert nicht in Burn 0.22.
+Das Fusions-Feature zieht `burn-remote 0.22.0`, das auf crates.io fehlt.
+
+### Empfohlene Reihenfolge
+
+1. **Erst messen, was ein kleinerer Batch bringt** — reine Config-Aenderung,
+   kein Code, ~0,50 $. Damit ist Kandidat A quantifiziert, bevor er gebaut wird.
+2. **Dann Kandidat A implementieren** und gegen die Messung pruefen.
+3. **Dann** ueber C und D reden, mit den echten Zahlen aus 1 und 2.
+
+Schritt 1 ist wichtig: Wenn batch 3 nur 20 statt 38 GiB spart, stimmt das
+lineare Modell nicht, und die Implementierung muesste anders aussehen.
