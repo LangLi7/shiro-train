@@ -12116,3 +12116,37 @@ Zugewinn (Carryadd 355, Vielfalt 374, gross1000 429).
 **Der naechste Schritt waere nicht „mehr Schritte", sondern „den Korpus
 pruefen":** Enthaelt er Loesungswege, die die Regel zeigen? Wenn nicht, ist
 jeder Trainingslauf auf ihm vergeblich.
+### Nachtrag: der Korpus ist nicht das Problem
+
+Die Hypothese „`gross-100k` traegt die Prozedur nicht" ist **widerlegt**.
+Ein Record aus dem Shard, unveraendert:
+
+```
+<TASK> Rechne: 50250 + 54411 = ?
+<THINK> 1. Einer: 0 + 1 = 1, also Ziffer 1 und Uebertrag 0.
+        2. Zehner: 5 + 1 = 6, also Ziffer 6 und Uebertrag 0.
+        ...
+        7. Also ist 50250 + 54411 = 104661.
+<ANS> 104661 <END>
+```
+
+Das ist ein vollstaendiger Rechenweg, Stelle fuer Stelle, mit Uebertrag und
+abschliessender Probe. Das Material ist richtig.
+
+**Was das verschiebt:** Das Modell bekommt in 1000 Schritten bei batch 3 x 2
+rund 6000 der 100 000 Aufgaben zu sehen - **6 % des Korpus, ohne Wiederholung**.
+Es hat die Prozedur also nicht „nicht lernen koennen"; es hatte nicht genug
+Gelegenheit, bevor der neue Korpus die alte Faehigkeit ueberschrieben hat.
+
+**Die richtige Formulierung des Befunds lautet damit:** 1000 Schritte reichen,
+um zu **zerstoeren**, aber nicht, um **aufzubauen**. Das ist eine Aussage ueber
+die Dosis, nicht ueber das Material.
+
+**Was daraus folgt:** Der naechste sinnvolle Lauf ist kein anderer Korpus und
+keine andere Architektur, sondern **derselbe Korpus mit mehr Schritten** -
+oder derselbe Korpus mit Wiederholung (mehrere Epochen), was bei 6 % Abdeckung
+billiger ist als mehr Schritte.
+
+**Was daran teuer ist:** 20 000 Schritte kosten bei 1,54 s rund 8,5 h, also
+etwa 18,60 $. Das ist der Preis fuer die Beantwortung der Frage, die seit drei
+Runden offen ist.
